@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elecciones pasadas | Junta Electoral UTN.BA</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="mark">✳</div>
+    <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small></div>
+  </div>
+  <div class="userbox"><strong>Juan Pérez</strong><span>Proceso: <b>Junta Electoral</b></span></div>
+</header>
+
+<nav class="nav">
+  <a href="../index.html">Inicio</a>
+  <a href="nueva-eleccion.html">Nueva elección</a>
+  <a href="configuracion.html">Configuración</a>
+  <a href="elecciones-en-curso.html">Elecciones en curso</a>
+  <a class="active" href="elecciones-pasadas.html">Elecciones pasadas</a>
+</nav>
+
+<main class="page">
+
+<section class="hero"><h1>Elecciones pasadas</h1><p>Historial consultable de procesos electorales ya finalizados, con acceso a reportes y documentación.</p></section>
+<section class="card">
+  <div class="filters"><div><label>Buscar</label><input class="input" placeholder="Nombre de elección" /></div><div><label>Año</label><select class="select"><option>Todos</option><option>2025</option><option>2024</option></select></div><div><label>Claustro</label><select class="select"><option>Todos</option><option>Alumnos</option><option>Docentes</option><option>No docentes</option><option>Graduados</option></select></div></div>
+  <table><thead><tr><th>Nombre</th><th>Fecha</th><th>Claustros</th><th>Estado</th><th>Resumen</th><th>Acciones</th></tr></thead><tbody>
+    <tr><td><b>Consejo Directivo 2025</b></td><td>14/08/2025</td><td>Todos</td><td><span class="pill ok">Finalizada</span></td><td>Reporte disponible</td><td><a class="btn light" href="#">Abrir</a></td></tr>
+    <tr><td><b>Centro de Estudiantes 2025</b></td><td>03/06/2025</td><td>Alumnos</td><td><span class="pill ok">Finalizada</span></td><td>Reporte disponible</td><td><a class="btn light" href="#">Abrir</a></td></tr>
+    <tr><td><b>Consejo Departamental 2024</b></td><td>21/09/2024</td><td>Docentes</td><td><span class="pill ok">Finalizada</span></td><td>Reporte disponible</td><td><a class="btn light" href="#">Abrir</a></td></tr>
+  </tbody></table>
+</section>
+
+</main>
+<script src="../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configuración | Junta Electoral UTN.BA</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="mark">✳</div>
+    <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small></div>
+  </div>
+  <div class="userbox"><strong>Juan Pérez</strong><span>Proceso: <b>Junta Electoral</b></span></div>
+</header>
+
+<nav class="nav">
+  <a href="../index.html">Inicio</a>
+  <a href="nueva-eleccion.html">Nueva elección</a>
+  <a class="active" href="configuracion.html">Configuración</a>
+  <a href="elecciones-en-curso.html">Elecciones en curso</a>
+  <a href="elecciones-pasadas.html">Elecciones pasadas</a>
+</nav>
+
+<main class="page">
+
+<section class="hero"><h1>Configuración</h1><p>Parámetros generales utilizados por la Junta Electoral para preparar el proceso antes de publicar una elección.</p></section>
+<section class="grid-3">
+  <div class="card"><h3>Validaciones</h3><div class="param-list"><div class="param"><span>Evitar electores duplicados</span><div class="switch"></div></div><div class="param"><span>Validar claustro obligatorio</span><div class="switch"></div></div><div class="param"><span>Requerir mesa asignada</span><div class="switch off"></div></div></div></div>
+  <div class="card"><h3>Padrones</h3><label>Formato de importación</label><select class="select"><option>CSV / Excel</option><option>API institucional</option><option>Base de datos institucional</option></select><label>Separador CSV</label><select class="select"><option>Punto y coma (;)</option><option>Coma (,)</option></select><label>Codificación</label><select class="select"><option>UTF-8</option><option>ISO-8859-1</option></select></div>
+  <div class="card"><h3>Fechas y avisos</h3><label>Días mínimos de anticipación</label><input class="input" type="number" value="15"/><label>Canal principal</label><select class="select"><option>Correo electrónico institucional</option><option>Notificación interna</option></select><label>Recordatorio automático</label><select class="select"><option>Habilitado</option><option>Deshabilitado</option></select></div>
+</section>
+<div class="footer-actions"><a class="btn light" href="../index.html">Volver</a><a class="btn primary" href="#">Guardar configuración</a></div>
+
+</main>
+<script src="../js/main.js"></script>
+</body>
+</html>

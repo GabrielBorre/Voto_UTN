@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elecciones en curso | Junta Electoral UTN.BA</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="mark">✳</div>
+    <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small></div>
+  </div>
+  <div class="userbox"><strong>Juan Pérez</strong><span>Proceso: <b>Junta Electoral</b></span></div>
+</header>
+
+<nav class="nav">
+  <a href="../index.html">Inicio</a>
+  <a href="nueva-eleccion.html">Nueva elección</a>
+  <a href="configuracion.html">Configuración</a>
+  <a class="active" href="elecciones-en-curso.html">Elecciones en curso</a>
+  <a href="elecciones-pasadas.html">Elecciones pasadas</a>
+</nav>
+
+<main class="page">
+
+<section class="hero"><h1>Elecciones en curso</h1><p>Consulta de elecciones activas, publicadas o todavía en preparación.</p></section>
+<section class="summary">
+  <div class="metric"><span>En preparación</span><strong>1</strong></div>
+  <div class="metric"><span>Publicadas</span><strong>1</strong></div>
+  <div class="metric"><span>Próximas</span><strong>2</strong></div>
+  <div class="metric"><span>Con revisión pendiente</span><strong>1</strong></div>
+</section>
+<section class="card">
+  <div class="filters"><div><label>Buscar</label><input class="input" value="" placeholder="Nombre de elección" /></div><div><label>Estado</label><select class="select"><option>Todas</option><option>En preparación</option><option>Publicada</option></select></div><div><label>Claustro</label><select class="select"><option>Todos</option><option>Alumnos</option><option>Docentes</option><option>No docentes</option><option>Graduados</option></select></div><a class="btn primary" href="nueva-eleccion.html">+ Nueva elección</a></div>
+  <table><thead><tr><th>Nombre</th><th>Fecha</th><th>Claustros</th><th>Estado</th><th>Última actualización</th><th>Acciones</th></tr></thead><tbody>
+    <tr><td><b>Consejo Directivo 2026</b></td><td>12/08/2026 - 13/08/2026</td><td>Alumnos, Docentes, No docentes</td><td><span class="pill warn">En preparación</span></td><td>Hoy 10:35</td><td><a class="btn secondary" href="nueva-eleccion.html">Continuar</a></td></tr>
+    <tr><td><b>Elección de Departamento 2026</b></td><td>22/09/2026</td><td>Docentes</td><td><span class="pill info">Publicada</span></td><td>Ayer 17:20</td><td><a class="btn secondary" href="#">Ver</a></td></tr>
+  </tbody></table>
+</section>
+
+</main>
+<script src="../js/main.js"></script>
+</body>
+</html>
