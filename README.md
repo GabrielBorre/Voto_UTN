@@ -9,6 +9,9 @@ Proyecto académico desarrollado como parte del plan de estudios de la UTN FRBA.
 ## Contribuidores
 
 - Gabriel Borre
+- Nicolás Calle
+- Martín Domínguez
+- Omar Scarazzato
 
 ---
 
