@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preferencia de Claustro | Autoridades de Mesa</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="mark">✳</div>
+    <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small></div>
+  </div>
+  <div class="userbox"><strong>María López</strong><span>Rol: <b>Autoridad de Mesa</b></span></div>
+</header>
+
+<nav class="nav">
+  <a href="../index.html">Inicio</a>
+  <a class="active" href="preferencia-votacion.html">Preferencias de votación</a>
+  <a href="turno.html">Turno de autoridad de mesa</a>
+  <a href="justificaciones.html">Justificaciones de ausencia</a>
+</nav>
+
+<main class="page">
+  <section class="hero">
+    <h1>Preferencias</h1>
+    <p>Definir el claustro y la sede preferida para participar o votar.</p>
+  </section>
+
+  <section class="card">
+    <h3>Claustros disponibles</h3>
+    <div class="checkbox-grid">
+      <label class="check"><input type="radio" name="claustro" checked /> Alumnos</label>
+      <label class="check"><input type="radio" name="claustro" /> Docentes</label>
+      <label class="check"><input type="radio" name="claustro" /> No docentes</label>
+      <label class="check"><input type="radio" name="claustro" /> Graduados</label>
+    </div>
+    <h3 style="margin-top:24px;">Sede preferida</h3>
+    <select class="select">
+      <option>Medrano</option>
+      <option>Campus</option>
+    </select>
+    <div class="footer-actions">
+      <a class="btn light" href="../index.html">Volver</a>
+      <a class="btn primary" href="#">Guardar</a>
+    </div>
+  </section>
+</main>
+
+<script src="../js/main.js"></script>
+</body>
+</html>

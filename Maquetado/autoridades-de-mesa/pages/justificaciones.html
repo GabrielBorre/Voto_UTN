@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Justificaciones | Autoridades de Mesa</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="mark">✳</div>
+    <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small></div>
+  </div>
+  <div class="userbox"><strong>María López</strong><span>Rol: <b>Autoridad de Mesa</b></span></div>
+</header>
+
+<nav class="nav">
+  <a href="../index.html">Inicio</a>
+  <a href="preferencia-votacion.html">Preferencias de votación</a>
+  <a href="turno.html">Turno de autoridad de mesa</a>
+  <a class="active" href="justificaciones.html">Justificaciones de ausencia</a>
+</nav>
+
+<main class="page">
+  <section class="hero">
+    <h1>Justificaciones por ausencia</h1>
+    <p>Registrar las ausencias previstas antes de la elección y dejar constancia del motivo.</p>
+  </section>
+
+  <section class="card">
+    <h3>Formulario de justificación</h3>
+    <label>Motivo</label>
+    <select class="select">
+      <option>Enfermedad</option>
+      <option>Compromiso laboral</option>
+      <option>Viaje</option>
+      <option>Otra causa</option>
+    </select>
+    <label>Detalle</label>
+    <textarea placeholder="Describa la situación que justifica la ausencia"></textarea>
+    <label>Adjuntar documento</label>
+    <input class="input" type="file" />
+    <div class="footer-actions">
+      <a class="btn light" href="../index.html">Volver</a>
+      <a class="btn primary" href="#">Guardar</a>
+    </div>
+  </section>
+</main>
+
+<script src="../js/main.js"></script>
+</body>
+</html>
