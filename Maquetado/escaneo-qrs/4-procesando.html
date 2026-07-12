@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procesando Mesa | UTN BA</title>
+
+    <link rel="stylesheet" href="css/styles.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="phone">
+
+<header>
+
+    <div class="brand">
+
+        <div class="logo">✳</div>
+
+        <div>
+            <h2>UTN<span>.BA</span></h2>
+            <p>Sistema de Gestión Electoral</p>
+        </div>
+
+    </div>
+
+</header>
+
+<main class="processing-container">
+
+    <div class="loader-circle">
+
+        <div class="spinner"></div>
+
+    </div>
+
+    <h1>Procesando padrón</h1>
+
+    <p class="subtitle">
+
+        Se está analizando la información obtenida durante el escaneo para registrar la participación electoral de la mesa.
+
+    </p>
+
+    <div class="processing-card">
+
+        <div class="processing-row">
+            <span>Mesa</span>
+            <strong>12</strong>
+        </div>
+
+        <div class="processing-row">
+            <span>Páginas escaneadas</span>
+            <strong>18 / 18</strong>
+        </div>
+
+        <div class="processing-row">
+            <span>Electores procesados</span>
+            <strong id="electores">0 / 300</strong>
+        </div>
+
+    </div>
+
+    <div class="big-progress">
+
+        <div class="big-progress-bar" id="progressBar"></div>
+
+    </div>
+
+    <p class="processing-status" id="statusText">
+
+        Preparando procesamiento...
+
+    </p>
+
+</main>
+
+</div>
+
+<script src="procesando.js"></script>
+
+</body>
+</html>
