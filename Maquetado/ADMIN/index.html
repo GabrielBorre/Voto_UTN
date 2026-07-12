@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administración de usuarios | Junta Electoral UTN.BA</title>
+  <link rel="stylesheet" href="../administrador-de-junta/css/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="mark">✳</div>
+    <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small></div>
+  </div>
+  <div class="userbox"><strong>Administrador</strong><span>Área: <b>Gestión de usuarios</b></span></div>
+</header>
+
+<nav class="nav">
+  <a class="active" href="index.html">Usuarios</a>
+</nav>
+
+<main class="page">
+  <section class="hero"><h1>Administración de usuarios</h1><p>Gestione el acceso de los operadores del sistema, asigne roles y controle el estado de cada usuario.</p></section>
+
+  <section class="grid-2">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div>
+          <h3>Usuarios del sistema</h3>
+          <p class="muted">Lista de personas autorizadas y sus roles dentro de la Junta Electoral.</p>
+        </div>
+        <a class="btn primary" href="#usuario-form">Agregar usuario</a>
+      </div>
+      <table style="margin-top:18px;">
+        <thead>
+          <tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>jperez</td><td>Juan Pérez</td><td>Administrador electoral</td><td><span class="pill info">Activo</span></td><td><a class="btn light" href="#usuario-form">Editar</a> <a class="btn secondary" href="#">Eliminar</a></td></tr>
+          <tr><td>msanchez</td><td>María Sánchez</td><td>Autoridad de mesa</td><td><span class="pill info">Activo</span></td><td><a class="btn light" href="#usuario-form">Editar</a> <a class="btn secondary" href="#">Eliminar</a></td></tr>
+          <tr><td>jramirez</td><td>Juan Ramírez</td><td>Elector</td><td><span class="pill gray">Suspendido</span></td><td><a class="btn light" href="#usuario-form">Editar</a> <a class="btn secondary" href="#">Eliminar</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" id="usuario-form">
+      <h3>ABM de usuarios</h3>
+      <p class="muted">Complete los datos del usuario y seleccione el rol que tendrá en el sistema.</p>
+      <label>Nombre de usuario</label>
+      <input class="input" type="text" value="" placeholder="Ingrese el usuario" />
+      <label>Nombre completo</label>
+      <input class="input" type="text" value="" placeholder="Ingrese el nombre completo" />
+      <label>Correo electrónico</label>
+      <input class="input" type="email" value="" placeholder="usuario@utn.edu.ar" />
+      <label>Rol</label>
+      <select class="select">
+        <option>Administrador electoral</option>
+        <option>Autoridad de mesa</option>
+        <option>Elector</option>
+      </select>
+      <label>Estado</label>
+      <select class="select">
+        <option>Activo</option>
+        <option>Bloqueado</option>
+        <option>Suspendido</option>
+      </select>
+      <div class="footer-actions" style="justify-content:flex-start;gap:10px;">
+        <a class="btn primary" href="#">Guardar usuario</a>
+        <a class="btn secondary" href="#">Cancelar</a>
+        <a class="btn light" href="#">Eliminar usuario</a>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="../administrador-de-junta/js/main.js"></script>
+</body>
+</html>

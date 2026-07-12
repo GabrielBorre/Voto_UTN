@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preparación de elección | Junta Electoral UTN.BA</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="mark">✳</div>
+    <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small></div>
+  </div>
+  <div class="userbox"><strong>Juan Pérez</strong><span>Proceso: <b>Junta Electoral</b></span></div>
+</header>
+
+<nav class="nav">
+  <a href="../index.html">Inicio</a>
+  <a href="nueva-eleccion.html">Nueva elección</a>
+  <a href="configuracion.html">Parámetros de elección</a>
+  <a class="active" href="elecciones-en-curso.html">Elecciones en curso</a>
+  <a href="elecciones-pasadas.html">Elecciones pasadas</a>
+</nav>
+
+<main class="page">
+
+<section class="hero"><h1>Preparación de elección</h1><p>Continúe con la puesta a punto después de crear la elección: electores, agrupaciones y autoridades de mesa.</p></section>
+
+<section class="tabs">
+  <input type="radio" id="tab-electores" name="preparacion-tab" checked />
+  <input type="radio" id="tab-agrupaciones" name="preparacion-tab" />
+  <input type="radio" id="tab-autoridades" name="preparacion-tab" />
+
+  <div class="tabs-nav">
+    <label class="tab-label" for="tab-electores">Electores por claustro</label>
+    <label class="tab-label" for="tab-agrupaciones">Agrupaciones y candidatos</label>
+    <label class="tab-label" for="tab-autoridades">Autoridades de mesa</label>
+  </div>
+
+  <div class="tab-panels">
+    <div class="tab-panel" id="panel-electores">
+      <div class="card">
+        <h3>1. Electores por claustro</h3>
+        <label>Claustro</label>
+        <select class="select">
+          <option>Alumnos</option>
+          <option>Docentes</option>
+          <option>No docentes</option>
+          <option>Graduados</option>
+        </select>
+        <div class="row" style="gap:14px; margin-top:16px;">
+          <div>
+            <label>Fecha de votación</label>
+            <input class="input" type="date" value="2026-08-12" placeholder="Seleccione la fecha" />
+          </div>
+          <div>
+            <label>Límite máximo de electores por mesa</label>
+            <input class="input" type="number" value="500" placeholder="Ingrese el límite" />
+          </div>
+        </div>
+        <div class="file-row" style="margin-top:16px;">
+          <input class="input" type="file" />
+          <a class="btn primary" href="#">Importar electores</a>
+        </div>
+        <div class="footer-actions">
+          <a class="btn light" href="elecciones-en-curso.html">Volver a elecciones</a>
+          <a class="btn secondary" href="#">Guardar configuración</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-agrupaciones">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <div>
+            <h3>Agrupaciones</h3>
+            <p class="muted">Cree agrupaciones y asigne los claustros donde participarán.</p>
+          </div>
+          <a class="btn primary" href="#modal-agrupacion">Agregar agrupación</a>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Agrupación</th><th>Claustros</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>UNIÓN</td><td>Alumnos, Docentes</td><td><span class="pill info">Activa</span></td><td><a class="btn light" href="#modal-agrupacion">Editar</a> <a class="btn secondary" href="#modal-eliminar-agrupacion">Eliminar</a></td></tr>
+            <tr><td>RENOVAR</td><td>No docentes</td><td><span class="pill info">Activa</span></td><td><a class="btn light" href="#modal-agrupacion">Editar</a> <a class="btn secondary" href="#modal-eliminar-agrupacion">Eliminar</a></td></tr>
+            <tr><td>FUTURO</td><td>Graduados</td><td><span class="pill gray">Cerrada</span></td><td><a class="btn secondary" href="#modal-eliminar-agrupacion">Eliminar</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="modal-agrupacion" class="modal">
+      <div class="modal-content">
+        <a class="modal-close" href="#">×</a>
+        <h3>Detalle de agrupación: UNIÓN</h3>
+        <p><strong>Claustros:</strong> Alumnos, Docentes</p>
+        <p class="muted">Edite la agrupación y gestione candidatos individuales.</p>
+        <div class="card" style="margin-top:18px;">
+          <h4>Datos de la agrupación</h4>
+          <label>Nombre de la agrupación</label>
+          <input class="input" value="UNIÓN" />
+          <label>Claustros</label>
+          <div class="checkbox-grid">
+            <label class="check"><input type="checkbox" checked /> Alumnos</label>
+            <label class="check"><input type="checkbox" checked /> Docentes</label>
+            <label class="check"><input type="checkbox" /> No docentes</label>
+            <label class="check"><input type="checkbox" /> Graduados</label>
+          </div>
+          <div class="footer-actions" style="justify-content:flex-start;gap:10px;margin-top:16px;">
+            <a class="btn primary" href="#">Guardar agrupación</a>
+            <a class="btn secondary" href="#modal-eliminar-agrupacion">Eliminar agrupación</a>
+            <a class="btn light" href="#">Cancelar</a>
+          </div>
+        </div>
+        <div class="card" style="margin-top:18px;">
+          <h4>Candidatos</h4>
+          <a class="btn primary" href="#" style="margin-bottom:14px;">Agregar candidato</a>
+          <table>
+            <thead><tr><th>Nombre</th><th>Apellido</th><th>Departamento</th><th>Puesto</th><th>Acciones</th></tr></thead>
+            <tbody>
+              <tr><td>Ana</td><td>Gómez</td><td>Electrónica</td><td>Consejera</td><td><a class="btn light" href="#">Editar</a> <a class="btn secondary" href="#">Eliminar</a></td></tr>
+              <tr><td>Lucía</td><td>Martínez</td><td>Ciencias Básicas</td><td>Suplente</td><td><a class="btn light" href="#">Editar</a> <a class="btn secondary" href="#">Eliminar</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-eliminar-agrupacion" class="modal">
+      <div class="modal-content">
+        <a class="modal-close" href="#">×</a>
+        <h3>Eliminar agrupación</h3>
+        <p class="muted">Confirme si desea eliminar esta agrupación y todos sus candidatos asociados.</p>
+        <div class="footer-actions" style="justify-content:flex-start;gap:10px;margin-top:20px;">
+          <a class="btn secondary" href="#">Cancelar</a>
+          <a class="btn primary" href="#">Eliminar agrupación</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-autoridades">
+      <div class="card">
+        <h3>3. Autoridades de mesa</h3>
+        <p class="muted">Importe los posibles candidatos a autoridad en bloque y administre su asignación posterior.</p>
+        <label>Archivo CSV de autoridades</label>
+        <div class="file-row">
+          <input class="input" type="file" />
+          <a class="btn primary" href="#">Importar autoridades</a>
+        </div>
+        <div class="summary" style="margin-top:18px;grid-template-columns:repeat(3,1fr);gap:14px;">
+          <div class="metric"><span>Totales importados</span><strong>1.250</strong></div>
+          <div class="metric"><span>Por asignar</span><strong>620</strong></div>
+          <div class="metric"><span>Asignadas</span><strong>630</strong></div>
+        </div>
+        <div class="card" style="margin-top:18px;background:#FAFBFC;">
+          <h4>Gestión de autoridades</h4>
+          <p>Utilice la carga masiva y luego revise las asignaciones por claustro o mesa.</p>
+          <div class="footer-actions" style="justify-content:flex-start;gap:10px;margin-top:12px;">
+            <a class="btn secondary" href="#">Ver asignaciones</a>
+            <a class="btn primary" href="#">Reasignar autoridades</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+<script src="../js/main.js"></script>
+</body>
+</html>

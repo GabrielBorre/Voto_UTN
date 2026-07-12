@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configuración | Junta Electoral UTN.BA</title>
+  <title>Parámetros de elección | Junta Electoral UTN.BA</title>
   <link rel="stylesheet" href="../css/styles.css" />
 </head>
 <body>
@@ -18,20 +18,68 @@
 <nav class="nav">
   <a href="../index.html">Inicio</a>
   <a href="nueva-eleccion.html">Nueva elección</a>
-  <a class="active" href="configuracion.html">Configuración</a>
+  <a class="active" href="configuracion.html">Parámetros de elección</a>
   <a href="elecciones-en-curso.html">Elecciones en curso</a>
   <a href="elecciones-pasadas.html">Elecciones pasadas</a>
 </nav>
 
 <main class="page">
 
-<section class="hero"><h1>Configuración</h1><p>Parámetros generales utilizados por la Junta Electoral para preparar el proceso antes de publicar una elección.</p></section>
-<section class="grid-3">
-  <div class="card"><h3>Validaciones</h3><div class="param-list"><div class="param"><span>Evitar electores duplicados</span><div class="switch"></div></div><div class="param"><span>Validar claustro obligatorio</span><div class="switch"></div></div><div class="param"><span>Requerir mesa asignada</span><div class="switch off"></div></div></div></div>
-  <div class="card"><h3>Padrones</h3><label>Formato de importación</label><select class="select"><option>CSV / Excel</option><option>API institucional</option><option>Base de datos institucional</option></select><label>Separador CSV</label><select class="select"><option>Punto y coma (;)</option><option>Coma (,)</option></select><label>Codificación</label><select class="select"><option>UTF-8</option><option>ISO-8859-1</option></select></div>
-  <div class="card"><h3>Fechas y avisos</h3><label>Días mínimos de anticipación</label><input class="input" type="number" value="15"/><label>Canal principal</label><select class="select"><option>Correo electrónico institucional</option><option>Notificación interna</option></select><label>Recordatorio automático</label><select class="select"><option>Habilitado</option><option>Deshabilitado</option></select></div>
+<section class="hero"><h1>Parámetros de elección</h1><p>Parámetros básicos de la elección: claustros, sedes y turnos que luego estarán disponibles al crear una elección.</p></section>
+<section class="cards-stack">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;">
+      <h3>Claustros</h3>
+      <a class="btn secondary" href="agregar-claustro.html">Agregar claustro</a>
+    </div>
+    <p class="muted">Defina los claustros que podrán seleccionarse en nuevas elecciones.</p>
+    <table>
+      <thead>
+        <tr><th>Nombre</th><th>Estado</th><th>Acciones</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Alumnos</td><td><span class="pill info">Activo</span></td><td><a class="btn light" href="editar-claustro.html">Editar</a> <a class="btn secondary" href="confirmar-eliminacion.html">Eliminar</a></td></tr>
+        <tr><td>Docentes</td><td><span class="pill info">Activo</span></td><td><a class="btn light" href="editar-claustro.html">Editar</a> <a class="btn secondary" href="confirmar-eliminacion.html">Eliminar</a></td></tr>
+        <tr><td>No docentes</td><td><span class="pill info">Activo</span></td><td><a class="btn light" href="editar-claustro.html">Editar</a> <a class="btn secondary" href="confirmar-eliminacion.html">Eliminar</a></td></tr>
+        <tr><td>Graduados</td><td><span class="pill gray">Inactivo</span></td><td><a class="btn light" href="editar-claustro.html">Editar</a> <a class="btn secondary" href="confirmar-eliminacion.html">Eliminar</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;">
+      <h3>Sedes</h3>
+      <a class="btn secondary" href="agregar-sede.html">Agregar sede</a>
+    </div>
+    <p class="muted">Registre las sedes disponibles para las elecciones y mesas de votación.</p>
+    <table>
+      <thead>
+        <tr><th>Nombre</th><th>Ubicación</th><th>Acciones</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Medrano</td><td>Capital Federal</td><td><a class="btn light" href="editar-sede.html">Editar</a> <a class="btn secondary" href="confirmar-eliminacion.html">Eliminar</a></td></tr>
+        <tr><td>Campus</td><td>Capital Federal</td><td><a class="btn light" href="editar-sede.html">Editar</a> <a class="btn secondary" href="confirmar-eliminacion.html">Eliminar</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;">
+      <h3>Turnos</h3>
+      <a class="btn secondary" href="agregar-turno.html">Agregar turno</a>
+    </div>
+    <p class="muted">Defina los turnos disponibles para mesas y votación.</p>
+    <table>
+      <thead>
+        <tr><th>Nombre</th><th>Hora</th><th>Acciones</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Mañana</td><td>08:00 - 12:00</td><td><a class="btn light" href="editar-turno.html">Editar</a> <a class="btn secondary" href="confirmar-eliminacion.html">Eliminar</a></td></tr>
+        <tr><td>Tarde</td><td>13:00 - 17:00</td><td><a class="btn light" href="editar-turno.html">Editar</a> <a class="btn secondary" href="confirmar-eliminacion.html">Eliminar</a></td></tr>
+        <tr><td>Noche</td><td>18:00 - 22:00</td><td><a class="btn light" href="editar-turno.html">Editar</a> <a class="btn secondary" href="confirmar-eliminacion.html">Eliminar</a></td></tr>
+      </tbody>
+    </table>
+  </div>
 </section>
-<div class="footer-actions"><a class="btn light" href="../index.html">Volver</a><a class="btn primary" href="#">Guardar configuración</a></div>
+<div class="footer-actions"><a class="btn light" href="../index.html">Volver</a><a class="btn primary" href="#">Guardar parámetros</a></div>
 
 </main>
 <script src="../js/main.js"></script>

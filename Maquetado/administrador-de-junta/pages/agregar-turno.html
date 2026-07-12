@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agregar turno | Junta Electoral UTN.BA</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="mark">✳</div>
+    <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small></div>
+  </div>
+  <div class="userbox"><strong>Juan Pérez</strong><span>Proceso: <b>Junta Electoral</b></span></div>
+</header>
+
+<nav class="nav">
+  <a href="../index.html">Inicio</a>
+  <a href="nueva-eleccion.html">Nueva elección</a>
+  <a class="active" href="configuracion.html">Parámetros de elección</a>
+  <a href="elecciones-en-curso.html">Elecciones en curso</a>
+  <a href="elecciones-pasadas.html">Elecciones pasadas</a>
+</nav>
+
+<main class="page">
+<section class="hero"><h1>Agregar turno</h1><p>Agregue un nuevo turno que podrá asignarse a mesas de votación.</p></section>
+<section class="card" style="max-width:720px;margin:0 auto;">
+  <label>Nombre del turno</label>
+  <input class="input" placeholder="Ej. Mañana" />
+  <label>Horario</label>
+  <input class="input" placeholder="Ej. 08:00 - 12:00" />
+  <div class="footer-actions" style="justify-content:flex-start;margin-top:22px;">
+    <a class="btn light" href="configuracion.html">Cancelar</a>
+    <a class="btn primary" href="configuracion.html">Guardar turno</a>
+  </div>
+</section>
+</main>
+<script src="../js/main.js"></script>
+</body>
+</html>

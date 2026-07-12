@@ -18,14 +18,14 @@
 <nav class="nav">
   <a href="../index.html">Inicio</a>
   <a class="active" href="nueva-eleccion.html">Nueva elección</a>
-  <a href="configuracion.html">Configuración</a>
+  <a href="configuracion.html">Parámetros de elección</a>
   <a href="elecciones-en-curso.html">Elecciones en curso</a>
   <a href="elecciones-pasadas.html">Elecciones pasadas</a>
 </nav>
 
 <main class="page">
 
-<section class="hero"><h1>Nueva elección</h1><p>Creación inicial del proceso electoral. La Junta Electoral define el nombre, la fecha o rango de fechas y los claustros participantes.</p></section>
+<section class="hero"><h1>Nueva elección</h1><p>Creación inicial del proceso electoral. La Junta Electoral define el nombre, la fecha o rango de fechas y los parámetros de elección activos.</p></section>
 <section class="grid-2">
   <div class="card">
     <div class="steps"><div class="step active">Datos generales</div><div class="step active">Claustros</div><div class="step">Confirmación</div></div>
@@ -37,26 +37,77 @@
       <div><label>Fecha de finalización</label><input class="input" type="date" value="2026-08-13" /></div>
     </div>
     <label>Descripción / observaciones</label>
-    <textarea>Elección correspondiente al ciclo lectivo 2026. Participan los claustros definidos por la Junta Electoral.</textarea>
+    <textarea>Elección correspondiente al ciclo lectivo 2026. Participan los claustros definidos por los parámetros de elección.</textarea>
     <label>Claustros participantes</label>
-    <div class="checkbox-grid">
-      <label class="check"><input type="checkbox" checked /> Alumnos</label>
-      <label class="check"><input type="checkbox" checked /> Docentes</label>
-      <label class="check"><input type="checkbox" checked /> No docentes</label>
-      <label class="check"><input type="checkbox" /> Graduados</label>
+    <p class="muted">Los claustros activos provienen de Parámetros de elección.</p>
+    <div class="select-list">
+      <div class="select-list-header">Seleccionar claustros</div>
+      <div class="multi-select">
+        <label class="multi-option"><input type="checkbox" checked /> Alumnos</label>
+        <label class="multi-option"><input type="checkbox" checked /> Docentes</label>
+        <label class="multi-option"><input type="checkbox" checked /> No docentes</label>
+        <label class="multi-option"><input type="checkbox" /> Graduados</label>
+      </div>
+      <div class="selected-tags"><span class="pill info">Alumnos</span><span class="pill info">Docentes</span><span class="pill info">No docentes</span></div>
     </div>
-    <div class="footer-actions"><a class="btn light" href="../index.html">Cancelar</a><a class="btn secondary" href="#">Guardar borrador</a><a class="btn primary" href="elecciones-en-curso.html">Crear elección</a></div>
+    <label>Sedes disponibles</label>
+    <p class="muted">Las sedes pueden configurarse en Parámetros de elección.</p>
+    <div class="select-list">
+      <div class="select-list-header">Seleccionar sedes</div>
+      <div class="multi-select">
+        <label class="multi-option"><input type="checkbox" checked /> Medrano</label>
+        <label class="multi-option"><input type="checkbox" /> Campus</label>
+      </div>
+      <div class="selected-tags"><span class="pill info">Medrano</span></div>
+    </div>
+    <label>Turnos disponibles</label>
+    <p class="muted">Los turnos activos se administran en los parámetros de elección.</p>
+    <div class="select-list">
+      <div class="select-list-header">Seleccionar turnos</div>
+      <div class="multi-select">
+        <label class="multi-option"><input type="checkbox" checked /> Mañana</label>
+        <label class="multi-option"><input type="checkbox" /> Tarde</label>
+        <label class="multi-option"><input type="checkbox" /> Noche</label>
+      </div>
+      <div class="selected-tags"><span class="pill info">Mañana</span></div>
+    </div>
+    <div class="card" style="margin-top:18px;">
+      <h4>Fechas administrativas</h4>
+      <div class="row">
+        <div><label>Habilitación padrón temporal</label><input class="input" type="date" value="2026-07-20" /></div>
+        <div><label>Cierre padrón temporal</label><input class="input" type="date" value="2026-08-05" /></div>
+      </div>
+      <div class="row">
+        <div><label>Máx. justificación ausencia Autoridades</label><input class="input" type="date" value="2026-08-01" /></div>
+        <div><label>Máx. justificación ausencia Electores</label><input class="input" type="date" value="2026-08-08" /></div>
+      </div>
+      <div class="row">
+        <div><label>Cierre de candidatos</label><input class="input" type="date" value="2026-07-30" /></div>
+        <div><label>Padrón definitivo</label><input class="input" type="date" value="2026-08-09" /></div>
+      </div>
+    </div>
+    <div class="footer-actions"><a class="btn light" href="../index.html">Cancelar</a><a class="btn secondary" href="#">Guardar borrador</a><a class="btn primary" href="preparar-eleccion.html">Crear elección</a></div>
   </div>
   <div class="card">
     <h3>Vista previa</h3>
     <p><b>Elección:</b> Elección Consejo Directivo 2026</p>
     <p><b>Fechas:</b> 12/08/2026 al 13/08/2026</p>
+    <p><b>Sedes seleccionadas:</b> <span class="pill info">Medrano</span></p>
+    <p><b>Turnos seleccionados:</b> <span class="pill info">Mañana</span></p>
     <p><b>Estado inicial:</b> <span class="pill warn">Borrador</span></p>
     <p><b>Claustros seleccionados:</b></p>
     <p><span class="pill info">Alumnos</span> <span class="pill info">Docentes</span> <span class="pill info">No docentes</span></p>
     <hr style="border:0;border-top:1px solid var(--borde);margin:18px 0">
+    <h4>Fechas administrativas</h4>
+    <p>Habilitación padrón temporal: <strong>20/07/2026</strong></p>
+    <p>Cierre padrón temporal: <strong>05/08/2026</strong></p>
+    <p>Máx. justificación ausencia Autoridades: <strong>01/08/2026</strong></p>
+    <p>Máx. justificación ausencia Electores: <strong>08/08/2026</strong></p>
+    <p>Cierre de candidatos: <strong>30/07/2026</strong></p>
+    <p>Padrón definitivo: <strong>09/08/2026</strong></p>
+    <hr style="border:0;border-top:1px solid var(--borde);margin:18px 0">
     <h4>Próximos pasos</h4>
-    <p class="muted">Luego de crear la elección, el sistema habilitará la importación de padrones, la configuración de mesas y la generación de QR.</p>
+    <p class="muted">Luego de crear la elección, el sistema habilitará la importación de padrones, los parámetros de mesas y la generación de QR.</p>
   </div>
 </section>
 
