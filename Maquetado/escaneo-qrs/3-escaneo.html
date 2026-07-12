@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escaneo de Padrón | UTN BA</title>
+
+    <link rel="stylesheet" href="css/styles.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="phone">
+
+<header>
+
+    <div class="brand">
+
+        <div class="logo">✳</div>
+
+        <div>
+            <h2>UTN<span>.BA</span></h2>
+            <p>Sistema de Gestión Electoral</p>
+        </div>
+
+    </div>
+
+</header>
+
+<main>
+
+    <div class="scan-header">
+
+        <div>
+            <small>Mesa</small>
+            <strong>12</strong>
+        </div>
+
+        <div class="page-counter">
+            Página <span id="currentPage">1</span> de <span id="totalPages">18</span>
+        </div>
+
+    </div>
+
+    <div class="progress">
+
+        <div class="progress-bar" id="progressBar"></div>
+
+    </div>
+
+    <div class="camera scan-camera">
+
+        <div class="document-frame">
+
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+
+            <div class="laser"></div>
+
+            <div class="document-placeholder">
+
+                <div class="doc-icon">📄</div>
+
+                <h3>PADRÓN ELECTORAL</h3>
+
+                <p>
+                    Encuadre la hoja completa dentro del recuadro.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="scan-status waiting" id="statusBox">
+
+        <div class="pulse"></div>
+
+        <div>
+
+            <strong id="statusTitle">
+                Listo para escanear
+            </strong>
+
+            <p id="statusText">
+                Mantenga la hoja estable.
+            </p>
+
+        </div>
+
+    </div>
+
+    <div class="instruction">
+
+        Cuando el sistema detecte correctamente la página,
+        aparecerá una confirmación y podrá pasar a la siguiente hoja.
+
+    </div>
+
+</main>
+
+</div>
+
+<script src="escaneo.js"></script>
+
+</body>
+</html>

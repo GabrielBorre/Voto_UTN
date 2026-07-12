@@ -1,0 +1,60 @@
+const progressBar = document.getElementById("progressBar");
+const status = document.getElementById("statusText");
+const electores = document.getElementById("electores");
+
+let porcentaje = 0;
+let procesados = 0;
+
+const estados = [
+
+    "Analizando páginas...",
+    "Detectando códigos QR...",
+    "Registrando participación...",
+    "Verificando consistencia...",
+    "Finalizando procesamiento..."
+
+];
+
+let estado = 0;
+
+const intervalo = setInterval(() => {
+
+    porcentaje += 2;
+
+    if(procesados < 300){
+
+        procesados += 6;
+
+    }
+
+    progressBar.style.width = porcentaje + "%";
+
+    electores.innerHTML = procesados + " / 300";
+
+    if(porcentaje % 20 === 0 && estado < estados.length-1){
+
+        estado++;
+
+        status.innerHTML = estados[estado];
+
+    }
+
+    if(porcentaje >= 100){
+
+        clearInterval(intervalo);
+
+        electores.innerHTML = "300 / 300";
+
+        status.innerHTML = "Procesamiento completado.";
+
+        setTimeout(()=>{
+
+            // window.location="finalizado.html";
+
+            alert("Iría a la pantalla final.");
+
+        },1200);
+
+    }
+
+},70);
