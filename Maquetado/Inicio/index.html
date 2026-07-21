@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Elecciones UTN.BA</title>
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <div class="mark">✳</div>
+            <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small>
+            </div>
+        </div>
+        <a href="" class="btn primary">Iniciar Sesión</a>
+        </div>
+    </header>
+
+
+    <main class="page">
+
+        <section class="hero">
+            <h1>Consulta de Padrón Electoral</h1>
+        </section>
+
+        <section class="grid-1">
+
+            <div class="page">
+                <div class="card card-request" id="card-request">
+
+                    <label for="codigo">DNI / Legajo</label>
+                    <input class="input" type="text" id="codigo" required>
+
+                    <div class="estado">
+                    </div>
+                    <div class="div-btn">
+                    <button class="btn primary" onclick="mostrarConsulta()">Consultar</button>
+                    </div>
+                </div>
+
+
+                <div class="card card-response" id="card-response" style="display: none;">
+                    <h3>Resultado de la consulta</h3>
+                    <div class="datos">
+                        <p><strong>Claustro:</strong> <span id="resp-claustro"></span></p>
+                        <p><strong>Nombre:</strong> <span id="resp-nombre"></span></p>
+                        <p><strong>Apellido:</strong> <span id="resp-apellido"></span></p>
+                        <p><strong>DNI:</strong> <span id="resp-dni"></span></p>
+                        <p><strong>Sede:</strong> <span id="resp-sede"></span></p>
+                        <p><strong>Especialidad:</strong> <span id="resp-especialidad"></span></p>
+                        <p><strong>Mesa:</strong> <span id="resp-mesa"></span></p>
+                    </div>
+                    <div class="div-btn">
+                    <button class="btn primary" onclick="ocultarConsulta()">Volver</button>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+    <script src="js/main.js"></script>
+</body>
+
+</html>
