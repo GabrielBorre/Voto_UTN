@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registro de Inasistencias | Administrativo Junta Electoral UTN.BA</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">✳</div>
+      <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small>
+      </div>
+    </div>
+    <div class="userbox"><strong>Juana Rodriguez</strong><span>Rol: <b>Administrativo Junta Electoral</b></span>
+    </div>
+  </header>
+
+  <nav class="nav">
+    <a href="../index.html">Inicio</a>
+    <a href="justificaciones.html">Justificaciones</a>
+    <a class="active" href="ingreso_manual_infractores.html">Ingreso Manual Infractores</a>
+  </nav>
+
+  <main class="page">
+
+    <section class="hero">
+      <h1>Panel Administrativo</h1>
+      <p>Gestión de solicitudes y justificaciones enviadas a la Junta Electoral. Aquí se pueden revisar los
+        documentos adjuntos y decidir su aceptación o rechazo.</p>
+    </section>
+
+    <section class="grid-1">
+
+
+
+      <div class="page">
+        <div class="card">
+          <h3>Registro de Inasistencias</h3>
+
+          <fieldset class="claustro">
+            <legend>Claustro</legend>
+            <label><input type="radio" name="claustro" value="docentes" checked> Docentes</label>
+            <label><input type="radio" name="claustro" value="estudiantes"> Estudiantes</label>
+            <label><input type="radio" name="claustro" value="no-docentes"> No Docentes</label>
+            <label><input type="radio" name="claustro" value="graduados"> Graduados</label>
+          </fieldset>
+
+          <label for="mesa">Número de Mesa</label>
+          <input class="input" type="text" id="mesa" placeholder="Ej: 12">
+
+          <label for="busqueda">Buscar por DNI / Legajo / Apellido</label>
+          <input class="input" type="text" id="busqueda" placeholder="Ingrese texto...">
+
+
+
+          <table id="lista">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>DNI</th>
+                <th>Legajo</th>
+                <th>Mesa</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Juan Pérez</td>
+                <td>12345678</td>
+                <td>1001</td>
+                <td>12</td>
+                <td><button class="btn danger registrar">Registrar inasistencia</button></td>
+              </tr>
+              <tr>
+                <td>María López</td>
+                <td>23456789</td>
+                <td>1002</td>
+                <td>12</td>
+                <td><button class="btn danger registrar">Registrar inasistencia</button></td>
+              </tr>
+              <tr>
+                <td>Carlos Gómez</td>
+                <td>34567890</td>
+                <td>1003</td>
+                <td>13</td>
+                <td><button class="btn danger registrar">Registrar inasistencia</button></td>
+              </tr>
+            </tbody>
+          </table>
+
+
+
+        </div>
+      </div>
+
+
+
+    </section>
+  </main>
+  <script src="../js/main.js"></script>
+</body>
+
+</html>

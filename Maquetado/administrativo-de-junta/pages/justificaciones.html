@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Justificaciones | Administrativo Junta Electoral UTN.BA</title>
+    <link rel="stylesheet" href="../css/styles.css" />
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <div class="mark">✳</div>
+            <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small>
+            </div>
+        </div>
+        <div class="userbox"><strong>Juana Rodriguez</strong><span>Rol: <b>Administrativo Junta Electoral</b></span>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <a href="../index.html">Inicio</a>
+        <a class="active" href="justificaciones.html">Justificaciones</a>
+        <a href="ingreso_manual_infractores.html">Ingreso Manual Infractores</a>
+
+    </nav>
+
+    <main class="page">
+
+        <section class="hero">
+            <h1>Panel Administrativo</h1>
+            <p>Gestión de solicitudes y justificaciones enviadas a la Junta Electoral. Aquí se pueden revisar los
+                documentos adjuntos y decidir su aceptación o rechazo.</p>
+        </section>
+
+        <section class="grid-3">
+            <div class="card">
+
+                <div class="div-options-filter">
+                    <h3 style="margin:0">Solicitudes recibidas</h3>
+                    <div class="footer-actions">
+                        <select class="btn small" onchange="filtrarSolicitudes(this.value)">
+                            <option value="todas">📋 Todas</option>
+                            <option value="aceptadas">✔️ Aceptadas</option>
+                            <option value="rechazadas">❌ Rechazadas</option>
+                            <option value="pendientes">⏳ Pendientes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="nav">
+                    <a href="#" class="active" onclick="mostrarTab(event, 'autoridad')">Justificativos de autoridad</a>
+                    <a href="#" onclick="mostrarTab(event, 'elector')">Justificativos de elector</a>
+                </div>
+
+                <!-- Contenido de autoridad -->
+                <div id="tab-autoridad" class="tab-content">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Solicitante</th>
+                                <th>Estado</th>
+                                <th> </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="active">
+                                <td>05/05/2026</td>
+                                <td>Josefina Perez</td>
+                                <td><span class="pill ok request-status">✔ Aceptado</span></td>
+                                <td><a class="btn light" href="#">Ver</a></td>
+
+                            </tr>
+                            <tr>
+                                <td>07/05/2026</td>
+                                <td>Enzo Gómez</td>
+                                <td><span class="pill ok request-status">✔ Aceptado</span></td>
+                                <td><a class="btn light" href="#">Ver</a></td>
+
+                            </tr>
+                            <tr>
+                                <td>10/06/2026</td>
+                                <td>Lautaro Fernández</td>
+                                <td><span class="pill ok request-status">✔ Aceptado</span></td>
+                                <td><a class="btn light" href="#">Ver</a></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                </div>
+
+                <!-- Contenido de elector -->
+                <div id="tab-elector" class="tab-content" style="display:none">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Solicitante</th>
+                                <th>Estado</th>
+                                <th> </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="active">
+                                <td>10/07/2026</td>
+                                <td>María López</td>
+                                <td><span class="pill warn request-status">⏳ Pendiente</span></td>
+                                <td><a class="btn light" href="#">Ver</a></td>
+
+                            </tr>
+                            <tr>
+                                <td>11/07/2026</td>
+                                <td>Carlos Gómez</td>
+                                <td><span class="pill ok request-status">✔ Aceptado</span></td>
+                                <td><a class="btn light" href="#">Ver</a></td>
+
+                            </tr>
+                            <tr>
+                                <td>12/07/2026</td>
+                                <td>Ana Fernández</td>
+                                <td><span class="pill danger request-status">✖ Rechazado</span></td>
+                                <td><a class="btn light" href="#">Ver</a></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+
+            <div class="card" style="grid-column: span 2;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                    <h3 style="margin:0">Detalle de solicitud</h3>
+                    <div class="footer-actions" style="margin:0">
+                        <a class="btn danger" href="#" onclick="abrirModal()">Rechazar</a>
+                        <a class="btn primary" href="#">Aceptar</a>
+                    </div>
+                </div>
+                <p><b>Solicitante:</b> María López</p>
+                <p><b>Motivo:</b> Justificación de ausencia</p>
+                <p><b>Descripción:</b> Se adjunta certificado de viaje que justifica la ausencia en la jornada
+                    electoral.
+                </p>
+
+                <!-- Vista previa del adjunto en formato PDF -->
+                <h4>Vista previa del adjunto</h4>
+                <embed src="../archivos/certificado.pdf" type="application/pdf" width="100%" height="500px" />
+
+                <hr style="border:0;border-top:1px solid var(--borde);margin:18px 0">
+                <div class="footer-actions">
+                    <a class="btn danger" href="#" onclick="abrirModal()">Rechazar</a>
+                    <a class="btn primary" href="#">Aceptar</a>
+                </div>
+            </div>
+        </section>
+
+    </main>
+    <script src="../js/main.js"></script>
+
+    <!-- Modal oculto para ventana emergente en comentario de rechazo -->
+    <div id="modal-rechazo" style="display:none !important;
+     position:fixed;top:0;left:0;width:100%;height:100%;
+     background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;">
+        <div class="card" style="max-width:500px;width:90%;">
+            <h3>Motivo del rechazo</h3>
+            <label>Explique brevemente el motivo</label>
+            <textarea id="motivo-rechazo"></textarea>
+            <div class="footer-actions">
+                <a class="btn light" href="#" onclick="cerrarModal()">Cancelar</a>
+                <a class="btn danger" href="#" onclick="confirmarRechazo()">Confirmar rechazo</a>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
