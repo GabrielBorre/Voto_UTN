@@ -1,0 +1,100 @@
+:root { --app-blue: #0d6efd; --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
+body { background: #10151f; color: #172033; margin: 0; padding: 0; overflow: hidden; }
+
+/* Vista del escáner en pantalla completa */
+.scanner-page { 
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: #000;
+    color: #fff;
+    overflow: hidden;
+}
+
+/* Header flotante transparente sobre el video */
+.scanner-header { 
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    padding: calc(.5rem + var(--safe-top)) max(1rem, env(safe-area-inset-right)) .5rem max(1rem, env(safe-area-inset-left)); 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    gap: .5rem; 
+    background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%); 
+}
+
+/* El panel de cámara ocupa todo el alto y ancho */
+.camera-panel { 
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    background: #000;
+}
+
+#camera-video { 
+    width: 100%; 
+    height: 100%; 
+    position: absolute; 
+    inset: 0;
+    object-fit: cover; /* Asegura que no queden franjas negras */
+}
+
+/* Recuadro guía alargado verticalmente */
+.camera-guide { 
+    position: absolute; 
+    inset: 8% 6% 12% 6%; /* Alargado hacia arriba y abajo */
+    border: 3px solid rgba(255, 255, 255, 0.85); 
+    border-radius: 1.25rem; 
+    pointer-events: none; 
+    display: flex; 
+    align-items: flex-end; 
+    justify-content: center; 
+    padding: 1rem; 
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45); 
+    z-index: 2;
+}
+
+.camera-guide span, .camera-status { 
+    background: rgba(0,0,0,0.75); 
+    backdrop-filter: blur(4px);
+    border-radius: 99px; 
+    padding: .4rem .9rem; 
+    font-size: .85rem; 
+}
+
+.camera-status { 
+    position: absolute; 
+    left: 50%; 
+    bottom: 5.5rem; /* Posicionado por encima de los botones inferiores */
+    transform: translateX(-50%); 
+    width: min(90%, 38rem); 
+    text-align: center; 
+    z-index: 3;
+}
+
+/* Botonera flotante en la parte inferior */
+.scanner-actions { 
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    padding: 1rem max(1rem, env(safe-area-inset-right)) calc(1rem + var(--safe-bottom)) max(1rem, env(safe-area-inset-left)); 
+    display: grid; 
+    gap: .65rem; 
+    background: linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%); 
+}
+
+.scanner-actions .btn { min-height: 52px; font-weight: 600; }
+
+.result-panel { position: fixed; z-index: 10; inset: 0; background: rgba(12,18,28,.93); padding: 2rem 1.25rem; align-items: center; justify-content: center; }
+.result-panel:not(.d-none) { display: flex; }
+.result-card { width: min(100%, 440px); color: #172033; }
