@@ -1,6 +1,6 @@
 import { Camera } from "./camera.js";
 import { PageQrScanner } from "./scanner.js";
-import { submitPage } from "./attendance.js";
+import { submitPage } from "./asistencia.js";
 import {
     setCount,
     setStatus,

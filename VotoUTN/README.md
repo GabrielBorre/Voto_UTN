@@ -6,10 +6,10 @@ Proyecto Django único y responsive para registrar asistencia desde hojas de pad
 
 ```
 config/                 configuración y rutas del proyecto
-apps/elections/         entidad Elección y selección de mesa
-apps/attendance/        modelo, caso de uso y API de asistencia
+apps/elecciones/         entidad Elección y selección de mesa
+apps/asistencia/        modelo, caso de uso y API de asistencia
 templates/              vistas Django responsivas
-static/js/              módulos ES6: camera, scanner, attendance, api y ui
+static/js/              módulos ES6: camera, scanner, asistencia, api y ui
 ```
 
 La vista no conoce la persistencia: `AttendanceBatchAPIView` valida la petición y delega el caso de uso a `AttendanceService`. El modelo impone unicidad por elección/código, que protege también ante dos dispositivos concurrentes. La cámara, el procesamiento QR y la UI están desacoplados en módulos ES6.
@@ -31,6 +31,7 @@ El lector toma frames continuamente y analiza las 20 celdas (4 × 5) de la hoja 
 3. Ajustar las credenciales PostgreSQL en `.env`, migrar y crear el administrador:
 
    ```powershell
+   python manage.py makemigrations
    python manage.py migrate
    python manage.py createsuperuser
    python manage.py runserver 0.0.0.0:8000

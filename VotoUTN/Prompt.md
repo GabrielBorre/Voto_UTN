@@ -74,7 +74,7 @@ Organizar el código en módulos.
 Separar:
 camera.js
 scanner.js
-attendance.js
+asistencia.js
 api.js
 ui.js
 
