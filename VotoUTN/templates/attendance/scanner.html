@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Escanear · {{ election.name }}{% endblock %}
+
+{% comment %} Desactivamos la navbar superior de base.html solo para el escáner {% endcomment %}
+{% block nav %}{% endblock %}
+
+{% block main_class %}scanner-page-wrapper{% endblock %}
+
+{% block content %}
+<div id="scanner-app" class="scanner-page" data-api-url="{% url 'attendance-batch-api' election.pk %}" data-list-url="{% url 'election-list' %}">
+  
+  <header class="scanner-header">
+    <a href="{% url 'election-list' %}" class="btn btn-outline-light btn-sm">← Volver</a>
+    <div class="d-flex align-items-center gap-2">
+      <strong class="text-truncate" style="max-width: 180px;">{{ election.name }}</strong>
+      <span id="qr-count" class="badge text-bg-primary">0/15 QR</span>
+    </div>
+  </header>
+
+  <section id="camera-panel" class="camera-panel">
+    <video id="camera-video" playsinline muted></video>
+    <canvas id="scan-canvas" class="d-none"></canvas>
+    
+    <div class="camera-guide">
+      <span>Alineá la columna de 15 QRs</span>
+    </div>
+    
+    <div id="camera-status" class="camera-status">Preparando cámara…</div>
+  </section>
+
+  <section class="scanner-actions">
+    <button id="start-camera" class="btn btn-primary btn-lg w-100">Abrir cámara</button>
+    <button id="next-page" class="btn btn-success btn-lg w-100" disabled>Registrar página y continuar</button>
+  </section>
+
+  <section id="result-panel" class="result-panel d-none" aria-live="polite"></section>
+</div>
+
+<script type="module" src="{% static 'js/scanner-app.js' %}"></script>
+{% endblock %}

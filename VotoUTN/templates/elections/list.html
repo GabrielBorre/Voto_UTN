@@ -1,0 +1,6 @@
+{% extends 'base.html' %}{% block title %}Elecciones · Voto UTN{% endblock %}
+{% block content %}<header class="mb-4"><h1 class="h3 mb-1">Seleccioná una elección</h1><p class="text-muted mb-0">Elegí la mesa antes de comenzar a escanear.</p></header>
+<div class="row g-3">{% for election in elections %}<div class="col-12 col-md-6"><article class="card election-card h-100 border-0 shadow-sm"><div class="card-body p-4">
+  <h2 class="h5">{{ election.name }}</h2><p class="small text-muted">{{ election.starts_at|date:'d/m/Y H:i' }} — {{ election.ends_at|date:'H:i' }}</p>
+  <a class="btn btn-primary btn-lg w-100" href="{% url 'scanner' election.pk %}">Abrir escáner</a>
+</div></article></div>{% empty %}<p class="text-muted">No hay elecciones habilitadas.</p>{% endfor %}</div>{% endblock %}
