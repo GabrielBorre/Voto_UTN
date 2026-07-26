@@ -1,0 +1,37 @@
+{% extends "pagina_web/base.html" %}
+{% load static %}
+{% block content %}
+
+<nav class="nav">
+    <a href="{% url 'index' %}">Inicio</a>
+    <a href="{% url 'preferencia_votacion' %}">Preferencias de votación</a>
+    <a class="active" href="{% url 'justificacion_ausencia' %}">Justificaciones de ausencia</a>
+</nav>
+
+<main class="page">
+    <section class="hero">
+        <h1>Justificaciones por ausencia</h1>
+        <p>Registrar las ausencias previstas antes de la elección y dejar constancia del motivo.</p>
+    </section>
+
+    <section class="card">
+        <h3>Formulario de justificación</h3>
+        <label>Motivo</label>
+        <select class="select">
+            <option>Enfermedad</option>
+            <option>Compromiso laboral</option>
+            <option>Viaje</option>
+            <option>Otra causa</option>
+        </select>
+        <label>Detalle</label>
+        <textarea placeholder="Describa la situación que justifica la ausencia"></textarea>
+        <label>Adjuntar documento</label>
+        <input class="input" type="file" />
+        <div class="footer-actions">
+            <a class="btn light" href="../index.html">Volver</a>
+            <a class="btn primary" href="#">Guardar</a>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
