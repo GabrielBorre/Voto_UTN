@@ -1,7 +1,7 @@
 document.getElementById("nextTable").addEventListener("click",()=>{
 
     // Volver al paso 1
-    // window.location="index.html";
+    // window.location="inicio_elector.html";
 
     alert("Comenzaría el escaneo de una nueva mesa.");
 
