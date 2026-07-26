@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% block title %}Ingresar · Voto UTN{% endblock %}
+{% block main_class %}container d-flex min-vh-100 align-items-center justify-content-center p-4{% endblock %}
+{% block content %}<section class="login-card card border-0 shadow-sm w-100"><div class="card-body p-4 p-md-5">
+  <h1 class="h3 text-center mb-2">Voto UTN</h1><p class="text-muted text-center mb-4">Acceso para autoridades de mesa</p>
+  <form method="post">{% csrf_token %}
+    {% if form.errors %}<div class="alert alert-danger">Usuario o contraseña incorrectos.</div>{% endif %}
+    <label class="form-label" for="id_username">Usuario</label><input class="form-control form-control-lg mb-3" id="id_username" name="username" autocomplete="username" required autofocus>
+    <label class="form-label" for="id_password">Contraseña</label><input class="form-control form-control-lg mb-4" id="id_password" type="password" name="password" autocomplete="current-password" required>
+    <button class="btn btn-primary btn-lg w-100">Ingresar</button>
+  </form>
+</div></section>{% endblock %}
