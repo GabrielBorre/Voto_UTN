@@ -14,7 +14,7 @@ static/js/              módulos ES6: camera, scanner, asistencia, api y ui
 
 La vista no conoce la persistencia: `AttendanceBatchAPIView` valida la petición y delega el caso de uso a `AttendanceService`. El modelo impone unicidad por elección/código, que protege también ante dos dispositivos concurrentes. La cámara, el procesamiento QR y la UI están desacoplados en módulos ES6.
 
-El lector toma frames continuamente y analiza las 20 celdas (4 × 5) de la hoja con ZXing-JS. Los textos detectados se conservan en un `Set`, por lo que una lectura repetida no duplica la asistencia. Al confirmar una página se envía un lote al endpoint REST protegido por sesión y CSRF.
+El lector toma frames continuamente y analiza las 20 celdas (20 × 1) de la hoja con BarcodeScanner. Los textos detectados se conservan en un `Set`, por lo que una lectura repetida no duplica la asistencia. Al confirmar una página se envía un lote al endpoint REST protegido por sesión y CSRF.
 
 ## Inicio local (Windows / PowerShell)
 
@@ -47,6 +47,9 @@ mkcert 192.168.1.45 localhost 127.0.0.1  # reemplazar por la IP de tu PC
 python manage.py runserver_plus 0.0.0.0:8000 --cert-file 192.168.1.45+2.pem --key-file 192.168.1.45+2-key.pem
 ```
 
-Instalá también la CA generada por mkcert en el teléfono, y abrí `https://IP_DE_TU_PC:8000/`. Agregá esa IP a `DJANGO_ALLOWED_HOSTS` en `.env`.
+Instalá también la CA generada por mkcert en el teléfono, y abrí `https://192.168.1.45:8000/`. Agregá esa IP a `DJANGO_ALLOWED_HOSTS` en `.env`.
 
 > El contenido del QR se trata como el identificador único de votante. En producción conviene firmar el payload QR o validarlo contra el padrón institucional antes de permitir el registro.
+
+
+python manage.py seed_voters --election-id 1

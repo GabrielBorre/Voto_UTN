@@ -5,7 +5,7 @@ from apps.elecciones.models import Eleccion
 
 class Asistencia(models.Model):
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="attendances")
-    voter_code = models.CharField(max_length=120)
+    voter_code = models.CharField(max_length=180)
     scanned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     scanned_at = models.DateTimeField(auto_now_add=True)
 

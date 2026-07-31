@@ -8,6 +8,7 @@ export class PageQrScanner {
     busy = false;
     useNativeDetector = false;
     nativeDetector = null;
+    lastReportedCount = 0;
 
     constructor(video, canvas, onCode, onStatus) {
         this.video = video;
@@ -40,6 +41,7 @@ export class PageQrScanner {
 
     clear() {
         this.codes.clear();
+        this.lastReportedCount = 0;
     }
 
     async loop() {
@@ -74,7 +76,13 @@ export class PageQrScanner {
                 await this.decodeRegion(0, 0, width, height);
             }
 
-            this.onStatus?.(`QR detectados: ${this.codes.size}/15`);
+            if (this.codes.size !== this.lastReportedCount) {
+                this.lastReportedCount = this.codes.size;
+                this.onStatus?.(
+                    `QR detectados: ${this.codes.size}/15`,
+                    { emphasis: "large", durationMs: 2000 }
+                );
+            }
         } catch {
             // Ignorar errores de lectura en frames individuales
         } finally {

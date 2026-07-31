@@ -1,100 +1,336 @@
-:root { --app-blue: #0d6efd; --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
-body { background: #10151f; color: #172033; margin: 0; padding: 0; overflow: hidden; }
+/* ============================================
+   Scanner App — Estilo limpio tipo iOS
+   Fixes para Chrome móvil
+   ============================================ */
 
-/* Vista del escáner en pantalla completa */
-.scanner-page { 
-    position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    background: #000;
-    color: #fff;
-    overflow: hidden;
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-/* Header flotante transparente sobre el video */
-.scanner-header { 
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 5;
-    padding: calc(.5rem + var(--safe-top)) max(1rem, env(safe-area-inset-right)) .5rem max(1rem, env(safe-area-inset-left)); 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
-    gap: .5rem; 
-    background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%); 
+:root {
+  --app-blue: #0d6efd;
+  --app-blue-light: #e7f1ff;
+  --app-text: #1c1c1e;
+  --app-text-secondary: #8e8e93;
+  --app-border: #e5e5ea;
+  --app-bg: #ffffff;
+  --app-black: #000000;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
-/* El panel de cámara ocupa todo el alto y ancho */
-.camera-panel { 
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-    background: #000;
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-#camera-video { 
-    width: 100%; 
-    height: 100%; 
-    position: absolute; 
-    inset: 0;
-    object-fit: cover; /* Asegura que no queden franjas negras */
+/* ============================================
+   Layout principal — usa 100% en lugar de dvh
+   para evitar cortes en Chrome móvil
+   ============================================ */
+.scanner-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--app-bg);
+  overflow: hidden;
 }
 
-/* Recuadro guía alargado verticalmente */
-.camera-guide { 
-    position: absolute; 
-    inset: 8% 6% 12% 6%; /* Alargado hacia arriba y abajo */
-    border: 3px solid rgba(255, 255, 255, 0.85); 
-    border-radius: 1.25rem; 
-    pointer-events: none; 
-    display: flex; 
-    align-items: flex-end; 
-    justify-content: center; 
-    padding: 1rem; 
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45); 
-    z-index: 2;
+/* ============================================
+   Header
+   ============================================ */
+.scanner-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: calc(0.5rem + var(--safe-top)) max(1rem, var(--safe-right)) 0.5rem max(1rem, var(--safe-left));
+  background: var(--app-bg);
+  border-bottom: 1px solid var(--app-border);
+  z-index: 10;
 }
 
-.camera-guide span, .camera-status { 
-    background: rgba(0,0,0,0.75); 
-    backdrop-filter: blur(4px);
-    border-radius: 99px; 
-    padding: .4rem .9rem; 
-    font-size: .85rem; 
+.scanner-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  color: var(--app-blue);
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+  flex-shrink: 0;
+  padding: 0.25rem 0;
 }
 
-.camera-status { 
-    position: absolute; 
-    left: 50%; 
-    bottom: 5.5rem; /* Posicionado por encima de los botones inferiores */
-    transform: translateX(-50%); 
-    width: min(90%, 38rem); 
-    text-align: center; 
-    z-index: 3;
+.scanner-back-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  margin-top: -2px;
 }
 
-/* Botonera flotante en la parte inferior */
-.scanner-actions { 
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 5;
-    padding: 1rem max(1rem, env(safe-area-inset-right)) calc(1rem + var(--safe-bottom)) max(1rem, env(safe-area-inset-left)); 
-    display: grid; 
-    gap: .65rem; 
-    background: linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%); 
+.scanner-count {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--app-text);
+  text-align: center;
+  flex: 1;
+  white-space: nowrap;
 }
 
-.scanner-actions .btn { min-height: 52px; font-weight: 600; }
+.scanner-election {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  flex-shrink: 0;
+  min-width: 0;
+}
 
-.result-panel { position: fixed; z-index: 10; inset: 0; background: rgba(12,18,28,.93); padding: 2rem 1.25rem; align-items: center; justify-content: center; }
-.result-panel:not(.d-none) { display: flex; }
-.result-card { width: min(100%, 440px); color: #172033; }
+.scanner-election strong {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--app-text-secondary);
+}
+
+.scanner-election span {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+/* ============================================
+   Área de cámara — flex con márgenes
+   ============================================ */
+.camera-panel {
+  flex: 1 1 auto;
+  position: relative;
+  margin: 0.75rem;
+  min-height: 0;          /* CRÍTICO: permite que flex shrink funcione */
+  background: var(--app-black);
+  border-radius: 1rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#camera-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#scan-canvas {
+  display: none;
+}
+
+/* Recuadro guía blanco */
+.camera-guide {
+  position: absolute;
+  inset: 4%;
+  border: 2.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 0.875rem;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Status flotante dentro del área negra */
+.camera-status {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0.6rem 1.4rem;
+  border-radius: 99px;
+  white-space: nowrap;
+  z-index: 3;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.camera-status.status-success {
+  background: rgba(40, 167, 69, 0.85);
+}
+
+.camera-status.status-error {
+  background: rgba(220, 53, 69, 0.85);
+}
+
+/* ============================================
+   Botonera inferior — SIEMPRE VISIBLE
+   ============================================ */
+.scanner-actions {
+  flex: 0 0 auto;
+  padding: 0.75rem max(1rem, var(--safe-right)) calc(0.75rem + var(--safe-bottom)) max(1rem, var(--safe-left));
+  background: var(--app-bg);
+  border-top: 1px solid var(--app-border);
+  z-index: 10;
+}
+
+.scanner-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+/* Botones */
+.btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.8rem 0.5rem;
+  border-radius: 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+  transition: transform 0.05s ease, opacity 0.15s ease;
+  min-height: 48px;
+  text-align: center;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scanner-btn-primary {
+  background: var(--app-blue);
+  color: #fff;
+}
+
+.scanner-btn-primary:hover,
+.scanner-btn-primary:focus,
+.scanner-btn-primary:focus-visible,
+.scanner-btn-primary:active {
+  background: var(--app-blue);
+  color: #fff;
+}
+
+.scanner-btn-secondary {
+  background: var(--app-blue-light);
+  color: var(--app-blue);
+}
+
+.scanner-btn-link {
+  background: transparent;
+  color: var(--app-blue);
+  font-weight: 500;
+  font-size: 0.85rem;
+  padding: 0.4rem;
+  min-height: auto;
+}
+
+/* Iconos dentro de botones */
+.btn svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   Vista de resumen de mesa
+   ============================================ */
+.mesa-summary-view {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0.75rem;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #f5f8ff 0%, #e9f0ff 100%);
+  border: 1px solid #cfe0ff;
+  text-align: center;
+}
+
+.mesa-summary-title {
+  margin: 0;
+  color: var(--app-text-secondary);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.mesa-summary-value {
+  margin: 0;
+  font-size: clamp(1.35rem, 3.8vw, 2rem);
+  line-height: 1.25;
+  color: var(--app-text);
+  font-weight: 800;
+  max-width: 26ch;
+  white-space: pre-line;
+}
+
+/* ============================================
+   Panel de resultado (modal)
+   ============================================ */
+.result-panel {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  background: rgba(12, 18, 28, 0.93);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+}
+
+.result-panel:not(.d-none) {
+  display: flex;
+}
+
+.result-card {
+  width: min(100%, 440px);
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  color: var(--app-text);
+}
+
+/* Utilidades */
+.d-none {
+  display: none !important;
+}
+
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

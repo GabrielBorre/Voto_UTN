@@ -3,9 +3,10 @@ function csrfToken() {
 }
 
 export async function registerAttendance(url, voterCodes) {
+  const body = Array.isArray(voterCodes) ? { voter_codes: voterCodes } : voterCodes;
   const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: {
     'Content-Type': 'application/json', 'X-CSRFToken': csrfToken(), 'Accept': 'application/json'
-  }, body: JSON.stringify({ voter_codes: voterCodes }) });
+  }, body: JSON.stringify(body) });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.detail || 'No fue posible registrar la asistencia.');
   return payload;
