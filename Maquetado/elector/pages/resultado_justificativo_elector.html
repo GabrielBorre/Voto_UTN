@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Historial Electoral | Administrativo Junta Electoral UTN.BA</title>
+    <link rel="stylesheet" href="../css/styles.css" />
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <div class="mark">✳</div>
+            <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small>
+            </div>
+        </div>
+        <div class="userbox"><strong>Juana Rodriguez</strong><span>Rol: <b>Administrativo Junta Electoral</b></span>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <a href="../index.html">Inicio</a>
+        <a href="preferencia-votacion.html">Preferencias de votación</a>
+        <a href="justificaciones.html">Justificaciones de ausencia</a>
+        <a class="active" href="historial_electoral.html">Historial Electoral</a>
+
+    </nav>
+
+    <main class="page">
+
+        <section class="hero">
+            <h1>Historial Electoral</h1>
+            <p>Explora el registro completo de las elecciones pasadas.</p>
+        </section>
+
+        <section class="card">
+
+
+            <div class="card" style="grid-column: span 2;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                    <h3 style="margin:0">Detalle de solicitud Nº 123456</h3>
+                    <div class="footer-actions" style="margin:0">
+                        <a href="historial_electoral.html" class="btn small light">Volver</a>
+                    </div>
+                </div>
+                <p><b>Estado:</b><span class="pill ok request-status">✔ Aceptado</span></p>
+                <p><b>Solicitante:</b> María López</p>
+                <p><b>Motivo:</b> Justificación de ausencia</p>
+                <p><b>Descripción:</b> Se adjunta certificado de viaje que justifica la ausencia en la jornada
+                    electoral.
+                </p>
+
+                <!-- Vista previa del adjunto en formato PDF -->
+                <h4>Vista previa del adjunto</h4>
+                <embed src="../archivos/certificado.pdf" type="application/pdf" width="100%" height="500px" />
+
+                <hr style="border:0;border-top:1px solid var(--borde);margin:18px 0">
+                <div class="footer-actions">
+                    <a href="historial_electoral.html" class="btn small light">Volver</a>
+                </div>
+            </div>
+
+        </section>
+
+
+    </main>
+    <script src="../js/main.js"></script>
+
+
+
+
+</body>
+
+</html>

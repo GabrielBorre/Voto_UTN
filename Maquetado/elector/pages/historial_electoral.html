@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Historial Electoral | Administrativo Junta Electoral UTN.BA</title>
+    <link rel="stylesheet" href="../css/styles.css" />
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <div class="mark">✳</div>
+            <div class="brand-title"><strong>UTN.<span>BA</span></strong><small>Sistema de Gestión Electoral</small>
+            </div>
+        </div>
+        <div class="userbox"><strong>María López</strong><span>Rol: <b>Elector</b></span></div>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <a href="../index.html">Inicio</a>
+        <a href="preferencia-votacion.html">Preferencias de votación</a>
+        <a href="justificaciones.html">Justificaciones de ausencia</a>
+        <a class="active" href="historial_electoral.html">Historial Electoral</a>
+
+    </nav>
+
+    <main class="page">
+
+        <section class="hero">
+            <h1>Historial Electoral</h1>
+            <p>Explora el registro completo de las elecciones pasadas.</p>
+        </section>
+
+        <section class="card">
+
+
+            <h3>Historial Electoral</h3>
+
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Año</th>
+                        <th>Elección</th>
+                        <th>Claustro</th>
+                        <th>Situación</th>
+                        <th>Justificativo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2026</td>
+                        <td>Elección General</td>
+                        <td>Docente</td>
+                        <td><span class="pill warn request-status">⏳ Pendiente</span></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>2024</td>
+                        <td>Elección General</td>
+                        <td>Docente</td>
+                        <td><span class="pill ok request-status">✔ Voto Emitido</span></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>2022</td>
+                        <td>Elección General</td>
+                        <td>Graduados</td>
+                        <td><span class="pill ok request-status">✔ Inasistencia Justificada</span></td>
+                        <td><a href="resultado_justificativo_elector.html"  class="btn small light">Ver solicitud</a></td>
+                    </tr>
+                    <tr>
+                        <td>2020</td>
+                        <td>Elección General</td>
+                        <td>Estudiantil</td>
+                        <td><span class="pill danger request-status">❌ Infractor - Justificación Rechazada</span>
+                        </td>
+                        <td><a href="resultado_justificativo_elector.html" class="btn small light">Ver solicitud</a></td>
+                    </tr>
+                    <tr>
+                        <td>2018</td>
+                        <td>Elección General</td>
+                        <td>Estudiantil</td>
+                        <td><span class="pill danger request-status">❌ Infractor</span></td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+
+        </section>
+
+
+    </main>
+    <script src="../js/main.js"></script>
+
+
+    <!-- Modal oculto para ventana emergente en ver solicitud -->
+    <div id="modal-ver-solicitud-elector" style="display:none !important;
+     position:fixed;top:0;left:0;width:100%;height:100%;
+     background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;">
+        <div class="card" style="max-width:500px;width:90%;">
+            <p><b>Solicitante:</b> María López</p>
+            <p><b>Motivo:</b> Justificación de ausencia</p>
+            <p><b>Descripción:</b> Se adjunta certificado de viaje que justifica la ausencia en la jornada
+                electoral.
+            </p>
+
+            <!-- Vista previa del adjunto en formato PDF -->
+            <h4>Vista previa del adjunto</h4>
+            <embed src="../archivos/certificado.pdf" type="application/pdf" width="100%" height="500px" />
+
+            <div class="footer-actions">
+                <a class="btn light" href="#" onclick="cerrarModal()">Cerrar</a>
+            </div>
+        </div>
+    </div>
+
+
+
+
+</body>
+
+</html>
