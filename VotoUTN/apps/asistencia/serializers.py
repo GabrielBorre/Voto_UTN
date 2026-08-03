@@ -7,4 +7,4 @@ class SerializadorLoteAsistencia(serializers.Serializer):
 
 class SerializadorCargaManualAsistencia(serializers.Serializer):
     mesa_numero = serializers.IntegerField(min_value=1)
-    legajo = serializers.CharField(max_length=20, trim_whitespace=True)
+    dni = serializers.CharField(max_length=12, trim_whitespace=True)

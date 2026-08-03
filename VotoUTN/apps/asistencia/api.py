@@ -5,7 +5,7 @@ from apps.elecciones.models import Eleccion
 from apps.usuarios.permisos import puede_registrar_participacion
 from rest_framework.exceptions import PermissionDenied
 from .serializers import SerializadorCargaManualAsistencia, SerializadorLoteAsistencia
-from .services import ServicioAsistencia
+from .services import ServicioRegistroParticipacion
 
 
 class APIVistaAsistenciaLote(APIView):
@@ -17,7 +17,7 @@ class APIVistaAsistenciaLote(APIView):
         if "codigos_qr" in request.data:
             serializer = SerializadorLoteAsistencia(data=request.data)
             serializer.is_valid(raise_exception=True)
-            result = ServicioAsistencia.registrar_lote(
+            result = ServicioRegistroParticipacion.registrar_lote(
                 eleccion=eleccion,
                 codigos_qr=serializer.validated_data["codigos_qr"],
                 usuario=request.user,
@@ -26,10 +26,10 @@ class APIVistaAsistenciaLote(APIView):
         else:
             serializer = SerializadorCargaManualAsistencia(data=request.data)
             serializer.is_valid(raise_exception=True)
-            result = ServicioAsistencia.registrar_manual(
+            result = ServicioRegistroParticipacion.registrar_manual(
                 eleccion=eleccion,
                 mesa_numero=serializer.validated_data["mesa_numero"],
-                legajo=serializer.validated_data["legajo"],
+                dni=serializer.validated_data["dni"],
                 usuario=request.user,
             )
             recibidos = 1

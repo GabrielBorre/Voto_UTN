@@ -1,3 +1,5 @@
+import uuid
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -159,6 +161,7 @@ class RegistroPadron(models.Model):
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="registros_padron")
     eleccion_claustro_departamento = models.ForeignKey(EleccionClaustroDepartamento, on_delete=models.PROTECT, related_name="registros_padron")
     activo = models.BooleanField(default=True)
+    identificador_qr = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("elector", "eleccion"), name="elector_unico_por_eleccion")]

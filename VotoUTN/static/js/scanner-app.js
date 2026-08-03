@@ -258,11 +258,15 @@ function extractMesaFromCode(rawCode) {
     }
 
     try {
-        const base64 = rawCode.trim().replace(/-/g, "+").replace(/_/g, "/");
+        const [version, contenido] = rawCode.trim().split(".");
+        if (version !== "v1" || !contenido) {
+            return null;
+        }
+        const base64 = contenido.replace(/-/g, "+").replace(/_/g, "/");
         const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
         const binary = window.atob(padded);
 
-        if (binary.length !== 12) {
+        if (binary.length !== 36) {
             return null;
         }
 
@@ -422,39 +426,39 @@ manualLoadButton.addEventListener("click", () => {
         return;
     }
 
-    const legajoInput = window.prompt("Ingresá el legajo del elector:");
+    const dniInput = window.prompt("Ingresá el DNI del elector:");
 
-    if (legajoInput === null) {
+    if (dniInput === null) {
         return;
     }
 
-    const legajo = legajoInput.trim();
-    if (!legajo) {
-        setStatus("Ingresá un legajo válido.", "error");
+    const dni = dniInput.trim();
+    if (!dni) {
+        setStatus("Ingresá un DNI válido.", "error");
         void playErrorTone();
         return;
     }
 
     void (async () => {
         try {
-            setStatus(`Registrando manualmente al legajo ${legajo} en mesa ${mesaNumero}...`, "info");
+            setStatus(`Registrando manualmente al DNI ${dni} en mesa ${mesaNumero}...`, "info");
 
-            const result = await submitManualAttendance(app.dataset.apiUrl, mesaNumero, legajo);
+            const result = await submitManualAttendance(app.dataset.apiUrl, mesaNumero, dni);
 
             if (result.invalidos?.length) {
-                setStatus(`No se encontró al elector ${legajo} en la mesa ${mesaNumero}.`, "error");
+                setStatus(`No se encontró al elector en la mesa ${mesaNumero}.`, "error");
                 void playErrorTone();
                 return;
             }
 
             if (result.creados?.length) {
-                setStatus(`Elector ${legajo} registrado manualmente en la mesa ${mesaNumero}.`, "success");
+                setStatus(`Elector registrado manualmente en la mesa ${mesaNumero}.`, "success");
                 void playSuccessTone();
                 return;
             }
 
             if (result.ya_registrados?.length) {
-                setStatus(`El elector ${legajo} ya estaba registrado en la mesa ${mesaNumero}.`, "info");
+                setStatus(`El elector ya estaba registrado en la mesa ${mesaNumero}.`, "info");
                 return;
             }
 

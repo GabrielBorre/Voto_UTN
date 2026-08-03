@@ -8,7 +8,8 @@ from qrcode.constants import ERROR_CORRECT_L
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from PIL import Image
-from apps.elecciones.models import Eleccion, Elector, Mesa
+from apps.elecciones.models import AsignacionMesa, Eleccion, EleccionClaustroDepartamento, Elector, Mesa, RegistroPadron
+from apps.asistencia.services import ServicioRegistroParticipacion
 
 VOTERS = [
     ("203425", "Nicolas Calle", "40123456", 15),
@@ -64,6 +65,7 @@ class Command(BaseCommand):
             required=True,
             help="ID de la eleccion para asociar mesas y firmar el QR.",
         )
+        parser.add_argument("--configuracion-departamento-id", type=int, required=True)
         parser.add_argument(
             "--output",
             type=Path,
@@ -72,11 +74,18 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         election_id = options["election_id"]
+        configuracion_id = options["configuracion_departamento_id"]
         output = options["output"]
         try:
             eleccion = Eleccion.objects.get(pk=election_id)
         except Eleccion.DoesNotExist as exc:
             raise CommandError(f"No existe la eleccion con id {election_id}.") from exc
+        configuracion = EleccionClaustroDepartamento.objects.filter(
+            pk=configuracion_id,
+            eleccion_claustro__eleccion=eleccion,
+        ).first()
+        if configuracion is None:
+            raise CommandError("La configuración de departamento no pertenece a la elección.")
 
         output.mkdir(parents=True, exist_ok=True)
         voters = []
@@ -86,7 +95,14 @@ class Command(BaseCommand):
         for legajo, nombre, dni, mesa_numero in VOTERS:
             mesa = mesas_by_numero.get(mesa_numero)
             if mesa is None:
-                mesa, _ = Mesa.objects.get_or_create(eleccion=eleccion, numero=mesa_numero)
+                mesa, _ = Mesa.objects.get_or_create(
+                    eleccion=eleccion,
+                    numero=mesa_numero,
+                    defaults={"eleccion_claustro_departamento": configuracion},
+                )
+                if mesa.eleccion_claustro_departamento_id is None:
+                    mesa.eleccion_claustro_departamento = configuracion
+                    mesa.save(update_fields=("eleccion_claustro_departamento",))
                 mesas_by_numero[mesa_numero] = mesa
 
             elector, _ = Elector.objects.update_or_create(
@@ -98,10 +114,16 @@ class Command(BaseCommand):
                 },
             )
             voters.append(elector)
-            payload = self.generar_payload_firmado(
+            registro_padron, _ = RegistroPadron.objects.get_or_create(
+                elector=elector,
+                eleccion=eleccion,
+                defaults={"eleccion_claustro_departamento": configuracion},
+            )
+            AsignacionMesa.objects.update_or_create(registro_padron=registro_padron, defaults={"mesa": mesa})
+            payload = ServicioRegistroParticipacion.generar_codigo_qr(
                 eleccion_id=eleccion.id,
                 mesa_numero=mesa.numero,
-                legajo=elector.legajo,
+                identificador_qr=registro_padron.identificador_qr,
             )
             qr = self.generar_qr(payload)
             qr_images[elector.legajo] = qr

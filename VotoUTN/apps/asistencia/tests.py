@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import struct
+import uuid
 
 from datetime import datetime, time
 
@@ -12,7 +13,7 @@ from django.utils.timezone import make_aware
 
 from apps.asistencia.models import Asistencia
 from apps.asistencia.serializers import SerializadorLoteAsistencia
-from apps.asistencia.services import ServicioAsistencia
+from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.elecciones.management.commands.cargar_electores_demo import Command as GeneradorQr
 from apps.elecciones.models import (
     Claustro,
@@ -33,49 +34,45 @@ class ServicioAsistenciaQrTests(SimpleTestCase):
     clave_qr = "clave-de-prueba-qr"
 
     def generar_codigo(self, *, eleccion_id=7, mesa_numero=12, legajo=203425):
-        datos = struct.pack(">HHI", eleccion_id, mesa_numero, legajo)
-        firma = hmac.new(
-            self.clave_qr.encode("utf-8"),
-            datos,
-            hashlib.sha256,
-        ).digest()[:4]
-        return base64.urlsafe_b64encode(datos + firma).decode("ascii").rstrip("=")
+        return ServicioRegistroParticipacion.generar_codigo_qr(
+            eleccion_id=eleccion_id,
+            mesa_numero=mesa_numero,
+            identificador_qr=uuid.UUID(int=legajo),
+        )
 
     @override_settings(CLAVE_FIRMA_QR=clave_qr)
     def test_acepta_codigo_qr_con_firma_valida(self):
         codigo = self.generar_codigo()
 
         self.assertEqual(
-            ServicioAsistencia._parse_signed_code(codigo),
-            (7, 12, "203425"),
+            ServicioRegistroParticipacion.parsear_codigo_qr(codigo),
+            (7, 12, uuid.UUID(int=203425).hex),
         )
 
     @override_settings(CLAVE_FIRMA_QR=clave_qr)
     def test_rechaza_codigo_qr_con_firma_alterada(self):
         codigo = self.generar_codigo()
-        binario = bytearray(base64.urlsafe_b64decode(f"{codigo}=="))
+        version, contenido = codigo.split(".")
+        binario = bytearray(base64.urlsafe_b64decode(contenido + "=" * (-len(contenido) % 4)))
         binario[-1] ^= 1
-        alterado = base64.urlsafe_b64encode(binario).decode("ascii").rstrip("=")
+        alterado = f"{version}.{base64.urlsafe_b64encode(binario).decode('ascii').rstrip('=')}"
 
-        self.assertIsNone(ServicioAsistencia._parse_signed_code(alterado))
+        self.assertIsNone(ServicioRegistroParticipacion.parsear_codigo_qr(alterado))
 
-    @override_settings(CLAVE_FIRMA_QR="otra-clave")
     def test_rechaza_codigo_qr_firmado_con_otra_clave(self):
-        codigo = self.generar_codigo()
+        with override_settings(CLAVE_FIRMA_QR=self.clave_qr):
+            codigo = self.generar_codigo()
 
-        self.assertIsNone(ServicioAsistencia._parse_signed_code(codigo))
+        with override_settings(CLAVE_FIRMA_QR="otra-clave"):
+            self.assertIsNone(ServicioRegistroParticipacion.parsear_codigo_qr(codigo))
 
     @override_settings(CLAVE_FIRMA_QR=clave_qr)
     def test_el_generador_y_el_validador_comparten_clave_de_firma(self):
-        codigo = GeneradorQr().generar_payload_firmado(
-            eleccion_id=7,
-            mesa_numero=12,
-            legajo=203425,
-        )
+        codigo = self.generar_codigo()
 
         self.assertEqual(
-            ServicioAsistencia._parse_signed_code(codigo),
-            (7, 12, "203425"),
+            ServicioRegistroParticipacion.parsear_codigo_qr(codigo),
+            (7, 12, uuid.UUID(int=203425).hex),
         )
 
 

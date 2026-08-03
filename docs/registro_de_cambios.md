@@ -145,3 +145,25 @@ Fecha de cierre: 2026-08-03
 
 - `python manage.py migrate`: aplico `usuarios.0001_perfiles_y_roles` correctamente.
 - `python manage.py test`: 10 pruebas correctas, incluida una base temporal de pruebas PostgreSQL.
+
+## Etapa 4 - Integracion definitiva del QR
+
+Fecha de cierre: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | `RegistroPadron` incorpora `identificador_qr`, un UUID unico y opaco sin DNI ni legajo. |
+| `VotoUTN/apps/asistencia/models.py` | Se creo `RegistroParticipacion`, vinculado a padrón, mesa, usuario, fecha y metodo QR o manual. |
+| `VotoUTN/apps/asistencia/services.py` | Se reemplazo el formato QR por `v1`, con eleccion, mesa, UUID de padron y HMAC SHA-256 truncado a 128 bits. El servidor valida firma, eleccion, padrón, mesa y permiso antes de registrar. |
+| `VotoUTN/apps/asistencia/serializers.py` y `api.py` | La carga manual ahora busca por DNI y utiliza el servicio definitivo de participacion. |
+| `VotoUTN/static/js/scanner-app.js` y `asistencia.js` | El cliente reconoce QR `v1`, conserva la mesa detectada y solicita DNI para la contingencia manual. |
+| `VotoUTN/apps/elecciones/management/commands/seed_voters.py` | El comando demo requiere una configuracion de departamento y genera padron, asignacion de mesa y QR opacos. |
+| `VotoUTN/apps/elecciones/migrations/0005_identificador_qr_padron.py` | Migracion segura: agrega UUID nullable, asigna uno distinto a cada padrón existente y luego impone unicidad. |
+| `VotoUTN/apps/asistencia/migrations/0004_registro_participacion.py` | Crea la tabla de participacion definitiva y su restriccion de unicidad. |
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 10 pruebas correctas.
