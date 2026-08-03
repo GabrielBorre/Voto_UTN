@@ -217,3 +217,23 @@ Fecha de cierre: 2026-08-03
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 14 pruebas correctas.
+
+### Complemento de etapa 5 - Integracion visual de maquetado administrativo
+
+Fecha de cierre: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/templates/elecciones/base_gestion.html` | Se creo una base exclusiva para Junta Electoral, con cabecera institucional UTN, datos de sesion, navegacion horizontal y cierre de sesion. No se modifica la base usada por escaneo QR u otros roles. |
+| `VotoUTN/static/css/gestion-electoral.css` | Se incorporaron los estilos de gestion basados en la maqueta `Maquetado/administrador-de-junta`: paleta azul UTN y rojo institucional, superficies blancas, bordes, tablas, formularios, paneles de trabajo y adaptacion movil. |
+| `VotoUTN/templates/elecciones/gestion_lista.html` | Se transformo en el panel PRE-VOTACION, con accesos y listado de elecciones alineados a la maqueta principal de administrador de junta. |
+| `VotoUTN/templates/elecciones/parametros.html`, `parametro_lista.html` y `parametro_formulario.html` | Se redisenaron el panel y ABM de parametros usando la estructura de configuracion, formularios y tablas del maquetado administrativo. |
+| `VotoUTN/templates/elecciones/formulario_eleccion.html` y `gestion_mesas.html` | Se adaptaron los flujos de creacion de eleccion y generacion de mesas a la misma base visual y de navegacion. |
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 14 pruebas correctas.
+- Renderizado autenticado comprobado para `/gestion/elecciones/` y `/gestion/parametros/`: respuesta HTTP 200.

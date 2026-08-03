@@ -1,0 +1,29 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Junta Electoral UTN{% endblock %}</title>
+  <link href="{% static 'css/gestion-electoral.css' %}" rel="stylesheet">
+</head>
+<body class="gestion-electoral">
+  <header class="topbar">
+    <a class="brand" href="{% url 'gestionar-elecciones' %}" aria-label="Junta Electoral UTN">
+      <span class="mark">UTN</span>
+      <span class="brand-title"><strong>UTN.<i>BA</i></strong><small>Sistema de Gestion Electoral</small></span>
+    </a>
+    <div class="userbox"><strong>{{ user.get_full_name|default:user.username }}</strong><span>Proceso: <b>Junta Electoral</b></span></div>
+  </header>
+  <nav class="gestion-nav" aria-label="Navegacion de Junta Electoral">
+    <a class="{% if request.resolver_match.url_name == 'gestionar-elecciones' %}active{% endif %}" href="{% url 'gestionar-elecciones' %}">Inicio</a>
+    <a class="{% if request.resolver_match.url_name == 'crear-eleccion' %}active{% endif %}" href="{% url 'crear-eleccion' %}">Nueva eleccion</a>
+    <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parametros de eleccion</a>
+    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button>Salir</button></form>
+  </nav>
+  <main class="gestion-page">
+    {% if messages %}{% for message in messages %}<div class="notice {{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

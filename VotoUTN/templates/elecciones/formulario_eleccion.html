@@ -1,21 +1,10 @@
-{% extends "base.html" %}
+{% extends "elecciones/base_gestion.html" %}
 
-{% block title %}Nueva eleccion{% endblock %}
+{% block title %}Nueva eleccion | Junta Electoral UTN{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center"><div class="col-lg-8">
-  <h1 class="h3 mb-4">Nueva eleccion</h1>
-  <form method="post" class="vstack gap-3">
-    {% csrf_token %}
-    {% for field in formulario %}
-      <div>
-        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-      </div>
-    {% endfor %}
-    {% for error in formulario.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-    <div class="d-flex gap-2"><button class="btn btn-primary">Crear y configurar mesas</button><a class="btn btn-outline-secondary" href="{% url 'gestionar-elecciones' %}">Cancelar</a></div>
-  </form>
-</div></div>
+<section class="hero"><h1>Nueva eleccion</h1><p>Define los datos generales y selecciona los parametros activos que formaran parte del proceso electoral.</p></section>
+<section class="card form-card"><div class="section-title"><div><h2>Crear nueva eleccion</h2><p>Los parametros seleccionados se heredan en la configuracion inicial.</p></div><span class="tag">Preparacion</span></div><form method="post">{% csrf_token %}
+{% for field in formulario %}<div class="field {% if field.field.widget.input_type == 'checkbox' %}field-checkbox{% endif %}">{% if field.field.widget.input_type == 'checkbox' %}{{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}{% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+<div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Cancelar</a><button class="button primary">Crear y configurar mesas</button></div></form></section>
 {% endblock %}

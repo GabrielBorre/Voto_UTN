@@ -1,21 +1,10 @@
-{% extends "base.html" %}
+{% extends "elecciones/base_gestion.html" %}
 
-{% block title %}{% if objeto %}Editar{% else %}Agregar{% endif %} {{ titulo }}{% endblock %}
+{% block title %}{% if objeto %}Editar{% else %}Agregar{% endif %} {{ titulo }} | Junta Electoral UTN{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center"><div class="col-md-7 col-lg-6">
-  <h1 class="h3 mb-4">{% if objeto %}Editar{% else %}Agregar{% endif %} {{ titulo|lower }}</h1>
-  <form method="post" class="vstack gap-3">
-    {% csrf_token %}
-    {% for field in formulario %}<div {% if field.field.widget.input_type == 'checkbox' %}class="form-check"{% endif %}>
-      {% if field.field.widget.input_type == 'checkbox' %}
-        {{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-      {% else %}
-        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
-      {% endif %}
-      {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-    </div>{% endfor %}
-    <div class="d-flex gap-2"><button class="btn btn-primary">Guardar</button><a class="btn btn-outline-secondary" href="{% url 'listar-parametros' tipo %}">Cancelar</a></div>
-  </form>
-</div></div>
+<section class="hero"><h1>{% if objeto %}Editar{% else %}Agregar{% endif %} {{ titulo|lower }}</h1><p>Completa los datos del parametro que podra utilizarse en futuras elecciones.</p></section>
+<section class="card form-card"><h2>{% if objeto %}Datos del registro{% else %}Nuevo registro{% endif %}</h2><form method="post">{% csrf_token %}
+{% for field in formulario %}<div class="field {% if field.field.widget.input_type == 'checkbox' %}field-checkbox{% endif %}">{% if field.field.widget.input_type == 'checkbox' %}{{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}
+<div class="footer-actions"><a class="button light" href="{% url 'listar-parametros' tipo %}">Cancelar</a><button class="button primary">Guardar</button></div></form></section>
 {% endblock %}
