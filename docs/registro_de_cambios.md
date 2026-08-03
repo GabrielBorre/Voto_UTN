@@ -259,3 +259,26 @@ Fecha de cierre: 2026-08-03
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 16 pruebas correctas.
+
+### Complemento de etapa 5 - Historial y calendario administrativo
+
+Fecha de cierre: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | `Eleccion` incorpora fechas para apertura y cierre de padron provisorio, cierre de candidaturas, publicacion de padron definitivo y limites de justificativos de autoridades y electores. Valida el orden del calendario de padrones. |
+| `VotoUTN/apps/elecciones/migrations/0007_fechas_administrativas.py` | Se creo y aplico una migracion aditiva con campos anulables, segura para elecciones ya existentes. |
+| `VotoUTN/apps/elecciones/forms.py` | La creacion y edicion incluyen el calendario administrativo. Se elimino la seleccion de departamentos del alta de eleccion: se asociaran durante la importacion de padrones por claustro en la etapa 6. |
+| `VotoUTN/apps/elecciones/views.py` y `urls.py` | Se separaron elecciones en curso de las cerradas y se agrego la ruta `/gestion/elecciones/historial/`. Tras crear una eleccion se vuelve al panel, ya que la configuracion de departamentos depende del padron posterior. |
+| `VotoUTN/templates/elecciones/historial_elecciones.html` | Se creo la consulta de elecciones pasadas con fechas y cantidad de mesas. |
+| `VotoUTN/templates/elecciones/formulario_eleccion.html` y `editar_eleccion.html` | Se agruparon visualmente datos generales, fechas administrativas y parametros seleccionables. El alta ya no presenta departamentos. |
+| `VotoUTN/templates/elecciones/base_gestion.html` | Se agrego el acceso de navegacion a Elecciones pasadas. |
+| `VotoUTN/apps/asistencia/tests.py` | Se actualizaron las pruebas de configuracion inicial sin departamentos y se agrego validacion del orden del calendario administrativo. |
+
+### Verificaciones al cierre
+
+- `python manage.py migrate`: aplico `elecciones.0007_fechas_administrativas` correctamente.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 17 pruebas correctas.

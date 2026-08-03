@@ -4,7 +4,7 @@ import hmac
 import struct
 import uuid
 
-from datetime import datetime, timedelta, time
+from datetime import date, datetime, timedelta, time
 
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -163,7 +163,6 @@ class GestionEleccionesTests(TestCase):
                 "habilitada": "on",
                 "sedes": [self.sede.id],
                 "claustros": [self.claustro.id],
-                "departamentos": [Departamento.objects.create(nombre="Sistemas", codigo="SIS").id],
                 "turnos": [self.turno.id],
             }
         )
@@ -175,7 +174,7 @@ class GestionEleccionesTests(TestCase):
         self.assertFalse(eleccion.habilitada)
         self.assertEqual(eleccion.elecciones_sede.count(), 1)
         self.assertEqual(eleccion.elecciones_claustro.count(), 1)
-        self.assertEqual(EleccionClaustroDepartamento.objects.filter(eleccion_claustro__eleccion=eleccion).count(), 1)
+        self.assertEqual(EleccionClaustroDepartamento.objects.filter(eleccion_claustro__eleccion=eleccion).count(), 0)
         self.assertTrue(EleccionTurno.objects.filter(eleccion=eleccion, turno=self.turno).exists())
 
     def test_generacion_crea_mesas_numeradas_y_valida_turno_habilitado(self):
@@ -206,6 +205,19 @@ class GestionEleccionesTests(TestCase):
         mesa = Mesa(eleccion=eleccion, numero=3, eleccion_claustro_departamento=configuracion, sede=self.sede, turno=turno_ajeno)
         with self.assertRaises(ValidationError):
             mesa.full_clean()
+
+    def test_calendario_administrativo_exige_orden_del_padron(self):
+        inicio = make_aware(datetime(2026, 8, 10, 8))
+        eleccion = Eleccion(
+            nombre="Eleccion con calendario",
+            fecha_inicio=inicio,
+            fecha_fin=inicio + timedelta(hours=8),
+            fecha_apertura_padron_provisorio=date(2026, 8, 5),
+            fecha_cierre_padron_provisorio=date(2026, 8, 4),
+        )
+
+        with self.assertRaises(ValidationError):
+            eleccion.full_clean()
 
 
 class ParametrosElectoralesTests(TestCase):

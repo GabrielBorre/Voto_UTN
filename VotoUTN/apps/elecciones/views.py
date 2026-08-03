@@ -29,6 +29,25 @@ PARAMETROS = {
     "turnos": {"modelo": Turno, "formulario": FormularioTurno, "titulo": "Turnos", "estado": "activo", "codigo": False},
 }
 
+CAMPO_FECHAS_ADMINISTRATIVAS = (
+    "fecha_apertura_padron_provisorio",
+    "fecha_cierre_padron_provisorio",
+    "fecha_cierre_candidaturas",
+    "fecha_publicacion_padron_definitivo",
+    "fecha_limite_justificacion_autoridades",
+    "fecha_limite_justificacion_electores",
+)
+
+
+def contexto_formulario_eleccion(formulario, incluir_parametros=False):
+    contexto = {
+        "campos_generales": [formulario[nombre] for nombre in ("nombre", "fecha_inicio", "fecha_fin")],
+        "campos_administrativos": [formulario[nombre] for nombre in CAMPO_FECHAS_ADMINISTRATIVAS],
+    }
+    if incluir_parametros:
+        contexto["campos_parametros"] = [formulario[nombre] for nombre in ("sedes", "claustros", "turnos")]
+    return contexto
+
 
 def obtener_parametro(tipo):
     try:
@@ -108,7 +127,14 @@ def cambiar_estado_parametro(request, tipo, objeto_id):
 def gestionar_elecciones(request):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para gestionar elecciones.")
-    return render(request, "elecciones/gestion_lista.html", {"elecciones": Eleccion.objects.all()})
+    return render(request, "elecciones/gestion_lista.html", {"elecciones": Eleccion.objects.exclude(estado=Eleccion.Estado.CERRADA)})
+
+
+@login_required
+def historial_elecciones(request):
+    if not puede_administrar_elecciones(request.user):
+        return HttpResponseForbidden("No tiene permiso para consultar el historial.")
+    return render(request, "elecciones/historial_elecciones.html", {"elecciones": Eleccion.objects.filter(estado=Eleccion.Estado.CERRADA)})
 
 
 @login_required
@@ -120,8 +146,8 @@ def crear_eleccion(request):
     if request.method == "POST" and formulario.is_valid():
         eleccion = formulario.save()
         messages.success(request, "La eleccion fue creada y quedo configurada.")
-        return redirect("gestionar-mesas", eleccion_id=eleccion.id)
-    return render(request, "elecciones/formulario_eleccion.html", {"formulario": formulario})
+        return redirect("gestionar-elecciones")
+    return render(request, "elecciones/formulario_eleccion.html", {"formulario": formulario, **contexto_formulario_eleccion(formulario, incluir_parametros=True)})
 
 
 @login_required
@@ -136,7 +162,7 @@ def editar_eleccion(request, eleccion_id):
         formulario.save()
         messages.success(request, "Los datos de la eleccion fueron actualizados.")
         return redirect("gestionar-elecciones")
-    return render(request, "elecciones/editar_eleccion.html", {"eleccion": eleccion, "formulario": formulario})
+    return render(request, "elecciones/editar_eleccion.html", {"eleccion": eleccion, "formulario": formulario, **contexto_formulario_eleccion(formulario)})
 
 
 @login_required

@@ -67,6 +67,12 @@ class Eleccion(models.Model):
     nombre = models.CharField("nombre", max_length=180)
     fecha_inicio = models.DateTimeField("inicio")
     fecha_fin = models.DateTimeField("fin")
+    fecha_apertura_padron_provisorio = models.DateField(null=True, blank=True)
+    fecha_cierre_padron_provisorio = models.DateField(null=True, blank=True)
+    fecha_cierre_candidaturas = models.DateField(null=True, blank=True)
+    fecha_publicacion_padron_definitivo = models.DateField(null=True, blank=True)
+    fecha_limite_justificacion_autoridades = models.DateField(null=True, blank=True)
+    fecha_limite_justificacion_electores = models.DateField(null=True, blank=True)
     habilitada = models.BooleanField("habilitada", default=True)
     estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.BORRADOR)
 
@@ -76,13 +82,25 @@ class Eleccion(models.Model):
     def clean(self):
         if self.fecha_inicio >= self.fecha_fin:
             raise ValidationError({"fecha_fin": "Debe ser posterior a la fecha de inicio."})
+        fechas_ordenadas = (
+            ("fecha_apertura_padron_provisorio", "fecha_cierre_padron_provisorio"),
+            ("fecha_cierre_padron_provisorio", "fecha_publicacion_padron_definitivo"),
+            ("fecha_publicacion_padron_definitivo", "fecha_inicio"),
+        )
+        for inicial, final in fechas_ordenadas:
+            valor_inicial = getattr(self, inicial)
+            valor_final = getattr(self, final)
+            if inicial == "fecha_publicacion_padron_definitivo" and valor_final:
+                valor_final = valor_final.date()
+            if valor_inicial and valor_final and valor_inicial > valor_final:
+                raise ValidationError({final: "Debe ser posterior o igual a la fecha administrativa anterior."})
 
     def validar_configuracion(self):
         if not self.elecciones_sede.exists() or not self.elecciones_claustro.exists() or not self.elecciones_turno.exists():
             raise ValidationError("La eleccion debe tener sedes, claustros y turnos configurados.")
         for eleccion_claustro in self.elecciones_claustro.all():
-            if not eleccion_claustro.sedes_habilitadas.exists() or not eleccion_claustro.departamentos.exists():
-                raise ValidationError("Cada claustro debe tener sedes y departamentos habilitados.")
+            if not eleccion_claustro.sedes_habilitadas.exists():
+                raise ValidationError("Cada claustro debe tener al menos una sede habilitada.")
             for configuracion in eleccion_claustro.departamentos.all():
                 if not configuracion.sedes_habilitadas.exists():
                     raise ValidationError("Cada departamento debe tener al menos una sede habilitada.")

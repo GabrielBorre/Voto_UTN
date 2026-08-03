@@ -20,26 +20,40 @@ from .models import (
 class FormularioEleccion(forms.ModelForm):
     sedes = forms.ModelMultipleChoiceField(queryset=Sede.objects.none(), widget=forms.CheckboxSelectMultiple)
     claustros = forms.ModelMultipleChoiceField(queryset=Claustro.objects.none(), widget=forms.CheckboxSelectMultiple)
-    departamentos = forms.ModelMultipleChoiceField(queryset=Departamento.objects.none(), widget=forms.CheckboxSelectMultiple)
     turnos = forms.ModelMultipleChoiceField(queryset=Turno.objects.none(), widget=forms.CheckboxSelectMultiple)
 
     class Meta:
         model = Eleccion
-        fields = ("nombre", "fecha_inicio", "fecha_fin")
+        fields = (
+            "nombre",
+            "fecha_inicio",
+            "fecha_fin",
+            "fecha_apertura_padron_provisorio",
+            "fecha_cierre_padron_provisorio",
+            "fecha_cierre_candidaturas",
+            "fecha_publicacion_padron_definitivo",
+            "fecha_limite_justificacion_autoridades",
+            "fecha_limite_justificacion_electores",
+        )
         widgets = {
             "fecha_inicio": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "fecha_fin": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "fecha_apertura_padron_provisorio": forms.DateInput(attrs={"type": "date"}),
+            "fecha_cierre_padron_provisorio": forms.DateInput(attrs={"type": "date"}),
+            "fecha_cierre_candidaturas": forms.DateInput(attrs={"type": "date"}),
+            "fecha_publicacion_padron_definitivo": forms.DateInput(attrs={"type": "date"}),
+            "fecha_limite_justificacion_autoridades": forms.DateInput(attrs={"type": "date"}),
+            "fecha_limite_justificacion_electores": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["sedes"].queryset = Sede.objects.filter(activa=True)
         self.fields["claustros"].queryset = Claustro.objects.filter(activo=True)
-        self.fields["departamentos"].queryset = Departamento.objects.filter(activo=True)
         self.fields["turnos"].queryset = Turno.objects.filter(activo=True)
-        for nombre in ("sedes", "claustros", "departamentos", "turnos"):
+        for nombre in ("sedes", "claustros", "turnos"):
             self.fields[nombre].widget.attrs["class"] = "checkbox-list"
-        for nombre in ("nombre", "fecha_inicio", "fecha_fin"):
+        for nombre in self.Meta.fields:
             self.fields[nombre].widget.attrs.setdefault("class", "form-control")
 
     @transaction.atomic
@@ -64,30 +78,22 @@ class FormularioEleccion(forms.ModelForm):
             EleccionClaustroSede.objects.bulk_create(
                 [EleccionClaustroSede(eleccion_claustro=eleccion_claustro, sede=sede) for sede in sedes]
             )
-            for departamento in self.cleaned_data["departamentos"]:
-                configuracion = EleccionClaustroDepartamento.objects.create(
-                    eleccion_claustro=eleccion_claustro,
-                    departamento=departamento,
-                )
-                EleccionClaustroDepartamentoSede.objects.bulk_create(
-                    [
-                        EleccionClaustroDepartamentoSede(
-                            eleccion_claustro_departamento=configuracion,
-                            sede=sede,
-                        )
-                        for sede in sedes
-                    ]
-                )
         return eleccion
 
 
 class FormularioEditarEleccion(forms.ModelForm):
     class Meta:
         model = Eleccion
-        fields = ("nombre", "fecha_inicio", "fecha_fin")
+        fields = FormularioEleccion.Meta.fields
         widgets = {
             "fecha_inicio": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "fecha_fin": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "fecha_apertura_padron_provisorio": forms.DateInput(attrs={"type": "date"}),
+            "fecha_cierre_padron_provisorio": forms.DateInput(attrs={"type": "date"}),
+            "fecha_cierre_candidaturas": forms.DateInput(attrs={"type": "date"}),
+            "fecha_publicacion_padron_definitivo": forms.DateInput(attrs={"type": "date"}),
+            "fecha_limite_justificacion_autoridades": forms.DateInput(attrs={"type": "date"}),
+            "fecha_limite_justificacion_electores": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):

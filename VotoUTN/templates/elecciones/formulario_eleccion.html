@@ -3,8 +3,10 @@
 {% block title %}Nueva eleccion | Junta Electoral UTN{% endblock %}
 
 {% block content %}
-<section class="hero"><h1>Nueva eleccion</h1><p>Define los datos generales y selecciona los parametros activos que formaran parte del proceso electoral.</p></section>
-<section class="card form-card"><div class="section-title"><div><h2>Crear nueva eleccion</h2><p>Los parametros seleccionados se heredan en la configuracion inicial.</p></div><span class="tag">Preparacion</span></div><form method="post">{% csrf_token %}
-{% for field in formulario %}<div class="field">{% if field.name in 'sedes claustros departamentos turnos' %}<label>{{ field.label }}</label><p class="muted">Selecciona uno o mas parametros activos.</p>{{ field }}{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}{% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
-<div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Cancelar</a><button class="button primary">Crear y configurar mesas</button></div></form></section>
+<section class="hero"><h1>Nueva eleccion</h1><p>Define los datos generales, el calendario administrativo y los parametros activos del proceso electoral.</p></section>
+<section class="card form-card"><div class="section-title"><div><h2>Crear nueva eleccion</h2><p>Los departamentos se asociaran al importar el padron de cada claustro.</p></div><span class="tag">Preparacion</span></div><form method="post">{% csrf_token %}
+{% for field in campos_generales %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}
+<div class="section-title"><div><h2>Fechas administrativas</h2><p>Hitos previos al acto electoral.</p></div></div>{% for field in campos_administrativos %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}
+<div class="section-title"><div><h2>Parametros de eleccion</h2><p>Selecciona las opciones que participaran en este proceso.</p></div></div>{% for field in campos_parametros %}<div class="field"><label>{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}{% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+<div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Cancelar</a><button class="button primary">Crear eleccion</button></div></form></section>
 {% endblock %}
