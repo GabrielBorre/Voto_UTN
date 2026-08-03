@@ -57,6 +57,39 @@ class Departamento(models.Model):
         return self.nombre
 
 
+class FechaAdministrativa(models.Model):
+    class RolDestinatario(models.TextChoices):
+        ADMINISTRADOR_JUNTA = "administrador_junta", "Administrador de junta"
+        ADMINISTRATIVO_JUNTA = "administrativo_junta", "Administrativo de junta"
+        AUTORIDAD_MESA = "autoridad_mesa", "Autoridad de mesa"
+        ELECTOR = "elector", "Elector"
+
+    nombre = models.CharField(max_length=160, unique=True)
+    roles_destinatarios = models.JSONField(default=list)
+    claustros = models.ManyToManyField(Claustro, related_name="fechas_administrativas")
+    asunto_notificacion = models.CharField(max_length=180)
+    mensaje_notificacion = models.TextField()
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("nombre",)
+
+    def clean(self):
+        roles_validos = {rol for rol, _ in self.RolDestinatario.choices}
+        if not self.roles_destinatarios:
+            raise ValidationError({"roles_destinatarios": "Debe seleccionar al menos un rol destinatario."})
+        if not set(self.roles_destinatarios).issubset(roles_validos):
+            raise ValidationError({"roles_destinatarios": "Contiene roles destinatarios invalidos."})
+
+    @property
+    def roles_destinatarios_display(self):
+        etiquetas = dict(self.RolDestinatario.choices)
+        return ", ".join(etiquetas[rol] for rol in self.roles_destinatarios)
+
+    def __str__(self):
+        return self.nombre
+
+
 class Eleccion(models.Model):
     class Estado(models.TextChoices):
         BORRADOR = "borrador", "Borrador"
@@ -229,6 +262,19 @@ class RegistroPadron(models.Model):
     def clean(self):
         if self.eleccion_id != self.eleccion_claustro_departamento.eleccion_claustro.eleccion_id:
             raise ValidationError({"eleccion_claustro_departamento": "Debe pertenecer a la misma elección."})
+
+
+class FechaAdministrativaEleccion(models.Model):
+    eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="fechas_administrativas")
+    fecha_administrativa = models.ForeignKey(FechaAdministrativa, on_delete=models.PROTECT, related_name="programaciones")
+    fecha = models.DateField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("eleccion", "fecha_administrativa"), name="fecha_administrativa_unica_por_eleccion")]
+
+    def clean(self):
+        if self.eleccion_id and self.fecha and not self.eleccion.fecha_inicio.date() <= self.fecha <= self.eleccion.fecha_fin.date():
+            raise ValidationError({"fecha": "Debe estar comprendida entre el inicio y el fin de la eleccion."})
 
 
 class AsignacionMesa(models.Model):

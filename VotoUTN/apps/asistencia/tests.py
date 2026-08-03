@@ -27,6 +27,8 @@ from apps.elecciones.models import (
     EleccionSede,
     EleccionTurno,
     Elector,
+    FechaAdministrativa,
+    FechaAdministrativaEleccion,
     Mesa,
     Sede,
     Turno,
@@ -218,6 +220,45 @@ class GestionEleccionesTests(TestCase):
 
         with self.assertRaises(ValidationError):
             eleccion.full_clean()
+
+    def test_crea_fechas_administrativas_seleccionadas_para_la_eleccion(self):
+        fecha_administrativa = FechaAdministrativa.objects.create(
+            nombre="Publicacion de padron",
+            roles_destinatarios=[FechaAdministrativa.RolDestinatario.ELECTOR],
+            asunto_notificacion="Padron disponible",
+            mensaje_notificacion="El padron esta disponible.",
+        )
+        fecha_administrativa.claustros.add(self.claustro)
+        formulario = FormularioEleccion(
+            data={
+                "nombre": "Eleccion con hitos",
+                "fecha_inicio": "2026-08-03T08:00",
+                "fecha_fin": "2026-08-03T18:00",
+                "sedes": [self.sede.id],
+                "claustros": [self.claustro.id],
+                "turnos": [self.turno.id],
+                f"fecha_{fecha_administrativa.id}_seleccionada": "on",
+                f"fecha_{fecha_administrativa.id}_valor": "2026-08-03",
+            }
+        )
+
+        self.assertTrue(formulario.is_valid(), formulario.errors)
+        eleccion = formulario.save()
+        self.assertTrue(
+            FechaAdministrativaEleccion.objects.filter(
+                eleccion=eleccion,
+                fecha_administrativa=fecha_administrativa,
+                fecha=date(2026, 8, 3),
+            ).exists()
+        )
+
+        programacion = FechaAdministrativaEleccion(
+            eleccion=eleccion,
+            fecha_administrativa=fecha_administrativa,
+            fecha=date(2026, 8, 4),
+        )
+        with self.assertRaises(ValidationError):
+            programacion.full_clean()
 
 
 class ParametrosElectoralesTests(TestCase):

@@ -12,12 +12,13 @@ from .forms import (
     FormularioDepartamento,
     FormularioEleccion,
     FormularioEditarEleccion,
+    FormularioFechaAdministrativa,
     FormularioGenerarMesas,
     FormularioSede,
     FormularioTurno,
     preparar_formulario_parametro,
 )
-from .models import Claustro, Departamento, Eleccion, EleccionClaustro, EleccionClaustroDepartamento, Sede, Turno
+from .models import Claustro, Departamento, Eleccion, EleccionClaustro, EleccionClaustroDepartamento, FechaAdministrativa, Sede, Turno
 from apps.usuarios.permisos import elecciones_con_participacion
 from apps.usuarios.permisos import puede_administrar_elecciones, puede_administrar_parametros
 
@@ -27,22 +28,21 @@ PARAMETROS = {
     "claustros": {"modelo": Claustro, "formulario": FormularioClaustro, "titulo": "Claustros", "estado": "activo", "codigo": True},
     "departamentos": {"modelo": Departamento, "formulario": FormularioDepartamento, "titulo": "Departamentos", "estado": "activo", "codigo": True},
     "turnos": {"modelo": Turno, "formulario": FormularioTurno, "titulo": "Turnos", "estado": "activo", "codigo": False},
+    "fechas-administrativas": {"modelo": FechaAdministrativa, "formulario": FormularioFechaAdministrativa, "titulo": "Fechas administrativas", "estado": "activa", "codigo": False, "es_fecha": True},
 }
-
-CAMPO_FECHAS_ADMINISTRATIVAS = (
-    "fecha_apertura_padron_provisorio",
-    "fecha_cierre_padron_provisorio",
-    "fecha_cierre_candidaturas",
-    "fecha_publicacion_padron_definitivo",
-    "fecha_limite_justificacion_autoridades",
-    "fecha_limite_justificacion_electores",
-)
 
 
 def contexto_formulario_eleccion(formulario, incluir_parametros=False):
     contexto = {
         "campos_generales": [formulario[nombre] for nombre in ("nombre", "fecha_inicio", "fecha_fin")],
-        "campos_administrativos": [formulario[nombre] for nombre in CAMPO_FECHAS_ADMINISTRATIVAS],
+        "campos_fechas_administrativas": [
+            {
+                "definicion": definicion,
+                "seleccionada": formulario[f"fecha_{definicion.id}_seleccionada"],
+                "fecha": formulario[f"fecha_{definicion.id}_valor"],
+            }
+            for definicion in getattr(formulario, "definiciones_fechas", [])
+        ],
     }
     if incluir_parametros:
         contexto["campos_parametros"] = [formulario[nombre] for nombre in ("sedes", "claustros", "turnos")]
@@ -86,7 +86,7 @@ def listar_parametros(request, tipo):
     return render(
         request,
         "elecciones/parametro_lista.html",
-        {"tipo": tipo, "titulo": configuracion["titulo"], "objetos": objetos, "consulta": consulta, "campo_estado": configuracion["estado"], "tiene_codigo": configuracion["codigo"]},
+        {"tipo": tipo, "titulo": configuracion["titulo"], "objetos": objetos, "consulta": consulta, "campo_estado": configuracion["estado"], "tiene_codigo": configuracion["codigo"], "es_fecha": configuracion.get("es_fecha", False)},
     )
 
 

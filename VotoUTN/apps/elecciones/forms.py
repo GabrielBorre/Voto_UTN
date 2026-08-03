@@ -11,6 +11,8 @@ from .models import (
     EleccionClaustroSede,
     EleccionSede,
     EleccionTurno,
+    FechaAdministrativa,
+    FechaAdministrativaEleccion,
     Mesa,
     Sede,
     Turno,
@@ -28,22 +30,10 @@ class FormularioEleccion(forms.ModelForm):
             "nombre",
             "fecha_inicio",
             "fecha_fin",
-            "fecha_apertura_padron_provisorio",
-            "fecha_cierre_padron_provisorio",
-            "fecha_cierre_candidaturas",
-            "fecha_publicacion_padron_definitivo",
-            "fecha_limite_justificacion_autoridades",
-            "fecha_limite_justificacion_electores",
         )
         widgets = {
             "fecha_inicio": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "fecha_fin": forms.DateTimeInput(attrs={"type": "datetime-local"}),
-            "fecha_apertura_padron_provisorio": forms.DateInput(attrs={"type": "date"}),
-            "fecha_cierre_padron_provisorio": forms.DateInput(attrs={"type": "date"}),
-            "fecha_cierre_candidaturas": forms.DateInput(attrs={"type": "date"}),
-            "fecha_publicacion_padron_definitivo": forms.DateInput(attrs={"type": "date"}),
-            "fecha_limite_justificacion_autoridades": forms.DateInput(attrs={"type": "date"}),
-            "fecha_limite_justificacion_electores": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -55,6 +45,10 @@ class FormularioEleccion(forms.ModelForm):
             self.fields[nombre].widget.attrs["class"] = "checkbox-list"
         for nombre in self.Meta.fields:
             self.fields[nombre].widget.attrs.setdefault("class", "form-control")
+        self.definiciones_fechas = list(FechaAdministrativa.objects.filter(activa=True).prefetch_related("claustros"))
+        for definicion in self.definiciones_fechas:
+            self.fields[f"fecha_{definicion.id}_seleccionada"] = forms.BooleanField(required=False, label=definicion.nombre)
+            self.fields[f"fecha_{definicion.id}_valor"] = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
 
     @transaction.atomic
     def save(self, commit=True):
@@ -78,7 +72,27 @@ class FormularioEleccion(forms.ModelForm):
             EleccionClaustroSede.objects.bulk_create(
                 [EleccionClaustroSede(eleccion_claustro=eleccion_claustro, sede=sede) for sede in sedes]
             )
+        for definicion in self.definiciones_fechas:
+            if self.cleaned_data.get(f"fecha_{definicion.id}_seleccionada"):
+                FechaAdministrativaEleccion.objects.create(
+                    eleccion=eleccion,
+                    fecha_administrativa=definicion,
+                    fecha=self.cleaned_data[f"fecha_{definicion.id}_valor"],
+                )
         return eleccion
+
+    def clean(self):
+        cleaned_data = super().clean()
+        inicio = cleaned_data.get("fecha_inicio")
+        fin = cleaned_data.get("fecha_fin")
+        for definicion in self.definiciones_fechas:
+            seleccionada = cleaned_data.get(f"fecha_{definicion.id}_seleccionada")
+            fecha = cleaned_data.get(f"fecha_{definicion.id}_valor")
+            if seleccionada and not fecha:
+                self.add_error(f"fecha_{definicion.id}_valor", "Debe indicar una fecha.")
+            if seleccionada and fecha and inicio and fin and not inicio.date() <= fecha <= fin.date():
+                self.add_error(f"fecha_{definicion.id}_valor", "Debe estar entre el inicio y el fin de la eleccion.")
+        return cleaned_data
 
 
 class FormularioEditarEleccion(forms.ModelForm):
@@ -88,12 +102,6 @@ class FormularioEditarEleccion(forms.ModelForm):
         widgets = {
             "fecha_inicio": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "fecha_fin": forms.DateTimeInput(attrs={"type": "datetime-local"}),
-            "fecha_apertura_padron_provisorio": forms.DateInput(attrs={"type": "date"}),
-            "fecha_cierre_padron_provisorio": forms.DateInput(attrs={"type": "date"}),
-            "fecha_cierre_candidaturas": forms.DateInput(attrs={"type": "date"}),
-            "fecha_publicacion_padron_definitivo": forms.DateInput(attrs={"type": "date"}),
-            "fecha_limite_justificacion_autoridades": forms.DateInput(attrs={"type": "date"}),
-            "fecha_limite_justificacion_electores": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -181,10 +189,43 @@ class FormularioTurno(forms.ModelForm):
         }
 
 
+class FormularioFechaAdministrativa(forms.ModelForm):
+    roles_destinatarios = forms.MultipleChoiceField(
+        choices=FechaAdministrativa.RolDestinatario.choices,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    claustros = forms.ModelMultipleChoiceField(queryset=Claustro.objects.filter(activo=True), widget=forms.CheckboxSelectMultiple)
+
+    class Meta:
+        model = FechaAdministrativa
+        fields = ("nombre", "roles_destinatarios", "claustros", "asunto_notificacion", "mensaje_notificacion", "activa")
+        widgets = {"mensaje_notificacion": forms.Textarea(attrs={"rows": 5})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields["roles_destinatarios"].initial = self.instance.roles_destinatarios
+        for nombre in ("roles_destinatarios", "claustros"):
+            self.fields[nombre].widget.attrs["class"] = "checkbox-list"
+        for nombre, campo in self.fields.items():
+            if nombre not in ("roles_destinatarios", "claustros", "activa"):
+                campo.widget.attrs.setdefault("class", "form-control")
+
+    def save(self, commit=True):
+        instancia = super().save(commit=False)
+        instancia.roles_destinatarios = self.cleaned_data["roles_destinatarios"]
+        if commit:
+            instancia.save()
+            self.save_m2m()
+        return instancia
+
+
 def preparar_formulario_parametro(formulario):
     for campo in formulario.fields.values():
         if isinstance(campo.widget, forms.CheckboxInput):
             campo.widget.attrs["class"] = "form-check-input"
+        elif isinstance(campo.widget, forms.CheckboxSelectMultiple):
+            campo.widget.attrs.setdefault("class", "checkbox-list")
         else:
             campo.widget.attrs.setdefault("class", "form-control")
     return formulario

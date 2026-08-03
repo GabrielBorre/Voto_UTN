@@ -282,3 +282,27 @@ Fecha de cierre: 2026-08-03
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 17 pruebas correctas.
+
+### Complemento de etapa 5 - Fechas administrativas configurables
+
+Fecha de implementacion: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | Se crearon `FechaAdministrativa`, con nombre, roles destinatarios, claustros, asunto, mensaje y estado, y `FechaAdministrativaEleccion`, que programa una definicion para una eleccion concreta. La fecha programada se valida dentro del periodo electoral. |
+| `VotoUTN/apps/elecciones/migrations/0008_fechaadministrativa_fechaadministrativaeleccion.py` | Se genero y aplico la migracion aditiva para las nuevas tablas, sin alterar registros existentes. |
+| `VotoUTN/apps/elecciones/forms.py` | Se creo el ABM de definiciones de fechas administrativas. El formulario de eleccion carga dinamicamente las definiciones activas al final, con una casilla para incluir cada hito y un campo de fecha obligatorio cuando se selecciona. |
+| `VotoUTN/apps/elecciones/forms.py` | Las fechas administrativas fijas incorporadas previamente se conservan como compatibilidad de modelo, pero dejan de aparecer en la interfaz nueva. La seleccion de departamentos sigue fuera del alta y queda para la importacion de padron por claustro. |
+| `VotoUTN/apps/elecciones/views.py` | El panel de parametros incorpora Fechas administrativas como un quinto ABM y el formulario de alta expone sus definiciones dinamicas. |
+| `VotoUTN/apps/elecciones/admin.py` | Se registraron las definiciones y sus programaciones por eleccion en Django Admin. |
+| `VotoUTN/templates/elecciones/parametro_lista.html` | El listado de fechas administrativas muestra los roles destinatarios configurados. |
+| `VotoUTN/templates/elecciones/formulario_eleccion.html` | Las fechas administrativas son el ultimo bloque del alta: permite seleccionar los hitos aplicables y asignar una fecha individual a cada uno. |
+| `VotoUTN/apps/asistencia/tests.py` | Se agregaron pruebas para crear una programacion desde el alta y rechazar fechas fuera del periodo electoral. |
+
+### Verificaciones realizadas
+
+- `python manage.py migrate`: aplico `elecciones.0008_fechaadministrativa_fechaadministrativaeleccion` correctamente.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 18 pruebas correctas.

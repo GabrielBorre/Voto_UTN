@@ -12,6 +12,8 @@ from .models import (
     EleccionSede,
     EleccionTurno,
     Elector,
+    FechaAdministrativa,
+    FechaAdministrativaEleccion,
     Mesa,
     RegistroPadron,
     Sede,
@@ -19,8 +21,8 @@ from .models import (
 )
 
 
-admin.site.register((Sede, Claustro, Turno, Departamento, EleccionSede, EleccionClaustro, EleccionClaustroSede, EleccionTurno))
-admin.site.register((EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede, RegistroPadron, AsignacionMesa))
+admin.site.register((Sede, Claustro, Turno, Departamento, FechaAdministrativa, EleccionSede, EleccionClaustro, EleccionClaustroSede, EleccionTurno))
+admin.site.register((EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede, FechaAdministrativaEleccion, RegistroPadron, AsignacionMesa))
 
 
 @admin.register(Eleccion)
