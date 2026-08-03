@@ -1,0 +1,8 @@
+{% extends "elecciones/base_gestion.html" %}
+{% block title %}Revision de importacion | Junta Electoral UTN{% endblock %}
+{% block content %}
+<section class="hero"><h1>Revision de importacion</h1><p>{{ importacion.eleccion_claustro.claustro }} · {{ importacion.nombre_archivo }}</p></section>
+<section class="card"><div class="summary-grid"><div><strong>Filas</strong><span>{{ importacion.cantidad_filas }}</span></div><div><strong>Validas</strong><span>{{ importacion.cantidad_validas }}</span></div><div><strong>Errores</strong><span>{{ importacion.cantidad_errores }}</span></div><div><strong>Estado</strong><span>{{ importacion.get_estado_display }}</span></div></div></section>
+{% if importacion.errores.exists %}<section class="table-wrap"><table><thead><tr><th>Fila</th><th>Campo</th><th>Detalle</th></tr></thead><tbody>{% for error in importacion.errores.all %}<tr><td>{{ error.fila|default:"Archivo" }}</td><td>{{ error.campo }}</td><td>{{ error.mensaje }}</td></tr>{% endfor %}</tbody></table></section>{% endif %}
+<div class="footer-actions"><a class="button light" href="{% url 'previsualizar-padron' eleccion.id importacion.eleccion_claustro.id %}">Cargar otro archivo</a>{% if importacion.cantidad_errores %}<a class="button light" href="{% url 'descargar-errores-importacion' eleccion.id importacion.id %}">Descargar errores</a>{% endif %}{% if importacion.estado == 'previsualizada' %}<form method="post" action="{% url 'confirmar-importacion-padron' eleccion.id importacion.id %}">{% csrf_token %}<button class="button primary">Confirmar importacion</button></form>{% endif %}</div>
+{% endblock %}

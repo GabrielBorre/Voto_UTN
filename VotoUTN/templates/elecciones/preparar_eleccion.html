@@ -1,0 +1,7 @@
+{% extends "elecciones/base_gestion.html" %}
+{% block title %}Preparar eleccion | Junta Electoral UTN{% endblock %}
+{% block content %}
+<section class="hero"><h1>Preparacion de eleccion</h1><p>{{ eleccion.nombre }}. Configure e importe el padron de cada claustro.</p></section>
+<div class="footer-actions"><a class="button light" href="{% url 'historial-importaciones-padron' eleccion.id %}">Historial de importaciones</a><a class="button primary" href="{% url 'gestionar-mesas' eleccion.id %}">Gestionar mesas</a></div>
+<div class="table-wrap"><table><thead><tr><th>Claustro</th><th>Fecha de votacion</th><th>Maximo por mesa</th><th>Departamentos</th><th>Importaciones</th><th></th></tr></thead><tbody>{% for item in claustros %}<tr><td>{{ item.claustro }}</td><td>{{ item.fecha_votacion|date:"d/m/Y"|default:"Pendiente" }}</td><td>{{ item.maximo_votantes_por_mesa|default:"Pendiente" }}</td><td>{{ item.departamentos.count }}</td><td>{{ item.importaciones_padron.count }}</td><td class="actions"><a class="button light small" href="{% url 'preparar-claustro' eleccion.id item.id %}">Configuracion</a><a class="button primary small" href="{% url 'previsualizar-padron' eleccion.id item.id %}">Cargar padron</a></td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

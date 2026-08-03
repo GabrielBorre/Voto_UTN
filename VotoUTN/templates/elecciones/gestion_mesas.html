@@ -3,11 +3,9 @@
 {% block title %}Mesas | {{ eleccion.nombre }}{% endblock %}
 
 {% block content %}
-<section class="hero"><h1>{{ eleccion.nombre }}</h1><p>Genera mesas a partir de las configuraciones, sedes y turnos definidos para esta eleccion.</p></section>
-<section class="card"><div class="section-title"><div><h2>Generacion de mesas</h2><p>La numeracion es consecutiva dentro de la eleccion.</p></div><span class="tag">{{ eleccion.get_estado_display }}</span></div><form method="post">{% csrf_token %}<div class="toolbar">
-{% for field in formulario %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}
-</div><div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Volver</a><button class="button primary">Generar mesas</button></div></form></section>
-<div class="section-title"><div><h2>Mesas creadas</h2><p>Detalle operativo de la eleccion.</p></div></div><div class="table-wrap"><table><thead><tr><th>Numero</th><th>Claustro</th><th>Departamento</th><th>Sede</th><th>Turno</th></tr></thead><tbody>
-{% for mesa in mesas %}<tr><td>{{ mesa.numero }}</td><td>{{ mesa.eleccion_claustro_departamento.eleccion_claustro.claustro }}</td><td>{{ mesa.eleccion_claustro_departamento.departamento }}</td><td>{{ mesa.sede }}</td><td>{{ mesa.turno }}</td></tr>{% empty %}<tr><td colspan="5" class="muted">Aun no se generaron mesas.</td></tr>{% endfor %}
+<section class="hero"><h1>{{ eleccion.nombre }}</h1><p>Las mesas se generan automáticamente al confirmar el padrón de cada claustro.</p></section>
+<section class="card"><div class="section-title"><div><h2>Asignacion automatica</h2><p>Los electores se agrupan por departamento y sede, se ordenan alfabéticamente y se dividen según el máximo configurado por mesa.</p></div><span class="tag">{{ eleccion.get_estado_display }}</span></div></section>
+<div class="section-title"><div><h2>Mesas creadas</h2><p>Detalle operativo de la eleccion.</p></div></div><div class="table-wrap"><table><thead><tr><th>Numero</th><th>Claustro</th><th>Departamento</th><th>Sede</th><th>Turno</th><th>Origen</th></tr></thead><tbody>
+{% for mesa in mesas %}<tr><td>{{ mesa.numero }}</td><td>{{ mesa.eleccion_claustro_departamento.eleccion_claustro.claustro }}</td><td>{{ mesa.eleccion_claustro_departamento.departamento }}</td><td>{{ mesa.sede }}</td><td>{{ mesa.turno }}</td><td>{% if mesa.generada_automaticamente %}Padrón{% else %}Manual{% endif %}</td></tr>{% empty %}<tr><td colspan="6" class="muted">Todavia no hay mesas; se crean al confirmar un padrón valido.</td></tr>{% endfor %}
 </tbody></table></div>
 {% endblock %}

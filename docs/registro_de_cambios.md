@@ -307,6 +307,56 @@ Fecha de implementacion: 2026-08-03
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 18 pruebas correctas.
 
+### Complemento de etapa 6 - Configuracion central y mesas automaticas
+
+Fecha de implementacion: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | `RegistroPadron` ahora conserva la sede de asistencia de cada elector. `Mesa` incorpora `generada_automaticamente` para distinguir mesas derivadas del padrón de mesas históricas o manuales. |
+| `VotoUTN/apps/elecciones/migrations/0012_mesa_generada_automaticamente_registropadron_sede.py` | Agrega ambos campos de forma anulable o con valor por defecto, sin borrar ni modificar padrones o mesas existentes. |
+| `VotoUTN/apps/elecciones/servicios/importacion_padron.py` | Al confirmar un CSV se reconstruyen las mesas automáticas del claustro: agrupa el padrón por departamento y sede, ordena por nombre completo y legajo, toma el turno más temprano de la elección y divide cada grupo por el máximo de electores por mesa. Luego crea las asignaciones de mesa correspondientes. |
+| `VotoUTN/apps/elecciones/views.py` y `urls.py` | Se agregó `configurar-eleccion`. La lista de elecciones y el historial ahora incluyen todos los estados. La vista de mesas pasó a ser una consulta del resultado automático, sin formulario para elegir cantidades. |
+| `VotoUTN/templates/elecciones/configurar_eleccion.html` | Se creó el punto central de configuración con accesos a datos generales, sedes y departamentos, padrones y mesas. |
+| `VotoUTN/templates/elecciones/gestion_lista.html` y `historial_elecciones.html` | Se reemplazaron las acciones separadas de alcances y mesas por un único botón `Configuracion`; el historial muestra borradores, elecciones preparadas, abiertas y cerradas. |
+| `VotoUTN/templates/elecciones/base_gestion.html` y `gestion_mesas.html` | La navegación pasa a llamar `Historial de elecciones`; la pantalla de mesas explica y muestra la asignación automática, sin permitir definir una cantidad manual. |
+| `VotoUTN/apps/asistencia/tests.py` | Se agregó una prueba con tres electores y máximo dos por mesa. Comprueba la creación de dos mesas y la asignación alfabética `Ana Perez`, `Bruno Gomez`, `Zoe Alvarez`. |
+
+### Verificaciones realizadas
+
+- `python manage.py migrate`: aplicó `elecciones.0012_mesa_generada_automaticamente_registropadron_sede` correctamente.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 22 pruebas correctas.
+
+## Etapa 6 - Padrones e importaciones CSV
+
+Fecha de implementacion: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | `EleccionClaustro` incorpora fecha de votacion y maximo de votantes por mesa. Se agregaron `ImportacionPadron` y `ErrorImportacionPadron` para conservar archivo, huella SHA-256, claustro, usuario, fecha, estado, resumen y errores por fila. `Elector` ahora conserva correo electronico. |
+| `VotoUTN/apps/elecciones/migrations/0010_preparacion_por_claustro.py` | Agrega de forma anulable la fecha de votacion y el maximo por mesa a configuraciones de claustro existentes. |
+| `VotoUTN/apps/elecciones/migrations/0011_elector_correo_electronico_importacionpadron_and_more.py` | Agrega correo a electores y crea las tablas de trazabilidad de importaciones y errores sin modificar ni borrar padrones existentes. |
+| `VotoUTN/apps/elecciones/forms.py` | Se agrego la preparacion por claustro con fecha, capacidad, departamentos y sedes mediante casillas. No permite quitar sedes ya utilizadas por un padron importado. Se agrego el formulario CSV, limitado a 5 MB y extension `.csv`. |
+| `VotoUTN/apps/elecciones/servicios/importacion_padron.py` | Se creo el servicio de validacion y confirmacion. Exige las cabeceras `dni,legajo,nombres,apellidos,mail,departamento,sede`, UTF-8, DNI, correo, duplicados internos, departamento y sede habilitados para el claustro. Rechaza celdas que comiencen con `=`, `+`, `-` o `@`. La confirmacion verifica la huella y persiste en una transaccion; una reimportacion confirmada no duplica registros. |
+| `VotoUTN/apps/usuarios/permisos.py` | Se agrego `puede_importar_padron`; habilita a superusuario, administrador del sistema y roles de junta asignados a la eleccion. |
+| `VotoUTN/apps/elecciones/views.py` y `urls.py` | Se incorporaron descarga de plantilla, carga y previsualizacion, confirmacion, descarga de errores y listado historico de importaciones. Todas las rutas verifican permisos y bloquean importacion en elecciones abiertas o cerradas. |
+| `VotoUTN/templates/elecciones/preparar_eleccion.html`, `preparar_claustro.html`, `cargar_padron.html`, `detalle_importacion_padron.html` y `historial_importaciones_padron.html` | Se implemento el flujo visual de Junta Electoral: configuracion previa, plantilla, carga, resumen de filas, detalle de errores, confirmacion e historial. |
+| `VotoUTN/static/css/gestion-electoral.css` | Se agrego el resumen visual de importacion y su comportamiento responsive dentro de la identidad del maquetado administrativo. |
+| `VotoUTN/config/settings.py` y `config/urls.py` | Se agrego configuracion de `MEDIA_ROOT` y `MEDIA_URL`; los archivos se sirven solo en desarrollo cuando `DEBUG` esta activo. |
+| `VotoUTN/.gitignore` | Se excluyo `media/` para impedir que archivos de padron queden versionados. |
+| `VotoUTN/apps/asistencia/tests.py` | Se agregaron pruebas de CSV valido, confirmacion idempotente, persistencia de correo, rechazo de formulas y sedes fuera del alcance, y previsualizacion desde la interfaz. |
+
+### Verificaciones al cierre
+
+- `python manage.py migrate`: aplico `elecciones.0011_elector_correo_electronico_importacionpadron_and_more` correctamente.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes luego de aplicar la migracion.
+- `python manage.py test`: 21 pruebas correctas.
+
 ### Complemento de etapa 5 - Identificacion de parametros
 
 Fecha de cierre: 2026-08-03

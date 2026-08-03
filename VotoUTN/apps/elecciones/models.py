@@ -166,9 +166,15 @@ class EleccionSede(models.Model):
 class EleccionClaustro(models.Model):
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="elecciones_claustro")
     claustro = models.ForeignKey(Claustro, on_delete=models.PROTECT, related_name="elecciones_claustro")
+    fecha_votacion = models.DateField(null=True, blank=True)
+    maximo_votantes_por_mesa = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("eleccion", "claustro"), name="claustro_unico_por_eleccion")]
+
+    def clean(self):
+        if self.fecha_votacion and not self.eleccion.fecha_inicio.date() <= self.fecha_votacion <= self.eleccion.fecha_fin.date():
+            raise ValidationError({"fecha_votacion": "Debe estar comprendida entre el inicio y el fin de la eleccion."})
 
 
 class EleccionTurno(models.Model):
@@ -217,6 +223,7 @@ class Mesa(models.Model):
     eleccion_claustro_departamento = models.ForeignKey(EleccionClaustroDepartamento, on_delete=models.PROTECT, related_name="mesas", null=True, blank=True)
     sede = models.ForeignKey(Sede, on_delete=models.PROTECT, related_name="mesas", null=True, blank=True)
     turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="mesas", null=True, blank=True)
+    generada_automaticamente = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["eleccion_id", "numero"]
@@ -238,6 +245,7 @@ class Elector(models.Model):
     legajo = models.CharField("legajo", max_length=20, unique=True)
     nombre = models.CharField("nombre", max_length=180)
     dni = models.CharField("DNI", max_length=12, unique=True)
+    correo_electronico = models.EmailField("correo electronico", blank=True)
     mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name="electores", null=True, blank=True)
 
     class Meta:
@@ -251,6 +259,7 @@ class RegistroPadron(models.Model):
     elector = models.ForeignKey(Elector, on_delete=models.PROTECT, related_name="registros_padron")
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="registros_padron")
     eleccion_claustro_departamento = models.ForeignKey(EleccionClaustroDepartamento, on_delete=models.PROTECT, related_name="registros_padron")
+    sede = models.ForeignKey(Sede, on_delete=models.PROTECT, related_name="registros_padron", null=True, blank=True)
     activo = models.BooleanField(default=True)
     identificador_qr = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
@@ -258,8 +267,54 @@ class RegistroPadron(models.Model):
         constraints = [models.UniqueConstraint(fields=("elector", "eleccion"), name="elector_unico_por_eleccion")]
 
     def clean(self):
+        self.validar_sede()
         if self.eleccion_id != self.eleccion_claustro_departamento.eleccion_claustro.eleccion_id:
             raise ValidationError({"eleccion_claustro_departamento": "Debe pertenecer a la misma elección."})
+
+
+    def validar_sede(self):
+        if self.sede_id and not EleccionClaustroDepartamentoSede.objects.filter(
+            eleccion_claustro_departamento=self.eleccion_claustro_departamento,
+            sede=self.sede,
+        ).exists():
+            raise ValidationError({"sede": "Debe estar habilitada para el departamento del padron."})
+
+
+class ImportacionPadron(models.Model):
+    class Estado(models.TextChoices):
+        PREVISUALIZADA = "previsualizada", "Previsualizada"
+        CONFIRMADA = "confirmada", "Confirmada"
+        RECHAZADA = "rechazada", "Rechazada"
+
+    eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="importaciones_padron")
+    eleccion_claustro = models.ForeignKey(EleccionClaustro, on_delete=models.PROTECT, related_name="importaciones_padron")
+    archivo = models.FileField(upload_to="padrones/%Y/%m/%d")
+    nombre_archivo = models.CharField(max_length=255)
+    huella_archivo = models.CharField(max_length=64)
+    estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.PREVISUALIZADA)
+    cantidad_filas = models.PositiveIntegerField(default=0)
+    cantidad_validas = models.PositiveIntegerField(default=0)
+    cantidad_errores = models.PositiveIntegerField(default=0)
+    creada_en = models.DateTimeField(auto_now_add=True)
+    confirmada_en = models.DateTimeField(null=True, blank=True)
+    usuario = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="importaciones_padron")
+
+    class Meta:
+        ordering = ("-creada_en",)
+
+    def clean(self):
+        if self.eleccion_claustro_id and self.eleccion_id != self.eleccion_claustro.eleccion_id:
+            raise ValidationError({"eleccion_claustro": "Debe pertenecer a la misma eleccion."})
+
+
+class ErrorImportacionPadron(models.Model):
+    importacion = models.ForeignKey(ImportacionPadron, on_delete=models.CASCADE, related_name="errores")
+    fila = models.PositiveIntegerField(null=True, blank=True)
+    campo = models.CharField(max_length=64, blank=True)
+    mensaje = models.CharField(max_length=300)
+
+    class Meta:
+        ordering = ("fila", "id")
 
 
 class FechaAdministrativaEleccion(models.Model):

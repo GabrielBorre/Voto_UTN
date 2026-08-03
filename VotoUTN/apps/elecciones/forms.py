@@ -14,9 +14,22 @@ from .models import (
     FechaAdministrativa,
     FechaAdministrativaEleccion,
     Mesa,
+    RegistroPadron,
     Sede,
     Turno,
 )
+
+
+class FormularioArchivoPadron(forms.Form):
+    archivo = forms.FileField(widget=forms.ClearableFileInput(attrs={"accept": ".csv,text/csv"}))
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data["archivo"]
+        if not archivo.name.lower().endswith(".csv"):
+            raise forms.ValidationError("Debe seleccionar un archivo CSV.")
+        if archivo.size > 5 * 1024 * 1024:
+            raise forms.ValidationError("El archivo no puede superar los 5 MB.")
+        return archivo
 
 
 class FormularioEleccion(forms.ModelForm):
@@ -159,6 +172,56 @@ class FormularioAlcanceSedes(forms.Form):
             for sede_id in nuevas:
                 EleccionClaustroDepartamentoSede.objects.get_or_create(eleccion_claustro_departamento=self.objeto, sede_id=sede_id)
             EleccionClaustroDepartamentoSede.objects.filter(eleccion_claustro_departamento=self.objeto, sede_id__in=removidas).delete()
+
+
+class FormularioPrepararClaustro(forms.ModelForm):
+    departamentos = forms.ModelMultipleChoiceField(queryset=Departamento.objects.none(), widget=forms.CheckboxSelectMultiple)
+    sedes = forms.ModelMultipleChoiceField(queryset=Sede.objects.none(), widget=forms.CheckboxSelectMultiple)
+
+    class Meta:
+        model = EleccionClaustro
+        fields = ("fecha_votacion", "maximo_votantes_por_mesa")
+        widgets = {"fecha_votacion": forms.DateInput(attrs={"type": "date"})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["departamentos"].queryset = Departamento.objects.filter(activo=True)
+        self.fields["sedes"].queryset = Sede.objects.filter(elecciones_sede__eleccion=self.instance.eleccion).distinct()
+        self.fields["departamentos"].initial = self.instance.departamentos.values_list("departamento_id", flat=True)
+        self.fields["sedes"].initial = self.instance.sedes_habilitadas.values_list("sede_id", flat=True)
+        for nombre in ("departamentos", "sedes"):
+            self.fields[nombre].widget.attrs["class"] = "checkbox-list"
+        for nombre in ("fecha_votacion", "maximo_votantes_por_mesa"):
+            self.fields[nombre].widget.attrs["class"] = "form-control"
+
+    def clean_sedes(self):
+        sedes = self.cleaned_data["sedes"]
+        if not sedes:
+            raise forms.ValidationError("Debe seleccionar al menos una sede habilitada.")
+        actuales = set(self.instance.sedes_habilitadas.values_list("sede_id", flat=True))
+        removidas = actuales - set(sedes.values_list("id", flat=True))
+        if RegistroPadron.objects.filter(
+            eleccion_claustro_departamento__eleccion_claustro=self.instance,
+            eleccion_claustro_departamento__sedes_habilitadas__sede_id__in=removidas,
+        ).exists():
+            raise forms.ValidationError("No se puede quitar una sede utilizada por un padrón importado.")
+        return sedes
+
+    @transaction.atomic
+    def save(self, commit=True):
+        instancia = super().save(commit=commit)
+        if not commit:
+            return instancia
+        sedes = self.cleaned_data["sedes"]
+        seleccionadas = set(sedes.values_list("id", flat=True))
+        instancia.sedes_habilitadas.exclude(sede_id__in=seleccionadas).delete()
+        for sede in sedes:
+            EleccionClaustroSede.objects.get_or_create(eleccion_claustro=instancia, sede=sede)
+        for departamento in self.cleaned_data["departamentos"]:
+            configuracion, _ = EleccionClaustroDepartamento.objects.get_or_create(eleccion_claustro=instancia, departamento=departamento)
+            for sede in sedes:
+                EleccionClaustroDepartamentoSede.objects.get_or_create(eleccion_claustro_departamento=configuracion, sede=sede)
+        return instancia
 
 
 class FormularioSede(forms.ModelForm):

@@ -7,8 +7,10 @@ import uuid
 from datetime import date, datetime, timedelta, time
 
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.urls import reverse
 from django.utils.timezone import make_aware
 
 from apps.asistencia.models import Asistencia
@@ -30,9 +32,12 @@ from apps.elecciones.models import (
     FechaAdministrativa,
     FechaAdministrativaEleccion,
     Mesa,
+    ImportacionPadron,
+    RegistroPadron,
     Sede,
     Turno,
 )
+from apps.elecciones.servicios.importacion_padron import confirmar_importacion, validar_csv_padron
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import puede_administrar_parametros, puede_registrar_participacion
 
@@ -346,3 +351,84 @@ class CicloDeVidaEleccionTests(TestCase):
 
         self.assertFalse(formulario.is_valid())
         self.assertIn("No se puede quitar", formulario.errors["sedes"][0])
+
+
+class ImportacionPadronTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user(username="junta")
+        self.eleccion = Eleccion.objects.create(
+            nombre="Eleccion de prueba",
+            fecha_inicio=make_aware(datetime(2026, 8, 3, 8)),
+            fecha_fin=make_aware(datetime(2026, 8, 3, 18)),
+        )
+        self.claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion,
+            claustro=Claustro.objects.create(nombre="Estudiantes"),
+            maximo_votantes_por_mesa=2,
+        )
+        turno = Turno.objects.create(nombre="Tarde", hora_inicio=time(13), hora_fin=time(18))
+        EleccionTurno.objects.create(eleccion=self.eleccion, turno=turno)
+        configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=self.claustro,
+            departamento=Departamento.objects.create(nombre="Sistemas", codigo="K"),
+        )
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=configuracion,
+            sede=Sede.objects.create(nombre="Campus Medrano"),
+        )
+
+    def crear_importacion(self, contenido):
+        return ImportacionPadron.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro=self.claustro,
+            archivo=SimpleUploadedFile("padron.csv", contenido, content_type="text/csv"),
+            nombre_archivo="padron.csv",
+            huella_archivo=hashlib.sha256(contenido).hexdigest(),
+            usuario=self.usuario,
+        )
+
+    def test_confirma_csv_valido_y_es_idempotente(self):
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@example.com,K,Campus Medrano\n"
+        importacion = self.crear_importacion(contenido)
+
+        self.assertEqual(confirmar_importacion(importacion), 1)
+        self.assertEqual(RegistroPadron.objects.count(), 1)
+        self.assertEqual(Elector.objects.get(dni="12345678").correo_electronico, "ana@example.com")
+        self.assertEqual(confirmar_importacion(importacion), 0)
+
+    def test_rechaza_formula_y_sede_fuera_del_alcance(self):
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n=12345678,1001,Ana,Perez,ana@example.com,K,Sede ajena\n"
+        resultado = validar_csv_padron(contenido, self.claustro)
+
+        self.assertGreaterEqual(len(resultado.errores), 2)
+        self.assertTrue(any(campo == "dni" for _, campo, _ in resultado.errores))
+        self.assertTrue(any(campo == "sede" for _, campo, _ in resultado.errores))
+
+    def test_previsualizacion_desde_la_interfaz_crea_historial(self):
+        self.usuario.is_superuser = True
+        self.usuario.save(update_fields=("is_superuser",))
+        self.client.force_login(self.usuario)
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@example.com,K,Campus Medrano\n"
+
+        respuesta = self.client.post(
+            reverse("previsualizar-padron", args=(self.eleccion.id, self.claustro.id)),
+            {"archivo": SimpleUploadedFile("padron.csv", contenido, content_type="text/csv")},
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(ImportacionPadron.objects.get().estado, ImportacionPadron.Estado.PREVISUALIZADA)
+
+    def test_divide_padron_alfabeticamente_segun_maximo_por_mesa(self):
+        contenido = (
+            b"dni,legajo,nombres,apellidos,mail,departamento,sede\n"
+            b"12345678,1003,Zoe,Alvarez,zoe@example.com,K,Campus Medrano\n"
+            b"12345679,1001,Ana,Perez,ana@example.com,K,Campus Medrano\n"
+            b"12345680,1002,Bruno,Gomez,bruno@example.com,K,Campus Medrano\n"
+        )
+
+        confirmar_importacion(self.crear_importacion(contenido))
+
+        mesas = list(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).order_by("numero"))
+        self.assertEqual(len(mesas), 2)
+        self.assertEqual(list(mesas[0].asignaciones_padron.order_by("registro_padron__elector__nombre").values_list("registro_padron__elector__nombre", flat=True)), ["Ana Perez", "Bruno Gomez"])
+        self.assertEqual(list(mesas[1].asignaciones_padron.values_list("registro_padron__elector__nombre", flat=True)), ["Zoe Alvarez"])

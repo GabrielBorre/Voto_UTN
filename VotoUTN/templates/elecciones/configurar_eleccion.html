@@ -1,0 +1,12 @@
+{% extends "elecciones/base_gestion.html" %}
+{% block title %}Configuracion | {{ eleccion.nombre }}{% endblock %}
+{% block content %}
+<section class="hero"><h1>Configuracion de eleccion</h1><p>{{ eleccion.nombre }} · {{ eleccion.get_estado_display }}</p></section>
+<section class="toolbar">
+  <article class="option"><h2>Datos generales</h2><p>Nombre, periodo electoral y fechas administrativas.</p><a class="button secondary" href="{% url 'editar-eleccion' eleccion.id %}">Editar datos</a></article>
+  <article class="option"><h2>Sedes y departamentos</h2><p>Ajusta las sedes habilitadas para cada claustro y departamento.</p><a class="button secondary" href="{% url 'gestionar-alcances' eleccion.id %}">Gestionar alcances</a></article>
+  <article class="option"><h2>Padrones</h2><p>{{ cantidad_padrones }} electores registrados. Configura claustros e importa CSV.</p><a class="button secondary" href="{% url 'preparar-eleccion' eleccion.id %}">Gestionar padrones</a></article>
+</section>
+<section class="card"><div class="section-title"><div><h2>Mesas automaticas</h2><p>{{ cantidad_mesas }} mesas. Se generan al confirmar cada padrón, ordenando electores alfabéticamente y aplicando el máximo del claustro.</p></div><a class="button primary" href="{% url 'gestionar-mesas' eleccion.id %}">Ver mesas</a></div></section>
+<div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Volver a elecciones</a></div>
+{% endblock %}
