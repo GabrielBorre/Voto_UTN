@@ -2,8 +2,8 @@ function csrfToken() {
   return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
 }
 
-export async function registerAttendance(url, voterCodes) {
-  const body = Array.isArray(voterCodes) ? { voter_codes: voterCodes } : voterCodes;
+export async function registrarAsistencia(url, codigosQr) {
+  const body = Array.isArray(codigosQr) ? { codigos_qr: codigosQr } : codigosQr;
   const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: {
     'Content-Type': 'application/json', 'X-CSRFToken': csrfToken(), 'Accept': 'application/json'
   }, body: JSON.stringify(body) });

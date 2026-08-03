@@ -5,15 +5,16 @@ import hashlib
 from dataclasses import dataclass
 from django.conf import settings
 from django.db import transaction
-from apps.elecciones.models import Eleccion, Votante
+from apps.elecciones.models import Eleccion, Elector
+from apps.usuarios.permisos import puede_registrar_participacion
 from .models import Asistencia
 
 
 @dataclass(frozen=True)
 class ResultadoAsistencia:
-    created: list[str]
-    already_registered: list[str]
-    invalid: list[str]
+    creados: list[str]
+    ya_registrados: list[str]
+    invalidos: list[str]
 
 
 class ServicioAsistencia:
@@ -48,7 +49,7 @@ class ServicioAsistencia:
 
         # 3. Recalcular la firma HMAC esperada
         expected_signature = hmac.new(
-            settings.SECRET_KEY.encode("utf-8"),
+            settings.CLAVE_FIRMA_QR.encode("utf-8"),
             data_bytes,
             hashlib.sha256,
         ).digest()[:4]
@@ -63,96 +64,102 @@ class ServicioAsistencia:
         return election_id, mesa_numero, str(legajo_int)
 
     @staticmethod
-    def registrar_lote(*, eleccion: Eleccion, voter_codes: list, user) -> ResultadoAsistencia:
+    def registrar_lote(*, eleccion: Eleccion, codigos_qr: list, usuario) -> ResultadoAsistencia:
         # Eliminamos duplicados manteniendo limpieza de strings
         incoming = list(dict.fromkeys(
-            code.strip() for code in voter_codes if isinstance(code, str) and code.strip()
+            codigo.strip() for codigo in codigos_qr if isinstance(codigo, str) and codigo.strip()
         ))
         
         parsed_codes = []
-        invalid = []
+        invalidos = []
 
         for raw_code in incoming:
             parsed = ServicioAsistencia._parse_signed_code(raw_code)
             if parsed is None:
-                invalid.append(raw_code)
+                invalidos.append(raw_code)
                 continue
 
-            election_id, mesa_numero, voter_code = parsed
-            if election_id != eleccion.id:
-                invalid.append(raw_code)
+            eleccion_id, mesa_numero, codigo_elector = parsed
+            if eleccion_id != eleccion.id:
+                invalidos.append(raw_code)
                 continue
 
-            parsed_codes.append((raw_code, mesa_numero, voter_code))
+            parsed_codes.append((raw_code, mesa_numero, codigo_elector))
 
-        candidate_codes = list(dict.fromkeys(voter_code for _, _, voter_code in parsed_codes))
-        voters = {
-            voter.legajo: voter
-            for voter in Votante.objects.select_related("mesa").filter(legajo__in=candidate_codes)
+        codigos_elector = list(dict.fromkeys(codigo for _, _, codigo in parsed_codes))
+        electores = {
+            elector.legajo: elector
+            for elector in Elector.objects.select_related("mesa").filter(legajo__in=codigos_elector)
         }
 
-        valid_cleaned = []
-        for raw_code, mesa_numero, voter_code in parsed_codes:
-            voter = voters.get(voter_code)
-            if voter is None or voter.mesa is None:
-                invalid.append(raw_code)
+        codigos_validos = []
+        for raw_code, mesa_numero, codigo_elector in parsed_codes:
+            elector = electores.get(codigo_elector)
+            if elector is None or elector.mesa is None:
+                invalidos.append(raw_code)
                 continue
-            if voter.mesa.eleccion_id != eleccion.id or voter.mesa.numero != mesa_numero:
-                invalid.append(raw_code)
+            if elector.mesa.eleccion_id != eleccion.id or elector.mesa.numero != mesa_numero:
+                invalidos.append(raw_code)
                 continue
-            valid_cleaned.append(voter_code)
+            if not puede_registrar_participacion(usuario, eleccion, elector.mesa):
+                invalidos.append(raw_code)
+                continue
+            codigos_validos.append(codigo_elector)
 
-        cleaned = list(dict.fromkeys(valid_cleaned))
-        existing = set(
-            Asistencia.objects.filter(eleccion=eleccion, voter_code__in=cleaned).values_list("voter_code", flat=True)
+        codigos_limpios = list(dict.fromkeys(codigos_validos))
+        existentes = set(
+            Asistencia.objects.filter(eleccion=eleccion, codigo_elector__in=codigos_limpios).values_list("codigo_elector", flat=True)
         )
-        new_codes = [code for code in cleaned if code not in existing]
+        codigos_nuevos = [codigo for codigo in codigos_limpios if codigo not in existentes]
         
         with transaction.atomic():
             Asistencia.objects.bulk_create([
-                Asistencia(eleccion=eleccion, voter_code=code, scanned_by=user) for code in new_codes
+                Asistencia(eleccion=eleccion, codigo_elector=codigo, registrada_por=usuario) for codigo in codigos_nuevos
             ], ignore_conflicts=True)
             
-            registered = set(
-                Asistencia.objects.filter(eleccion=eleccion, voter_code__in=new_codes).values_list("voter_code", flat=True)
+            registrados = set(
+                Asistencia.objects.filter(eleccion=eleccion, codigo_elector__in=codigos_nuevos).values_list("codigo_elector", flat=True)
             )
             
         return ResultadoAsistencia(
-            created=sorted(registered - existing),
-            already_registered=sorted(existing),
-            invalid=sorted(set(str(inv) for inv in invalid)),
+            creados=sorted(registrados - existentes),
+            ya_registrados=sorted(existentes),
+            invalidos=sorted(set(str(invalido) for invalido in invalidos)),
         )
 
     @staticmethod
-    def registrar_manual(*, eleccion: Eleccion, mesa_numero: int, legajo: str, user) -> ResultadoAsistencia:
+    def registrar_manual(*, eleccion: Eleccion, mesa_numero: int, legajo: str, usuario) -> ResultadoAsistencia:
         legajo_clean = str(legajo).strip()
 
-        voter = (
-            Votante.objects.select_related("mesa")
+        elector = (
+            Elector.objects.select_related("mesa")
             .filter(legajo=legajo_clean)
             .first()
         )
 
         if (
-            voter is None
-            or voter.mesa is None
-            or voter.mesa.eleccion_id != eleccion.id
-            or voter.mesa.numero != mesa_numero
+            elector is None
+            or elector.mesa is None
+            or elector.mesa.eleccion_id != eleccion.id
+            or elector.mesa.numero != mesa_numero
         ):
             return ResultadoAsistencia(
-                created=[],
-                already_registered=[],
-                invalid=[f"Mesa {mesa_numero} / Legajo {legajo_clean}"],
+                creados=[],
+                ya_registrados=[],
+                invalidos=[f"Mesa {mesa_numero} / Legajo {legajo_clean}"],
             )
 
-        existing = set(
-            Asistencia.objects.filter(eleccion=eleccion, voter_code=legajo_clean).values_list("voter_code", flat=True)
+        if not puede_registrar_participacion(usuario, eleccion, elector.mesa):
+            return ResultadoAsistencia(creados=[], ya_registrados=[], invalidos=[f"Mesa {mesa_numero} / Sin permiso"])
+
+        existentes = set(
+            Asistencia.objects.filter(eleccion=eleccion, codigo_elector=legajo_clean).values_list("codigo_elector", flat=True)
         )
 
-        if legajo_clean in existing:
-            return ResultadoAsistencia(created=[], already_registered=[legajo_clean], invalid=[])
+        if legajo_clean in existentes:
+            return ResultadoAsistencia(creados=[], ya_registrados=[legajo_clean], invalidos=[])
 
         with transaction.atomic():
-            Asistencia.objects.create(eleccion=eleccion, voter_code=legajo_clean, scanned_by=user)
+            Asistencia.objects.create(eleccion=eleccion, codigo_elector=legajo_clean, registrada_por=usuario)
 
-        return ResultadoAsistencia(created=[legajo_clean], already_registered=[], invalid=[])
+        return ResultadoAsistencia(creados=[legajo_clean], ya_registrados=[], invalidos=[])

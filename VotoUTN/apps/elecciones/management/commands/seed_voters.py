@@ -8,7 +8,7 @@ from qrcode.constants import ERROR_CORRECT_L
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from PIL import Image
-from apps.elecciones.models import Eleccion, Mesa, Votante
+from apps.elecciones.models import Eleccion, Elector, Mesa
 
 VOTERS = [
     ("203425", "Nicolas Calle", "40123456", 15),
@@ -83,29 +83,29 @@ class Command(BaseCommand):
         qr_images = {}
         mesas_by_numero = {}
 
-        for legajo, name, dni, mesa_numero in VOTERS:
+        for legajo, nombre, dni, mesa_numero in VOTERS:
             mesa = mesas_by_numero.get(mesa_numero)
             if mesa is None:
                 mesa, _ = Mesa.objects.get_or_create(eleccion=eleccion, numero=mesa_numero)
                 mesas_by_numero[mesa_numero] = mesa
 
-            voter, _ = Votante.objects.update_or_create(
+            elector, _ = Elector.objects.update_or_create(
                 legajo=legajo,
                 defaults={
-                    "name": name,
+                    "nombre": nombre,
                     "dni": dni,
                     "mesa": mesa,
                 },
             )
-            voters.append(voter)
+            voters.append(elector)
             payload = self.generar_payload_firmado(
                 eleccion_id=eleccion.id,
                 mesa_numero=mesa.numero,
-                legajo=voter.legajo,
+                legajo=elector.legajo,
             )
             qr = self.generar_qr(payload)
-            qr_images[voter.legajo] = qr
-            qr.save(output / f"{voter.legajo}.png")
+            qr_images[elector.legajo] = qr
+            qr.save(output / f"{elector.legajo}.png")
 
         # Generar las hojas de a 15 votantes
         hojas_creadas = self.crear_hojas(voters, qr_images, output)
@@ -125,7 +125,7 @@ class Command(BaseCommand):
 
         # 2. Firma HMAC (4 bytes)
         sig = hmac.new(
-            settings.SECRET_KEY.encode("utf-8"),
+            settings.CLAVE_FIRMA_QR.encode("utf-8"),
             data_bytes,
             hashlib.sha256
         ).digest()[:4]

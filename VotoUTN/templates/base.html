@@ -15,7 +15,7 @@
     {% if user.is_authenticated %}
     <nav class="navbar navbar-dark bg-primary shadow-sm">
       <div class="container-fluid">
-        <a class="navbar-brand fw-semibold" href="{% url 'eleccion-list' %}">Voto UTN</a>
+        <a class="navbar-brand fw-semibold" href="{% url 'lista-elecciones' %}">Voto UTN</a>
         <form action="{% url 'logout' %}" method="post">
           {% csrf_token %}
           <button class="btn btn-sm btn-outline-light">Salir</button>

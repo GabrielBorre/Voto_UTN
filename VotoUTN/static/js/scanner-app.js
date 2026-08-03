@@ -441,19 +441,19 @@ manualLoadButton.addEventListener("click", () => {
 
             const result = await submitManualAttendance(app.dataset.apiUrl, mesaNumero, legajo);
 
-            if (result.invalid?.length) {
+            if (result.invalidos?.length) {
                 setStatus(`No se encontró al elector ${legajo} en la mesa ${mesaNumero}.`, "error");
                 void playErrorTone();
                 return;
             }
 
-            if (result.created?.length) {
+            if (result.creados?.length) {
                 setStatus(`Elector ${legajo} registrado manualmente en la mesa ${mesaNumero}.`, "success");
                 void playSuccessTone();
                 return;
             }
 
-            if (result.already_registered?.length) {
+            if (result.ya_registrados?.length) {
                 setStatus(`El elector ${legajo} ya estaba registrado en la mesa ${mesaNumero}.`, "info");
                 return;
             }
