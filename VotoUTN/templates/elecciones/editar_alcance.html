@@ -1,0 +1,3 @@
+{% extends "elecciones/base_gestion.html" %}
+{% block title %}{{ titulo }} | Junta Electoral UTN{% endblock %}
+{% block content %}<section class="hero"><h1>{{ titulo }}</h1><p>Selecciona las sedes habilitadas. No se pueden quitar sedes que ya tengan mesas asignadas.</p></section><section class="card form-card"><form method="post">{% csrf_token %}<div class="field"><label>{{ formulario.sedes.label }}</label>{{ formulario.sedes }}{% for error in formulario.sedes.errors %}<div class="error">{{ error }}</div>{% endfor %}</div><div class="footer-actions"><a class="button light" href="{% url 'gestionar-alcances' eleccion.id %}">Cancelar</a><button class="button primary">Guardar sedes</button></div></form></section>{% endblock %}

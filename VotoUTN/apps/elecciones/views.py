@@ -1,20 +1,23 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.http import HttpResponseForbidden
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import (
+    FormularioAlcanceSedes,
     FormularioClaustro,
     FormularioDepartamento,
     FormularioEleccion,
+    FormularioEditarEleccion,
     FormularioGenerarMesas,
     FormularioSede,
     FormularioTurno,
     preparar_formulario_parametro,
 )
-from .models import Claustro, Departamento, Eleccion, Sede, Turno
+from .models import Claustro, Departamento, Eleccion, EleccionClaustro, EleccionClaustroDepartamento, Sede, Turno
 from apps.usuarios.permisos import elecciones_con_participacion
 from apps.usuarios.permisos import puede_administrar_elecciones, puede_administrar_parametros
 
@@ -122,11 +125,83 @@ def crear_eleccion(request):
 
 
 @login_required
+def editar_eleccion(request, eleccion_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para editar esta eleccion.")
+    if eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
+        return HttpResponseForbidden("No se puede editar una eleccion abierta o cerrada.")
+    formulario = FormularioEditarEleccion(request.POST or None, instance=eleccion)
+    if request.method == "POST" and formulario.is_valid():
+        formulario.save()
+        messages.success(request, "Los datos de la eleccion fueron actualizados.")
+        return redirect("gestionar-elecciones")
+    return render(request, "elecciones/editar_eleccion.html", {"eleccion": eleccion, "formulario": formulario})
+
+
+@login_required
+def cambiar_estado_eleccion(request, eleccion_id):
+    if request.method != "POST":
+        raise Http404()
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para cambiar esta eleccion.")
+    nuevo_estado = request.POST.get("estado")
+    try:
+        eleccion.cambiar_estado(nuevo_estado)
+    except ValidationError as error:
+        messages.error(request, error.messages[0])
+    else:
+        messages.success(request, f"La eleccion quedo {eleccion.get_estado_display().lower()}.")
+    return redirect("gestionar-elecciones")
+
+
+@login_required
+def gestionar_alcances(request, eleccion_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
+    return render(
+        request,
+        "elecciones/alcances.html",
+        {
+            "eleccion": eleccion,
+            "claustros": eleccion.elecciones_claustro.select_related("claustro").prefetch_related("departamentos__departamento"),
+        },
+    )
+
+
+@login_required
+def editar_alcance_sedes(request, eleccion_id, tipo, objeto_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
+    if eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
+        return HttpResponseForbidden("No se pueden modificar alcances en una eleccion abierta o cerrada.")
+    if tipo == "claustro":
+        objeto = get_object_or_404(EleccionClaustro, pk=objeto_id, eleccion=eleccion)
+        titulo = f"Sedes de {objeto.claustro}"
+    elif tipo == "departamento":
+        objeto = get_object_or_404(EleccionClaustroDepartamento, pk=objeto_id, eleccion_claustro__eleccion=eleccion)
+        titulo = f"Sedes de {objeto.departamento}"
+    else:
+        raise Http404()
+    formulario = FormularioAlcanceSedes(request.POST or None, eleccion=eleccion, objeto=objeto, tipo=tipo)
+    if request.method == "POST" and formulario.is_valid():
+        formulario.guardar()
+        messages.success(request, "Las sedes habilitadas fueron actualizadas.")
+        return redirect("gestionar-alcances", eleccion_id=eleccion.id)
+    return render(request, "elecciones/editar_alcance.html", {"eleccion": eleccion, "titulo": titulo, "formulario": formulario})
+
+
+@login_required
 def gestionar_mesas(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
 
+    if eleccion.estado not in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA):
+        return HttpResponseForbidden("No se pueden generar mesas en una eleccion abierta o cerrada.")
     formulario = FormularioGenerarMesas(request.POST or None, eleccion=eleccion)
     if request.method == "POST" and formulario.is_valid():
         mesas = formulario.generar()

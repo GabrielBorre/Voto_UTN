@@ -15,7 +15,7 @@ from apps.asistencia.models import Asistencia
 from apps.asistencia.serializers import SerializadorLoteAsistencia
 from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.elecciones.management.commands.cargar_electores_demo import Command as GeneradorQr
-from apps.elecciones.forms import FormularioEleccion, FormularioGenerarMesas
+from apps.elecciones.forms import FormularioAlcanceSedes, FormularioEleccion, FormularioGenerarMesas
 from apps.elecciones.models import (
     Claustro,
     Departamento,
@@ -23,6 +23,7 @@ from apps.elecciones.models import (
     EleccionClaustro,
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
+    EleccionClaustroSede,
     EleccionSede,
     EleccionTurno,
     Elector,
@@ -170,6 +171,8 @@ class GestionEleccionesTests(TestCase):
         self.assertTrue(formulario.is_valid(), formulario.errors)
         eleccion = formulario.save()
 
+        self.assertEqual(eleccion.estado, Eleccion.Estado.BORRADOR)
+        self.assertFalse(eleccion.habilitada)
         self.assertEqual(eleccion.elecciones_sede.count(), 1)
         self.assertEqual(eleccion.elecciones_claustro.count(), 1)
         self.assertEqual(EleccionClaustroDepartamento.objects.filter(eleccion_claustro__eleccion=eleccion).count(), 1)
@@ -240,3 +243,53 @@ class ParametrosElectoralesTests(TestCase):
         respuesta = self.client.get("/gestion/parametros/", HTTP_HOST="127.0.0.1")
 
         self.assertEqual(respuesta.status_code, 403)
+
+
+class CicloDeVidaEleccionTests(TestCase):
+    def setUp(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        self.eleccion = Eleccion.objects.create(nombre="Eleccion", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8), habilitada=False)
+        self.sede = Sede.objects.create(nombre="Sede A", codigo="SA")
+        claustro = Claustro.objects.create(nombre="Docentes", codigo="DOC")
+        turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
+        EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
+        EleccionTurno.objects.create(eleccion=self.eleccion, turno=turno)
+        self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=claustro)
+        EleccionClaustroSede.objects.create(eleccion_claustro=self.eleccion_claustro, sede=self.sede)
+        self.configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=self.eleccion_claustro,
+            departamento=Departamento.objects.create(nombre="Electronica", codigo="ELE"),
+        )
+        EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=self.sede)
+        self.turno = turno
+
+    def test_solo_abre_con_mesas_y_cerrar_la_deshabilita(self):
+        self.eleccion.cambiar_estado(Eleccion.Estado.PREPARADA)
+        with self.assertRaises(ValidationError):
+            self.eleccion.cambiar_estado(Eleccion.Estado.ABIERTA)
+
+        Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=self.sede, turno=self.turno)
+        self.eleccion.cambiar_estado(Eleccion.Estado.ABIERTA)
+        self.eleccion.refresh_from_db()
+        self.assertTrue(self.eleccion.habilitada)
+
+        self.eleccion.cambiar_estado(Eleccion.Estado.CERRADA)
+        self.eleccion.refresh_from_db()
+        self.assertFalse(self.eleccion.habilitada)
+
+    def test_no_permite_quitar_una_sede_utilizada_por_mesas(self):
+        otra_sede = Sede.objects.create(nombre="Sede B", codigo="SB")
+        EleccionSede.objects.create(eleccion=self.eleccion, sede=otra_sede)
+        EleccionClaustroSede.objects.create(eleccion_claustro=self.eleccion_claustro, sede=otra_sede)
+        EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=otra_sede)
+        Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=otra_sede, turno=self.turno)
+
+        formulario = FormularioAlcanceSedes(
+            data={"sedes": [self.sede.id]},
+            eleccion=self.eleccion,
+            objeto=self.configuracion,
+            tipo="departamento",
+        )
+
+        self.assertFalse(formulario.is_valid())
+        self.assertIn("No se puede quitar", formulario.errors["sedes"][0])

@@ -77,6 +77,31 @@ class Eleccion(models.Model):
         if self.fecha_inicio >= self.fecha_fin:
             raise ValidationError({"fecha_fin": "Debe ser posterior a la fecha de inicio."})
 
+    def validar_configuracion(self):
+        if not self.elecciones_sede.exists() or not self.elecciones_claustro.exists() or not self.elecciones_turno.exists():
+            raise ValidationError("La eleccion debe tener sedes, claustros y turnos configurados.")
+        for eleccion_claustro in self.elecciones_claustro.all():
+            if not eleccion_claustro.sedes_habilitadas.exists() or not eleccion_claustro.departamentos.exists():
+                raise ValidationError("Cada claustro debe tener sedes y departamentos habilitados.")
+            for configuracion in eleccion_claustro.departamentos.all():
+                if not configuracion.sedes_habilitadas.exists():
+                    raise ValidationError("Cada departamento debe tener al menos una sede habilitada.")
+
+    def cambiar_estado(self, nuevo_estado):
+        transiciones = {
+            self.Estado.BORRADOR: self.Estado.PREPARADA,
+            self.Estado.PREPARADA: self.Estado.ABIERTA,
+            self.Estado.ABIERTA: self.Estado.CERRADA,
+        }
+        if transiciones.get(self.estado) != nuevo_estado:
+            raise ValidationError("La transicion de estado solicitada no esta permitida.")
+        self.validar_configuracion()
+        if nuevo_estado == self.Estado.ABIERTA and not self.mesas.exists():
+            raise ValidationError("La eleccion debe tener al menos una mesa antes de abrirse.")
+        self.estado = nuevo_estado
+        self.habilitada = nuevo_estado == self.Estado.ABIERTA
+        self.save(update_fields=("estado", "habilitada"))
+
     def __str__(self):
         return self.nombre
 

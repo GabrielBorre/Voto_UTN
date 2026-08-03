@@ -237,3 +237,25 @@ Fecha de cierre: 2026-08-03
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 14 pruebas correctas.
 - Renderizado autenticado comprobado para `/gestion/elecciones/` y `/gestion/parametros/`: respuesta HTTP 200.
+
+### Complemento de etapa 5 - Ciclo de vida y alcances
+
+Fecha de cierre: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | Se agregaron validaciones de configuracion y transiciones ordenadas de eleccion: borrador a preparada, preparada a abierta y abierta a cerrada. Abrir exige al menos una mesa; cerrar deshabilita la eleccion para el registro de participacion. |
+| `VotoUTN/apps/elecciones/forms.py` | El alta de elecciones comienza siempre en borrador e inhabilitada. Sedes, claustros, departamentos y turnos se renderizan con casillas de seleccion multiple. Se agregaron formularios para editar datos generales y para ajustar sedes heredadas. |
+| `VotoUTN/apps/elecciones/forms.py` | Los ajustes de sedes por claustro o departamento se ejecutan de forma transaccional. Se bloquea la quita de una sede si ya existen mesas que dependen de esa combinacion. |
+| `VotoUTN/apps/elecciones/views.py` y `urls.py` | Se agregaron edicion de eleccion, acciones de preparar, abrir y cerrar, consulta de alcances y edicion de sedes por claustro o departamento. |
+| `VotoUTN/templates/elecciones/gestion_lista.html` | Se incorporaron acciones visibles de ciclo de vida, edicion, alcances y mesas para cada eleccion. |
+| `VotoUTN/templates/elecciones/alcances.html`, `editar_alcance.html` y `editar_eleccion.html` | Se crearon las pantallas administrativas para ajustar herencias de sedes y editar datos generales. |
+| `VotoUTN/templates/elecciones/formulario_eleccion.html` y `static/css/gestion-electoral.css` | Las selecciones de parametros ahora se presentan como grupos de checkboxes visibles y estilizados, en lugar de listas desplegables. |
+| `VotoUTN/apps/asistencia/tests.py` | Se agregaron pruebas para estado inicial, apertura solo con mesas, cierre que deshabilita y bloqueo de quita de sedes con mesas. |
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 16 pruebas correctas.
