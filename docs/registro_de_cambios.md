@@ -307,6 +307,29 @@ Fecha de implementacion: 2026-08-03
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 18 pruebas correctas.
 
+## Etapa 7 - Autoridades de mesa
+
+Fecha de implementacion: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | Se agregaron `AsignacionAutoridad`, con elector del padrón, mesa, estado, responsable y fechas de respuesta, y `PreferenciaAutoridad`, con disponibilidad y preferencias de sede y turno. Se valida que la mesa sea de la misma elección y claustro. |
+| `VotoUTN/apps/elecciones/migrations/0013_asignacionautoridad_preferenciaautoridad.py` | Crea las tablas de autoridades y preferencias sin alterar registros existentes. |
+| `VotoUTN/apps/elecciones/servicios/autoridades.py` | Se creó el servicio único de asignación para carga manual y CSV. Valida padrón, elección, mesa y claustro; cuando existe un perfil de usuario para el elector, habilita su rol operativo de autoridad de mesa. Incluye validación de CSV y respuesta de confirmación. |
+| `VotoUTN/apps/elecciones/forms.py` | Se agregaron formularios para asignación manual, archivo CSV y preferencias personales de autoridad. |
+| `VotoUTN/apps/elecciones/views.py` y `urls.py` | Se incorporó la gestión de autoridades dentro de configuración de elección, la carga manual/CSV y las rutas `/autoridad/` para consulta, respuesta y preferencia de la autoridad asignada. |
+| `VotoUTN/templates/elecciones/gestion_autoridades.html` | Se creó el panel de Junta Electoral con carga manual, CSV y trazabilidad de asignaciones. |
+| `VotoUTN/templates/elecciones/mis_asignaciones_autoridad.html` y `preferencia_autoridad.html` | Se crearon las pantallas operativas para confirmar o rechazar una mesa y registrar disponibilidad/preferencias. |
+| `VotoUTN/templates/elecciones/configurar_eleccion.html` | Se agregó el acceso central a Autoridades de mesa y el contador de asignaciones. |
+| `VotoUTN/apps/asistencia/tests.py` | Se agregaron pruebas de asignación válida, sincronización del rol de autoridad y rechazo de mesa perteneciente a otro claustro. |
+
+### Verificaciones realizadas
+
+- `python manage.py migrate`: aplicó `elecciones.0013_asignacionautoridad_preferenciaautoridad` correctamente.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py test`: 24 pruebas correctas.
+
 ### Complemento de etapa 6 - Configuracion central y mesas automaticas
 
 Fecha de implementacion: 2026-08-03

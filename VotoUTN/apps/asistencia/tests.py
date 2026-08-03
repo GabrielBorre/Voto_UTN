@@ -19,6 +19,7 @@ from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.elecciones.management.commands.cargar_electores_demo import Command as GeneradorQr
 from apps.elecciones.forms import FormularioAlcanceSedes, FormularioEleccion, FormularioGenerarMesas
 from apps.elecciones.models import (
+    AsignacionAutoridad,
     Claustro,
     Departamento,
     Eleccion,
@@ -38,7 +39,8 @@ from apps.elecciones.models import (
     Turno,
 )
 from apps.elecciones.servicios.importacion_padron import confirmar_importacion, validar_csv_padron
-from apps.usuarios.models import AsignacionRol
+from apps.elecciones.servicios.autoridades import asignar_autoridad
+from apps.usuarios.models import AsignacionRol, PerfilUsuario
 from apps.usuarios.permisos import puede_administrar_parametros, puede_registrar_participacion
 
 
@@ -432,3 +434,34 @@ class ImportacionPadronTests(TestCase):
         self.assertEqual(len(mesas), 2)
         self.assertEqual(list(mesas[0].asignaciones_padron.order_by("registro_padron__elector__nombre").values_list("registro_padron__elector__nombre", flat=True)), ["Ana Perez", "Bruno Gomez"])
         self.assertEqual(list(mesas[1].asignaciones_padron.values_list("registro_padron__elector__nombre", flat=True)), ["Zoe Alvarez"])
+
+
+class AutoridadesMesaTests(TestCase):
+    def setUp(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        self.eleccion = Eleccion.objects.create(nombre="Eleccion", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8))
+        claustro_a = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=Claustro.objects.create(nombre="Estudiantes"))
+        claustro_b = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=Claustro.objects.create(nombre="Docentes"))
+        sede = Sede.objects.create(nombre="Campus")
+        turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
+        EleccionTurno.objects.create(eleccion=self.eleccion, turno=turno)
+        configuracion_a = EleccionClaustroDepartamento.objects.create(eleccion_claustro=claustro_a, departamento=Departamento.objects.create(nombre="Sistemas", codigo="K"))
+        configuracion_b = EleccionClaustroDepartamento.objects.create(eleccion_claustro=claustro_b, departamento=Departamento.objects.create(nombre="Basicas", codigo="B"))
+        self.mesa_a = Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=configuracion_a, sede=sede, turno=turno)
+        self.mesa_b = Mesa.objects.create(eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=configuracion_b, sede=sede, turno=turno)
+        elector = Elector.objects.create(dni="12345678", legajo="100", nombre="Ana Perez")
+        self.padron = RegistroPadron.objects.create(elector=elector, eleccion=self.eleccion, eleccion_claustro_departamento=configuracion_a, sede=sede)
+        self.usuario = get_user_model().objects.create_user(username="ana")
+        PerfilUsuario.objects.create(usuario=self.usuario, elector=elector)
+        self.administrador = get_user_model().objects.create_superuser(username="admin", email="admin@example.com", password="clave")
+
+    def test_asignacion_valida_sincroniza_el_rol_operativo(self):
+        asignacion, creada = asignar_autoridad(self.padron, self.mesa_a, self.administrador)
+
+        self.assertTrue(creada)
+        self.assertEqual(asignacion.estado, AsignacionAutoridad.Estado.PENDIENTE)
+        self.assertTrue(AsignacionRol.objects.filter(usuario=self.usuario, rol=AsignacionRol.Rol.AUTORIDAD_MESA, mesa=self.mesa_a).exists())
+
+    def test_rechaza_mesa_de_otro_claustro(self):
+        with self.assertRaises(ValidationError):
+            asignar_autoridad(self.padron, self.mesa_b, self.administrador)
