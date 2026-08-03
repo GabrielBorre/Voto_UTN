@@ -79,6 +79,43 @@ class FormularioEleccion(forms.ModelForm):
         return eleccion
 
 
+class FormularioSede(forms.ModelForm):
+    class Meta:
+        model = Sede
+        fields = ("nombre", "codigo", "activa")
+
+
+class FormularioClaustro(forms.ModelForm):
+    class Meta:
+        model = Claustro
+        fields = ("nombre", "codigo", "activo")
+
+
+class FormularioDepartamento(forms.ModelForm):
+    class Meta:
+        model = Departamento
+        fields = ("nombre", "codigo", "activo")
+
+
+class FormularioTurno(forms.ModelForm):
+    class Meta:
+        model = Turno
+        fields = ("nombre", "hora_inicio", "hora_fin", "activo")
+        widgets = {
+            "hora_inicio": forms.TimeInput(attrs={"type": "time"}),
+            "hora_fin": forms.TimeInput(attrs={"type": "time"}),
+        }
+
+
+def preparar_formulario_parametro(formulario):
+    for campo in formulario.fields.values():
+        if isinstance(campo.widget, forms.CheckboxInput):
+            campo.widget.attrs["class"] = "form-check-input"
+        else:
+            campo.widget.attrs.setdefault("class", "form-control")
+    return formulario
+
+
 class FormularioGenerarMesas(forms.Form):
     configuracion = forms.ModelChoiceField(queryset=EleccionClaustroDepartamento.objects.none(), label="Claustro y departamento")
     sede = forms.ModelChoiceField(queryset=Sede.objects.none())

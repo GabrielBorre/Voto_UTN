@@ -31,7 +31,7 @@ from apps.elecciones.models import (
     Turno,
 )
 from apps.usuarios.models import AsignacionRol
-from apps.usuarios.permisos import puede_registrar_participacion
+from apps.usuarios.permisos import puede_administrar_parametros, puede_registrar_participacion
 
 
 class ServicioAsistenciaQrTests(SimpleTestCase):
@@ -203,3 +203,40 @@ class GestionEleccionesTests(TestCase):
         mesa = Mesa(eleccion=eleccion, numero=3, eleccion_claustro_departamento=configuracion, sede=self.sede, turno=turno_ajeno)
         with self.assertRaises(ValidationError):
             mesa.full_clean()
+
+
+class ParametrosElectoralesTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user(username="gestor", password="clave")
+        self.client.force_login(self.usuario)
+
+    def test_administrador_de_junta_puede_crear_y_desactivar_una_sede(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        eleccion = Eleccion.objects.create(nombre="Eleccion", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8))
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=eleccion,
+        )
+
+        self.assertTrue(puede_administrar_parametros(self.usuario))
+        respuesta = self.client.post(
+            "/gestion/parametros/sedes/nuevo/",
+            {"nombre": "Campus", "codigo": "CAM", "activa": "on"},
+            HTTP_HOST="127.0.0.1",
+        )
+        self.assertRedirects(respuesta, "/gestion/parametros/sedes/", fetch_redirect_response=False)
+        sede = Sede.objects.get(codigo="CAM")
+
+        respuesta = self.client.post(
+            f"/gestion/parametros/sedes/{sede.id}/estado/",
+            HTTP_HOST="127.0.0.1",
+        )
+        self.assertRedirects(respuesta, "/gestion/parametros/sedes/", fetch_redirect_response=False)
+        sede.refresh_from_db()
+        self.assertFalse(sede.activa)
+
+    def test_usuario_sin_rol_no_accede_a_los_parametros(self):
+        respuesta = self.client.get("/gestion/parametros/", HTTP_HOST="127.0.0.1")
+
+        self.assertEqual(respuesta.status_code, 403)

@@ -8,7 +8,7 @@
     <h1 class="h3 mb-1">Elecciones</h1>
     <p class="text-body-secondary mb-0">Configuracion y mesas electorales.</p>
   </div>
-  <a class="btn btn-primary" href="{% url 'crear-eleccion' %}">Nueva eleccion</a>
+  <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="{% url 'gestionar-parametros' %}">Parametros</a><a class="btn btn-primary" href="{% url 'crear-eleccion' %}">Nueva eleccion</a></div>
 </div>
 
 {% if messages %}

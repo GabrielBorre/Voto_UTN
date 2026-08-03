@@ -25,6 +25,21 @@ def puede_administrar_elecciones(usuario, eleccion=None):
     ).exists()
 
 
+def puede_administrar_parametros(usuario):
+    if not usuario.is_authenticated:
+        return False
+    if usuario.is_superuser:
+        return True
+    return AsignacionRol.objects.filter(
+        usuario=usuario,
+        activo=True,
+        rol__in=(
+            AsignacionRol.Rol.ADMINISTRADOR_SISTEMA,
+            AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        ),
+    ).exists()
+
+
 def puede_registrar_participacion(usuario, eleccion, mesa=None):
     if not usuario.is_authenticated:
         return False

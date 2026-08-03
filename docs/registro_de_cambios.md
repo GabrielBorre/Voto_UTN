@@ -194,3 +194,26 @@ Fecha de cierre: 2026-08-03
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 12 pruebas correctas.
+
+### Complemento de etapa 5 - ABM de parametros
+
+Fecha de cierre: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/forms.py` | Se agregaron formularios de alta y edicion para `Sede`, `Claustro`, `Departamento` y `Turno`. El formulario de turno conserva la validacion de horario de inicio y fin. |
+| `VotoUTN/apps/elecciones/views.py` | Se implementaron las vistas de panel, listado con busqueda, alta, edicion y cambio de estado de cada parametro. Las bajas se resuelven como desactivacion, sin eliminar datos referenciados. |
+| `VotoUTN/apps/elecciones/urls.py` | Se agregaron las rutas bajo `/gestion/parametros/` para administrar los cuatro tipos de parametro. |
+| `VotoUTN/apps/usuarios/permisos.py` | Se agrego `puede_administrar_parametros`; permite el acceso a superusuarios, administradores del sistema y administradores de junta. |
+| `VotoUTN/templates/elecciones/parametros.html` | Se creo el panel de parametros, tomando como referencia la seccion de configuracion del maquetado administrativo. |
+| `VotoUTN/templates/elecciones/parametro_lista.html` | Se creo la grilla responsive con busqueda, edicion y accion de activar o desactivar. |
+| `VotoUTN/templates/elecciones/parametro_formulario.html` | Se creo el formulario reutilizable de alta y edicion con controles de estado y errores de validacion. |
+| `VotoUTN/templates/elecciones/gestion_lista.html` | Se agrego el acceso directo a Parametros desde la gestion de elecciones. |
+| `VotoUTN/apps/asistencia/tests.py` | Se agregaron pruebas para alta y baja logica de sede por administrador de junta, y para el rechazo de usuarios sin rol de administracion. |
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 14 pruebas correctas.
