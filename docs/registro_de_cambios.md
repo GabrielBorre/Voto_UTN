@@ -306,3 +306,21 @@ Fecha de implementacion: 2026-08-03
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 18 pruebas correctas.
+
+### Complemento de etapa 5 - Identificacion de parametros
+
+Fecha de cierre: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | Se eliminaron los campos `codigo` de `Sede` y `Claustro`. Ambos parametros pasan a identificarse exclusivamente por nombre; `Departamento` conserva su codigo. |
+| `VotoUTN/apps/elecciones/migrations/0009_quitar_codigos_sede_y_claustro.py` | Se creo y aplico la migracion que elimina las dos columnas. Al momento de aplicarla existia una sede y ningun claustro; los valores de codigo no tenian consumidores funcionales. |
+| `VotoUTN/apps/elecciones/forms.py` y `views.py` | Se quitaron los codigos de los formularios y listados de sedes y claustros. |
+| `VotoUTN/apps/asistencia/tests.py` | Se actualizaron los datos de prueba para crear sedes y claustros solo por nombre. |
+
+### Verificaciones al cierre
+
+- `python manage.py migrate`: aplico `elecciones.0009_quitar_codigos_sede_y_claustro` correctamente.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py test`: 18 pruebas correctas.

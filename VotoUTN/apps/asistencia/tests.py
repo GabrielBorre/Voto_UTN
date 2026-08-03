@@ -110,13 +110,13 @@ class ModeloElectoralTests(TestCase):
         fin = make_aware(datetime(2026, 8, 3, 18))
         eleccion = Eleccion.objects.create(nombre="Elección 1", fecha_inicio=inicio, fecha_fin=fin)
         otra_eleccion = Eleccion.objects.create(nombre="Elección 2", fecha_inicio=inicio, fecha_fin=fin)
-        claustro = Claustro.objects.create(nombre="Estudiantes", codigo="E")
+        claustro = Claustro.objects.create(nombre="Estudiantes")
         departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
         configuracion = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=EleccionClaustro.objects.create(eleccion=eleccion, claustro=claustro),
             departamento=departamento,
         )
-        sede = Sede.objects.create(nombre="Sede Central", codigo="SC")
+        sede = Sede.objects.create(nombre="Sede Central")
         mesa = Mesa(eleccion=otra_eleccion, numero=1, eleccion_claustro_departamento=configuracion, sede=sede)
 
         with self.assertRaises(ValidationError):
@@ -151,8 +151,8 @@ class PermisosParticipacionTests(TestCase):
 
 class GestionEleccionesTests(TestCase):
     def setUp(self):
-        self.sede = Sede.objects.create(nombre="Sede Central", codigo="SC")
-        self.claustro = Claustro.objects.create(nombre="Estudiantes", codigo="EST")
+        self.sede = Sede.objects.create(nombre="Sede Central")
+        self.claustro = Claustro.objects.create(nombre="Estudiantes")
         self.turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
 
     def test_formulario_crea_la_configuracion_inicial_de_la_eleccion(self):
@@ -278,11 +278,11 @@ class ParametrosElectoralesTests(TestCase):
         self.assertTrue(puede_administrar_parametros(self.usuario))
         respuesta = self.client.post(
             "/gestion/parametros/sedes/nuevo/",
-            {"nombre": "Campus", "codigo": "CAM", "activa": "on"},
+            {"nombre": "Campus", "activa": "on"},
             HTTP_HOST="127.0.0.1",
         )
         self.assertRedirects(respuesta, "/gestion/parametros/sedes/", fetch_redirect_response=False)
-        sede = Sede.objects.get(codigo="CAM")
+        sede = Sede.objects.get(nombre="Campus")
 
         respuesta = self.client.post(
             f"/gestion/parametros/sedes/{sede.id}/estado/",
@@ -302,8 +302,8 @@ class CicloDeVidaEleccionTests(TestCase):
     def setUp(self):
         inicio = make_aware(datetime(2026, 8, 3, 8))
         self.eleccion = Eleccion.objects.create(nombre="Eleccion", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8), habilitada=False)
-        self.sede = Sede.objects.create(nombre="Sede A", codigo="SA")
-        claustro = Claustro.objects.create(nombre="Docentes", codigo="DOC")
+        self.sede = Sede.objects.create(nombre="Sede A")
+        claustro = Claustro.objects.create(nombre="Docentes")
         turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
         EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
         EleccionTurno.objects.create(eleccion=self.eleccion, turno=turno)
@@ -331,7 +331,7 @@ class CicloDeVidaEleccionTests(TestCase):
         self.assertFalse(self.eleccion.habilitada)
 
     def test_no_permite_quitar_una_sede_utilizada_por_mesas(self):
-        otra_sede = Sede.objects.create(nombre="Sede B", codigo="SB")
+        otra_sede = Sede.objects.create(nombre="Sede B")
         EleccionSede.objects.create(eleccion=self.eleccion, sede=otra_sede)
         EleccionClaustroSede.objects.create(eleccion_claustro=self.eleccion_claustro, sede=otra_sede)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=otra_sede)

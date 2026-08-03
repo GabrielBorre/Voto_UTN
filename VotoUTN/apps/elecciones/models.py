@@ -6,7 +6,6 @@ from django.db import models
 
 class Sede(models.Model):
     nombre = models.CharField(max_length=120, unique=True)
-    codigo = models.CharField(max_length=20, unique=True)
     activa = models.BooleanField(default=True)
 
     class Meta:
@@ -18,7 +17,6 @@ class Sede(models.Model):
 
 class Claustro(models.Model):
     nombre = models.CharField(max_length=120, unique=True)
-    codigo = models.CharField(max_length=20, unique=True)
     activo = models.BooleanField(default=True)
 
     class Meta:

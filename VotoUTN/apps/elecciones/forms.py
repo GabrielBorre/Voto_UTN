@@ -164,13 +164,13 @@ class FormularioAlcanceSedes(forms.Form):
 class FormularioSede(forms.ModelForm):
     class Meta:
         model = Sede
-        fields = ("nombre", "codigo", "activa")
+        fields = ("nombre", "activa")
 
 
 class FormularioClaustro(forms.ModelForm):
     class Meta:
         model = Claustro
-        fields = ("nombre", "codigo", "activo")
+        fields = ("nombre", "activo")
 
 
 class FormularioDepartamento(forms.ModelForm):
