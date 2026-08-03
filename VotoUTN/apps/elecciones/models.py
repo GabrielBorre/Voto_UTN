@@ -58,10 +58,17 @@ class Departamento(models.Model):
 
 
 class Eleccion(models.Model):
+    class Estado(models.TextChoices):
+        BORRADOR = "borrador", "Borrador"
+        PREPARADA = "preparada", "Preparada"
+        ABIERTA = "abierta", "Abierta"
+        CERRADA = "cerrada", "Cerrada"
+
     nombre = models.CharField("nombre", max_length=180)
     fecha_inicio = models.DateTimeField("inicio")
     fecha_fin = models.DateTimeField("fin")
     habilitada = models.BooleanField("habilitada", default=True)
+    estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.BORRADOR)
 
     class Meta:
         ordering = ["-fecha_inicio"]
@@ -88,6 +95,14 @@ class EleccionClaustro(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("eleccion", "claustro"), name="claustro_unico_por_eleccion")]
+
+
+class EleccionTurno(models.Model):
+    eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="elecciones_turno")
+    turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="elecciones_turno")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("eleccion", "turno"), name="turno_unico_por_eleccion")]
 
 
 class EleccionClaustroSede(models.Model):
@@ -138,6 +153,8 @@ class Mesa(models.Model):
             raise ValidationError({"eleccion_claustro_departamento": "Debe pertenecer a la misma elección."})
         if self.eleccion_claustro_departamento_id and self.sede_id and not EleccionClaustroDepartamentoSede.objects.filter(eleccion_claustro_departamento=self.eleccion_claustro_departamento, sede=self.sede).exists():
             raise ValidationError({"sede": "La sede debe estar habilitada para el departamento."})
+        if self.eleccion_id and self.turno_id and not EleccionTurno.objects.filter(eleccion_id=self.eleccion_id, turno_id=self.turno_id).exists():
+            raise ValidationError({"turno": "El turno debe estar habilitado para la eleccion."})
 
     def __str__(self):
         return f"{self.eleccion} - Mesa {self.numero}"

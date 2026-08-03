@@ -8,6 +8,23 @@ ROLES_CON_PARTICIPACION = {
 }
 
 
+def puede_administrar_elecciones(usuario, eleccion=None):
+    if not usuario.is_authenticated:
+        return False
+    if usuario.is_superuser:
+        return True
+
+    asignaciones = AsignacionRol.objects.filter(usuario=usuario, activo=True)
+    if asignaciones.filter(rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():
+        return True
+    if eleccion is None:
+        return False
+    return asignaciones.filter(
+        rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        eleccion=eleccion,
+    ).exists()
+
+
 def puede_registrar_participacion(usuario, eleccion, mesa=None):
     if not usuario.is_authenticated:
         return False

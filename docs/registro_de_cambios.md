@@ -167,3 +167,30 @@ Fecha de cierre: 2026-08-03
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 10 pruebas correctas.
+
+## Etapa 5 - Gestion de elecciones
+
+Fecha de cierre: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | `Eleccion` incorpora los estados `borrador`, `preparada`, `abierta` y `cerrada`. Se creo `EleccionTurno` para persistir la seleccion de turnos por eleccion. |
+| `VotoUTN/apps/elecciones/models.py` | `Mesa` ahora valida que su turno este habilitado para la eleccion, ademas de las validaciones previas de configuracion y sede. |
+| `VotoUTN/apps/elecciones/forms.py` | Se creo el formulario de alta: en una transaccion crea la eleccion y sus asociaciones de sedes, claustros, departamentos, sedes por configuracion y turnos seleccionados. Tambien se creo el formulario que genera mesas consecutivas solo con configuraciones, sedes y turnos validos. |
+| `VotoUTN/apps/elecciones/views.py` | Se agregaron las vistas autenticadas para listar la gestion, crear una eleccion y generar o consultar sus mesas. |
+| `VotoUTN/apps/elecciones/urls.py` | Se agregaron las rutas `/gestion/elecciones/`, `/gestion/elecciones/nueva/` y `/gestion/elecciones/<id>/mesas/`. |
+| `VotoUTN/templates/elecciones/gestion_lista.html` | Se creo la pantalla de administracion para consultar elecciones y abrir el alta. |
+| `VotoUTN/templates/elecciones/formulario_eleccion.html` | Se creo la pantalla de alta con seleccion multiple de sedes, claustros, departamentos y turnos. |
+| `VotoUTN/templates/elecciones/gestion_mesas.html` | Se creo la pantalla para generar mesas y consultar las ya creadas. |
+| `VotoUTN/apps/usuarios/permisos.py` | Se agrego `puede_administrar_elecciones`: habilita a superusuario o administrador del sistema para la gestion global y a administrador de junta dentro de su eleccion asignada. |
+| `VotoUTN/apps/elecciones/admin.py` | El admin local muestra el estado de la eleccion y permite administrar asociaciones de turnos. |
+| `VotoUTN/apps/elecciones/migrations/0006_gestion_elecciones.py` | Se creo y aplico una migracion aditiva que agrega el estado con valor por defecto `borrador` y crea la tabla de asociacion eleccion-turno. |
+| `VotoUTN/apps/asistencia/tests.py` | Se agregaron pruebas de configuracion inicial desde formulario, generacion consecutiva de mesas y rechazo de turnos ajenos a una eleccion. |
+
+### Verificaciones al cierre
+
+- `python manage.py migrate`: aplico `elecciones.0006_gestion_elecciones` correctamente.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 12 pruebas correctas.

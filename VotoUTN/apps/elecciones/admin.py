@@ -10,6 +10,7 @@ from .models import (
     EleccionClaustroDepartamentoSede,
     EleccionClaustroSede,
     EleccionSede,
+    EleccionTurno,
     Elector,
     Mesa,
     RegistroPadron,
@@ -18,14 +19,14 @@ from .models import (
 )
 
 
-admin.site.register((Sede, Claustro, Turno, Departamento, EleccionSede, EleccionClaustro, EleccionClaustroSede))
+admin.site.register((Sede, Claustro, Turno, Departamento, EleccionSede, EleccionClaustro, EleccionClaustroSede, EleccionTurno))
 admin.site.register((EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede, RegistroPadron, AsignacionMesa))
 
 
 @admin.register(Eleccion)
 class EleccionAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "fecha_inicio", "fecha_fin", "habilitada")
-    list_filter = ("habilitada",)
+    list_display = ("nombre", "estado", "fecha_inicio", "fecha_fin", "habilitada")
+    list_filter = ("estado", "habilitada")
 
 
 @admin.register(Mesa)

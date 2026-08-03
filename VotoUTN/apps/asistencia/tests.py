@@ -4,7 +4,7 @@ import hmac
 import struct
 import uuid
 
-from datetime import datetime, time
+from datetime import datetime, timedelta, time
 
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -15,12 +15,16 @@ from apps.asistencia.models import Asistencia
 from apps.asistencia.serializers import SerializadorLoteAsistencia
 from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.elecciones.management.commands.cargar_electores_demo import Command as GeneradorQr
+from apps.elecciones.forms import FormularioEleccion, FormularioGenerarMesas
 from apps.elecciones.models import (
     Claustro,
     Departamento,
     Eleccion,
     EleccionClaustro,
     EleccionClaustroDepartamento,
+    EleccionClaustroDepartamentoSede,
+    EleccionSede,
+    EleccionTurno,
     Elector,
     Mesa,
     Sede,
@@ -140,3 +144,62 @@ class PermisosParticipacionTests(TestCase):
         )
 
         self.assertFalse(puede_registrar_participacion(self.usuario, self.eleccion))
+
+
+class GestionEleccionesTests(TestCase):
+    def setUp(self):
+        self.sede = Sede.objects.create(nombre="Sede Central", codigo="SC")
+        self.claustro = Claustro.objects.create(nombre="Estudiantes", codigo="EST")
+        self.turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
+
+    def test_formulario_crea_la_configuracion_inicial_de_la_eleccion(self):
+        formulario = FormularioEleccion(
+            data={
+                "nombre": "Eleccion de prueba",
+                "fecha_inicio": "2026-08-03T08:00",
+                "fecha_fin": "2026-08-03T18:00",
+                "estado": Eleccion.Estado.PREPARADA,
+                "habilitada": "on",
+                "sedes": [self.sede.id],
+                "claustros": [self.claustro.id],
+                "departamentos": [Departamento.objects.create(nombre="Sistemas", codigo="SIS").id],
+                "turnos": [self.turno.id],
+            }
+        )
+
+        self.assertTrue(formulario.is_valid(), formulario.errors)
+        eleccion = formulario.save()
+
+        self.assertEqual(eleccion.elecciones_sede.count(), 1)
+        self.assertEqual(eleccion.elecciones_claustro.count(), 1)
+        self.assertEqual(EleccionClaustroDepartamento.objects.filter(eleccion_claustro__eleccion=eleccion).count(), 1)
+        self.assertTrue(EleccionTurno.objects.filter(eleccion=eleccion, turno=self.turno).exists())
+
+    def test_generacion_crea_mesas_numeradas_y_valida_turno_habilitado(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        eleccion = Eleccion.objects.create(nombre="Eleccion", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8))
+        EleccionSede.objects.create(eleccion=eleccion, sede=self.sede)
+        claustro_eleccion = EleccionClaustro.objects.create(eleccion=eleccion, claustro=self.claustro)
+        configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=claustro_eleccion,
+            departamento=Departamento.objects.create(nombre="Sistemas", codigo="SIS"),
+        )
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=configuracion,
+            sede=self.sede,
+        )
+        EleccionTurno.objects.create(eleccion=eleccion, turno=self.turno)
+
+        formulario = FormularioGenerarMesas(
+            eleccion=eleccion,
+            data={"configuracion": configuracion.id, "sede": self.sede.id, "turno": self.turno.id, "cantidad": 2},
+        )
+
+        self.assertTrue(formulario.is_valid(), formulario.errors)
+        formulario.generar()
+        self.assertEqual(list(eleccion.mesas.values_list("numero", flat=True)), [1, 2])
+
+        turno_ajeno = Turno.objects.create(nombre="Tarde", hora_inicio=time(13), hora_fin=time(18))
+        mesa = Mesa(eleccion=eleccion, numero=3, eleccion_claustro_departamento=configuracion, sede=self.sede, turno=turno_ajeno)
+        with self.assertRaises(ValidationError):
+            mesa.full_clean()

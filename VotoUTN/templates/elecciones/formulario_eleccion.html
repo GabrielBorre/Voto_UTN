@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva eleccion{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <h1 class="h3 mb-4">Nueva eleccion</h1>
+  <form method="post" class="vstack gap-3">
+    {% csrf_token %}
+    {% for field in formulario %}
+      <div>
+        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </div>
+    {% endfor %}
+    {% for error in formulario.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+    <div class="d-flex gap-2"><button class="btn btn-primary">Crear y configurar mesas</button><a class="btn btn-outline-secondary" href="{% url 'gestionar-elecciones' %}">Cancelar</a></div>
+  </form>
+</div></div>
+{% endblock %}
