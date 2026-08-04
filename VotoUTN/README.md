@@ -18,7 +18,7 @@ El lector toma frames continuamente y analiza las 20 celdas (20 × 1) de la hoja
 
 ## Inicio local (Windows / PowerShell)
 
-1. Instalar Python **3.12** y PostgreSQL. Crear una base llamada `escaneo_qr`.
+1. Instalar Python **3.12** y PostgreSQL. Crear una base llamada `voto_utn`.
 2. Desde esta carpeta crear el entorno e instalar dependencias:
 
    ```powershell
@@ -49,7 +49,7 @@ python manage.py runserver_plus 0.0.0.0:8000 --cert-file 192.168.1.45+2.pem --ke
 
 Instalá también la CA generada por mkcert en el teléfono, y abrí `https://192.168.1.45:8000/`. Agregá esa IP a `DJANGO_ALLOWED_HOSTS` en `.env`.
 
-> El contenido del QR se trata como el identificador único de votante. En producción conviene firmar el payload QR o validarlo contra el padrón institucional antes de permitir el registro.
+> El contenido del QR se trata como el identificador único de votante. El comando `seed_voters` genera los QR a partir de los electores ya cargados en la base de datos. En producción conviene firmar el payload QR o validarlo contra el padrón institucional antes de permitir el registro.
 
 
 python manage.py seed_voters --election-id 1
