@@ -76,6 +76,19 @@ def puede_importar_padron(usuario, eleccion):
     ).exists()
 
 
+def puede_revisar_justificativo(usuario, eleccion):
+    if not usuario.is_authenticated:
+        return False
+    if usuario.is_superuser:
+        return True
+    return AsignacionRol.objects.filter(
+        usuario=usuario,
+        activo=True,
+        eleccion=eleccion,
+        rol__in=(AsignacionRol.Rol.ADMINISTRADOR_JUNTA, AsignacionRol.Rol.ADMINISTRATIVO_JUNTA),
+    ).exists() or AsignacionRol.objects.filter(usuario=usuario, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists()
+
+
 def elecciones_con_participacion(usuario):
     elecciones = Eleccion.objects.filter(habilitada=True)
     if usuario.is_superuser or AsignacionRol.objects.filter(usuario=usuario, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():

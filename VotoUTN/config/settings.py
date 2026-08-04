@@ -29,6 +29,7 @@ TEMPLATES = [{
     "OPTIONS": {"context_processors": [
         "django.template.context_processors.request", "django.contrib.auth.context_processors.auth",
         "django.contrib.messages.context_processors.messages",
+        "apps.elecciones.context_processors.notificaciones_usuario",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"

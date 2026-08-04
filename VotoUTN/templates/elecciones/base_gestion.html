@@ -20,6 +20,8 @@
     <a class="{% if request.resolver_match.url_name == 'crear-eleccion' %}active{% endif %}" href="{% url 'crear-eleccion' %}">Nueva eleccion</a>
     <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parametros de eleccion</a>
     <a class="{% if request.resolver_match.url_name == 'historial-elecciones' %}active{% endif %}" href="{% url 'historial-elecciones' %}">Historial de elecciones</a>
+    <a class="{% if request.resolver_match.url_name == 'bandeja-justificativos' %}active{% endif %}" href="{% url 'bandeja-justificativos' %}">Justificativos</a>
+    <a href="{% url 'mis-notificaciones' %}">Notificaciones{% if notificaciones_no_leidas %} ({{ notificaciones_no_leidas }}){% endif %}</a>
     <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button>Salir</button></form>
   </nav>
   <main class="gestion-page">

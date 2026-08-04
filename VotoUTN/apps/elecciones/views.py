@@ -8,6 +8,7 @@ from django.http import HttpResponse, HttpResponseForbidden
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from .forms import (
     FormularioAlcanceSedes,
@@ -20,17 +21,24 @@ from .forms import (
     FormularioEditarEleccion,
     FormularioFechaAdministrativa,
     FormularioGenerarMesas,
+    FormularioJustificativo,
     FormularioPrepararClaustro,
     FormularioPreferenciaAutoridad,
+    FormularioResolucionJustificativo,
     FormularioSede,
     FormularioTurno,
+    FormularioTipoJustificativo,
+    FormularioPlantillaNotificacion,
+    FormularioEnviarNotificacion,
     preparar_formulario_parametro,
 )
-from .models import AsignacionAutoridad, Claustro, Departamento, Eleccion, EleccionClaustro, EleccionClaustroDepartamento, FechaAdministrativa, ImportacionPadron, PreferenciaAutoridad, Sede, Turno
+from .models import AsignacionAutoridad, Claustro, Departamento, Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EnvioNotificacion, FechaAdministrativa, ImportacionPadron, JustificativoAusencia, PlantillaNotificacion, PreferenciaAutoridad, Sede, TipoJustificativo, Turno
 from .servicios.autoridades import asignar_autoridad, importar_autoridades, responder_asignacion
 from .servicios.importacion_padron import CABECERAS_PADRON, confirmar_importacion, registrar_errores, validar_csv_padron
+from .servicios.notificaciones import crear_envios
 from apps.usuarios.permisos import elecciones_con_participacion
-from apps.usuarios.permisos import puede_administrar_elecciones, puede_administrar_parametros, puede_importar_padron
+from apps.usuarios.permisos import puede_administrar_elecciones, puede_administrar_parametros, puede_importar_padron, puede_revisar_justificativo
+from apps.usuarios.models import AsignacionRol
 
 
 PARAMETROS = {
@@ -39,6 +47,7 @@ PARAMETROS = {
     "departamentos": {"modelo": Departamento, "formulario": FormularioDepartamento, "titulo": "Departamentos", "estado": "activo", "codigo": True},
     "turnos": {"modelo": Turno, "formulario": FormularioTurno, "titulo": "Turnos", "estado": "activo", "codigo": False},
     "fechas-administrativas": {"modelo": FechaAdministrativa, "formulario": FormularioFechaAdministrativa, "titulo": "Fechas administrativas", "estado": "activa", "codigo": False, "es_fecha": True},
+    "tipos-justificativo": {"modelo": TipoJustificativo, "formulario": FormularioTipoJustificativo, "titulo": "Tipos de justificativo", "estado": "activo", "codigo": False},
 }
 
 
@@ -355,6 +364,151 @@ def preferencia_autoridad(request, asignacion_id):
         messages.success(request, "La preferencia fue actualizada.")
         return redirect("mis-asignaciones-autoridad")
     return render(request, "elecciones/preferencia_autoridad.html", {"asignacion": asignacion, "formulario": formulario})
+
+
+@login_required
+def mis_justificativos(request):
+    perfil = getattr(request.user, "perfil_electoral", None)
+    elector = perfil.elector if perfil and perfil.elector_id else None
+    formulario = FormularioJustificativo(request.POST or None, request.FILES or None, elector=elector)
+    if request.method == "POST" and formulario.is_valid():
+        formulario.save()
+        messages.success(request, "El justificativo fue presentado para revision.")
+        return redirect("mis-justificativos")
+    justificativos = JustificativoAusencia.objects.select_related("registro_padron__eleccion", "tipo")
+    if elector is not None:
+        justificativos = justificativos.filter(registro_padron__elector=elector)
+    return render(request, "elecciones/mis_justificativos.html", {"formulario": formulario, "justificativos": justificativos})
+
+
+@login_required
+def gestionar_justificativos(request, eleccion_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_revisar_justificativo(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
+    justificativos = JustificativoAusencia.objects.filter(registro_padron__eleccion=eleccion).select_related("registro_padron__elector", "tipo", "resuelta_por")
+    return render(request, "elecciones/gestion_justificativos.html", {"eleccion": eleccion, "justificativos": justificativos})
+
+
+@login_required
+def bandeja_justificativos(request):
+    if request.user.is_superuser or AsignacionRol.objects.filter(usuario=request.user, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():
+        justificativos = JustificativoAusencia.objects.all()
+    else:
+        elecciones = AsignacionRol.objects.filter(
+            usuario=request.user,
+            activo=True,
+            rol__in=(AsignacionRol.Rol.ADMINISTRADOR_JUNTA, AsignacionRol.Rol.ADMINISTRATIVO_JUNTA),
+        ).exclude(eleccion__isnull=True).values_list("eleccion_id", flat=True)
+        justificativos = JustificativoAusencia.objects.filter(registro_padron__eleccion_id__in=elecciones)
+    if not justificativos.exists():
+        tiene_rol = AsignacionRol.objects.filter(usuario=request.user, activo=True, rol__in=(AsignacionRol.Rol.ADMINISTRADOR_JUNTA, AsignacionRol.Rol.ADMINISTRATIVO_JUNTA)).exists()
+        if not (request.user.is_superuser or tiene_rol):
+            return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
+    justificativos = justificativos.select_related("registro_padron__eleccion", "registro_padron__elector", "tipo")
+    return render(request, "elecciones/bandeja_justificativos.html", {"justificativos": justificativos})
+
+
+@login_required
+def resolver_justificativo(request, justificativo_id):
+    justificativo = get_object_or_404(JustificativoAusencia.objects.select_related("registro_padron__eleccion"), pk=justificativo_id)
+    if not puede_revisar_justificativo(request.user, justificativo.registro_padron.eleccion):
+        return HttpResponseForbidden("No tiene permiso para resolver este justificativo.")
+    formulario = FormularioResolucionJustificativo(request.POST or None)
+    if request.method == "POST" and formulario.is_valid():
+        justificativo.estado = formulario.cleaned_data["estado"]
+        justificativo.observacion_resolucion = formulario.cleaned_data["observacion_resolucion"]
+        justificativo.resuelta_por = request.user
+        justificativo.resuelta_en = timezone.now()
+        justificativo.save(update_fields=("estado", "observacion_resolucion", "resuelta_por", "resuelta_en"))
+        messages.success(request, "El justificativo fue resuelto.")
+        return redirect("gestionar-justificativos", eleccion_id=justificativo.registro_padron.eleccion_id)
+    return render(request, "elecciones/resolver_justificativo.html", {"justificativo": justificativo, "formulario": formulario})
+
+
+@login_required
+def gestionar_notificaciones(request):
+    if not puede_administrar_parametros(request.user):
+        return HttpResponseForbidden("No tiene permiso para gestionar notificaciones.")
+    formulario_plantilla = FormularioPlantillaNotificacion(request.POST or None, prefix="plantilla")
+    formulario_envio = FormularioEnviarNotificacion(request.POST or None, prefix="envio")
+    if request.method == "POST" and "plantilla-nombre" in request.POST and formulario_plantilla.is_valid():
+        formulario_plantilla.save()
+        messages.success(request, "La plantilla fue guardada.")
+        return redirect("gestionar-notificaciones")
+    if request.method == "POST" and "envio-plantilla" in request.POST and formulario_envio.is_valid():
+        cantidad = crear_envios(formulario_envio.cleaned_data["plantilla"], formulario_envio.cleaned_data["eleccion"])
+        messages.success(request, f"Se generaron {cantidad} notificaciones pendientes.")
+        return redirect("gestionar-notificaciones")
+    return render(request, "elecciones/gestion_notificaciones.html", {"formulario_plantilla": formulario_plantilla, "formulario_envio": formulario_envio, "plantillas": PlantillaNotificacion.objects.all(), "envios": EnvioNotificacion.objects.select_related("destinatario", "eleccion")[:20]})
+
+
+def valor_csv(valor):
+    texto = "" if valor is None else str(valor)
+    return f"'{texto}" if texto.startswith(("=", "+", "-", "@")) else texto
+
+
+@login_required
+def gestionar_reportes(request, eleccion_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para consultar reportes.")
+    return render(request, "elecciones/reportes.html", {"eleccion": eleccion})
+
+
+@login_required
+def exportar_reporte(request, eleccion_id, tipo):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para exportar información.")
+    respuesta = HttpResponse(content_type="text/csv; charset=utf-8")
+    respuesta["Content-Disposition"] = f'attachment; filename="{tipo}_{eleccion.id}.csv"'
+    respuesta.write("\ufeff")
+    escritor = csv.writer(respuesta)
+    if tipo == "padron":
+        escritor.writerow(("dni", "legajo", "nombre", "correo", "claustro", "departamento", "sede", "mesa"))
+        for registro in eleccion.registros_padron.select_related("elector", "sede", "eleccion_claustro_departamento__departamento", "eleccion_claustro_departamento__eleccion_claustro__claustro", "asignacion_mesa__mesa"):
+            escritor.writerow([valor_csv(valor) for valor in (registro.elector.dni, registro.elector.legajo, registro.elector.nombre, registro.elector.correo_electronico, registro.eleccion_claustro_departamento.eleccion_claustro.claustro, registro.eleccion_claustro_departamento.departamento, registro.sede, getattr(getattr(registro, "asignacion_mesa", None), "mesa", None))])
+    elif tipo == "mesas":
+        escritor.writerow(("numero", "claustro", "departamento", "sede", "turno", "origen"))
+        for mesa in eleccion.mesas.select_related("sede", "turno", "eleccion_claustro_departamento__departamento", "eleccion_claustro_departamento__eleccion_claustro__claustro"):
+            escritor.writerow((mesa.numero, mesa.eleccion_claustro_departamento.eleccion_claustro.claustro, mesa.eleccion_claustro_departamento.departamento, mesa.sede, mesa.turno, "padron" if mesa.generada_automaticamente else "manual"))
+    elif tipo == "autoridades":
+        escritor.writerow(("nombre", "legajo", "mesa", "estado", "asignada_en"))
+        for item in AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).select_related("registro_padron__elector", "mesa"):
+            escritor.writerow((valor_csv(item.registro_padron.elector.nombre), valor_csv(item.registro_padron.elector.legajo), item.mesa.numero, item.estado, item.asignada_en.isoformat()))
+    elif tipo == "participacion":
+        from apps.asistencia.models import RegistroParticipacion
+        escritor.writerow(("elector", "legajo", "mesa", "registrada_en", "metodo"))
+        for item in RegistroParticipacion.objects.filter(registro_padron__eleccion=eleccion).select_related("registro_padron__elector", "mesa"):
+            escritor.writerow((valor_csv(item.registro_padron.elector.nombre), valor_csv(item.registro_padron.elector.legajo), item.mesa.numero, item.registrada_en.isoformat(), item.metodo))
+    elif tipo == "justificativos":
+        escritor.writerow(("elector", "motivo", "estado", "presentada_en", "resuelta_en"))
+        for item in JustificativoAusencia.objects.filter(registro_padron__eleccion=eleccion).select_related("registro_padron__elector", "tipo"):
+            escritor.writerow([valor_csv(valor) for valor in (item.registro_padron.elector.nombre, item.tipo, item.estado, item.presentada_en.isoformat(), item.resuelta_en.isoformat() if item.resuelta_en else "")])
+    elif tipo == "errores-importacion":
+        escritor.writerow(("archivo", "fila", "campo", "mensaje"))
+        for error in eleccion.importaciones_padron.prefetch_related("errores").all():
+            for detalle in error.errores.all():
+                escritor.writerow([valor_csv(valor) for valor in (error.nombre_archivo, detalle.fila, detalle.campo, detalle.mensaje)])
+    else:
+        raise Http404()
+    return respuesta
+
+
+@login_required
+def mis_notificaciones(request):
+    notificaciones = request.user.notificaciones.all()
+    return render(request, "elecciones/mis_notificaciones.html", {"notificaciones": notificaciones})
+
+
+@login_required
+def leer_notificacion(request, notificacion_id):
+    notificacion = get_object_or_404(EnvioNotificacion, pk=notificacion_id, destinatario=request.user)
+    if notificacion.leida_en is None:
+        notificacion.leida_en = timezone.now()
+        notificacion.save(update_fields=("leida_en",))
+    return render(request, "elecciones/detalle_notificacion.html", {"notificacion": notificacion})
 
 
 @login_required

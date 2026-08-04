@@ -1,0 +1,1 @@
+{% extends "elecciones/base_gestion.html" %}{% block content %}<section class="hero"><h1>{{ notificacion.asunto }}</h1><p>{{ notificacion.creada_en|date:"d/m/Y H:i" }}</p></section><section class="card"><p>{{ notificacion.contenido|linebreaksbr }}</p></section>{% endblock %}

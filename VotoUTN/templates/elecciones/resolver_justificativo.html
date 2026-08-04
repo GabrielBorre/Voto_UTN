@@ -1,0 +1,2 @@
+{% extends "elecciones/base_gestion.html" %}
+{% block content %}<section class="hero"><h1>Resolver justificativo</h1><p>{{ justificativo.registro_padron.elector.nombre }} · {{ justificativo.tipo }}</p></section><section class="card form-card"><p>{{ justificativo.detalle }}</p><form method="post">{% csrf_token %}{% for field in formulario %}<div class="field"><label>{{ field.label }}</label>{{ field }}</div>{% endfor %}<div class="footer-actions"><button class="button primary">Guardar resolución</button></div></form></section>{% endblock %}

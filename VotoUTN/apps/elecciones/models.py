@@ -318,6 +318,39 @@ class ErrorImportacionPadron(models.Model):
         ordering = ("fila", "id")
 
 
+class PlantillaNotificacion(models.Model):
+    nombre = models.CharField(max_length=160, unique=True)
+    asunto = models.CharField(max_length=180)
+    contenido = models.TextField()
+    roles_destinatarios = models.JSONField(default=list)
+    claustros = models.ManyToManyField(Claustro, related_name="plantillas_notificacion", blank=True)
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("nombre",)
+
+
+class EnvioNotificacion(models.Model):
+    class Estado(models.TextChoices):
+        PENDIENTE = "pendiente", "Pendiente"
+        ENVIADO = "enviado", "Enviado"
+        ERROR = "error", "Error"
+
+    plantilla = models.ForeignKey(PlantillaNotificacion, on_delete=models.PROTECT, related_name="envios")
+    eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="envios_notificacion", null=True, blank=True)
+    destinatario = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="notificaciones")
+    asunto = models.CharField(max_length=180)
+    contenido = models.TextField()
+    estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.PENDIENTE)
+    creada_en = models.DateTimeField(auto_now_add=True)
+    enviada_en = models.DateTimeField(null=True, blank=True)
+    leida_en = models.DateTimeField(null=True, blank=True)
+    error = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        ordering = ("-creada_en",)
+
+
 class FechaAdministrativaEleccion(models.Model):
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="fechas_administrativas")
     fecha_administrativa = models.ForeignKey(FechaAdministrativa, on_delete=models.PROTECT, related_name="programaciones")
@@ -371,6 +404,38 @@ class PreferenciaAutoridad(models.Model):
     def clean(self):
         if self.registro_padron_id and self.sede_preferida_id and self.sede_preferida_id != self.registro_padron.sede_id:
             raise ValidationError({"sede_preferida": "La sede preferida debe ser la sede del padron."})
+
+
+class TipoJustificativo(models.Model):
+    nombre = models.CharField(max_length=120, unique=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("nombre",)
+
+    def __str__(self):
+        return self.nombre
+
+
+class JustificativoAusencia(models.Model):
+    class Estado(models.TextChoices):
+        PENDIENTE = "pendiente", "Pendiente"
+        APROBADO = "aprobado", "Aprobado"
+        RECHAZADO = "rechazado", "Rechazado"
+
+    registro_padron = models.ForeignKey(RegistroPadron, on_delete=models.PROTECT, related_name="justificativos")
+    tipo = models.ForeignKey(TipoJustificativo, on_delete=models.PROTECT, related_name="justificativos")
+    detalle = models.TextField()
+    documento = models.FileField(upload_to="justificativos/%Y/%m/%d", blank=True)
+    estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.PENDIENTE)
+    presentada_en = models.DateTimeField(auto_now_add=True)
+    resuelta_por = models.ForeignKey("auth.User", on_delete=models.PROTECT, null=True, blank=True, related_name="justificativos_resueltos")
+    resuelta_en = models.DateTimeField(null=True, blank=True)
+    observacion_resolucion = models.TextField(blank=True)
+
+    def clean(self):
+        if self.resuelta_por_id and self.estado == self.Estado.PENDIENTE:
+            raise ValidationError({"estado": "Un justificativo resuelto debe estar aprobado o rechazado."})
 
 
 class AsignacionMesa(models.Model):

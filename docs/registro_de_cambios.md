@@ -307,6 +307,56 @@ Fecha de implementacion: 2026-08-03
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 18 pruebas correctas.
 
+## Etapa 9 - Notificaciones
+
+Fecha de implementacion: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | Se agregaron `PlantillaNotificacion` y `EnvioNotificacion`. Las plantillas conservan asunto, contenido, roles destinatarios y claustros aplicables; cada envio registra destinatario, estado, fecha de envio, lectura y error. |
+| `VotoUTN/apps/elecciones/migrations/0016_plantillanotificacion_envionotificacion.py` | Crea las tablas de plantillas y envios de manera aditiva, sin modificar datos electorales existentes. |
+| `VotoUTN/apps/elecciones/servicios/notificaciones.py` | Se centralizo la creacion de envios para usuarios con rol en la eleccion y perfiles electorales alcanzados por claustro. Tambien se implemento el procesamiento por correo y el registro de envios fallidos. |
+| `VotoUTN/apps/elecciones/management/commands/procesar_notificaciones.py` | Se agrego el comando `python manage.py procesar_notificaciones` para procesar la cola de envios pendientes. |
+| `VotoUTN/apps/elecciones/forms.py`, `views.py` y `urls.py` | Se agregaron formularios y rutas de administracion de plantillas, envios por eleccion, bandeja personal y detalle de notificacion. |
+| `VotoUTN/apps/elecciones/context_processors.py` y `VotoUTN/config/settings.py` | Se incorporo al contexto global el contador de notificaciones sin leer para mostrarlo en la navegacion. |
+| `VotoUTN/templates/elecciones/gestion_notificaciones.html`, `mis_notificaciones.html` y `detalle_notificacion.html` | Se implementaron las pantallas de Junta para crear plantillas y enviar avisos, y las vistas de recepcion y lectura para los usuarios. |
+
+## Etapa 10 - Reportes operativos
+
+Fecha de implementacion: 2026-08-03
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/views.py` y `urls.py` | Se incorporaron la pantalla de reportes de cada eleccion y exportaciones CSV de padron, mesas, participacion, autoridades, justificativos y errores de importacion. El acceso queda restringido a los roles de Junta autorizados. |
+| `VotoUTN/templates/elecciones/reportes.html` | Se creo el panel de descargas con conteos por reporte y acceso a cada exportacion disponible. |
+| `VotoUTN/templates/elecciones/configurar_eleccion.html` | Se agrego Reportes como acceso central dentro de la configuracion de la eleccion. |
+| `VotoUTN/apps/elecciones/views.py` | Las exportaciones usan CSV UTF-8 con BOM y protegen contra inyeccion de formulas ante valores que comienzan con `=`, `+`, `-` o `@`. |
+
+### Verificaciones realizadas para las etapas 8, 9 y 10
+
+- `python manage.py migrate`: aplico correctamente las migraciones `0015` y `0016`.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 24 pruebas correctas.
+
+## Etapa 8 - Justificativos
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` y migración `0015_tipojustificativo_justificativoausencia.py` | Se agregaron tipos configurables y justificativos con archivo, estado, presentación, revisor, fecha y observación de resolución. |
+| `VotoUTN/apps/usuarios/permisos.py` | Administrador de Junta y Administrativo de Junta pueden revisar y resolver, además de superusuarios y administrador del sistema. |
+| `VotoUTN/apps/elecciones/forms.py` | Se agregaron formularios de presentación y resolución; los adjuntos aceptan PDF/JPG/PNG de hasta 5 MB. |
+| `VotoUTN/apps/elecciones/views.py` y `urls.py` | Se incorporaron presentación propia, bandeja general de Junta, revisión por elección y resolución trazable. |
+| `VotoUTN/templates/elecciones/` | Se crearon las pantallas de presentación, bandeja, gestión y resolución; Justificativos se agregó a la navegación principal. |
+
+### Verificaciones
+
+- Migración `0015` aplicada correctamente.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py test`: 24 pruebas correctas.
+
 ## Etapa 7 - Autoridades de mesa
 
 Fecha de implementacion: 2026-08-03
