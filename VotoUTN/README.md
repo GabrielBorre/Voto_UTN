@@ -52,4 +52,4 @@ Instalá también la CA generada por mkcert en el teléfono, y abrí `https://19
 > El contenido del QR se trata como el identificador único de votante. En producción conviene firmar el payload QR o validarlo contra el padrón institucional antes de permitir el registro.
 
 
-python manage.py seed_voters --election-id 1
+python manage.py seed_voters --election-id 1 --configuracion-departamento-id 2

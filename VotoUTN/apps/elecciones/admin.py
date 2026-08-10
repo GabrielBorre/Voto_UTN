@@ -40,6 +40,5 @@ class MesaAdmin(admin.ModelAdmin):
 
 @admin.register(Elector)
 class ElectorAdmin(admin.ModelAdmin):
-    list_display = ("id", "legajo", "nombre", "dni", "mesa")
-    list_filter = ("mesa", "mesa__eleccion")
-    search_fields = ("legajo", "nombre", "dni", "mesa__numero", "mesa__eleccion__nombre")
+    list_display = ("id", "legajo", "nombre", "dni")
+    search_fields = ("legajo", "nombre", "dni")
