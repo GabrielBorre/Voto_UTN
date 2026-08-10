@@ -39,6 +39,9 @@ class APIVistaAsistenciaLote(APIView):
                 "creados": result.creados,
                 "ya_registrados": result.ya_registrados,
                 "invalidos": result.invalidos,
+                "invalidos_otra_eleccion": result.invalidos_otra_eleccion,
                 "recibidos": recibidos,
+                "mesa_numero": result.mesa_numero,
+                "departamento_codigo": result.departamento_codigo,
             }
         )

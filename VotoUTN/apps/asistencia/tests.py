@@ -1,8 +1,4 @@
-import base64
 import hashlib
-import hmac
-import struct
-import uuid
 
 from datetime import date, datetime, timedelta, time
 
@@ -13,12 +9,13 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils.timezone import make_aware
 
-from apps.asistencia.models import Asistencia
+from apps.asistencia.models import RegistroParticipacion
 from apps.asistencia.serializers import SerializadorLoteAsistencia
 from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.elecciones.management.commands.cargar_electores_demo import Command as GeneradorQr
 from apps.elecciones.forms import FormularioAlcanceSedes, FormularioEleccion, FormularioGenerarMesas
 from apps.elecciones.models import (
+    AsignacionMesa,
     AsignacionAutoridad,
     Claustro,
     Departamento,
@@ -47,11 +44,11 @@ from apps.usuarios.permisos import puede_administrar_parametros, puede_registrar
 class ServicioAsistenciaQrTests(SimpleTestCase):
     clave_qr = "clave-de-prueba-qr"
 
-    def generar_codigo(self, *, eleccion_id=7, mesa_numero=12, legajo=203425):
+    def generar_codigo(self, *, eleccion_id=7, mesa_numero=12, identificador="A1B2C3D4"):
         return ServicioRegistroParticipacion.generar_codigo_qr(
             eleccion_id=eleccion_id,
             mesa_numero=mesa_numero,
-            identificador_qr=uuid.UUID(int=legajo),
+            identificador_qr=identificador,
         )
 
     @override_settings(CLAVE_FIRMA_QR=clave_qr)
@@ -60,16 +57,13 @@ class ServicioAsistenciaQrTests(SimpleTestCase):
 
         self.assertEqual(
             ServicioRegistroParticipacion.parsear_codigo_qr(codigo),
-            (7, 12, uuid.UUID(int=203425).hex),
+            (7, 12, "A1B2C3D4"),
         )
 
     @override_settings(CLAVE_FIRMA_QR=clave_qr)
     def test_rechaza_codigo_qr_con_firma_alterada(self):
         codigo = self.generar_codigo()
-        version, contenido = codigo.split(".")
-        binario = bytearray(base64.urlsafe_b64decode(contenido + "=" * (-len(contenido) % 4)))
-        binario[-1] ^= 1
-        alterado = f"{version}.{base64.urlsafe_b64encode(binario).decode('ascii').rstrip('=')}"
+        alterado = f"{codigo[:-1]}Z"
 
         self.assertIsNone(ServicioRegistroParticipacion.parsear_codigo_qr(alterado))
 
@@ -86,8 +80,72 @@ class ServicioAsistenciaQrTests(SimpleTestCase):
 
         self.assertEqual(
             ServicioRegistroParticipacion.parsear_codigo_qr(codigo),
-            (7, 12, uuid.UUID(int=203425).hex),
+            (7, 12, "A1B2C3D4"),
         )
+
+
+class ServicioRegistroParticipacionEleccionTests(TestCase):
+    def setUp(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        fin = make_aware(datetime(2026, 8, 3, 18))
+        self.eleccion_activa = Eleccion.objects.create(nombre="Elección activa", fecha_inicio=inicio, fecha_fin=fin)
+        self.eleccion_ajena = Eleccion.objects.create(nombre="Elección ajena", fecha_inicio=inicio, fecha_fin=fin)
+
+        claustro = Claustro.objects.create(nombre="Docentes")
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="DSI")
+        sede = Sede.objects.create(nombre="Campus Central")
+        turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
+
+        ec_activa = EleccionClaustro.objects.create(eleccion=self.eleccion_activa, claustro=claustro)
+        self.cfg_activa = EleccionClaustroDepartamento.objects.create(eleccion_claustro=ec_activa, departamento=departamento)
+        self.mesa_activa = Mesa.objects.create(
+            eleccion=self.eleccion_activa,
+            numero=1,
+            eleccion_claustro_departamento=self.cfg_activa,
+            sede=sede,
+            turno=turno,
+        )
+
+        ec_ajena = EleccionClaustro.objects.create(eleccion=self.eleccion_ajena, claustro=claustro)
+        cfg_ajena = EleccionClaustroDepartamento.objects.create(eleccion_claustro=ec_ajena, departamento=departamento)
+        self.mesa_ajena = Mesa.objects.create(
+            eleccion=self.eleccion_ajena,
+            numero=2,
+            eleccion_claustro_departamento=cfg_ajena,
+            sede=sede,
+            turno=turno,
+        )
+
+        elector = Elector.objects.create(legajo="110001", nombre="Elector Ajeno", dni="40111222")
+        self.padron_ajeno = RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion_ajena,
+            eleccion_claustro_departamento=cfg_ajena,
+            sede=sede,
+            activo=True,
+        )
+        AsignacionMesa.objects.create(registro_padron=self.padron_ajeno, mesa=self.mesa_ajena)
+        self.usuario = get_user_model().objects.create_user(username="operador-qr", password="clave")
+
+    @override_settings(CLAVE_FIRMA_QR="clave-de-prueba-qr")
+    def test_registrar_lote_marca_qr_de_otra_eleccion(self):
+        codigo_ajeno = ServicioRegistroParticipacion.generar_codigo_qr(
+            eleccion_id=self.eleccion_ajena.id,
+            mesa_numero=self.mesa_ajena.numero,
+            identificador_qr=self.padron_ajeno.identificador_qr,
+        )
+
+        resultado = ServicioRegistroParticipacion.registrar_lote(
+            eleccion=self.eleccion_activa,
+            codigos_qr=[codigo_ajeno],
+            usuario=self.usuario,
+        )
+
+        self.assertEqual(resultado.creados, [])
+        self.assertEqual(resultado.ya_registrados, [])
+        self.assertEqual(resultado.invalidos, [codigo_ajeno])
+        self.assertEqual(resultado.invalidos_otra_eleccion, [codigo_ajeno])
+        self.assertFalse(RegistroParticipacion.objects.exists())
 
 
 class NomenclaturaDominioTests(SimpleTestCase):
@@ -95,8 +153,8 @@ class NomenclaturaDominioTests(SimpleTestCase):
         self.assertIsNotNone(Eleccion._meta.get_field("nombre"))
         self.assertIsNotNone(Eleccion._meta.get_field("fecha_inicio"))
         self.assertIsNotNone(Elector._meta.get_field("nombre"))
-        self.assertIsNotNone(Asistencia._meta.get_field("codigo_elector"))
-        self.assertIsNotNone(Asistencia._meta.get_field("registrada_por"))
+        self.assertIsNotNone(RegistroParticipacion._meta.get_field("registro_padron"))
+        self.assertIsNotNone(RegistroParticipacion._meta.get_field("registrada_por"))
 
     def test_el_serializador_recibe_codigos_qr(self):
         serializador = SerializadorLoteAsistencia(data={"codigos_qr": ["codigo-demo"]})

@@ -31,10 +31,11 @@ export function setCount(count) {
   countElement.textContent = `QRs escaneados en mesa: ${count}`;
 }
 
-export function setRegisterButtonLabel(mesaNumber, count) {
+export function setRegisterButtonLabel(mesaNumber, count, departamentoCodigo = null) {
   const qrLabel = count === 1 ? "QR" : "QRs";
+  const departamentoLabel = departamentoCodigo ? `<br>Depto ${departamentoCodigo}` : "";
   const label = mesaNumber
-    ? `Registrar Mesa ${mesaNumber}<br>${count} ${qrLabel}`
-    : `Registrar Mesa<br>${count} ${qrLabel}`;
+    ? `Registrar Mesa ${mesaNumber}${departamentoLabel}<br>${count} ${qrLabel}`
+    : `Registrar Mesa${departamentoLabel}<br>${count} ${qrLabel}`;
   registerButton.innerHTML = `${ICONS.register} ${label}`;
 }

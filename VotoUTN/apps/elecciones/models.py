@@ -1,4 +1,5 @@
-import uuid
+import secrets
+import string
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -247,7 +248,6 @@ class Elector(models.Model):
     nombre = models.CharField("nombre", max_length=180)
     dni = models.CharField("DNI", max_length=12, unique=True)
     correo_electronico = models.EmailField("correo electronico", blank=True)
-    mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name="electores", null=True, blank=True)
 
     class Meta:
         ordering = ["legajo"]
@@ -257,12 +257,15 @@ class Elector(models.Model):
 
 
 class RegistroPadron(models.Model):
+    ALFABETO_CODIGO_QR = string.ascii_uppercase + string.digits
+    LONGITUD_CODIGO_QR = 8
+
     elector = models.ForeignKey(Elector, on_delete=models.PROTECT, related_name="registros_padron")
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="registros_padron")
     eleccion_claustro_departamento = models.ForeignKey(EleccionClaustroDepartamento, on_delete=models.PROTECT, related_name="registros_padron")
     sede = models.ForeignKey(Sede, on_delete=models.PROTECT, related_name="registros_padron", null=True, blank=True)
     activo = models.BooleanField(default=True)
-    identificador_qr = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    identificador_qr = models.CharField(max_length=LONGITUD_CODIGO_QR, unique=True, blank=True, editable=False)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("elector", "eleccion"), name="elector_unico_por_eleccion")]
@@ -279,6 +282,21 @@ class RegistroPadron(models.Model):
             sede=self.sede,
         ).exists():
             raise ValidationError({"sede": "Debe estar habilitada para el departamento del padron."})
+
+    @classmethod
+    def generar_codigo_qr_corto(cls):
+        return "".join(secrets.choice(cls.ALFABETO_CODIGO_QR) for _ in range(cls.LONGITUD_CODIGO_QR))
+
+    def save(self, *args, **kwargs):
+        if not self.identificador_qr:
+            for _ in range(12):
+                candidato = self.generar_codigo_qr_corto()
+                if not RegistroPadron.objects.filter(identificador_qr=candidato).exclude(pk=self.pk).exists():
+                    self.identificador_qr = candidato
+                    break
+            else:
+                raise ValidationError({"identificador_qr": "No se pudo generar un codigo QR unico."})
+        super().save(*args, **kwargs)
 
 
 class ImportacionPadron(models.Model):
