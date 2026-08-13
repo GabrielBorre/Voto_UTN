@@ -14,6 +14,7 @@ class Command(BaseCommand):
     CELL_WIDTH = 430
     CELL_HEIGHT = 350
     QR_SIZE = 350
+    PREFIJO_QR_HOJA = "qr_hoja"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -45,8 +46,8 @@ class Command(BaseCommand):
             raise CommandError("La configuración de departamento no pertenece a la elección.")
 
         output.mkdir(parents=True, exist_ok=True)
-        for hoja_existente in output.glob("hoja_qr*.png"):
-            hoja_existente.unlink(missing_ok=True)
+        for png_existente in output.glob("*.png"):
+            png_existente.unlink(missing_ok=True)
 
         registros_qr = []
         qr_images = {}
@@ -78,7 +79,7 @@ class Command(BaseCommand):
             qr = self.generar_qr(payload)
             legajo = registro_padron.elector.legajo
             qr_images[legajo] = qr
-            qr.save(output / f"{legajo}.png")
+            qr.save(output / f"mesa_{mesa.numero}_legajo_{legajo}.png")
             registros_qr.append((registro_padron.elector, mesa.numero))
 
         if not registros_qr:
@@ -147,7 +148,7 @@ class Command(BaseCommand):
                     qr_y = y + 20
                     sheet.paste(qr, (x, qr_y))
 
-                destination = output_dir / f"hoja_qr_mesa_{mesa_numero}_{page_number}.png"
+                destination = output_dir / f"{self.PREFIJO_QR_HOJA}_mesa_{mesa_numero}_pagina_{page_number}.png"
                 sheet.save(destination)
                 total_hojas += 1
 
