@@ -1,0 +1,9 @@
+{% extends "elecciones/base_gestion.html" %}
+{% block title %}Cargar padron | Junta Electoral UTN{% endblock %}
+{% block content %}
+<section class="hero"><h1>Cargar padron</h1><p>{{ eleccion.nombre }} · {{ claustro.claustro }}. El archivo se valida antes de incorporar cualquier elector.</p></section>
+<section class="card form-card"><form method="post" enctype="multipart/form-data">{% csrf_token %}
+  <div class="field"><label for="{{ formulario.archivo.id_for_label }}">Archivo CSV</label>{{ formulario.archivo }}{% for error in formulario.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>
+  <div class="footer-actions"><a class="button light" href="{% url 'descargar-plantilla-padron' eleccion.id claustro.id %}">Descargar plantilla</a><a class="button light" href="{% url 'preparar-eleccion' eleccion.id %}">Volver</a><button class="button primary">Previsualizar archivo</button></div>
+</form></section>
+{% endblock %}

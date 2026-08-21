@@ -1,9 +1,9 @@
 from django.contrib import admin
-from .models import Asistencia
+from .models import RegistroParticipacion
 
-@admin.register(Asistencia)
-class AsistenciaAdmin(admin.ModelAdmin):
-    list_display = ("voter_code", "eleccion", "scanned_by", "scanned_at")
-    list_filter = ("eleccion",)
-    search_fields = ("voter_code",)
-    readonly_fields = ("scanned_at",)
+@admin.register(RegistroParticipacion)
+class RegistroParticipacionAdmin(admin.ModelAdmin):
+    list_display = ("registro_padron", "mesa", "metodo", "registrada_por", "registrada_en")
+    list_filter = ("metodo", "mesa", "registro_padron__eleccion")
+    search_fields = ("registro_padron__elector__legajo", "registro_padron__elector__dni", "mesa__numero")
+    readonly_fields = ("registrada_en",)

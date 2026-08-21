@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Escanear · {{ eleccion.name }}{% endblock %}
+{% block title %}Escanear · {{ eleccion.nombre }}{% endblock %}
 
 {% comment %} Desactivamos la navbar superior de base.html solo para el escáner {% endcomment %}
 {% block nav %}{% endblock %}
@@ -9,16 +9,16 @@
 {% block main_class %}scanner-page-wrapper{% endblock %}
 
 {% block content %}
-<div id="scanner-app" class="scanner-page" data-api-url="{% url 'asistencia-batch-api' eleccion.pk %}" data-list-url="{% url 'eleccion-list' %}">
+<div id="scanner-app" class="scanner-page" data-api-url="{% url 'api-asistencia-lote' eleccion.pk %}" data-list-url="{% url 'lista-elecciones' %}">
 
   <header class="scanner-header">
-    <a href="{% url 'eleccion-list' %}" class="scanner-back" aria-label="Volver">
+    <a href="{% url 'lista-elecciones' %}" class="scanner-back" aria-label="Volver">
       <span class="scanner-back-icon">‹</span>
       <span>Volver</span>
     </a>
     <div class="scanner-election">
       <strong>Elección</strong>
-      <span class="text-truncate" style="max-width: 128px;">{{ eleccion.name }}</span>
+      <span class="text-truncate" style="max-width: 128px;">{{ eleccion.nombre }}</span>
     </div>
   </header>
 

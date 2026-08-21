@@ -1,61 +1,20 @@
 from pathlib import Path
-import base64
-import struct
-import hashlib
-import hmac
 import qrcode
 from qrcode.constants import ERROR_CORRECT_L
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from PIL import Image
-from apps.elecciones.models import Eleccion, Mesa, Votante
-
-VOTERS = [
-    ("203425", "Nicolas Calle", "40123456", 15),
-    ("203426", "Juan Perez", "40234567", 15),
-    ("203427", "Lucia Gomez", "41123456", 15),
-    ("203428", "Martina Rodriguez", "41234567", 15),
-    ("203429", "Santiago Fernandez", "41345678", 15),
-    ("203430", "Valentina Lopez", "41456789", 15),
-    ("203431", "Mateo Martinez", "41567890", 15),
-    ("203432", "Camila Sanchez", "41678901", 15),
-    ("203433", "Tomas Gonzalez", "41789012", 15),
-    ("203434", "Sofia Romero", "41890123", 15),
-    ("203435", "Franco Diaz", "41901234", 15),
-    ("203436", "Agustina Torres", "42012345", 15),
-    ("203437", "Bruno Alvarez", "42123456", 15),
-    ("203438", "Julieta Castro", "42234567", 15),
-    ("203439", "Lautaro Ruiz", "42345678", 15),
-    ("203440", "Nicolas Calle", "40123478", 15),
-    ("203441", "Juan Perez", "40234127", 15),
-    ("203442", "Lucia Gomez", "41123412", 15),
-    ("203443", "Martina Rodriguez", "41234512", 15),
-    ("203444", "Santiago Fernandez", "41345634", 15),
-    ("203445", "Valentina Lopez", "41456759", 15),
-    ("203446", "Mateo Martinez", "41563290", 15),
-    ("203447", "Camila Sanchez", "41674301", 15),
-    ("203448", "Tomas Gonzalez", "41789542", 15),
-    ("203449", "Sofia Romero", "41890543", 15),
-    ("203450", "Franco Diaz", "41901344", 15),
-    ("203451", "Agustina Torres", "42012341", 15),
-    ("203452", "Bruno Alvarez", "42123436", 15),
-    ("203453", "Julieta Castro", "42234557", 15),
-    ("203454", "Lautaro Ruiz", "42345668", 15),
-    ("203440", "Sofia Romero", "41891243", 16),
-    ("201250", "Franco Diaz", "41901124", 16),
-    ("203251", "Agustina Torres", "42322341", 16),
-    ("203122", "Bruno Alvarez", "42121436", 16),
-    ("203123", "Julieta Castro", "42434557", 16),
-    ("203124", "Lautaro Ruiz", "4234368", 16),
-]
+from apps.elecciones.models import Eleccion, EleccionClaustroDepartamento, RegistroPadron
+from apps.asistencia.services import ServicioRegistroParticipacion
 
 
 class Command(BaseCommand):
-    help = "Genera electores de prueba y hojas QR optimizadas divididas cada 15 votantes."
+    help = "Genera QRs a partir del padron existente y crea hojas de 15 codigos por pagina."
     ROWS_PER_PAGE = 15  # Máximo de filas por hoja
     CELL_WIDTH = 430
     CELL_HEIGHT = 350
     QR_SIZE = 350
+    PREFIJO_QR_HOJA = "qr_hoja"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -64,6 +23,7 @@ class Command(BaseCommand):
             required=True,
             help="ID de la eleccion para asociar mesas y firmar el QR.",
         )
+        parser.add_argument("--configuracion-departamento-id", type=int, required=True)
         parser.add_argument(
             "--output",
             type=Path,
@@ -72,67 +32,69 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         election_id = options["election_id"]
+        configuracion_id = options["configuracion_departamento_id"]
         output = options["output"]
         try:
             eleccion = Eleccion.objects.get(pk=election_id)
         except Eleccion.DoesNotExist as exc:
             raise CommandError(f"No existe la eleccion con id {election_id}.") from exc
+        configuracion = EleccionClaustroDepartamento.objects.filter(
+            pk=configuracion_id,
+            eleccion_claustro__eleccion=eleccion,
+        ).first()
+        if configuracion is None:
+            raise CommandError("La configuración de departamento no pertenece a la elección.")
 
         output.mkdir(parents=True, exist_ok=True)
-        voters = []
+        for png_existente in output.glob("*.png"):
+            png_existente.unlink(missing_ok=True)
+
+        registros_qr = []
         qr_images = {}
-        mesas_by_numero = {}
 
-        for legajo, name, dni, mesa_numero in VOTERS:
-            mesa = mesas_by_numero.get(mesa_numero)
-            if mesa is None:
-                mesa, _ = Mesa.objects.get_or_create(eleccion=eleccion, numero=mesa_numero)
-                mesas_by_numero[mesa_numero] = mesa
-
-            voter, _ = Votante.objects.update_or_create(
-                legajo=legajo,
-                defaults={
-                    "name": name,
-                    "dni": dni,
-                    "mesa": mesa,
-                },
+        padrones = (
+            RegistroPadron.objects.select_related("elector", "asignacion_mesa__mesa")
+            .filter(
+                eleccion=eleccion,
+                eleccion_claustro_departamento=configuracion,
+                activo=True,
             )
-            voters.append(voter)
-            payload = self.generar_payload_firmado(
+            .order_by("elector__legajo")
+        )
+        if not padrones.exists():
+            raise CommandError("No hay registros de padron activos para esa eleccion/configuracion.")
+
+        padrones_sin_mesa = 0
+        for registro_padron in padrones:
+            mesa = getattr(getattr(registro_padron, "asignacion_mesa", None), "mesa", None)
+            if mesa is None:
+                padrones_sin_mesa += 1
+                continue
+
+            payload = ServicioRegistroParticipacion.generar_codigo_qr(
                 eleccion_id=eleccion.id,
                 mesa_numero=mesa.numero,
-                legajo=voter.legajo,
+                identificador_qr=registro_padron.identificador_qr,
             )
             qr = self.generar_qr(payload)
-            qr_images[voter.legajo] = qr
-            qr.save(output / f"{voter.legajo}.png")
+            legajo = registro_padron.elector.legajo
+            qr_images[legajo] = qr
+            qr.save(output / f"mesa_{mesa.numero}_legajo_{legajo}.png")
+            registros_qr.append((registro_padron.elector, mesa.numero))
+
+        if not registros_qr:
+            raise CommandError("No se pudo generar ningun QR: todos los padrones quedaron sin mesa asignada.")
 
         # Generar las hojas de a 15 votantes
-        hojas_creadas = self.crear_hojas(voters, qr_images, output)
+        hojas_creadas = self.crear_hojas(registros_qr, qr_images, output)
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"{len(voters)} electores generados para la eleccion {eleccion.id}. "
+                f"{len(registros_qr)} electores procesados para la eleccion {eleccion.id}. "
+                f"Padrones sin mesa: {padrones_sin_mesa}. "
                 f"Se crearon {hojas_creadas} hoja(s) de QR."
             )
         )
-
-    def generar_payload_firmado(self, *, eleccion_id, mesa_numero, legajo):
-        legajo_int = int(legajo)
-
-        # 1. Datos binarios (8 bytes)
-        data_bytes = struct.pack(">HHI", eleccion_id, mesa_numero, legajo_int)
-
-        # 2. Firma HMAC (4 bytes)
-        sig = hmac.new(
-            settings.SECRET_KEY.encode("utf-8"),
-            data_bytes,
-            hashlib.sha256
-        ).digest()[:4]
-
-        # 3. Base64 URL-safe (16 caracteres)
-        payload_bin = data_bytes + sig
-        return base64.urlsafe_b64encode(payload_bin).decode("ascii").rstrip("=")
 
     def generar_qr(self, value):
         qr = qrcode.QRCode(
@@ -154,36 +116,40 @@ class Command(BaseCommand):
             Image.Resampling.NEAREST
         )
 
-    def crear_hojas(self, voters, qr_images, output_dir):
+    def crear_hojas(self, registros_qr, qr_images, output_dir):
         """
-        Divide el listado total de votantes en bloques de 15 y genera
-        un archivo PNG por cada página ('hoja_qr_1.png', 'hoja_qr_2.png', etc.).
+        Genera hojas separadas por mesa, en bloques de 15 por página.
         """
-        # Agrupar votantes en lotes de a 15
         total_hojas = 0
-        
-        for i in range(0, len(voters), self.ROWS_PER_PAGE):
-            lote_votantes = voters[i : i + self.ROWS_PER_PAGE]
-            page_number = (i // self.ROWS_PER_PAGE) + 1
 
-            sheet = Image.new(
-                "RGB",
-                (
-                    self.CELL_WIDTH,
-                    self.CELL_HEIGHT * len(lote_votantes),
-                ),
-                "white",
-            )
+        registros_ordenados = sorted(registros_qr, key=lambda item: (item[1], item[0].legajo))
+        por_mesa = {}
+        for elector, mesa_numero in registros_ordenados:
+            por_mesa.setdefault(mesa_numero, []).append(elector)
 
-            for row, voter in enumerate(lote_votantes):
-                y = row * self.CELL_HEIGHT
-                qr = qr_images[voter.legajo]
-                x = (self.CELL_WIDTH - self.QR_SIZE) // 2
-                qr_y = y + 20
-                sheet.paste(qr, (x, qr_y))
+        for mesa_numero, electores_mesa in por_mesa.items():
+            for i in range(0, len(electores_mesa), self.ROWS_PER_PAGE):
+                lote_votantes = electores_mesa[i : i + self.ROWS_PER_PAGE]
+                page_number = (i // self.ROWS_PER_PAGE) + 1
 
-            destination = output_dir / f"hoja_qr_{page_number}.png"
-            sheet.save(destination)
-            total_hojas += 1
+                sheet = Image.new(
+                    "RGB",
+                    (
+                        self.CELL_WIDTH,
+                        self.CELL_HEIGHT * len(lote_votantes),
+                    ),
+                    "white",
+                )
+
+                for row, voter in enumerate(lote_votantes):
+                    y = row * self.CELL_HEIGHT
+                    qr = qr_images[voter.legajo]
+                    x = (self.CELL_WIDTH - self.QR_SIZE) // 2
+                    qr_y = y + 20
+                    sheet.paste(qr, (x, qr_y))
+
+                destination = output_dir / f"{self.PREFIJO_QR_HOJA}_mesa_{mesa_numero}_pagina_{page_number}.png"
+                sheet.save(destination)
+                total_hojas += 1
 
         return total_hojas

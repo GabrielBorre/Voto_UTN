@@ -1,158 +1,186 @@
-import base64
-import struct
-import hmac
 import hashlib
+import hmac
 from dataclasses import dataclass
+
 from django.conf import settings
 from django.db import transaction
-from apps.elecciones.models import Eleccion, Votante
-from .models import Asistencia
+
+from apps.elecciones.models import Eleccion, RegistroPadron
+from apps.usuarios.permisos import puede_registrar_participacion
+from .models import RegistroParticipacion
 
 
 @dataclass(frozen=True)
-class ResultadoAsistencia:
-    created: list[str]
-    already_registered: list[str]
-    invalid: list[str]
+class ResultadoParticipacion:
+    creados: list[str]
+    ya_registrados: list[str]
+    invalidos: list[str]
+    invalidos_otra_eleccion: list[str]
+    mesa_numero: int | None = None
+    departamento_codigo: str | None = None
 
 
-class ServicioAsistencia:
-    """Caso de uso: registra códigos de una hoja de padrón de forma atómica."""
+class ServicioRegistroParticipacion:
+    VERSION_QR = "v1"
+    LONGITUD_IDENTIFICADOR = 8
+    LONGITUD_FIRMA = 4
+    ANCHO_BASE36_ELECCION = 2
+    ANCHO_BASE36_MESA = 2
+    ALFABETO_QR = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-    @staticmethod
-    def _parse_signed_code(raw_code) -> tuple[int, int, str] | None:
-        """
-        Parsea y valida un código QR en formato Base64 URL-safe de 16 caracteres.
-        Contiene 12 bytes empaquetados (8 bytes de datos + 4 bytes de firma HMAC).
-        """
-        if not isinstance(raw_code, str):
-            return None
+    @classmethod
+    def _to_base36(cls, valor: int, ancho: int):
+        if valor < 0:
+            raise ValueError("El valor no puede ser negativo.")
+        caracteres = []
+        while valor:
+            valor, resto = divmod(valor, 36)
+            caracteres.append(cls.ALFABETO_QR[resto])
+        texto = "".join(reversed(caracteres or ["0"]))
+        return texto.rjust(ancho, "0")
 
-        code_clean = raw_code.strip()
+    @classmethod
+    def _from_base36(cls, texto: str):
+        return int(texto, 36)
 
-        # Recomponer padding de Base64 si no viene presente (para que la longitud sea múltiplo de 4)
-        padded_code = code_clean + "=" * (-len(code_clean) % 4)
-
-        try:
-            qr_bytes = base64.urlsafe_b64decode(padded_code)
-        except Exception:
-            return None
-
-        # 1. Validar que la decodificación de exactamente 12 bytes
-        if len(qr_bytes) != 12:
-            return None
-
-        # 2. Separar datos (8 bytes) y firma recibida (4 bytes)
-        data_bytes = qr_bytes[:8]
-        signature = qr_bytes[8:]
-
-        # 3. Recalcular la firma HMAC esperada
-        expected_signature = hmac.new(
-            settings.SECRET_KEY.encode("utf-8"),
-            data_bytes,
+    @classmethod
+    def _firma_corta(cls, cuerpo: str):
+        digest = hmac.new(
+            settings.CLAVE_FIRMA_QR.encode("utf-8"),
+            cuerpo.encode("ascii"),
             hashlib.sha256,
-        ).digest()[:4]
+        ).digest()
+        valor = int.from_bytes(digest[:2], "big")
+        return cls._to_base36(valor, cls.LONGITUD_FIRMA)
 
-        # 4. Validar firma en tiempo constante
-        if not hmac.compare_digest(signature, expected_signature):
+    @classmethod
+    def generar_codigo_qr(cls, *, eleccion_id, mesa_numero, identificador_qr):
+        identificador = str(identificador_qr).strip().upper()
+        if not identificador or len(identificador) != cls.LONGITUD_IDENTIFICADOR or not identificador.isalnum():
+            raise ValueError("El identificador QR debe ser alfanumerico y de longitud 8.")
+        cuerpo = (
+            cls._to_base36(int(eleccion_id), cls.ANCHO_BASE36_ELECCION)
+            + cls._to_base36(int(mesa_numero), cls.ANCHO_BASE36_MESA)
+            + identificador
+        )
+        firma = cls._firma_corta(cuerpo)
+        return f"{cls.VERSION_QR.upper()}.{cuerpo}{firma}"
+
+    @classmethod
+    def parsear_codigo_qr(cls, codigo):
+        if not isinstance(codigo, str):
+            return None
+        version, separador, contenido = codigo.strip().upper().partition(".")
+        if separador != "." or version != cls.VERSION_QR.upper():
             return None
 
-        # 5. Desempaquetar datos: Elección (Short), Mesa (Short), Legajo (Unsigned Int)
-        election_id, mesa_numero, legajo_int = struct.unpack(">HHI", data_bytes)
+        longitud_esperada = (
+            cls.ANCHO_BASE36_ELECCION
+            + cls.ANCHO_BASE36_MESA
+            + cls.LONGITUD_IDENTIFICADOR
+            + cls.LONGITUD_FIRMA
+        )
+        if len(contenido) != longitud_esperada or not contenido.isalnum():
+            return None
 
-        return election_id, mesa_numero, str(legajo_int)
+        cuerpo = contenido[:-cls.LONGITUD_FIRMA]
+        firma = contenido[-cls.LONGITUD_FIRMA:]
+        esperada = cls._firma_corta(cuerpo)
+        if not hmac.compare_digest(firma, esperada):
+            return None
 
-    @staticmethod
-    def registrar_lote(*, eleccion: Eleccion, voter_codes: list, user) -> ResultadoAsistencia:
-        # Eliminamos duplicados manteniendo limpieza de strings
-        incoming = list(dict.fromkeys(
-            code.strip() for code in voter_codes if isinstance(code, str) and code.strip()
-        ))
-        
-        parsed_codes = []
-        invalid = []
+        eleccion_token = cuerpo[:cls.ANCHO_BASE36_ELECCION]
+        mesa_token = cuerpo[
+            cls.ANCHO_BASE36_ELECCION: cls.ANCHO_BASE36_ELECCION + cls.ANCHO_BASE36_MESA
+        ]
+        identificador = cuerpo[cls.ANCHO_BASE36_ELECCION + cls.ANCHO_BASE36_MESA:]
+        try:
+            eleccion_id = cls._from_base36(eleccion_token)
+            mesa_numero = cls._from_base36(mesa_token)
+        except ValueError:
+            return None
+        return eleccion_id, mesa_numero, identificador
 
-        for raw_code in incoming:
-            parsed = ServicioAsistencia._parse_signed_code(raw_code)
-            if parsed is None:
-                invalid.append(raw_code)
-                continue
+    @classmethod
+    def registrar_lote(cls, *, eleccion: Eleccion, codigos_qr: list, usuario) -> ResultadoParticipacion:
+        codigos = list(dict.fromkeys(codigo.strip() for codigo in codigos_qr if isinstance(codigo, str) and codigo.strip()))
+        parseados, invalidos, invalidos_otra_eleccion = [], [], []
+        for codigo in codigos:
+            parseado = cls.parsear_codigo_qr(codigo)
+            if parseado is None:
+                invalidos.append(codigo)
+            elif parseado[0] != eleccion.id:
+                invalidos.append(codigo)
+                invalidos_otra_eleccion.append(codigo)
+            else:
+                parseados.append((codigo, parseado[1], parseado[2]))
 
-            election_id, mesa_numero, voter_code = parsed
-            if election_id != eleccion.id:
-                invalid.append(raw_code)
-                continue
-
-            parsed_codes.append((raw_code, mesa_numero, voter_code))
-
-        candidate_codes = list(dict.fromkeys(voter_code for _, _, voter_code in parsed_codes))
-        voters = {
-            voter.legajo: voter
-            for voter in Votante.objects.select_related("mesa").filter(legajo__in=candidate_codes)
+        identificadores = [identificador for _, _, identificador in parseados]
+        padrones = {
+            padron.identificador_qr: padron
+            for padron in RegistroPadron.objects.select_related(
+                "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento"
+            ).filter(
+                eleccion=eleccion,
+                activo=True,
+                identificador_qr__in=identificadores,
+            )
         }
+        validos = []
+        for codigo, mesa_numero, identificador in parseados:
+            padron = padrones.get(identificador)
+            mesa = getattr(getattr(padron, "asignacion_mesa", None), "mesa", None)
+            if padron is None or mesa is None or mesa.numero != mesa_numero or not puede_registrar_participacion(usuario, eleccion, mesa):
+                invalidos.append(codigo)
+            else:
+                validos.append((identificador, padron, mesa))
 
-        valid_cleaned = []
-        for raw_code, mesa_numero, voter_code in parsed_codes:
-            voter = voters.get(voter_code)
-            if voter is None or voter.mesa is None:
-                invalid.append(raw_code)
-                continue
-            if voter.mesa.eleccion_id != eleccion.id or voter.mesa.numero != mesa_numero:
-                invalid.append(raw_code)
-                continue
-            valid_cleaned.append(voter_code)
-
-        cleaned = list(dict.fromkeys(valid_cleaned))
-        existing = set(
-            Asistencia.objects.filter(eleccion=eleccion, voter_code__in=cleaned).values_list("voter_code", flat=True)
-        )
-        new_codes = [code for code in cleaned if code not in existing]
-        
+        existentes = set(RegistroParticipacion.objects.filter(registro_padron__identificador_qr__in=[item[1].identificador_qr for item in validos]).values_list("registro_padron__identificador_qr", flat=True))
+        nuevos = [item for item in validos if item[1].identificador_qr not in existentes]
         with transaction.atomic():
-            Asistencia.objects.bulk_create([
-                Asistencia(eleccion=eleccion, voter_code=code, scanned_by=user) for code in new_codes
+            RegistroParticipacion.objects.bulk_create([
+                RegistroParticipacion(registro_padron=padron, mesa=mesa, registrada_por=usuario, metodo=RegistroParticipacion.Metodo.QR)
+                for _, padron, mesa in nuevos
             ], ignore_conflicts=True)
-            
-            registered = set(
-                Asistencia.objects.filter(eleccion=eleccion, voter_code__in=new_codes).values_list("voter_code", flat=True)
+
+        mesa_info = validos[0][2] if validos else None
+        departamento_codigo = None
+        if mesa_info and mesa_info.eleccion_claustro_departamento_id:
+            departamento = mesa_info.eleccion_claustro_departamento.departamento
+            departamento_codigo = departamento.codigo if departamento else None
+
+        return ResultadoParticipacion(
+            creados=[identificador for identificador, _, _ in nuevos],
+            ya_registrados=[str(identificador) for identificador in existentes],
+            invalidos=invalidos,
+            invalidos_otra_eleccion=invalidos_otra_eleccion,
+            mesa_numero=mesa_info.numero if mesa_info else None,
+            departamento_codigo=departamento_codigo,
+        )
+
+    @classmethod
+    def registrar_manual(cls, *, eleccion: Eleccion, mesa_numero: int, dni: str, usuario) -> ResultadoParticipacion:
+        padron = RegistroPadron.objects.select_related(
+            "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento"
+        ).filter(eleccion=eleccion, activo=True, elector__dni=str(dni).strip()).first()
+        mesa = getattr(getattr(padron, "asignacion_mesa", None), "mesa", None)
+        if padron is None or mesa is None or mesa.numero != mesa_numero or not puede_registrar_participacion(usuario, eleccion, mesa):
+            return ResultadoParticipacion([], [], ["Elector no disponible para la mesa indicada."], [])
+        if RegistroParticipacion.objects.filter(registro_padron=padron).exists():
+            return ResultadoParticipacion(
+                [],
+                [padron.identificador_qr],
+                [],
+                [],
+                mesa_numero=mesa.numero,
+                departamento_codigo=mesa.eleccion_claustro_departamento.departamento.codigo if mesa.eleccion_claustro_departamento_id else None,
             )
-            
-        return ResultadoAsistencia(
-            created=sorted(registered - existing),
-            already_registered=sorted(existing),
-            invalid=sorted(set(str(inv) for inv in invalid)),
+        RegistroParticipacion.objects.create(registro_padron=padron, mesa=mesa, registrada_por=usuario, metodo=RegistroParticipacion.Metodo.MANUAL)
+        return ResultadoParticipacion(
+            [padron.identificador_qr],
+            [],
+            [],
+            [],
+            mesa_numero=mesa.numero,
+            departamento_codigo=mesa.eleccion_claustro_departamento.departamento.codigo if mesa.eleccion_claustro_departamento_id else None,
         )
-
-    @staticmethod
-    def registrar_manual(*, eleccion: Eleccion, mesa_numero: int, legajo: str, user) -> ResultadoAsistencia:
-        legajo_clean = str(legajo).strip()
-
-        voter = (
-            Votante.objects.select_related("mesa")
-            .filter(legajo=legajo_clean)
-            .first()
-        )
-
-        if (
-            voter is None
-            or voter.mesa is None
-            or voter.mesa.eleccion_id != eleccion.id
-            or voter.mesa.numero != mesa_numero
-        ):
-            return ResultadoAsistencia(
-                created=[],
-                already_registered=[],
-                invalid=[f"Mesa {mesa_numero} / Legajo {legajo_clean}"],
-            )
-
-        existing = set(
-            Asistencia.objects.filter(eleccion=eleccion, voter_code=legajo_clean).values_list("voter_code", flat=True)
-        )
-
-        if legajo_clean in existing:
-            return ResultadoAsistencia(created=[], already_registered=[legajo_clean], invalid=[])
-
-        with transaction.atomic():
-            Asistencia.objects.create(eleccion=eleccion, voter_code=legajo_clean, scanned_by=user)
-
-        return ResultadoAsistencia(created=[legajo_clean], already_registered=[], invalid=[])

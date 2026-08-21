@@ -1,0 +1,6 @@
+{% extends "elecciones/base_gestion.html" %}
+{% block title %}Preferencia de autoridad | UTN{% endblock %}
+{% block content %}
+<section class="hero"><h1>Preferencia de autoridad</h1><p>Mesa {{ asignacion.mesa.numero }} · {{ asignacion.registro_padron.eleccion }}</p></section>
+<section class="card form-card"><form method="post">{% csrf_token %}{% for field in formulario %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}<div class="footer-actions"><a class="button light" href="{% url 'mis-asignaciones-autoridad' %}">Volver</a><button class="button primary">Guardar preferencia</button></div></form></section>
+{% endblock %}

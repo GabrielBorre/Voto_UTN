@@ -15,15 +15,33 @@ const camera = new Camera(
 const AUTO_REGISTER_DELAY_MS = 3000;
 const NEXT_PAGE_COOLDOWN_MS = 600;
 const MESA_MISMATCH_STATUS_COOLDOWN_MS = 1200;
+const ELECTION_MISMATCH_STATUS_COOLDOWN_MS = 1200;
 
 let autoRegisterTimerId = null;
 let cameraStarted = false;
 let isSubmitting = false;
 let currentMesaNumber = null;
 let mesaSessionNumber = null;
+let currentDepartamentoCodigo = null;
 const mesaAccumulatedCodes = new Set();
 let audioContext = null;
 let lastMesaMismatchAt = 0;
+let lastElectionMismatchAt = 0;
+
+const expectedElectionId = (() => {
+    try {
+        const apiUrl = app?.dataset?.apiUrl || "";
+        const match = apiUrl.match(/\/eleccion\/(\d+)\//i);
+        if (!match) {
+            return null;
+        }
+        const electionId = Number.parseInt(match[1], 10);
+        return Number.isInteger(electionId) && electionId > 0 ? electionId : null;
+    }
+    catch {
+        return null;
+    }
+})();
 
 const scanner = new PageQrScanner(
     camera.video,
@@ -35,6 +53,27 @@ const scanner = new PageQrScanner(
         }
 
         const detectedMesaNumber = extractMesaFromCode(code);
+        const detectedElectionId = extractElectionFromCode(code);
+
+        if (
+            expectedElectionId &&
+            detectedElectionId &&
+            detectedElectionId !== expectedElectionId
+        ) {
+            scanner.codes.delete(code);
+
+            const now = Date.now();
+            if (now - lastElectionMismatchAt > ELECTION_MISMATCH_STATUS_COOLDOWN_MS) {
+                setStatus(
+                    `QR de otra elección (ID ${detectedElectionId}). Escaneá solo la elección ${expectedElectionId}.`,
+                    "error"
+                );
+                void playErrorTone();
+                lastElectionMismatchAt = now;
+            }
+
+            return;
+        }
 
         if (
             mesaSessionNumber &&
@@ -70,7 +109,7 @@ const scanner = new PageQrScanner(
         const mesaNumberForUi = currentMesaNumber || mesaSessionNumber;
 
         setCount(mesaVisibleCount);
-        setRegisterButtonLabel(mesaNumberForUi, mesaVisibleCount);
+        setRegisterButtonLabel(mesaNumberForUi, mesaVisibleCount, currentDepartamentoCodigo);
         setRegisterButtonAvailability(mesaVisibleCount);
 
         restartAutoRegisterTimer();
@@ -90,7 +129,7 @@ const mesaSummaryView = document.querySelector("#mesa-summary-view");
 const lastPageSummary = document.querySelector("#last-page-summary");
 
 setCount(0);
-setRegisterButtonLabel(null, 0);
+setRegisterButtonLabel(null, 0, null);
 registerButton.disabled = true;
 hideMesaSummary();
 
@@ -115,15 +154,16 @@ function hideMesaSummary() {
     }
 }
 
-function showMesaSummary(mesaNumber, qrCount) {
+function showMesaSummary(mesaNumber, qrCount, departamentoCodigo = null) {
     if (!mesaSummaryView || !lastPageSummary) {
         return;
     }
 
     const mesaText = mesaNumber ? `Mesa ${mesaNumber}` : "Mesa sin identificar";
+    const departamentoText = departamentoCodigo ? `\nDepto ${departamentoCodigo}` : "";
     const qrLabel = qrCount === 1 ? "QR" : "QRs";
 
-    lastPageSummary.textContent = `${mesaText}\n${qrCount} ${qrLabel} unicos acumulados`;
+    lastPageSummary.textContent = `${mesaText}${departamentoText}\n${qrCount} ${qrLabel} unicos acumulados`;
     mesaSummaryView.classList.remove("d-none");
     mesaSummaryView.setAttribute("aria-hidden", "false");
 }
@@ -258,21 +298,40 @@ function extractMesaFromCode(rawCode) {
     }
 
     try {
-        const base64 = rawCode.trim().replace(/-/g, "+").replace(/_/g, "/");
-        const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-        const binary = window.atob(padded);
-
-        if (binary.length !== 12) {
+        const [version, contenido] = rawCode.trim().toUpperCase().split(".");
+        if (version !== "V1" || !contenido || !/^[A-Z0-9]+$/.test(contenido)) {
             return null;
         }
 
-        const data = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i += 1) {
-            data[i] = binary.charCodeAt(i);
+        // Formato V1: EE MM IIIIIIII FFFF (base36/base36/alfanum/firma)
+        if (contenido.length < 6) {
+            return null;
+        }
+        const mesaToken = contenido.slice(2, 4);
+        const mesa = Number.parseInt(mesaToken, 36);
+        return Number.isFinite(mesa) && mesa > 0 ? mesa : null;
+    } catch {
+        return null;
+    }
+}
+
+function extractElectionFromCode(rawCode) {
+    if (typeof rawCode !== "string") {
+        return null;
+    }
+
+    try {
+        const [version, contenido] = rawCode.trim().toUpperCase().split(".");
+        if (version !== "V1" || !contenido || !/^[A-Z0-9]+$/.test(contenido)) {
+            return null;
         }
 
-        const mesa = (data[2] << 8) + data[3];
-        return Number.isFinite(mesa) && mesa > 0 ? mesa : null;
+        if (contenido.length < 4) {
+            return null;
+        }
+        const eleccionToken = contenido.slice(0, 2);
+        const eleccionId = Number.parseInt(eleccionToken, 36);
+        return Number.isFinite(eleccionId) && eleccionId > 0 ? eleccionId : null;
     } catch {
         return null;
     }
@@ -282,10 +341,12 @@ function clearCurrentPageState() {
     scanner.clear();
     currentMesaNumber = null;
     mesaSessionNumber = null;
+    currentDepartamentoCodigo = null;
     lastMesaMismatchAt = 0;
+    lastElectionMismatchAt = 0;
     mesaAccumulatedCodes.clear();
     setCount(0);
-    setRegisterButtonLabel(null, 0);
+    setRegisterButtonLabel(null, 0, null);
     setRegisterButtonAvailability(0);
 }
 
@@ -294,13 +355,13 @@ function clearCurrentPageScanOnly() {
     currentMesaNumber = null;
     const accumulatedCount = mesaAccumulatedCodes.size;
     setCount(accumulatedCount);
-    setRegisterButtonLabel(mesaSessionNumber, accumulatedCount);
+    setRegisterButtonLabel(mesaSessionNumber, accumulatedCount, currentDepartamentoCodigo);
     setRegisterButtonAvailability(accumulatedCount);
 }
 
-async function finalizeMesaSession(mesaNumber, accumulatedUniqueCount) {
+async function finalizeMesaSession(mesaNumber, accumulatedUniqueCount, departamentoCodigo = null) {
     enterMesaSummaryMode();
-    showMesaSummary(mesaNumber, accumulatedUniqueCount);
+    showMesaSummary(mesaNumber, accumulatedUniqueCount, departamentoCodigo);
     clearCurrentPageState();
 
 }
@@ -321,7 +382,7 @@ async function registerCurrentPage(origin) {
         stopAutoRegisterTimer();
         scanner.stop();
         void playSuccessTone();
-        await finalizeMesaSession(mesaSessionNumber, mesaAccumulatedCodes.size);
+        await finalizeMesaSession(mesaSessionNumber, mesaAccumulatedCodes.size, currentDepartamentoCodigo);
         return;
     }
 
@@ -340,8 +401,25 @@ async function registerCurrentPage(origin) {
             scanner.codes
         );
 
+        if (result.invalidos_otra_eleccion?.length) {
+            throw new Error("Se detectaron QRs de otra elección. Verificá que la hoja corresponda a la elección activa.");
+        }
+
+        if (result.invalidos?.length) {
+            throw new Error("Se detectaron QRs inválidos o que no corresponden a la mesa actual.");
+        }
+
+        const mesaRegistrada = result?.mesa_numero || mesaForSummary;
+        const departamentoCodigo = result?.departamento_codigo;
+        if (departamentoCodigo) {
+            currentDepartamentoCodigo = departamentoCodigo;
+        }
+        const detalleDepartamento = departamentoCodigo
+            ? ` Depto ${departamentoCodigo}.`
+            : "";
+
         setStatus(
-            `Hoja registrada (${detectedCount} QR). Podes pasar a la siguiente.`,
+            `Hoja registrada (${detectedCount} QR). Pasar a la siguiente.`,
             "success"
         );
         void playSuccessTone();
@@ -353,11 +431,12 @@ async function registerCurrentPage(origin) {
         const accumulatedUniqueCount = mesaAccumulatedCodes.size;
 
         if (origin === "manual") {
-            await finalizeMesaSession(mesaForSummary, accumulatedUniqueCount);
+            await finalizeMesaSession(mesaForSummary, accumulatedUniqueCount, departamentoCodigo || currentDepartamentoCodigo);
             return;
         }
 
         clearCurrentPageScanOnly();
+        setRegisterButtonLabel(currentMesaNumber || mesaSessionNumber, mesaAccumulatedCodes.size, currentDepartamentoCodigo);
 
         await sleep(NEXT_PAGE_COOLDOWN_MS);
         scanner.start();
@@ -376,7 +455,7 @@ async function registerCurrentPage(origin) {
 
         const mesaVisibleCount = getProjectedUniqueMesaCount(scanner.codes);
         setCount(mesaVisibleCount);
-        setRegisterButtonLabel(currentMesaNumber || mesaSessionNumber, mesaVisibleCount);
+        setRegisterButtonLabel(currentMesaNumber || mesaSessionNumber, mesaVisibleCount, currentDepartamentoCodigo);
         restartAutoRegisterTimer();
     }
     finally {
@@ -422,39 +501,39 @@ manualLoadButton.addEventListener("click", () => {
         return;
     }
 
-    const legajoInput = window.prompt("Ingresá el legajo del elector:");
+    const dniInput = window.prompt("Ingresá el DNI del elector:");
 
-    if (legajoInput === null) {
+    if (dniInput === null) {
         return;
     }
 
-    const legajo = legajoInput.trim();
-    if (!legajo) {
-        setStatus("Ingresá un legajo válido.", "error");
+    const dni = dniInput.trim();
+    if (!dni) {
+        setStatus("Ingresá un DNI válido.", "error");
         void playErrorTone();
         return;
     }
 
     void (async () => {
         try {
-            setStatus(`Registrando manualmente al legajo ${legajo} en mesa ${mesaNumero}...`, "info");
+            setStatus(`Registrando manualmente al DNI ${dni} en mesa ${mesaNumero}...`, "info");
 
-            const result = await submitManualAttendance(app.dataset.apiUrl, mesaNumero, legajo);
+            const result = await submitManualAttendance(app.dataset.apiUrl, mesaNumero, dni);
 
-            if (result.invalid?.length) {
-                setStatus(`No se encontró al elector ${legajo} en la mesa ${mesaNumero}.`, "error");
+            if (result.invalidos?.length) {
+                setStatus(`No se encontró al elector en la mesa ${mesaNumero}.`, "error");
                 void playErrorTone();
                 return;
             }
 
-            if (result.created?.length) {
-                setStatus(`Elector ${legajo} registrado manualmente en la mesa ${mesaNumero}.`, "success");
+            if (result.creados?.length) {
+                setStatus(`Elector registrado manualmente en la mesa ${mesaNumero}.`, "success");
                 void playSuccessTone();
                 return;
             }
 
-            if (result.already_registered?.length) {
-                setStatus(`El elector ${legajo} ya estaba registrado en la mesa ${mesaNumero}.`, "info");
+            if (result.ya_registrados?.length) {
+                setStatus(`El elector ya estaba registrado en la mesa ${mesaNumero}.`, "info");
                 return;
             }
 

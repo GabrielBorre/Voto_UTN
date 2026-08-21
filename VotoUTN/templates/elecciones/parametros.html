@@ -1,0 +1,11 @@
+{% extends "elecciones/base_gestion.html" %}
+
+{% block title %}Parametros de eleccion | Junta Electoral UTN{% endblock %}
+
+{% block content %}
+<section class="hero"><h1>Parametros de eleccion</h1><p>Configura los datos reutilizables que estaran disponibles al crear elecciones y mesas.</p></section>
+<section class="toolbar">
+{% for parametro in parametros %}<article class="option"><h2>{{ parametro.titulo }}</h2><p>{{ parametro.cantidad }} registrados en la configuracion institucional.</p><a class="button secondary" href="{% url 'listar-parametros' parametro.tipo %}">Administrar</a></article>{% endfor %}
+</section>
+<div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Volver al inicio</a></div>
+{% endblock %}
