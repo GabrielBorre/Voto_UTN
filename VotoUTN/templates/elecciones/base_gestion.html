@@ -1,10 +1,11 @@
-{% load static %}
+
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Junta Electoral UTN{% endblock %}</title>
+  {% load static %}
   <link href="{% static 'css/gestion-electoral.css' %}" rel="stylesheet">
 </head>
 <body class="gestion-electoral">
@@ -13,7 +14,13 @@
       <span class="mark">UTN</span>
       <span class="brand-title"><strong>UTN.<i>BA</i></strong><small>Sistema de Gestion Electoral</small></span>
     </a>
+    {% if user.is_authenticated %}
     <div class="userbox"><strong>{{ user.get_full_name|default:user.username }}</strong><span>Proceso: <b>Junta Electoral</b></span></div>
+        {% else %}
+                <div>
+        <a href="" class="btn primary">Iniciar Sesión</a>
+        </div>
+            {% endif %}
   </header>
   <nav class="gestion-nav" aria-label="Navegacion de Junta Electoral">
     <a class="{% if request.resolver_match.url_name == 'gestionar-elecciones' %}active{% endif %}" href="{% url 'gestionar-elecciones' %}">Inicio</a>

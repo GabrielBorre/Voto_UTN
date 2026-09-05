@@ -34,11 +34,13 @@ from .views import (
     preparar_eleccion,
     historial_elecciones,
     listar_elecciones,
+    index,
     listar_parametros,
 )
 
 urlpatterns = [
-    path("", listar_elecciones, name="lista-elecciones"),
+    path("", index, name="index"),
+    path("gestion/elecciones/listar_elecciones/", listar_elecciones, name="lista-elecciones"),
     path("gestion/elecciones/", gestionar_elecciones, name="gestionar-elecciones"),
     path("gestion/elecciones/historial/", historial_elecciones, name="historial-elecciones"),
     path("gestion/elecciones/nueva/", crear_eleccion, name="crear-eleccion"),

@@ -1,0 +1,47 @@
+{% extends "elecciones/base_publica.html" %}
+
+{% load static %}
+
+{% block title %}Voto UTN{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Consulta de Padrón Electoral</h1>
+</section>
+
+<section class="grid-1">
+    <div class="card card-request" id="card-request">
+        <form id="consulta-form">
+            <div class="field">
+                <label for="codigo">DNI / Legajo</label>
+                <input class="input" type="text" id="codigo" name="codigo" autocomplete="off" required>
+            </div>
+
+            <div class="estado" id="consulta-estado" role="status" aria-live="polite"></div>
+            <div class="div-btn">
+                <button class="btn primary" type="submit">Consultar</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card card-response" id="card-response" hidden>
+        <h3>Resultado de la consulta</h3>
+        <div class="datos">
+            <p><strong>Claustro:</strong> <span id="resp-claustro"></span></p>
+            <p><strong>Nombre:</strong> <span id="resp-nombre"></span></p>
+            <p><strong>Apellido:</strong> <span id="resp-apellido"></span></p>
+            <p><strong>DNI:</strong> <span id="resp-dni"></span></p>
+            <p><strong>Sede:</strong> <span id="resp-sede"></span></p>
+            <p><strong>Especialidad:</strong> <span id="resp-especialidad"></span></p>
+            <p><strong>Mesa:</strong> <span id="resp-mesa"></span></p>
+        </div>
+        <div class="div-btn">
+            <button class="btn primary" id="volver-consulta" type="button">Volver</button>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/elecciones-index.js' %}"></script>
+{% endblock %}
