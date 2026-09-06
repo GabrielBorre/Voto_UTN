@@ -78,6 +78,9 @@ def obtener_parametro(tipo):
 def listar_elecciones(request):
     return render(request, "elecciones/list.html", {"elecciones": elecciones_con_participacion(request.user)})
 
+def index(request):
+    return render(request, "elecciones/index.html")
+
 
 @login_required
 def gestionar_parametros(request):
