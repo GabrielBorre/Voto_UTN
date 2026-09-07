@@ -35,7 +35,7 @@ from apps.elecciones.models import (
     Sede,
     Turno,
 )
-from apps.elecciones.servicios.importacion_padron import confirmar_importacion, validar_csv_padron
+from apps.padron.services import confirmar_importacion, validar_csv_padron
 from apps.elecciones.servicios.autoridades import asignar_autoridad
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 from apps.usuarios.permisos import puede_administrar_parametros, puede_registrar_participacion
