@@ -1,22 +1,18 @@
 from django.urls import path
 from .views import (
-    cambiar_estado_parametro,
     configurar_eleccion,
     cambiar_estado_eleccion,
     crear_eleccion,
     editar_alcance_sedes,
     editar_eleccion,
-    editar_parametro,
     gestionar_elecciones,
     gestionar_alcances,
     gestionar_mesas,
-    gestionar_parametros,
     preparar_claustro,
     preparar_eleccion,
     historial_elecciones,
     listar_elecciones,
     index,
-    listar_parametros,
 )
 
 urlpatterns = [
@@ -33,9 +29,4 @@ urlpatterns = [
     path("gestion/elecciones/<int:eleccion_id>/alcances/", gestionar_alcances, name="gestionar-alcances"),
     path("gestion/elecciones/<int:eleccion_id>/alcances/<str:tipo>/<int:objeto_id>/", editar_alcance_sedes, name="editar-alcance-sedes"),
     path("gestion/elecciones/<int:eleccion_id>/mesas/", gestionar_mesas, name="gestionar-mesas"),
-    path("gestion/parametros/", gestionar_parametros, name="gestionar-parametros"),
-    path("gestion/parametros/<str:tipo>/", listar_parametros, name="listar-parametros"),
-    path("gestion/parametros/<str:tipo>/nuevo/", editar_parametro, name="crear-parametro"),
-    path("gestion/parametros/<str:tipo>/<int:objeto_id>/editar/", editar_parametro, name="editar-parametro"),
-    path("gestion/parametros/<str:tipo>/<int:objeto_id>/estado/", cambiar_estado_parametro, name="cambiar-estado-parametro"),
 ]
