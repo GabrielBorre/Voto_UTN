@@ -1,6 +1,5 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
 from django.http import HttpResponseForbidden
 from django.db.models import Q
 from django.http import Http404
@@ -9,8 +8,6 @@ from django.utils import timezone
 
 from .forms import (
     FormularioAlcanceSedes,
-    FormularioArchivoAutoridades,
-    FormularioAsignacionAutoridad,
     FormularioClaustro,
     FormularioDepartamento,
     FormularioEleccion,
@@ -18,7 +15,6 @@ from .forms import (
     FormularioFechaAdministrativa,
     FormularioGenerarMesas,
     FormularioPrepararClaustro,
-    FormularioPreferenciaAutoridad,
     FormularioSede,
     FormularioTurno,
     FormularioTipoJustificativo,
@@ -26,8 +22,7 @@ from .forms import (
     FormularioEnviarNotificacion,
     preparar_formulario_parametro,
 )
-from .models import AsignacionAutoridad, Claustro, Departamento, Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EnvioNotificacion, FechaAdministrativa, PlantillaNotificacion, PreferenciaAutoridad, Sede, TipoJustificativo, Turno
-from .servicios.autoridades import asignar_autoridad, importar_autoridades, responder_asignacion
+from .models import AsignacionAutoridad, Claustro, Departamento, Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EnvioNotificacion, FechaAdministrativa, PlantillaNotificacion, Sede, TipoJustificativo, Turno
 from .servicios.notificaciones import crear_envios
 from apps.auditoria.services import registrar_evento
 from apps.usuarios.permisos import elecciones_con_participacion
@@ -171,32 +166,6 @@ def configurar_eleccion(request, eleccion_id):
 
 
 @login_required
-def gestionar_autoridades(request, eleccion_id):
-    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
-        return HttpResponseForbidden("No tiene permiso para gestionar autoridades.")
-    formulario_manual = FormularioAsignacionAutoridad(request.POST or None, eleccion=eleccion, prefix="manual")
-    formulario_csv = FormularioArchivoAutoridades(request.POST or None, request.FILES or None, prefix="csv")
-    if request.method == "POST" and "manual-candidatura" in request.POST and formulario_manual.is_valid():
-        try:
-            _, creada = asignar_autoridad(formulario_manual.cleaned_data["candidatura"].registro_padron, formulario_manual.cleaned_data["mesa"], request.user)
-        except ValidationError as error:
-            formulario_manual.add_error(None, error.messages[0])
-        else:
-            messages.success(request, "Autoridad asignada." if creada else "El elector ya era autoridad de esta mesa.")
-            return redirect("gestionar-autoridades", eleccion_id=eleccion.id)
-    if request.method == "POST" and "csv-archivo" in request.FILES and formulario_csv.is_valid():
-        cantidad, errores = importar_autoridades(formulario_csv.cleaned_data["archivo"].read(), eleccion, request.user)
-        if errores:
-            formulario_csv.add_error("archivo", "El CSV contiene errores: " + " ".join(f"Fila {fila}: {mensaje}" for fila, mensaje in errores[:3]))
-        else:
-            messages.success(request, f"Se cargaron {cantidad} candidatos desde el CSV.")
-            return redirect("gestionar-autoridades", eleccion_id=eleccion.id)
-    autoridades = AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).select_related("registro_padron__elector", "mesa", "asignada_por")
-    return render(request, "elecciones/gestion_autoridades.html", {"eleccion": eleccion, "formulario_manual": formulario_manual, "formulario_csv": formulario_csv, "autoridades": autoridades})
-
-
-@login_required
 def crear_eleccion(request):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para crear elecciones.")
@@ -230,45 +199,6 @@ def preparar_claustro(request, eleccion_id, claustro_id):
         return redirect("preparar-eleccion", eleccion_id=eleccion_id)
     return render(request, "elecciones/preparar_claustro.html", {"eleccion": eleccion_claustro.eleccion, "claustro": eleccion_claustro, "formulario": formulario})
 
-
-
-@login_required
-def mis_asignaciones_autoridad(request):
-    perfil = getattr(request.user, "perfil_electoral", None)
-    asignaciones = AsignacionAutoridad.objects.select_related("mesa__sede", "mesa__turno", "registro_padron__eleccion", "registro_padron__elector")
-    if request.user.is_superuser:
-        return render(request, "elecciones/mis_asignaciones_autoridad.html", {"asignaciones": asignaciones, "vista_administrativa": True})
-    if perfil and perfil.elector_id:
-        asignaciones = asignaciones.filter(registro_padron__elector=perfil.elector)
-    elif not request.user.asignaciones_rol.filter(rol="autoridad_mesa", activo=True).exists():
-        return HttpResponseForbidden("No tiene permiso de autoridad de mesa.")
-    else:
-        asignaciones = asignaciones.none()
-    return render(request, "elecciones/mis_asignaciones_autoridad.html", {"asignaciones": asignaciones})
-
-
-@login_required
-def responder_autoridad(request, asignacion_id):
-    if request.method != "POST":
-        raise Http404()
-    perfil = getattr(request.user, "perfil_electoral", None)
-    asignacion = get_object_or_404(AsignacionAutoridad, pk=asignacion_id, registro_padron__elector=getattr(perfil, "elector", None))
-    responder_asignacion(asignacion, request.POST.get("respuesta") == "aceptar")
-    messages.success(request, "La respuesta fue registrada.")
-    return redirect("mis-asignaciones-autoridad")
-
-
-@login_required
-def preferencia_autoridad(request, asignacion_id):
-    perfil = getattr(request.user, "perfil_electoral", None)
-    asignacion = get_object_or_404(AsignacionAutoridad.objects.select_related("registro_padron__eleccion"), pk=asignacion_id, registro_padron__elector=getattr(perfil, "elector", None))
-    preferencia, _ = PreferenciaAutoridad.objects.get_or_create(registro_padron=asignacion.registro_padron)
-    formulario = FormularioPreferenciaAutoridad(request.POST or None, instance=preferencia, eleccion=asignacion.registro_padron.eleccion, registro_padron=asignacion.registro_padron)
-    if request.method == "POST" and formulario.is_valid():
-        formulario.save()
-        messages.success(request, "La preferencia fue actualizada.")
-        return redirect("mis-asignaciones-autoridad")
-    return render(request, "elecciones/preferencia_autoridad.html", {"asignacion": asignacion, "formulario": formulario})
 
 
 @login_required
