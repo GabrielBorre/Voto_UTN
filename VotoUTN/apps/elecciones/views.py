@@ -18,12 +18,9 @@ from .forms import (
     FormularioSede,
     FormularioTurno,
     FormularioTipoJustificativo,
-    FormularioPlantillaNotificacion,
-    FormularioEnviarNotificacion,
     preparar_formulario_parametro,
 )
-from .models import AsignacionAutoridad, Claustro, Departamento, Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EnvioNotificacion, FechaAdministrativa, PlantillaNotificacion, Sede, TipoJustificativo, Turno
-from .servicios.notificaciones import crear_envios
+from .models import AsignacionAutoridad, Claustro, Departamento, Eleccion, EleccionClaustro, EleccionClaustroDepartamento, FechaAdministrativa, Sede, TipoJustificativo, Turno
 from apps.auditoria.services import registrar_evento
 from apps.usuarios.permisos import elecciones_con_participacion
 from apps.usuarios.permisos import puede_administrar_elecciones, puede_administrar_parametros
@@ -199,38 +196,6 @@ def preparar_claustro(request, eleccion_id, claustro_id):
         return redirect("preparar-eleccion", eleccion_id=eleccion_id)
     return render(request, "elecciones/preparar_claustro.html", {"eleccion": eleccion_claustro.eleccion, "claustro": eleccion_claustro, "formulario": formulario})
 
-
-
-@login_required
-def gestionar_notificaciones(request):
-    if not puede_administrar_parametros(request.user):
-        return HttpResponseForbidden("No tiene permiso para gestionar notificaciones.")
-    formulario_plantilla = FormularioPlantillaNotificacion(request.POST or None, prefix="plantilla")
-    formulario_envio = FormularioEnviarNotificacion(request.POST or None, prefix="envio")
-    if request.method == "POST" and "plantilla-nombre" in request.POST and formulario_plantilla.is_valid():
-        formulario_plantilla.save()
-        messages.success(request, "La plantilla fue guardada.")
-        return redirect("gestionar-notificaciones")
-    if request.method == "POST" and "envio-plantilla" in request.POST and formulario_envio.is_valid():
-        cantidad = crear_envios(formulario_envio.cleaned_data["plantilla"], formulario_envio.cleaned_data["eleccion"])
-        messages.success(request, f"Se generaron {cantidad} notificaciones pendientes.")
-        return redirect("gestionar-notificaciones")
-    return render(request, "elecciones/gestion_notificaciones.html", {"formulario_plantilla": formulario_plantilla, "formulario_envio": formulario_envio, "plantillas": PlantillaNotificacion.objects.all(), "envios": EnvioNotificacion.objects.select_related("destinatario", "eleccion")[:20]})
-
-
-@login_required
-def mis_notificaciones(request):
-    notificaciones = request.user.notificaciones.all()
-    return render(request, "elecciones/mis_notificaciones.html", {"notificaciones": notificaciones})
-
-
-@login_required
-def leer_notificacion(request, notificacion_id):
-    notificacion = get_object_or_404(EnvioNotificacion, pk=notificacion_id, destinatario=request.user)
-    if notificacion.leida_en is None:
-        notificacion.leida_en = timezone.now()
-        notificacion.save(update_fields=("leida_en",))
-    return render(request, "elecciones/detalle_notificacion.html", {"notificacion": notificacion})
 
 
 @login_required

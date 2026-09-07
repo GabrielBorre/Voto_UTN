@@ -11,6 +11,7 @@ urlpatterns = [
     path("", include("apps.padron.urls")),
     path("", include("apps.justificativos.urls")),
     path("", include("apps.autoridades.urls")),
+    path("", include("apps.notificaciones.urls")),
     path("asistencia/", include("apps.asistencia.urls")),
     path("api/", include("apps.asistencia.api_urls")),
     path("login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),

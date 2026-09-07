@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.elecciones.servicios.notificaciones import procesar_envios_pendientes
+from apps.notificaciones.services import procesar_envios_pendientes
 
 
 class Command(BaseCommand):

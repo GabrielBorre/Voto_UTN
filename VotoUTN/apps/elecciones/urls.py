@@ -1,8 +1,5 @@
 from django.urls import path
 from .views import (
-    gestionar_notificaciones,
-    leer_notificacion,
-    mis_notificaciones,
     cambiar_estado_parametro,
     configurar_eleccion,
     cambiar_estado_eleccion,
@@ -32,9 +29,6 @@ urlpatterns = [
     path("gestion/elecciones/<int:eleccion_id>/preparar/<int:claustro_id>/", preparar_claustro, name="preparar-claustro"),
     path("gestion/elecciones/<int:eleccion_id>/editar/", editar_eleccion, name="editar-eleccion"),
     path("gestion/elecciones/<int:eleccion_id>/configuracion/", configurar_eleccion, name="configurar-eleccion"),
-    path("gestion/notificaciones/", gestionar_notificaciones, name="gestionar-notificaciones"),
-    path("notificaciones/", mis_notificaciones, name="mis-notificaciones"),
-    path("notificaciones/<int:notificacion_id>/", leer_notificacion, name="leer-notificacion"),
     path("gestion/elecciones/<int:eleccion_id>/estado/", cambiar_estado_eleccion, name="cambiar-estado-eleccion"),
     path("gestion/elecciones/<int:eleccion_id>/alcances/", gestionar_alcances, name="gestionar-alcances"),
     path("gestion/elecciones/<int:eleccion_id>/alcances/<str:tipo>/<int:objeto_id>/", editar_alcance_sedes, name="editar-alcance-sedes"),
