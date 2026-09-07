@@ -1,7 +1,5 @@
 from django.urls import path
 from .views import (
-    exportar_reporte,
-    gestionar_reportes,
     gestionar_notificaciones,
     leer_notificacion,
     mis_notificaciones,
@@ -61,8 +59,6 @@ urlpatterns = [
     path("justificativos/", mis_justificativos, name="mis-justificativos"),
     path("gestion/justificativos/", bandeja_justificativos, name="bandeja-justificativos"),
     path("gestion/notificaciones/", gestionar_notificaciones, name="gestionar-notificaciones"),
-    path("gestion/elecciones/<int:eleccion_id>/reportes/", gestionar_reportes, name="gestionar-reportes"),
-    path("gestion/elecciones/<int:eleccion_id>/reportes/<str:tipo>/", exportar_reporte, name="exportar-reporte"),
     path("notificaciones/", mis_notificaciones, name="mis-notificaciones"),
     path("notificaciones/<int:notificacion_id>/", leer_notificacion, name="leer-notificacion"),
     path("gestion/elecciones/<int:eleccion_id>/justificativos/", gestionar_justificativos, name="gestionar-justificativos"),
