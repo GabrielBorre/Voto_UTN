@@ -13,7 +13,7 @@ ALLOWED_HOSTS = [item.strip() for item in os.getenv("DJANGO_ALLOWED_HOSTS", "loc
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "rest_framework", "django_extensions", "apps.elecciones", "apps.asistencia", "apps.usuarios", "apps.auditoria", "apps.reportes", "apps.padron", "apps.justificativos", "apps.autoridades", "apps.notificaciones", "apps.parametros",
+    "rest_framework", "django_extensions", "apps.elecciones", "apps.asistencia", "apps.usuarios", "apps.auditoria", "apps.reportes", "apps.padron", "apps.justificativos", "apps.autoridades", "apps.notificaciones", "apps.parametros", "apps.mesas",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware", "django.contrib.sessions.middleware.SessionMiddleware",

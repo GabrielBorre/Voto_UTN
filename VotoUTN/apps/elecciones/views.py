@@ -9,7 +9,6 @@ from .forms import (
     FormularioAlcanceSedes,
     FormularioEleccion,
     FormularioEditarEleccion,
-    FormularioGenerarMesas,
     FormularioPrepararClaustro,
 )
 from .models import AsignacionAutoridad, Eleccion, EleccionClaustro, EleccionClaustroDepartamento
@@ -190,16 +189,3 @@ def editar_alcance_sedes(request, eleccion_id, tipo, objeto_id):
         messages.success(request, "Las sedes habilitadas fueron actualizadas.")
         return redirect("gestionar-alcances", eleccion_id=eleccion.id)
     return render(request, "elecciones/editar_alcance.html", {"eleccion": eleccion, "titulo": titulo, "formulario": formulario})
-
-
-@login_required
-def gestionar_mesas(request, eleccion_id):
-    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
-        return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
-
-    return render(
-        request,
-        "elecciones/gestion_mesas.html",
-        {"eleccion": eleccion, "mesas": eleccion.mesas.select_related("sede", "turno", "eleccion_claustro_departamento__eleccion_claustro__claustro", "eleccion_claustro_departamento__departamento")},
-    )

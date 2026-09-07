@@ -7,7 +7,6 @@ from .views import (
     editar_eleccion,
     gestionar_elecciones,
     gestionar_alcances,
-    gestionar_mesas,
     preparar_claustro,
     preparar_eleccion,
     historial_elecciones,
@@ -28,5 +27,4 @@ urlpatterns = [
     path("gestion/elecciones/<int:eleccion_id>/estado/", cambiar_estado_eleccion, name="cambiar-estado-eleccion"),
     path("gestion/elecciones/<int:eleccion_id>/alcances/", gestionar_alcances, name="gestionar-alcances"),
     path("gestion/elecciones/<int:eleccion_id>/alcances/<str:tipo>/<int:objeto_id>/", editar_alcance_sedes, name="editar-alcance-sedes"),
-    path("gestion/elecciones/<int:eleccion_id>/mesas/", gestionar_mesas, name="gestionar-mesas"),
 ]

@@ -13,7 +13,7 @@ from apps.asistencia.models import RegistroParticipacion
 from apps.asistencia.serializers import SerializadorLoteAsistencia
 from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.elecciones.management.commands.cargar_electores_demo import Command as GeneradorQr
-from apps.elecciones.forms import FormularioAlcanceSedes, FormularioEleccion, FormularioGenerarMesas
+from apps.elecciones.forms import FormularioAlcanceSedes, FormularioEleccion
 from apps.elecciones.models import (
     AsignacionMesa,
     AsignacionAutoridad,
@@ -243,35 +243,6 @@ class GestionEleccionesTests(TestCase):
         self.assertEqual(eleccion.elecciones_claustro.count(), 1)
         self.assertEqual(EleccionClaustroDepartamento.objects.filter(eleccion_claustro__eleccion=eleccion).count(), 0)
         self.assertTrue(EleccionTurno.objects.filter(eleccion=eleccion, turno=self.turno).exists())
-
-    def test_generacion_crea_mesas_numeradas_y_valida_turno_habilitado(self):
-        inicio = make_aware(datetime(2026, 8, 3, 8))
-        eleccion = Eleccion.objects.create(nombre="Eleccion", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8))
-        EleccionSede.objects.create(eleccion=eleccion, sede=self.sede)
-        claustro_eleccion = EleccionClaustro.objects.create(eleccion=eleccion, claustro=self.claustro)
-        configuracion = EleccionClaustroDepartamento.objects.create(
-            eleccion_claustro=claustro_eleccion,
-            departamento=Departamento.objects.create(nombre="Sistemas", codigo="SIS"),
-        )
-        EleccionClaustroDepartamentoSede.objects.create(
-            eleccion_claustro_departamento=configuracion,
-            sede=self.sede,
-        )
-        EleccionTurno.objects.create(eleccion=eleccion, turno=self.turno)
-
-        formulario = FormularioGenerarMesas(
-            eleccion=eleccion,
-            data={"configuracion": configuracion.id, "sede": self.sede.id, "turno": self.turno.id, "cantidad": 2},
-        )
-
-        self.assertTrue(formulario.is_valid(), formulario.errors)
-        formulario.generar()
-        self.assertEqual(list(eleccion.mesas.values_list("numero", flat=True)), [1, 2])
-
-        turno_ajeno = Turno.objects.create(nombre="Tarde", hora_inicio=time(13), hora_fin=time(18))
-        mesa = Mesa(eleccion=eleccion, numero=3, eleccion_claustro_departamento=configuracion, sede=self.sede, turno=turno_ajeno)
-        with self.assertRaises(ValidationError):
-            mesa.full_clean()
 
     def test_calendario_administrativo_exige_orden_del_padron(self):
         inicio = make_aware(datetime(2026, 8, 10, 8))
