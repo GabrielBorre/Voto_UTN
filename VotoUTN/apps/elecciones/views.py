@@ -36,6 +36,7 @@ from .models import AsignacionAutoridad, Claustro, Departamento, Eleccion, Elecc
 from .servicios.autoridades import asignar_autoridad, importar_autoridades, responder_asignacion
 from .servicios.importacion_padron import CABECERAS_PADRON, confirmar_importacion, registrar_errores, validar_csv_padron
 from .servicios.notificaciones import crear_envios
+from apps.auditoria.services import registrar_evento
 from apps.usuarios.permisos import elecciones_con_participacion
 from apps.usuarios.permisos import puede_administrar_elecciones, puede_administrar_parametros, puede_importar_padron, puede_revisar_justificativo
 from apps.usuarios.models import AsignacionRol
@@ -537,11 +538,22 @@ def cambiar_estado_eleccion(request, eleccion_id):
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para cambiar esta eleccion.")
     nuevo_estado = request.POST.get("estado")
+    estado_anterior = eleccion.estado
     try:
         eleccion.cambiar_estado(nuevo_estado)
     except ValidationError as error:
         messages.error(request, error.messages[0])
     else:
+        registrar_evento(
+            accion="eleccion.cambio_estado",
+            entidad="Eleccion",
+            entidad_id=eleccion.id,
+            eleccion=eleccion,
+            usuario=request.user,
+            request=request,
+            datos_anteriores={"estado": estado_anterior},
+            datos_nuevos={"estado": eleccion.estado, "habilitada": eleccion.habilitada},
+        )
         messages.success(request, f"La eleccion quedo {eleccion.get_estado_display().lower()}.")
     return redirect("gestionar-elecciones")
 
