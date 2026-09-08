@@ -14,6 +14,7 @@ from .forms import (
 from .models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.autoridades.models import AsignacionAutoridad
 from apps.auditoria.services import registrar_evento
+from apps.partidos.models import ParticipacionPartido
 from apps.usuarios.permisos import elecciones_con_participacion
 from apps.usuarios.permisos import puede_administrar_elecciones
 from apps.usuarios.models import AsignacionRol
@@ -78,6 +79,7 @@ def configurar_eleccion(request, eleccion_id):
             "cantidad_padrones": eleccion.registros_padron.count(),
             "cantidad_mesas": eleccion.mesas.count(),
             "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),
+            "cantidad_partidos": ParticipacionPartido.objects.filter(eleccion=eleccion, activa=True).count(),
         },
     )
 

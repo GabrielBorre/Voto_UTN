@@ -88,6 +88,18 @@ Debe contemplar:
 
 No registra el voto.
 
+## Partidos y candidatos
+
+- `Partido`
+- `ParticipacionPartido`
+- `ListaCandidatos`
+- `Candidato`
+
+`ParticipacionPartido` vincula un partido con una eleccion y define su numero de
+lista. `ListaCandidatos` acota la candidatura a un claustro y opcionalmente a un
+departamento. `Candidato` conserva sus datos identificatorios y puede vincularse
+opcionalmente con `Elector`; no requiere pertenecer al padron.
+
 ## Justificativos
 
 - `TipoJustificativo`
@@ -120,6 +132,7 @@ comportamiento principal:
 - `mesas`: `Mesa` y `AsignacionMesa`.
 - `autoridades`: `CandidaturaAutoridad`, `AsignacionAutoridad` y
   `PreferenciaAutoridad`.
+- `partidos`: `Partido`, `ParticipacionPartido`, `ListaCandidatos` y `Candidato`.
 - `justificativos`: `TipoJustificativo` y `JustificativoAusencia`.
 - `notificaciones`: `PlantillaNotificacion` y `EnvioNotificacion`.
 - `asistencia`: `RegistroParticipacion`.

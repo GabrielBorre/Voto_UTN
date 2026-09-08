@@ -67,6 +67,16 @@ Ejemplo: `Sistemas de Información` / `K`.
 - Conserva las funcionalidades de elector.
 - La autoridad de mesa no registra participación.
 
+## Partidos y candidatos
+
+- Un partido se registra una vez y puede participar en distintas elecciones.
+- La participacion define el numero y nombre de lista dentro de una eleccion.
+- Las listas se organizan por claustro y, cuando corresponda, por departamento.
+- Un candidato puede vincularse opcionalmente con un elector existente.
+- No es obligatorio que el candidato pertenezca al padron.
+- Si el candidato esta en el padron de la eleccion, debe coincidir con el claustro y departamento de la lista.
+- Una misma persona no puede integrar dos listas diferentes dentro de la misma eleccion.
+
 ## QR
 
 - El objetivo funcional es sustituir el legajo por DNI antes de aplicar la protección criptográfica.

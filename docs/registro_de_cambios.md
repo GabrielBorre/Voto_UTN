@@ -477,3 +477,24 @@ Fecha de implementacion: 2026-09-08
 | `VotoUTN/apps/elecciones/views.py` y `urls.py` | Se agrego una entrada autenticada que envia a los administradores al panel de gestion y a los usuarios operativos a la seleccion de eleccion. |
 | `VotoUTN/config/settings.py` | El destino posterior al login ahora utiliza la entrada que resuelve el panel segun los permisos del usuario. |
 | `VotoUTN/apps/elecciones/tests_inicio.py` | Se cubren el login sin destino explicito y las rutas iniciales de superusuarios y usuarios operativos. |
+
+## Partidos participantes y candidatos
+
+Fecha de implementacion: 2026-09-08
+
+| Area | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/partidos/` | Se creo la app propietaria de partidos, participaciones electorales, listas por alcance y candidatos. |
+| Modelo de candidatos | El vinculo con `Elector` es opcional. Los candidatos externos conservan nombre, DNI y correo propios; los electores vinculados respetan el alcance de su padron cuando existe. |
+| Gestion web | Se agregaron alta de partidos, incorporacion a elecciones, listas, candidatos, edicion y desactivacion segura. |
+| Integracion | La configuracion de cada eleccion muestra la cantidad de partidos y ofrece acceso al modulo. |
+| Migracion | `partidos.0001_initial` crea cuatro tablas nuevas y sus restricciones sin modificar tablas existentes. |
+| Pruebas | Se cubren permisos, flujo web, candidatos externos, vinculo opcional al elector, alcance electoral y duplicados entre listas. |
+
+### Verificaciones al cierre
+
+- `python manage.py migrate`: aplico `partidos.0001_initial` correctamente.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 57 pruebas correctas.

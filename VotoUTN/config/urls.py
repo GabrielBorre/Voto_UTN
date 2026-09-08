@@ -14,6 +14,7 @@ urlpatterns = [
     path("", include("apps.notificaciones.urls")),
     path("", include("apps.parametros.urls")),
     path("", include("apps.mesas.urls")),
+    path("", include("apps.partidos.urls")),
     path("asistencia/", include("apps.asistencia.urls")),
     path("api/", include("apps.asistencia.api_urls")),
     path("login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
