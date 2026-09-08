@@ -12,7 +12,7 @@ from django.utils.timezone import make_aware
 from apps.asistencia.models import RegistroParticipacion
 from apps.asistencia.serializers import SerializadorLoteAsistencia
 from apps.asistencia.services import ServicioRegistroParticipacion
-from apps.elecciones.management.commands.cargar_electores_demo import Command as GeneradorQr
+from apps.padron.management.commands.cargar_electores_demo import Command as GeneradorQr
 from apps.elecciones.forms import FormularioAlcanceSedes, FormularioEleccion
 from apps.elecciones.models import (
     Eleccion,

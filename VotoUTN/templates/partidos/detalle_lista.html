@@ -1,4 +1,4 @@
-{% extends "elecciones/base_gestion.html" %}
+{% extends "gestion/base.html" %}
 {% block title %}Candidatos | {{ lista.nombre }}{% endblock %}
 {% block content %}
 <section class="hero"><h1>{{ lista.nombre }}</h1><p>{{ lista.participacion.partido }} - {{ lista.eleccion_claustro.claustro }}{% if lista.eleccion_claustro_departamento %} / {{ lista.eleccion_claustro_departamento.departamento }}{% endif %}.</p></section>

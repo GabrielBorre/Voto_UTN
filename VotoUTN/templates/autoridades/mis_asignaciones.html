@@ -1,4 +1,4 @@
-{% extends "elecciones/base_gestion.html" %}
+{% extends "gestion/base.html" %}
 {% block title %}Mis asignaciones | UTN{% endblock %}
 {% block content %}
 <section class="hero"><h1>{% if vista_administrativa %}Asignaciones de autoridades{% else %}Mis asignaciones de mesa{% endif %}</h1><p>{% if vista_administrativa %}Vista administrativa de las asignaciones registradas.{% else %}Confirme la disponibilidad para las mesas electorales asignadas.{% endif %}</p></section>

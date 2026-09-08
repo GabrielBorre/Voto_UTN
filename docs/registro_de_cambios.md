@@ -498,3 +498,24 @@ Fecha de implementacion: 2026-09-08
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 57 pruebas correctas.
+
+## Cierre de modularizacion estructural
+
+Fecha de implementacion: 2026-09-08
+
+| Area | Cambio aplicado |
+| --- | --- |
+| Plantillas | Las pantallas de `padron`, `mesas`, `autoridades`, `justificativos`, `notificaciones`, `parametros` y `reportes` se trasladaron a namespaces propios. La base de gestion paso a `templates/gestion/base.html`. |
+| Comandos | `cargar_electores_demo`, `seed_voters` y `seed_random_electores` pertenecen ahora a `padron`; `procesar_notificaciones` pertenece a `notificaciones`. Sus nombres publicos se conservan. |
+| `elecciones` | Conserva plantillas y comandos transversales del nucleo electoral; `seed_demo_data` permanece como orquestador integral. |
+| `pagina_web` | Se elimino el directorio residual de bytecode. Las maquetas y recursos estaticos se conservaron segun la decision funcional. |
+| Documentacion | `plan_implementacion.md` refleja las etapas entregadas y separa el backlog externo de Keycloak, correo, usuarios y produccion. Se verifico que los supuestos caracteres corruptos eran solo una representacion de PowerShell y no mojibake almacenado. |
+
+### Verificaciones al cierre
+
+- Los comandos trasladados responden a `python manage.py help` con sus nombres originales.
+- No quedan referencias a los namespaces de plantillas anteriores.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 57 pruebas correctas.

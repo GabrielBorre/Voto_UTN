@@ -41,7 +41,7 @@ class PadronViewsTests(TestCase):
         respuesta = self.client.get(reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id)))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertTemplateUsed(respuesta, "elecciones/cargar_padron.html")
+        self.assertTemplateUsed(respuesta, "padron/cargar.html")
 
     def test_descargar_plantilla_padron_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")

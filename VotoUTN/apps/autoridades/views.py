@@ -34,7 +34,7 @@ def gestionar_autoridades(request, eleccion_id):
             messages.success(request, f"Se cargaron {cantidad} candidatos desde el CSV.")
             return redirect("gestionar-autoridades", eleccion_id=eleccion.id)
     autoridades = AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).select_related("registro_padron__elector", "mesa", "asignada_por")
-    return render(request, "elecciones/gestion_autoridades.html", {"eleccion": eleccion, "formulario_manual": formulario_manual, "formulario_csv": formulario_csv, "autoridades": autoridades})
+    return render(request, "autoridades/gestion.html", {"eleccion": eleccion, "formulario_manual": formulario_manual, "formulario_csv": formulario_csv, "autoridades": autoridades})
 
 
 @login_required
@@ -42,14 +42,14 @@ def mis_asignaciones_autoridad(request):
     perfil = getattr(request.user, "perfil_electoral", None)
     asignaciones = AsignacionAutoridad.objects.select_related("mesa__sede", "mesa__turno", "registro_padron__eleccion", "registro_padron__elector")
     if request.user.is_superuser:
-        return render(request, "elecciones/mis_asignaciones_autoridad.html", {"asignaciones": asignaciones, "vista_administrativa": True})
+        return render(request, "autoridades/mis_asignaciones.html", {"asignaciones": asignaciones, "vista_administrativa": True})
     if perfil and perfil.elector_id:
         asignaciones = asignaciones.filter(registro_padron__elector=perfil.elector)
     elif not request.user.asignaciones_rol.filter(rol="autoridad_mesa", activo=True).exists():
         return HttpResponseForbidden("No tiene permiso de autoridad de mesa.")
     else:
         asignaciones = asignaciones.none()
-    return render(request, "elecciones/mis_asignaciones_autoridad.html", {"asignaciones": asignaciones})
+    return render(request, "autoridades/mis_asignaciones.html", {"asignaciones": asignaciones})
 
 
 @login_required
@@ -73,4 +73,4 @@ def preferencia_autoridad(request, asignacion_id):
         formulario.save()
         messages.success(request, "La preferencia fue actualizada.")
         return redirect("mis-asignaciones-autoridad")
-    return render(request, "elecciones/preferencia_autoridad.html", {"asignacion": asignacion, "formulario": formulario})
+    return render(request, "autoridades/preferencia.html", {"asignacion": asignacion, "formulario": formulario})

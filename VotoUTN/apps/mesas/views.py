@@ -20,6 +20,6 @@ def gestionar_mesas(request, eleccion_id):
     )
     return render(
         request,
-        "elecciones/gestion_mesas.html",
+        "mesas/gestion.html",
         {"eleccion": eleccion, "mesas": mesas},
     )

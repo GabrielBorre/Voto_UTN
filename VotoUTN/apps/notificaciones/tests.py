@@ -13,7 +13,7 @@ class NotificacionesViewsTests(TestCase):
         respuesta = self.client.get(reverse("gestionar-notificaciones"))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertTemplateUsed(respuesta, "elecciones/gestion_notificaciones.html")
+        self.assertTemplateUsed(respuesta, "notificaciones/gestion.html")
 
     def test_mis_notificaciones_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
@@ -21,4 +21,4 @@ class NotificacionesViewsTests(TestCase):
         respuesta = self.client.get(reverse("mis-notificaciones"))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertTemplateUsed(respuesta, "elecciones/mis_notificaciones.html")
+        self.assertTemplateUsed(respuesta, "notificaciones/mis_notificaciones.html")

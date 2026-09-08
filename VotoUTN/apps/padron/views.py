@@ -52,7 +52,7 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
         )
         registrar_errores(importacion, resultado.errores)
         return redirect("detalle-importacion-padron", eleccion_id=eleccion_id, importacion_id=importacion.id)
-    return render(request, "elecciones/cargar_padron.html", {"eleccion": eleccion_claustro.eleccion, "claustro": eleccion_claustro, "formulario": formulario})
+    return render(request, "padron/cargar.html", {"eleccion": eleccion_claustro.eleccion, "claustro": eleccion_claustro, "formulario": formulario})
 
 
 @login_required
@@ -60,7 +60,7 @@ def detalle_importacion_padron(request, eleccion_id, importacion_id):
     importacion = get_object_or_404(ImportacionPadron.objects.select_related("eleccion_claustro__claustro", "usuario"), pk=importacion_id, eleccion_id=eleccion_id)
     if not puede_importar_padron(request.user, importacion.eleccion):
         return HttpResponseForbidden("No tiene permiso para consultar esta importacion.")
-    return render(request, "elecciones/detalle_importacion_padron.html", {"eleccion": importacion.eleccion, "importacion": importacion})
+    return render(request, "padron/detalle_importacion.html", {"eleccion": importacion.eleccion, "importacion": importacion})
 
 
 @login_required
@@ -103,4 +103,4 @@ def historial_importaciones_padron(request, eleccion_id):
     if not puede_importar_padron(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para consultar el historial de padrones.")
     importaciones = eleccion.importaciones_padron.select_related("eleccion_claustro__claustro", "usuario")
-    return render(request, "elecciones/historial_importaciones_padron.html", {"eleccion": eleccion, "importaciones": importaciones})
+    return render(request, "padron/historial_importaciones.html", {"eleccion": eleccion, "importaciones": importaciones})

@@ -98,7 +98,7 @@ class MesasTests(TestCase):
         respuesta = self.client.get(reverse("gestionar-mesas", args=(self.eleccion.id,)))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertTemplateUsed(respuesta, "elecciones/gestion_mesas.html")
+        self.assertTemplateUsed(respuesta, "mesas/gestion.html")
 
         sin_permiso = get_user_model().objects.create_user(
             username="sin_permiso",

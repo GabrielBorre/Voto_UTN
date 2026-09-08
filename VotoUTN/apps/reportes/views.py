@@ -12,7 +12,7 @@ def gestionar_reportes(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para consultar reportes.")
-    return render(request, "elecciones/reportes.html", {"eleccion": eleccion})
+    return render(request, "reportes/gestion.html", {"eleccion": eleccion})
 
 
 @login_required

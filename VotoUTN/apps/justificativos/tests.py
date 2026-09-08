@@ -22,7 +22,7 @@ class JustificativosViewsTests(TestCase):
         respuesta = self.client.get(reverse("bandeja-justificativos"))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertTemplateUsed(respuesta, "elecciones/bandeja_justificativos.html")
+        self.assertTemplateUsed(respuesta, "justificativos/bandeja.html")
 
     def test_gestionar_justificativos_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
@@ -30,4 +30,4 @@ class JustificativosViewsTests(TestCase):
         respuesta = self.client.get(reverse("gestionar-justificativos", args=(self.eleccion.id,)))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertTemplateUsed(respuesta, "elecciones/gestion_justificativos.html")
+        self.assertTemplateUsed(respuesta, "justificativos/gestion.html")

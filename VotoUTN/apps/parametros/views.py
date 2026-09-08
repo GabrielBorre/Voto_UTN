@@ -43,7 +43,7 @@ def gestionar_parametros(request):
         {"tipo": tipo, "titulo": configuracion["titulo"], "cantidad": configuracion["modelo"].objects.count()}
         for tipo, configuracion in PARAMETROS.items()
     ]
-    return render(request, "elecciones/parametros.html", {"parametros": parametros})
+    return render(request, "parametros/gestion.html", {"parametros": parametros})
 
 
 @login_required
@@ -60,7 +60,7 @@ def listar_parametros(request, tipo):
         objetos = objetos.filter(filtro)
     return render(
         request,
-        "elecciones/parametro_lista.html",
+        "parametros/lista.html",
         {"tipo": tipo, "titulo": configuracion["titulo"], "objetos": objetos, "consulta": consulta, "campo_estado": configuracion["estado"], "tiene_codigo": configuracion["codigo"], "es_fecha": configuracion.get("es_fecha", False)},
     )
 
@@ -78,7 +78,7 @@ def editar_parametro(request, tipo, objeto_id=None):
         return redirect("listar-parametros", tipo=tipo)
     return render(
         request,
-        "elecciones/parametro_formulario.html",
+        "parametros/formulario.html",
         {"tipo": tipo, "titulo": configuracion["titulo"], "formulario": formulario, "objeto": objeto},
     )
 

@@ -23,7 +23,7 @@ def mis_justificativos(request):
     justificativos = JustificativoAusencia.objects.select_related("registro_padron__eleccion", "tipo")
     if elector is not None:
         justificativos = justificativos.filter(registro_padron__elector=elector)
-    return render(request, "elecciones/mis_justificativos.html", {"formulario": formulario, "justificativos": justificativos})
+    return render(request, "justificativos/mis_justificativos.html", {"formulario": formulario, "justificativos": justificativos})
 
 
 @login_required
@@ -32,7 +32,7 @@ def gestionar_justificativos(request, eleccion_id):
     if not puede_revisar_justificativo(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
     justificativos = JustificativoAusencia.objects.filter(registro_padron__eleccion=eleccion).select_related("registro_padron__elector", "tipo", "resuelta_por")
-    return render(request, "elecciones/gestion_justificativos.html", {"eleccion": eleccion, "justificativos": justificativos})
+    return render(request, "justificativos/gestion.html", {"eleccion": eleccion, "justificativos": justificativos})
 
 
 @login_required
@@ -59,7 +59,7 @@ def bandeja_justificativos(request):
         if not (request.user.is_superuser or tiene_rol):
             return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
     justificativos = justificativos.select_related("registro_padron__eleccion", "registro_padron__elector", "tipo")
-    return render(request, "elecciones/bandeja_justificativos.html", {"justificativos": justificativos})
+    return render(request, "justificativos/bandeja.html", {"justificativos": justificativos})
 
 
 @login_required
@@ -76,4 +76,4 @@ def resolver_justificativo(request, justificativo_id):
         justificativo.save(update_fields=("estado", "observacion_resolucion", "resuelta_por", "resuelta_en"))
         messages.success(request, "El justificativo fue resuelto.")
         return redirect("gestionar-justificativos", eleccion_id=justificativo.registro_padron.eleccion_id)
-    return render(request, "elecciones/resolver_justificativo.html", {"justificativo": justificativo, "formulario": formulario})
+    return render(request, "justificativos/resolver.html", {"justificativo": justificativo, "formulario": formulario})

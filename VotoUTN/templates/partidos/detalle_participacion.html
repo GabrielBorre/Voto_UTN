@@ -1,4 +1,4 @@
-{% extends "elecciones/base_gestion.html" %}
+{% extends "gestion/base.html" %}
 {% block title %}Listas | {{ participacion.partido }}{% endblock %}
 {% block content %}
 <section class="hero"><h1>{{ participacion.partido }}</h1><p>Lista {{ participacion.numero_lista }}{% if participacion.nombre_lista %} - {{ participacion.nombre_lista }}{% endif %}. {{ participacion.eleccion.nombre }}.</p></section>

@@ -26,7 +26,7 @@ def gestionar_notificaciones(request):
         return redirect("gestionar-notificaciones")
     return render(
         request,
-        "elecciones/gestion_notificaciones.html",
+        "notificaciones/gestion.html",
         {
             "formulario_plantilla": formulario_plantilla,
             "formulario_envio": formulario_envio,
@@ -39,7 +39,7 @@ def gestionar_notificaciones(request):
 @login_required
 def mis_notificaciones(request):
     notificaciones = request.user.notificaciones.all()
-    return render(request, "elecciones/mis_notificaciones.html", {"notificaciones": notificaciones})
+    return render(request, "notificaciones/mis_notificaciones.html", {"notificaciones": notificaciones})
 
 
 @login_required
@@ -48,4 +48,4 @@ def leer_notificacion(request, notificacion_id):
     if notificacion.leida_en is None:
         notificacion.leida_en = timezone.now()
         notificacion.save(update_fields=("leida_en",))
-    return render(request, "elecciones/detalle_notificacion.html", {"notificacion": notificacion})
+    return render(request, "notificaciones/detalle.html", {"notificacion": notificacion})

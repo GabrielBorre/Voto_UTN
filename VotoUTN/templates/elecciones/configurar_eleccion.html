@@ -1,4 +1,4 @@
-{% extends "elecciones/base_gestion.html" %}
+{% extends "gestion/base.html" %}
 {% block title %}Configuracion | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
 <section class="hero"><h1>Configuracion de eleccion</h1><p>{{ eleccion.nombre }} · {{ eleccion.get_estado_display }}</p></section>

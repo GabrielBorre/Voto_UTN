@@ -42,7 +42,7 @@ class ReportesViewsTests(TestCase):
         respuesta = self.client.get(reverse("gestionar-reportes", args=(self.eleccion.id,)))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertTemplateUsed(respuesta, "elecciones/reportes.html")
+        self.assertTemplateUsed(respuesta, "reportes/gestion.html")
 
     def test_exportar_reporte_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")

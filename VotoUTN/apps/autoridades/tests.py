@@ -22,7 +22,7 @@ class AutoridadesViewsTests(TestCase):
         respuesta = self.client.get(reverse("gestionar-autoridades", args=(self.eleccion.id,)))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertTemplateUsed(respuesta, "elecciones/gestion_autoridades.html")
+        self.assertTemplateUsed(respuesta, "autoridades/gestion.html")
 
     def test_mis_asignaciones_autoridad_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
