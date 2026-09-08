@@ -1,6 +1,7 @@
 from django import forms
 
-from apps.elecciones.models import JustificativoAusencia, RegistroPadron, TipoJustificativo
+from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
+from apps.padron.models import RegistroPadron
 
 
 class FormularioJustificativo(forms.ModelForm):

@@ -15,10 +15,6 @@ from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.elecciones.management.commands.cargar_electores_demo import Command as GeneradorQr
 from apps.elecciones.forms import FormularioAlcanceSedes, FormularioEleccion
 from apps.elecciones.models import (
-    AsignacionMesa,
-    AsignacionAutoridad,
-    Claustro,
-    Departamento,
     Eleccion,
     EleccionClaustro,
     EleccionClaustroDepartamento,
@@ -26,17 +22,14 @@ from apps.elecciones.models import (
     EleccionClaustroSede,
     EleccionSede,
     EleccionTurno,
-    Elector,
-    FechaAdministrativa,
     FechaAdministrativaEleccion,
-    Mesa,
-    ImportacionPadron,
-    RegistroPadron,
-    Sede,
-    Turno,
 )
-from apps.padron.services import confirmar_importacion, validar_csv_padron
+from apps.autoridades.models import AsignacionAutoridad
 from apps.autoridades.services import asignar_autoridad
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.padron.models import Elector, ImportacionPadron, RegistroPadron
+from apps.padron.services import confirmar_importacion, validar_csv_padron
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 from apps.usuarios.permisos import puede_administrar_parametros, puede_registrar_participacion
 

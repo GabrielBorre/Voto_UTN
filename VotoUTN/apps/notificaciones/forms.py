@@ -1,6 +1,8 @@
 from django import forms
 
-from apps.elecciones.models import Claustro, Eleccion, FechaAdministrativa, PlantillaNotificacion
+from apps.elecciones.models import Eleccion
+from apps.notificaciones.models import PlantillaNotificacion
+from apps.parametros.models import Claustro, FechaAdministrativa
 
 
 class FormularioPlantillaNotificacion(forms.ModelForm):

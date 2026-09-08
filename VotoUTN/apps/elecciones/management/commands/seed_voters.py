@@ -4,7 +4,8 @@ from qrcode.constants import ERROR_CORRECT_L
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from PIL import Image
-from apps.elecciones.models import Eleccion, EleccionClaustroDepartamento, RegistroPadron
+from apps.elecciones.models import Eleccion, EleccionClaustroDepartamento
+from apps.padron.models import RegistroPadron
 from apps.asistencia.services import ServicioRegistroParticipacion
 
 

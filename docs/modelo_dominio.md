@@ -106,3 +106,27 @@ No registra el voto.
 ## Auditoría
 
 - `EventoAuditoria`
+
+## Propiedad de modelos por aplicacion
+
+La modularizacion de dominio asigna cada modelo a la aplicacion que contiene su
+comportamiento principal:
+
+- `parametros`: `Sede`, `Claustro`, `Turno`, `Departamento` y `FechaAdministrativa`.
+- `elecciones`: `Eleccion` y sus configuraciones de sedes, claustros, departamentos,
+  turnos y fechas administrativas.
+- `padron`: `Elector`, `RegistroPadron`, `ImportacionPadron` y
+  `ErrorImportacionPadron`.
+- `mesas`: `Mesa` y `AsignacionMesa`.
+- `autoridades`: `CandidaturaAutoridad`, `AsignacionAutoridad` y
+  `PreferenciaAutoridad`.
+- `justificativos`: `TipoJustificativo` y `JustificativoAusencia`.
+- `notificaciones`: `PlantillaNotificacion` y `EnvioNotificacion`.
+- `asistencia`: `RegistroParticipacion`.
+- `usuarios`: `PerfilUsuario` y `AsignacionRol`.
+- `auditoria`: `EventoAuditoria`.
+
+Los modelos trasladados conservan sus tablas fisicas historicas `elecciones_*`.
+Las migraciones de modularizacion modifican el estado de Django sin recrear,
+renombrar ni eliminar esas tablas. Tambien actualizan los `ContentType` para
+preservar los permisos asociados a los modelos existentes.

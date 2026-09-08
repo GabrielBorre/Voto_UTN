@@ -6,7 +6,9 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
-from apps.elecciones.models import AsignacionAutoridad, CandidaturaAutoridad, Mesa, RegistroPadron
+from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
+from apps.mesas.models import Mesa
+from apps.padron.models import RegistroPadron
 
 
 CABECERAS_AUTORIDADES = ("dni", "legajo", "nombres", "apellidos", "mail", "claustro", "departamento")

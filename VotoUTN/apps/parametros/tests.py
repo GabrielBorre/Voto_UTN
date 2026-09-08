@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.elecciones.models import Sede
+from apps.parametros.models import Sede
 
 
 class ParametrosViewsTests(TestCase):

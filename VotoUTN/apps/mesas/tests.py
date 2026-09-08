@@ -7,19 +7,16 @@ from django.urls import reverse
 from django.utils.timezone import make_aware
 
 from apps.elecciones.models import (
-    Claustro,
-    Departamento,
     Eleccion,
     EleccionClaustro,
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionSede,
     EleccionTurno,
-    Mesa,
-    Sede,
-    Turno,
 )
 from apps.mesas.forms import FormularioGenerarMesas
+from apps.mesas.models import Mesa
+from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.usuarios.models import AsignacionRol
 
 

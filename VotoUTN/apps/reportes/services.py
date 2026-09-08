@@ -3,7 +3,8 @@ import csv
 from django.http import Http404, HttpResponse
 
 from apps.asistencia.models import RegistroParticipacion
-from apps.elecciones.models import AsignacionAutoridad, JustificativoAusencia
+from apps.autoridades.models import AsignacionAutoridad
+from apps.justificativos.models import JustificativoAusencia
 
 
 def valor_csv(valor):

@@ -6,7 +6,8 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 
 from apps.auditoria.services import registrar_evento
-from apps.elecciones.models import Eleccion, RegistroPadron
+from apps.elecciones.models import Eleccion
+from apps.padron.models import RegistroPadron
 from apps.usuarios.permisos import puede_registrar_participacion
 from .models import RegistroParticipacion
 

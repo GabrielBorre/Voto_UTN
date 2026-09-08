@@ -11,7 +11,8 @@ from .forms import (
     FormularioEditarEleccion,
     FormularioPrepararClaustro,
 )
-from .models import AsignacionAutoridad, Eleccion, EleccionClaustro, EleccionClaustroDepartamento
+from .models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
+from apps.autoridades.models import AsignacionAutoridad
 from apps.auditoria.services import registrar_evento
 from apps.usuarios.permisos import elecciones_con_participacion
 from apps.usuarios.permisos import puede_administrar_elecciones

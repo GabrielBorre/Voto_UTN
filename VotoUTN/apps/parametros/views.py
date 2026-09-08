@@ -4,7 +4,8 @@ from django.db.models import Q
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 
-from apps.elecciones.models import Claustro, Departamento, FechaAdministrativa, Sede, TipoJustificativo, Turno
+from apps.justificativos.models import TipoJustificativo
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.parametros.forms import (
     FormularioClaustro,
     FormularioDepartamento,

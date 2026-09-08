@@ -1,6 +1,7 @@
 from django import forms
 
-from apps.elecciones.models import Claustro, Departamento, FechaAdministrativa, Sede, TipoJustificativo, Turno
+from apps.justificativos.models import TipoJustificativo
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 
 
 class FormularioTipoJustificativo(forms.ModelForm):

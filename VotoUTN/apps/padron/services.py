@@ -9,17 +9,12 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.elecciones.models import (
-    AsignacionMesa,
-    Departamento,
-    Elector,
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
-    ErrorImportacionPadron,
-    ImportacionPadron,
-    Mesa,
-    RegistroPadron,
-    Sede,
 )
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.padron.models import Elector, ErrorImportacionPadron, ImportacionPadron, RegistroPadron
+from apps.parametros.models import Departamento, Sede
 
 
 CABECERAS_PADRON = ("dni", "legajo", "nombres", "apellidos", "mail", "departamento", "sede")

@@ -2,7 +2,10 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.elecciones.models import Eleccion, Elector, Mesa, Sede
+from apps.elecciones.models import Eleccion
+from apps.mesas.models import Mesa
+from apps.padron.models import Elector
+from apps.parametros.models import Sede
 
 
 class PerfilUsuario(models.Model):

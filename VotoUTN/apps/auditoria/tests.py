@@ -9,9 +9,6 @@ from apps.asistencia.models import RegistroParticipacion
 from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.auditoria.models import EventoAuditoria
 from apps.elecciones.models import (
-    AsignacionMesa,
-    Claustro,
-    Departamento,
     Eleccion,
     EleccionClaustro,
     EleccionClaustroDepartamento,
@@ -19,12 +16,10 @@ from apps.elecciones.models import (
     EleccionClaustroSede,
     EleccionSede,
     EleccionTurno,
-    Elector,
-    Mesa,
-    RegistroPadron,
-    Sede,
-    Turno,
 )
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.padron.models import Elector, RegistroPadron
+from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.usuarios.models import AsignacionRol
 
 

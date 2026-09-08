@@ -1,4 +1,4 @@
-from .models import EnvioNotificacion
+from apps.notificaciones.models import EnvioNotificacion
 
 
 def notificaciones_usuario(request):

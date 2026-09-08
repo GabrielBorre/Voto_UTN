@@ -3,10 +3,9 @@ from django.db import transaction
 
 from apps.elecciones.models import (
     EleccionClaustroDepartamento,
-    Mesa,
-    Sede,
-    Turno,
 )
+from apps.mesas.models import Mesa
+from apps.parametros.models import Sede, Turno
 
 
 class FormularioGenerarMesas(forms.Form):

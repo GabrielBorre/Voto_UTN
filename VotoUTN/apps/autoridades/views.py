@@ -6,7 +6,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.autoridades.forms import FormularioArchivoAutoridades, FormularioAsignacionAutoridad, FormularioPreferenciaAutoridad
 from apps.autoridades.services import asignar_autoridad, importar_autoridades, responder_asignacion
-from apps.elecciones.models import AsignacionAutoridad, Eleccion, PreferenciaAutoridad
+from apps.autoridades.models import AsignacionAutoridad, PreferenciaAutoridad
+from apps.elecciones.models import Eleccion
 from apps.usuarios.permisos import puede_administrar_elecciones
 
 

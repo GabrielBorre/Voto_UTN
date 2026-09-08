@@ -4,7 +4,8 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.elecciones.models import Eleccion, JustificativoAusencia
+from apps.elecciones.models import Eleccion
+from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import puede_revisar_justificativo

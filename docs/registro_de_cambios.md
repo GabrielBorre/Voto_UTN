@@ -447,3 +447,23 @@ Fecha de cierre: 2026-08-03
 - `python manage.py check`: correcto.
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py test`: 18 pruebas correctas.
+
+## Modularizacion completa de modelos
+
+Fecha de implementacion: 2026-09-07
+
+| Area | Cambio aplicado |
+| --- | --- |
+| `parametros`, `padron`, `mesas`, `autoridades`, `justificativos` y `notificaciones` | Cada aplicacion pasa a declarar y administrar sus propios modelos de dominio. |
+| `elecciones` | Conserva exclusivamente `Eleccion` y las entidades que configuran su alcance electoral. |
+| Migraciones | Se usan operaciones de estado separadas de las operaciones de base de datos. Todas las tablas conservan sus nombres fisicos `elecciones_*` y no se ejecuta DDL destructivo. |
+| `django_content_type` | Los registros de los modelos trasladados cambian al nuevo `app_label`, preservando sus permisos existentes. |
+| Consumidores | Formularios, vistas, servicios, comandos, administracion y pruebas importan cada modelo desde su aplicacion propietaria. |
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: solo operaciones de estado y actualizacion de `ContentType`.
+- `python manage.py sqlmigrate`: cero operaciones `CREATE TABLE`, `ALTER TABLE` o `DROP TABLE` en las once migraciones nuevas.
+- `python manage.py test`: 45 pruebas correctas.

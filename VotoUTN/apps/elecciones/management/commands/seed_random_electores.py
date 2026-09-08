@@ -6,7 +6,8 @@ from django.core.management.color import no_style
 from django.db import connection
 from django.db import transaction
 
-from apps.elecciones.models import AsignacionMesa, Elector, Mesa, RegistroPadron
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.padron.models import Elector, RegistroPadron
 
 
 class Command(BaseCommand):

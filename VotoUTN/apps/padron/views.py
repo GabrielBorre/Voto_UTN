@@ -6,7 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 
-from apps.elecciones.models import Eleccion, EleccionClaustro, ImportacionPadron
+from apps.elecciones.models import Eleccion, EleccionClaustro
+from apps.padron.models import ImportacionPadron
 from apps.padron.forms import FormularioArchivoPadron
 from apps.padron.services import CABECERAS_PADRON, confirmar_importacion, registrar_errores, validar_csv_padron
 from apps.usuarios.permisos import puede_importar_padron

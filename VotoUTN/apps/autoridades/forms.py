@@ -1,6 +1,8 @@
 from django import forms
 
-from apps.elecciones.models import CandidaturaAutoridad, Mesa, PreferenciaAutoridad, Sede, Turno
+from apps.autoridades.models import CandidaturaAutoridad, PreferenciaAutoridad
+from apps.mesas.models import Mesa
+from apps.parametros.models import Sede, Turno
 
 
 class FormularioAsignacionAutoridad(forms.Form):

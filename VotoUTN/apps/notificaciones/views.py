@@ -4,7 +4,7 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.elecciones.models import EnvioNotificacion, PlantillaNotificacion
+from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
 from apps.notificaciones.forms import FormularioEnviarNotificacion, FormularioPlantillaNotificacion
 from apps.notificaciones.services import crear_envios
 from apps.usuarios.permisos import puede_administrar_parametros

@@ -2,8 +2,6 @@ from django import forms
 from django.db import transaction
 
 from .models import (
-    Claustro,
-    Departamento,
     Eleccion,
     EleccionClaustro,
     EleccionClaustroDepartamento,
@@ -11,13 +9,11 @@ from .models import (
     EleccionClaustroSede,
     EleccionSede,
     EleccionTurno,
-    FechaAdministrativa,
     FechaAdministrativaEleccion,
-    Mesa,
-    RegistroPadron,
-    Sede,
-    Turno,
 )
+from apps.mesas.models import Mesa
+from apps.padron.models import RegistroPadron
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 
 
 class FormularioEleccion(forms.ModelForm):

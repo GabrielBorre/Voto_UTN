@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.elecciones.models import AsignacionMesa, Mesa
+from apps.mesas.models import AsignacionMesa, Mesa
 
 
 @admin.register(Mesa)

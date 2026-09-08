@@ -2,7 +2,7 @@ from django.db import transaction
 from django.core.mail import send_mail
 from django.utils import timezone
 
-from apps.elecciones.models import EnvioNotificacion
+from apps.notificaciones.models import EnvioNotificacion
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
