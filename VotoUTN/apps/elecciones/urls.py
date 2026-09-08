@@ -10,12 +10,14 @@ from .views import (
     preparar_claustro,
     preparar_eleccion,
     historial_elecciones,
+    inicio_autenticado,
     listar_elecciones,
     index,
 )
 
 urlpatterns = [
     path("", index, name="index"),
+    path("inicio/", inicio_autenticado, name="inicio-autenticado"),
     path("gestion/elecciones/listar_elecciones/", listar_elecciones, name="lista-elecciones"),
     path("gestion/elecciones/", gestionar_elecciones, name="gestionar-elecciones"),
     path("gestion/elecciones/historial/", historial_elecciones, name="historial-elecciones"),

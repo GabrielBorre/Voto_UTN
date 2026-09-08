@@ -37,6 +37,13 @@ def contexto_formulario_eleccion(formulario, incluir_parametros=False):
 
 
 @login_required
+def inicio_autenticado(request):
+    if puede_administrar_elecciones(request.user):
+        return redirect("gestionar-elecciones")
+    return redirect("lista-elecciones")
+
+
+@login_required
 def listar_elecciones(request):
     return render(request, "elecciones/list.html", {"elecciones": elecciones_con_participacion(request.user)})
 

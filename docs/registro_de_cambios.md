@@ -467,3 +467,13 @@ Fecha de implementacion: 2026-09-07
 - `python manage.py migrate --plan`: solo operaciones de estado y actualizacion de `ContentType`.
 - `python manage.py sqlmigrate`: cero operaciones `CREATE TABLE`, `ALTER TABLE` o `DROP TABLE` en las once migraciones nuevas.
 - `python manage.py test`: 45 pruebas correctas.
+
+## Correccion del inicio autenticado por rol
+
+Fecha de implementacion: 2026-09-08
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/views.py` y `urls.py` | Se agrego una entrada autenticada que envia a los administradores al panel de gestion y a los usuarios operativos a la seleccion de eleccion. |
+| `VotoUTN/config/settings.py` | El destino posterior al login ahora utiliza la entrada que resuelve el panel segun los permisos del usuario. |
+| `VotoUTN/apps/elecciones/tests_inicio.py` | Se cubren el login sin destino explicito y las rutas iniciales de superusuarios y usuarios operativos. |
