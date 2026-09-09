@@ -170,6 +170,12 @@
     grid-template-columns: 1fr;
 }
 
+.gestion-form-grid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .option,
 .card {
     background: var(--card);
@@ -649,7 +655,8 @@ table td:last-child {
     }
 
     .row,
-    .checkbox-grid {
+    .checkbox-grid,
+    .gestion-form-grid {
         grid-template-columns: 1fr;
     }
 

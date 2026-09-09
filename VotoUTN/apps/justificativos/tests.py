@@ -1,0 +1,33 @@
+from datetime import datetime, timedelta
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from django.urls import reverse
+from django.utils.timezone import make_aware
+
+from apps.elecciones.models import Eleccion
+from apps.usuarios.models import AsignacionRol
+
+
+class JustificativosViewsTests(TestCase):
+    def setUp(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        self.eleccion = Eleccion.objects.create(nombre="Eleccion", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8), habilitada=False)
+        self.usuario = get_user_model().objects.create_user(username="admin", password="clave")
+        AsignacionRol.objects.create(usuario=self.usuario, rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA, eleccion=self.eleccion)
+
+    def test_bandeja_justificativos_usa_ruta_publica_existente(self):
+        self.client.login(username="admin", password="clave")
+
+        respuesta = self.client.get(reverse("bandeja-justificativos"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTemplateUsed(respuesta, "justificativos/bandeja.html")
+
+    def test_gestionar_justificativos_usa_ruta_publica_existente(self):
+        self.client.login(username="admin", password="clave")
+
+        respuesta = self.client.get(reverse("gestionar-justificativos", args=(self.eleccion.id,)))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTemplateUsed(respuesta, "justificativos/gestion.html")

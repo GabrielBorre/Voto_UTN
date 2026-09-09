@@ -447,3 +447,75 @@ Fecha de cierre: 2026-08-03
 - `python manage.py check`: correcto.
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py test`: 18 pruebas correctas.
+
+## Modularizacion completa de modelos
+
+Fecha de implementacion: 2026-09-07
+
+| Area | Cambio aplicado |
+| --- | --- |
+| `parametros`, `padron`, `mesas`, `autoridades`, `justificativos` y `notificaciones` | Cada aplicacion pasa a declarar y administrar sus propios modelos de dominio. |
+| `elecciones` | Conserva exclusivamente `Eleccion` y las entidades que configuran su alcance electoral. |
+| Migraciones | Se usan operaciones de estado separadas de las operaciones de base de datos. Todas las tablas conservan sus nombres fisicos `elecciones_*` y no se ejecuta DDL destructivo. |
+| `django_content_type` | Los registros de los modelos trasladados cambian al nuevo `app_label`, preservando sus permisos existentes. |
+| Consumidores | Formularios, vistas, servicios, comandos, administracion y pruebas importan cada modelo desde su aplicacion propietaria. |
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: solo operaciones de estado y actualizacion de `ContentType`.
+- `python manage.py sqlmigrate`: cero operaciones `CREATE TABLE`, `ALTER TABLE` o `DROP TABLE` en las once migraciones nuevas.
+- `python manage.py test`: 45 pruebas correctas.
+
+## Correccion del inicio autenticado por rol
+
+Fecha de implementacion: 2026-09-08
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/views.py` y `urls.py` | Se agrego una entrada autenticada que envia a los administradores al panel de gestion y a los usuarios operativos a la seleccion de eleccion. |
+| `VotoUTN/config/settings.py` | El destino posterior al login ahora utiliza la entrada que resuelve el panel segun los permisos del usuario. |
+| `VotoUTN/apps/elecciones/tests_inicio.py` | Se cubren el login sin destino explicito y las rutas iniciales de superusuarios y usuarios operativos. |
+
+## Partidos participantes y candidatos
+
+Fecha de implementacion: 2026-09-08
+
+| Area | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/partidos/` | Se creo la app propietaria de partidos, participaciones electorales, listas por alcance y candidatos. |
+| Modelo de candidatos | El vinculo con `Elector` es opcional. Los candidatos externos conservan nombre, DNI y correo propios; los electores vinculados respetan el alcance de su padron cuando existe. |
+| Gestion web | Se agregaron alta de partidos, incorporacion a elecciones, listas, candidatos, edicion y desactivacion segura. |
+| Integracion | La configuracion de cada eleccion muestra la cantidad de partidos y ofrece acceso al modulo. |
+| Migracion | `partidos.0001_initial` crea cuatro tablas nuevas y sus restricciones sin modificar tablas existentes. |
+| Pruebas | Se cubren permisos, flujo web, candidatos externos, vinculo opcional al elector, alcance electoral y duplicados entre listas. |
+
+### Verificaciones al cierre
+
+- `python manage.py migrate`: aplico `partidos.0001_initial` correctamente.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 57 pruebas correctas.
+
+## Cierre de modularizacion estructural
+
+Fecha de implementacion: 2026-09-08
+
+| Area | Cambio aplicado |
+| --- | --- |
+| Plantillas | Las pantallas de `padron`, `mesas`, `autoridades`, `justificativos`, `notificaciones`, `parametros` y `reportes` se trasladaron a namespaces propios. La base de gestion paso a `templates/gestion/base.html`. |
+| Comandos | `cargar_electores_demo`, `seed_voters` y `seed_random_electores` pertenecen ahora a `padron`; `procesar_notificaciones` pertenece a `notificaciones`. Sus nombres publicos se conservan. |
+| `elecciones` | Conserva plantillas y comandos transversales del nucleo electoral; `seed_demo_data` permanece como orquestador integral. |
+| `pagina_web` | Se elimino el directorio residual de bytecode. Las maquetas y recursos estaticos se conservaron segun la decision funcional. |
+| Documentacion | `plan_implementacion.md` refleja las etapas entregadas y separa el backlog externo de Keycloak, correo, usuarios y produccion. Se verifico que los supuestos caracteres corruptos eran solo una representacion de PowerShell y no mojibake almacenado. |
+
+### Verificaciones al cierre
+
+- Los comandos trasladados responden a `python manage.py help` con sus nombres originales.
+- No quedan referencias a los namespaces de plantillas anteriores.
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 57 pruebas correctas.

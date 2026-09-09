@@ -3,9 +3,11 @@ import hmac
 from dataclasses import dataclass
 
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
-from apps.elecciones.models import Eleccion, RegistroPadron
+from apps.auditoria.services import registrar_evento
+from apps.elecciones.models import Eleccion
+from apps.padron.models import RegistroPadron
 from apps.usuarios.permisos import puede_registrar_participacion
 from .models import RegistroParticipacion
 
@@ -137,11 +139,33 @@ class ServicioRegistroParticipacion:
 
         existentes = set(RegistroParticipacion.objects.filter(registro_padron__identificador_qr__in=[item[1].identificador_qr for item in validos]).values_list("registro_padron__identificador_qr", flat=True))
         nuevos = [item for item in validos if item[1].identificador_qr not in existentes]
+        creados_reales = []
         with transaction.atomic():
-            RegistroParticipacion.objects.bulk_create([
-                RegistroParticipacion(registro_padron=padron, mesa=mesa, registrada_por=usuario, metodo=RegistroParticipacion.Metodo.QR)
-                for _, padron, mesa in nuevos
-            ], ignore_conflicts=True)
+            for _, padron, mesa in nuevos:
+                try:
+                    with transaction.atomic():
+                        participacion = RegistroParticipacion.objects.create(
+                            registro_padron=padron,
+                            mesa=mesa,
+                            registrada_por=usuario,
+                            metodo=RegistroParticipacion.Metodo.QR,
+                        )
+                except IntegrityError:
+                    existentes.add(padron.identificador_qr)
+                    continue
+                creados_reales.append((padron.identificador_qr, participacion))
+                registrar_evento(
+                    accion="participacion.registrada_qr",
+                    entidad="RegistroParticipacion",
+                    entidad_id=participacion.pk,
+                    eleccion=eleccion,
+                    usuario=usuario,
+                    datos_nuevos={
+                        "registro_padron_id": participacion.registro_padron_id,
+                        "mesa_id": participacion.mesa_id,
+                        "metodo": participacion.metodo,
+                    },
+                )
 
         mesa_info = validos[0][2] if validos else None
         departamento_codigo = None
@@ -150,7 +174,7 @@ class ServicioRegistroParticipacion:
             departamento_codigo = departamento.codigo if departamento else None
 
         return ResultadoParticipacion(
-            creados=[identificador for identificador, _, _ in nuevos],
+            creados=[identificador for identificador, _ in creados_reales],
             ya_registrados=[str(identificador) for identificador in existentes],
             invalidos=invalidos,
             invalidos_otra_eleccion=invalidos_otra_eleccion,
@@ -175,7 +199,19 @@ class ServicioRegistroParticipacion:
                 mesa_numero=mesa.numero,
                 departamento_codigo=mesa.eleccion_claustro_departamento.departamento.codigo if mesa.eleccion_claustro_departamento_id else None,
             )
-        RegistroParticipacion.objects.create(registro_padron=padron, mesa=mesa, registrada_por=usuario, metodo=RegistroParticipacion.Metodo.MANUAL)
+        participacion = RegistroParticipacion.objects.create(registro_padron=padron, mesa=mesa, registrada_por=usuario, metodo=RegistroParticipacion.Metodo.MANUAL)
+        registrar_evento(
+            accion="participacion.registrada_manual",
+            entidad="RegistroParticipacion",
+            entidad_id=participacion.pk,
+            eleccion=eleccion,
+            usuario=usuario,
+            datos_nuevos={
+                "registro_padron_id": participacion.registro_padron_id,
+                "mesa_id": participacion.mesa_id,
+                "metodo": participacion.metodo,
+            },
+        )
         return ResultadoParticipacion(
             [padron.identificador_qr],
             [],

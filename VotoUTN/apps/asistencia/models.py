@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
-from apps.elecciones.models import Mesa, RegistroPadron
+from apps.mesas.models import Mesa
+from apps.padron.models import RegistroPadron
 
 
 class RegistroParticipacion(models.Model):

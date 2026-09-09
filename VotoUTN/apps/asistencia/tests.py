@@ -12,13 +12,9 @@ from django.utils.timezone import make_aware
 from apps.asistencia.models import RegistroParticipacion
 from apps.asistencia.serializers import SerializadorLoteAsistencia
 from apps.asistencia.services import ServicioRegistroParticipacion
-from apps.elecciones.management.commands.cargar_electores_demo import Command as GeneradorQr
-from apps.elecciones.forms import FormularioAlcanceSedes, FormularioEleccion, FormularioGenerarMesas
+from apps.padron.management.commands.cargar_electores_demo import Command as GeneradorQr
+from apps.elecciones.forms import FormularioAlcanceSedes, FormularioEleccion
 from apps.elecciones.models import (
-    AsignacionMesa,
-    AsignacionAutoridad,
-    Claustro,
-    Departamento,
     Eleccion,
     EleccionClaustro,
     EleccionClaustroDepartamento,
@@ -26,17 +22,14 @@ from apps.elecciones.models import (
     EleccionClaustroSede,
     EleccionSede,
     EleccionTurno,
-    Elector,
-    FechaAdministrativa,
     FechaAdministrativaEleccion,
-    Mesa,
-    ImportacionPadron,
-    RegistroPadron,
-    Sede,
-    Turno,
 )
-from apps.elecciones.servicios.importacion_padron import confirmar_importacion, validar_csv_padron
-from apps.elecciones.servicios.autoridades import asignar_autoridad
+from apps.autoridades.models import AsignacionAutoridad
+from apps.autoridades.services import asignar_autoridad
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.padron.models import Elector, ImportacionPadron, RegistroPadron
+from apps.padron.services import confirmar_importacion, validar_csv_padron
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 from apps.usuarios.permisos import puede_administrar_parametros, puede_registrar_participacion
 
@@ -243,35 +236,6 @@ class GestionEleccionesTests(TestCase):
         self.assertEqual(eleccion.elecciones_claustro.count(), 1)
         self.assertEqual(EleccionClaustroDepartamento.objects.filter(eleccion_claustro__eleccion=eleccion).count(), 0)
         self.assertTrue(EleccionTurno.objects.filter(eleccion=eleccion, turno=self.turno).exists())
-
-    def test_generacion_crea_mesas_numeradas_y_valida_turno_habilitado(self):
-        inicio = make_aware(datetime(2026, 8, 3, 8))
-        eleccion = Eleccion.objects.create(nombre="Eleccion", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8))
-        EleccionSede.objects.create(eleccion=eleccion, sede=self.sede)
-        claustro_eleccion = EleccionClaustro.objects.create(eleccion=eleccion, claustro=self.claustro)
-        configuracion = EleccionClaustroDepartamento.objects.create(
-            eleccion_claustro=claustro_eleccion,
-            departamento=Departamento.objects.create(nombre="Sistemas", codigo="SIS"),
-        )
-        EleccionClaustroDepartamentoSede.objects.create(
-            eleccion_claustro_departamento=configuracion,
-            sede=self.sede,
-        )
-        EleccionTurno.objects.create(eleccion=eleccion, turno=self.turno)
-
-        formulario = FormularioGenerarMesas(
-            eleccion=eleccion,
-            data={"configuracion": configuracion.id, "sede": self.sede.id, "turno": self.turno.id, "cantidad": 2},
-        )
-
-        self.assertTrue(formulario.is_valid(), formulario.errors)
-        formulario.generar()
-        self.assertEqual(list(eleccion.mesas.values_list("numero", flat=True)), [1, 2])
-
-        turno_ajeno = Turno.objects.create(nombre="Tarde", hora_inicio=time(13), hora_fin=time(18))
-        mesa = Mesa(eleccion=eleccion, numero=3, eleccion_claustro_departamento=configuracion, sede=self.sede, turno=turno_ajeno)
-        with self.assertRaises(ValidationError):
-            mesa.full_clean()
 
     def test_calendario_administrativo_exige_orden_del_padron(self):
         inicio = make_aware(datetime(2026, 8, 10, 8))

@@ -8,12 +8,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.asistencia.models import RegistroParticipacion
+from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad, PreferenciaAutoridad
 from apps.elecciones.models import (
-    AsignacionAutoridad,
-    AsignacionMesa,
-    CandidaturaAutoridad,
-    Claustro,
-    Departamento,
     Eleccion,
     EleccionClaustro,
     EleccionClaustroDepartamento,
@@ -21,21 +17,13 @@ from apps.elecciones.models import (
     EleccionClaustroSede,
     EleccionSede,
     EleccionTurno,
-    Elector,
-    EnvioNotificacion,
-    ErrorImportacionPadron,
-    FechaAdministrativa,
     FechaAdministrativaEleccion,
-    ImportacionPadron,
-    JustificativoAusencia,
-    Mesa,
-    PlantillaNotificacion,
-    PreferenciaAutoridad,
-    RegistroPadron,
-    Sede,
-    TipoJustificativo,
-    Turno,
 )
+from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
+from apps.padron.models import Elector, ErrorImportacionPadron, ImportacionPadron, RegistroPadron
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
