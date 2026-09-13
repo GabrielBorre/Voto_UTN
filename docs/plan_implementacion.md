@@ -64,7 +64,18 @@ Incluye presentacion, documentacion, bandeja, resolucion y trazabilidad.
 **Estado:** base operativa completada
 
 Incluye plantillas, generacion de envios, procesamiento, historial y lectura
-interna. La configuracion del proveedor de correo de produccion queda pendiente.
+interna. Tambien incluye el catalogo reutilizable de fechas, comunicaciones y
+variantes, 26 plantillas institucionales, vista previa y separacion entre uso
+manual y futuro uso automatico. La configuracion del proveedor de correo de
+produccion queda pendiente.
+
+### Complemento - Catalogos institucionales y proteccion de QR
+**Estado:** completado
+
+Incluye ABM sin baja fisica de siete catalogos, carga estandar idempotente,
+auditoria de cambios y marca persistente de emision de QR. La emision bloquea la
+reimportacion y regeneracion automatica de mesas del claustro para preservar los
+QR ya impresos. Las mesas siguen siendo automaticas y de solo consulta.
 
 ### Etapa 10 - Reportes y exportaciones
 **Estado:** completada
@@ -93,5 +104,7 @@ candidatos vinculados opcionalmente con un elector.
 - Integrar Keycloak mediante OIDC y validar criptograficamente los JWT.
 - Incorporar gestion web completa de usuarios y asignaciones de rol.
 - Configurar y verificar el proveedor real de correo electronico.
+- Implementar el calendario por eleccion y el motor de programacion/envio automatico.
+- Implementar los flujos de cambio de sede, cambio de turno, justificaciones y capacitacion que consumiran las plantillas estandar.
 - Ejecutar una auditoria visual integral de las pantallas y sus maquetas.
 - Preparar configuracion, observabilidad y seguridad para produccion.

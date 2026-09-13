@@ -113,3 +113,17 @@ Reglas:
 - La notificación interna muestra el mismo contenido del correo.
 - El módulo interno administra plantillas, programación, estados, historial y lectura.
 - El envío efectivo puede delegarse a un proveedor externo mediante un adaptador desacoplado.
+
+## Catálogos administrativos, mensajes y emisión de QR
+
+- Los catálogos reutilizables son sede, claustro, departamento, turno, fecha administrativa, tipo de justificativo y plantilla de mensaje.
+- Todos admiten alta, edición, activación y desactivación. No existe eliminación física desde la gestión web.
+- Una fecha administrativa define el alcance y criterio base de destinatarios. Sus variantes de comunicación solo pueden reducir ese alcance.
+- Las plantillas usan texto plano y un conjunto controlado de variables; no incluyen DNI, legajo ni adjuntos.
+- Las plantillas automáticas o transaccionales no pueden seleccionarse en la pantalla de envío manual.
+- El calendario por elección y el motor de envíos automáticos quedan fuera de esta entrega. Se conserva temporalmente el calendario electoral existente.
+- Las mesas se generan automáticamente desde el padrón y continúan siendo de consulta; no se incorpora un ABM manual de mesas.
+- Las mesas y el padrón pueden ajustarse hasta la primera emisión de QR del claustro.
+- Cada `RegistroPadron` conserva la fecha de emisión y el número de mesa incluido en su QR.
+- Después de emitir un QR no se permite reimportar el padrón ni regenerar automáticamente las mesas del claustro.
+- Volver a producir el mismo QR para la misma mesa no cambia su primera marca de emisión; producirlo para otra mesa se rechaza.

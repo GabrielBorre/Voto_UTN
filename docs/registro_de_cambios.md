@@ -519,3 +519,24 @@ Fecha de implementacion: 2026-09-08
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 57 pruebas correctas.
+
+## Catálogos reutilizables, mensajes estándar y protección de QR
+
+Fecha de implementación: 2026-09-13
+
+| Área | Cambio aplicado |
+| --- | --- |
+| Parámetros | Se completó el ABM sin eliminación física de sedes, claustros, departamentos, turnos, fechas administrativas, tipos de justificativo y plantillas de mensajes. Las altas, ediciones y transiciones de estado quedan auditadas. |
+| Fechas y mensajes | `FechaAdministrativa` incorpora código, modalidad, duración, alcance, criterio y evento sugerido. Las comunicaciones y variantes enlazan las plantillas sin ampliar la audiencia de la fecha. |
+| Carga estándar | Se agregó `python manage.py cargar_parametros_estandar`, transaccional e idempotente. Carga 2 sedes, 4 claustros, 3 turnos, 10 departamentos, 6 fechas, 26 plantillas y sus reglas; reactiva los registros canónicos y conserva extras e identificadores. |
+| Compatibilidad | La migración convierte mensajes embebidos existentes en plantillas y comunicaciones antes de retirar los campos anteriores. Los seis campos históricos de `Eleccion` y `FechaAdministrativaEleccion` continúan operativos. |
+| Notificaciones | La pantalla manual solo ofrece plantillas activas habilitadas para ese uso. Las plantillas automáticas y transaccionales quedan fuera de la selección manual y disponen de vista previa. |
+| QR | `RegistroPadron` conserva fecha de emisión y mesa impresa. La generación marca solo después de crear los archivos; bloquea cambios de mesa, reimportaciones y regeneraciones automáticas incompatibles. El payload y su validación permanecen sin cambios. |
+| Mesas | Se mantiene la generación automática y la consulta; no se agregó un ABM manual. |
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 68 pruebas correctas.

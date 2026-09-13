@@ -33,6 +33,7 @@ El lector toma frames continuamente y analiza las 20 celdas (20 × 1) de la hoja
    ```powershell
    python manage.py makemigrations
    python manage.py migrate
+   python manage.py cargar_parametros_estandar
    python manage.py createsuperuser
    python manage.py runserver 0.0.0.0:8000
    ```
@@ -49,7 +50,7 @@ python manage.py runserver_plus 0.0.0.0:8000 --cert-file 192.168.1.45+2.pem --ke
 
 Instalá también la CA generada por mkcert en el teléfono, y abrí `https://192.168.1.45:8000/`. Agregá esa IP a `DJANGO_ALLOWED_HOSTS` en `.env`.
 
-> El contenido del QR se trata como el identificador único de votante. El comando `seed_voters` genera los QR a partir de los electores ya cargados en la base de datos. En producción conviene firmar el payload QR o validarlo contra el padrón institucional antes de permitir el registro.
+> El comando `seed_voters` genera payloads opacos firmados a partir del padrón. La primera emisión queda registrada y bloquea cambios automáticos de padrón o mesa que invalidarían los QR impresos.
 
 
 python manage.py seed_voters --election-id 1 --configuracion-departamento-id 2

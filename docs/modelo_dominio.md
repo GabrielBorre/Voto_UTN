@@ -6,6 +6,13 @@
 - `Claustro`
 - `Turno`
 - `Departamento`
+- `FechaAdministrativa`
+- `TipoJustificativo`
+
+`FechaAdministrativa` es una definición reutilizable con código estable,
+modalidad y duración sugeridas, roles, alcance de claustros, criterio de
+destinatarios y evento sugerido. La fecha concreta por elección continúa en
+`FechaAdministrativaEleccion`.
 
 `Departamento` tendrá como mínimo:
 
@@ -63,6 +70,9 @@ Por lo tanto, `K-001` y `E-001` no pueden coexistir en una misma elección.
 
 `RegistroPadron` representa la participación/habilitación del elector en una elección concreta y debe relacionarlo con su claustro, departamento, sede y mesa según corresponda.
 
+La emisión de QR queda registrada en `qr_generado_en` y `numero_mesa_qr`. Esa
+marca protege la correspondencia entre el papel emitido y la asignación de mesa.
+
 ## Autoridades
 
 - `AsignacionAutoridad`
@@ -108,7 +118,14 @@ opcionalmente con `Elector`; no requiere pertenecer al padron.
 ## Notificaciones
 
 - `PlantillaNotificacion`
+- `ComunicacionFechaAdministrativa`
+- `VarianteComunicacionFechaAdministrativa`
 - `EnvioNotificacion`
+
+La comunicación define referencia temporal, desplazamiento y hora sugerida. Sus
+variantes enlazan plantillas por prioridad y por un criterio adicional
+controlado. Esta estructura es configuración reutilizable: no ejecuta todavía
+una programación automática por elección.
 
 ## Importaciones
 
@@ -134,7 +151,8 @@ comportamiento principal:
   `PreferenciaAutoridad`.
 - `partidos`: `Partido`, `ParticipacionPartido`, `ListaCandidatos` y `Candidato`.
 - `justificativos`: `TipoJustificativo` y `JustificativoAusencia`.
-- `notificaciones`: `PlantillaNotificacion` y `EnvioNotificacion`.
+- `notificaciones`: `PlantillaNotificacion`, `ComunicacionFechaAdministrativa`,
+  `VarianteComunicacionFechaAdministrativa` y `EnvioNotificacion`.
 - `asistencia`: `RegistroParticipacion`.
 - `usuarios`: `PerfilUsuario` y `AsignacionRol`.
 - `auditoria`: `EventoAuditoria`.

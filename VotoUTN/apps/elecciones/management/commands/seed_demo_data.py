@@ -359,14 +359,17 @@ class Command(BaseCommand):
         fecha_admin = self._upsert(
             counters,
             FechaAdministrativa.objects,
+            codigo="apertura-justificativos-demo",
             nombre="Apertura de justificativos",
             defaults={
                 "roles_destinatarios": [
                     FechaAdministrativa.RolDestinatario.ADMINISTRADOR_JUNTA,
                     FechaAdministrativa.RolDestinatario.ELECTOR,
                 ],
-                "asunto_notificacion": "Inicio de periodo de justificativos",
-                "mensaje_notificacion": "Se habilito la carga de justificativos para la eleccion demo.",
+                "descripcion": "Apertura de justificativos de la elección de demostración.",
+                "modalidad_sugerida": FechaAdministrativa.ModalidadSugerida.FECHA_UNICA,
+                "alcance_todos_claustros": False,
+                "criterio_destinatarios": FechaAdministrativa.CriterioDestinatarios.TODOS_EN_ALCANCE,
                 "activa": True,
             },
         )
@@ -375,14 +378,18 @@ class Command(BaseCommand):
         plantilla = self._upsert(
             counters,
             PlantillaNotificacion.objects,
+            codigo="notificacion-demo",
             nombre="Notificacion demo",
             defaults={
+                "categoria": PlantillaNotificacion.Categoria.MANUAL,
+                "descripcion": "Plantilla manual para datos de demostración.",
                 "asunto": "Recordatorio de votacion",
                 "contenido": "Tu mesa y turno ya estan disponibles en el sistema.",
                 "roles_destinatarios": [
                     FechaAdministrativa.RolDestinatario.ELECTOR,
                     FechaAdministrativa.RolDestinatario.AUTORIDAD_MESA,
                 ],
+                "permite_envio_manual": True,
                 "activa": True,
             },
         )
