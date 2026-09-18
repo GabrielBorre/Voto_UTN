@@ -1,8 +1,8 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.contrib.auth import views as auth_views
 from django.urls import include, path
+from .views import keycloak_login_view, keycloak_login_callback_view, keycloak_logout_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -17,8 +17,9 @@ urlpatterns = [
     path("", include("apps.partidos.urls")),
     path("asistencia/", include("apps.asistencia.urls")),
     path("api/", include("apps.asistencia.api_urls")),
-    path("login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
-    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path('login/', keycloak_login_view, name='keycloak_login'),
+    path('callback/', keycloak_login_callback_view, name='callback_login'),
+    path("logout/", keycloak_logout_view, name="logout"),
 ]
 
 if settings.DEBUG:

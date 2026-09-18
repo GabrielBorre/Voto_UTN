@@ -9,6 +9,7 @@ from apps.autoridades.services import asignar_autoridad, importar_autoridades, r
 from apps.autoridades.models import AsignacionAutoridad, PreferenciaAutoridad
 from apps.elecciones.models import Eleccion
 from apps.usuarios.permisos import puede_administrar_elecciones
+from apps.usuarios.services import elector_de_identidad
 
 
 @login_required
@@ -39,13 +40,13 @@ def gestionar_autoridades(request, eleccion_id):
 
 @login_required
 def mis_asignaciones_autoridad(request):
-    perfil = getattr(request.user, "perfil_electoral", None)
+    elector = elector_de_identidad(request.user)
     asignaciones = AsignacionAutoridad.objects.select_related("mesa__sede", "mesa__turno", "registro_padron__eleccion", "registro_padron__elector")
     if request.user.is_superuser:
         return render(request, "autoridades/mis_asignaciones.html", {"asignaciones": asignaciones, "vista_administrativa": True})
-    if perfil and perfil.elector_id:
-        asignaciones = asignaciones.filter(registro_padron__elector=perfil.elector)
-    elif not request.user.asignaciones_rol.filter(rol="autoridad_mesa", activo=True).exists():
+    if elector is not None:
+        asignaciones = asignaciones.filter(registro_padron__elector=elector)
+    elif getattr(request.user, "es_elector", False) or not request.user.asignaciones_rol.filter(rol="autoridad_mesa", activo=True).exists():
         return HttpResponseForbidden("No tiene permiso de autoridad de mesa.")
     else:
         asignaciones = asignaciones.none()
@@ -56,8 +57,7 @@ def mis_asignaciones_autoridad(request):
 def responder_autoridad(request, asignacion_id):
     if request.method != "POST":
         raise Http404()
-    perfil = getattr(request.user, "perfil_electoral", None)
-    asignacion = get_object_or_404(AsignacionAutoridad, pk=asignacion_id, registro_padron__elector=getattr(perfil, "elector", None))
+    asignacion = get_object_or_404(AsignacionAutoridad, pk=asignacion_id, registro_padron__elector=elector_de_identidad(request.user))
     responder_asignacion(asignacion, request.POST.get("respuesta") == "aceptar")
     messages.success(request, "La respuesta fue registrada.")
     return redirect("mis-asignaciones-autoridad")
@@ -65,8 +65,7 @@ def responder_autoridad(request, asignacion_id):
 
 @login_required
 def preferencia_autoridad(request, asignacion_id):
-    perfil = getattr(request.user, "perfil_electoral", None)
-    asignacion = get_object_or_404(AsignacionAutoridad.objects.select_related("registro_padron__eleccion"), pk=asignacion_id, registro_padron__elector=getattr(perfil, "elector", None))
+    asignacion = get_object_or_404(AsignacionAutoridad.objects.select_related("registro_padron__eleccion"), pk=asignacion_id, registro_padron__elector=elector_de_identidad(request.user))
     preferencia, _ = PreferenciaAutoridad.objects.get_or_create(registro_padron=asignacion.registro_padron)
     formulario = FormularioPreferenciaAutoridad(request.POST or None, instance=preferencia, eleccion=asignacion.registro_padron.eleccion, registro_padron=asignacion.registro_padron)
     if request.method == "POST" and formulario.is_valid():

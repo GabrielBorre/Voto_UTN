@@ -11,7 +11,7 @@ ROLES_CON_PARTICIPACION = {
 
 
 def puede_administrar_elecciones(usuario, eleccion=None):
-    if not usuario.is_authenticated:
+    if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
         return False
     if usuario.is_superuser:
         return True
@@ -28,7 +28,7 @@ def puede_administrar_elecciones(usuario, eleccion=None):
 
 
 def puede_administrar_parametros(usuario):
-    if not usuario.is_authenticated:
+    if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
         return False
     if usuario.is_superuser:
         return True
@@ -43,7 +43,7 @@ def puede_administrar_parametros(usuario):
 
 
 def puede_registrar_participacion(usuario, eleccion, mesa=None):
-    if not usuario.is_authenticated:
+    if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
         return False
     if usuario.is_superuser:
         return True
@@ -59,7 +59,7 @@ def puede_registrar_participacion(usuario, eleccion, mesa=None):
 
 
 def puede_importar_padron(usuario, eleccion):
-    if not usuario.is_authenticated:
+    if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
         return False
     if usuario.is_superuser:
         return True
@@ -77,7 +77,7 @@ def puede_importar_padron(usuario, eleccion):
 
 
 def puede_revisar_justificativo(usuario, eleccion):
-    if not usuario.is_authenticated:
+    if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
         return False
     if usuario.is_superuser:
         return True
@@ -90,6 +90,8 @@ def puede_revisar_justificativo(usuario, eleccion):
 
 
 def elecciones_con_participacion(usuario):
+    if getattr(usuario, "es_elector", False):
+        return Eleccion.objects.none()
     elecciones = Eleccion.objects.filter(habilitada=True)
     if usuario.is_superuser or AsignacionRol.objects.filter(usuario=usuario, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():
         return elecciones

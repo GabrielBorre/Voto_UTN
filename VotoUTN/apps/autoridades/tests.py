@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils.timezone import make_aware
 
 from apps.elecciones.models import Eleccion
+from apps.usuarios.backend_auth import ElectorBackend, ElectorUser
 from apps.usuarios.models import AsignacionRol
 
 
@@ -30,3 +31,10 @@ class AutoridadesViewsTests(TestCase):
         respuesta = self.client.get(reverse("mis-asignaciones-autoridad"))
 
         self.assertEqual(respuesta.status_code, 403)
+
+    def test_elector_virtual_no_se_guarda_en_auth_user(self):
+        usuario = ElectorBackend().authenticate(None, dni="40111222", first_name="Eva")
+
+        self.assertIsInstance(usuario, ElectorUser)
+        self.assertTrue(usuario.is_authenticated)
+        self.assertFalse(get_user_model().objects.filter(username="40111222").exists())
