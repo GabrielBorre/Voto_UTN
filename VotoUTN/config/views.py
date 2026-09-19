@@ -60,6 +60,7 @@ def keycloak_login_callback_view(request):
     user = authenticate(
         request,
         dni=decoded.get("dni"),
+        username=decoded.get("preferred_username") or decoded.get("username", ""),
         first_name=decoded.get("given_name", ""),
         last_name=decoded.get("family_name", ""),
         email=decoded.get("email", ""),
@@ -71,6 +72,15 @@ def keycloak_login_callback_view(request):
     backend = "apps.usuarios.backend_auth.ElectorBackend" if getattr(user, "es_elector", False) else "django.contrib.auth.backends.ModelBackend"
     login(request, user, backend=backend)
     request.session["keycloak_id_token"] = id_token
+    if getattr(user, "es_elector", False):
+        request.session["keycloak_user"] = {
+            "dni": user.dni,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "subject": user.subject,
+        }
     if getattr(user, "es_elector", False):
         return redirect("index")
     return redirect("inicio-autenticado")
