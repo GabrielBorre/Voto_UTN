@@ -16,6 +16,7 @@ pyOpenSSL==26.3.0
 pyparsing==3.3.2
 python-dotenv==1.0.1
 qrcode==8.2
+reportlab==4.2.5
 sqlparse==0.5.5
 typing_extensions==4.16.0
 tzdata==2026.3
