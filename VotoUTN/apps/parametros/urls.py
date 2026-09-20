@@ -6,6 +6,7 @@ from apps.parametros.views import (
     editar_parametro,
     editar_variante_comunicacion,
     gestionar_comunicaciones_fecha,
+    gestionar_catalogos_candidaturas,
     gestionar_parametros,
     listar_parametros,
     previsualizar_plantilla,
@@ -14,6 +15,7 @@ from apps.parametros.views import (
 
 urlpatterns = [
     path("gestion/parametros/", gestionar_parametros, name="gestionar-parametros"),
+    path("gestion/parametros/puestos-a-elegir/", gestionar_catalogos_candidaturas, name="catalogos-candidaturas"),
     path("gestion/parametros/<str:tipo>/", listar_parametros, name="listar-parametros"),
     path("gestion/parametros/<str:tipo>/nuevo/", editar_parametro, name="crear-parametro"),
     path("gestion/parametros/<str:tipo>/<int:objeto_id>/editar/", editar_parametro, name="editar-parametro"),

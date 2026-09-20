@@ -86,8 +86,9 @@ justificativos y errores de importacion.
 ### Etapa complementaria - Partidos y candidatos
 **Estado:** completada
 
-Incluye partidos reutilizables, participacion por eleccion, listas por alcance y
-candidatos vinculados opcionalmente con un elector.
+Incluye presentaciones propias de cada elección, puestos configurables por alcance,
+listas, candidatos vinculados opcionalmente con un elector e importación CSV con
+previsualización.
 
 ### Cierre de modularizacion
 **Estado:** completado

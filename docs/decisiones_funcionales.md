@@ -69,13 +69,16 @@ Ejemplo: `Sistemas de Información` / `K`.
 
 ## Partidos y candidatos
 
-- Un partido se registra una vez y puede participar en distintas elecciones.
-- La participacion define el numero y nombre de lista dentro de una eleccion.
-- Las listas se organizan por claustro y, cuando corresponda, por departamento.
+- El parámetro reutilizable es el puesto a elegir y el órgano o cuerpo al que pertenece; DASUTeN se modela como órgano, no como atributo de una lista. El puesto indica si permite limitar por claustros y si permite limitar por departamentos; ambas capacidades son independientes.
+- Las agrupaciones, nombres y números de lista y apoderados no son parámetros reutilizables: se registran como presentaciones propias de cada elección.
+- El modelo histórico `Partido` se conserva únicamente por compatibilidad con registros anteriores y no participa del nuevo flujo de parámetros.
+- En cada elección, un filtro de claustros desactivado incluye todos los claustros y uno activado permite elegir un subconjunto. El filtro de departamentos funciona del mismo modo y no exige activar el de claustros. Si ambos están activos se combinan; si ambos están inactivos se incluyen todos los alcances disponibles.
+- El código de presentación identifica una lista y su alcance dentro de la elección. El número de lista puede repetirse en presentaciones o alcances distintos.
+- Las listas y candidaturas pueden cargarse manualmente o mediante un CSV con previsualización y confirmación.
 - Un candidato puede vincularse opcionalmente con un elector existente.
 - No es obligatorio que el candidato pertenezca al padron.
 - Si el candidato esta en el padron de la eleccion, debe coincidir con el claustro y departamento de la lista.
-- Una misma persona no puede integrar dos listas diferentes dentro de la misma eleccion.
+- Una misma persona puede integrar más de una candidatura. Si su identificador aparece en presentaciones competidoras, la importación lo permite pero genera una advertencia para revisión de la Junta.
 
 ## QR
 

@@ -16,6 +16,8 @@ from apps.notificaciones.models import (
     PlantillaNotificacion,
     VarianteComunicacionFechaAdministrativa,
 )
+from apps.partidos.forms import FormularioCargoElectivo, FormularioOrganoElectivo
+from apps.partidos.models import CargoElectivo, OrganoElectivo
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.parametros.forms import (
     FormularioClaustro,
@@ -37,6 +39,8 @@ PARAMETROS = {
     "fechas-administrativas": {"modelo": FechaAdministrativa, "formulario": FormularioFechaAdministrativa, "titulo": "Fechas administrativas", "estado": "activa", "codigo": True, "es_fecha": True},
     "tipos-justificativo": {"modelo": TipoJustificativo, "formulario": FormularioTipoJustificativo, "titulo": "Tipos de justificativo", "estado": "activo", "codigo": False},
     "plantillas-mensajes": {"modelo": PlantillaNotificacion, "formulario": FormularioPlantillaNotificacion, "titulo": "Plantillas de mensajes", "estado": "activa", "codigo": True, "es_plantilla": True},
+    "organos-electivos": {"modelo": OrganoElectivo, "formulario": FormularioOrganoElectivo, "titulo": "Órganos o cuerpos", "estado": "activo", "codigo": False, "grupo": "puestos"},
+    "puestos-electivos": {"modelo": CargoElectivo, "formulario": FormularioCargoElectivo, "titulo": "Puestos a elegir", "estado": "activo", "codigo": False, "grupo": "puestos", "es_cargo": True},
 }
 
 
@@ -62,8 +66,28 @@ def gestionar_parametros(request):
     parametros = [
         {"tipo": tipo, "titulo": configuracion["titulo"], "cantidad": configuracion["modelo"].objects.count()}
         for tipo, configuracion in PARAMETROS.items()
+        if not configuracion.get("grupo")
     ]
+    parametros.append({
+        "titulo": "Puestos a elegir",
+        "es_grupo_candidaturas": True,
+        "resumen": (
+            f"{CargoElectivo.objects.count()} puestos registrados en "
+            f"{OrganoElectivo.objects.count()} órganos o cuerpos."
+        ),
+    })
     return render(request, "parametros/gestion.html", {"parametros": parametros})
+
+
+@login_required
+def gestionar_catalogos_candidaturas(request):
+    if not puede_administrar_parametros(request.user):
+        return HttpResponseForbidden("No tiene permiso para gestionar parametros.")
+    catalogos = [
+        {"tipo": tipo, "titulo": PARAMETROS[tipo]["titulo"], "cantidad": PARAMETROS[tipo]["modelo"].objects.count()}
+        for tipo in ("organos-electivos", "puestos-electivos")
+    ]
+    return render(request, "parametros/candidaturas.html", {"catalogos": catalogos})
 
 
 @login_required
@@ -73,10 +97,14 @@ def listar_parametros(request, tipo):
     configuracion = obtener_parametro(tipo)
     consulta = request.GET.get("q", "").strip()
     objetos = configuracion["modelo"].objects.all()
+    if configuracion.get("es_cargo"):
+        objetos = objetos.select_related("organo")
     if consulta:
         filtro = Q(nombre__icontains=consulta)
         if configuracion["codigo"]:
             filtro |= Q(codigo__icontains=consulta)
+        if configuracion.get("es_cargo"):
+            filtro |= Q(organo__nombre__icontains=consulta)
         objetos = objetos.filter(filtro)
     return render(
         request,
@@ -86,6 +114,8 @@ def listar_parametros(request, tipo):
             "consulta": consulta, "campo_estado": configuracion["estado"],
             "tiene_codigo": configuracion["codigo"], "es_fecha": configuracion.get("es_fecha", False),
             "es_plantilla": configuracion.get("es_plantilla", False), "es_turno": configuracion.get("es_turno", False),
+            "es_cargo": configuracion.get("es_cargo", False),
+            "es_catalogo_candidaturas": configuracion.get("grupo") == "puestos",
         },
     )
 

@@ -540,3 +540,23 @@ Fecha de implementación: 2026-09-13
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 68 pruebas correctas.
+
+## Puestos, listas y candidaturas por elección
+
+Fecha de implementación: 2026-09-19
+
+- Parámetros presenta una única entrada «Puestos a elegir», con órganos o cuerpos y puestos reutilizables. Las agrupaciones dejaron de ser un parámetro. Cada puesto indica si permite limitar por claustros y por departamentos mediante opciones independientes.
+- En cada elección, no activar un filtro equivale a incluir todos sus valores. Puede limitarse solo por claustros, solo por departamentos, por ambos o por ninguno; el sistema genera los alcances resultantes sin exigir que un filtro active al otro.
+- Número y nombre de lista, código de presentación y apoderado pertenecen a la elección. Se permite repetir un número de lista en presentaciones distintas.
+- Se incorporó una plantilla CSV única, previsualización con errores y advertencias, confirmación transaccional y trazabilidad de la importación.
+- Una persona puede integrar más de una candidatura; si el mismo identificador figura en presentaciones diferentes se emite una advertencia sin bloquear la carga.
+- Las migraciones preservan los registros históricos y mantienen opcional el vínculo legado con `Partido`.
+
+## Datos demostrativos electorales
+
+Fecha de implementación: 2026-09-20
+
+- `cargar_parametros_estandar` incorpora tres órganos y sus puestos reutilizables: Consejo Directivo, Consejo Departamental y Consejo DASUTeN.
+- `seed_demo_data` es el inicializador integral para el equipo: primero carga los parámetros estándar y luego crea una elección demo idempotente.
+- La elección de ejemplo incluye los cuatro claustros, el alcance departamental de Sistemas, nueve configuraciones de puestos y casos representativos de las listas 2026 entregadas por la Junta.
+- Los ejemplos conservan números repetidos cuando representan presentaciones diferentes y cubren cargos generales, departamentales y de DASUTeN.

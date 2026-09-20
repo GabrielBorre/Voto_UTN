@@ -9,6 +9,7 @@ from apps.notificaciones.models import (
     VarianteComunicacionFechaAdministrativa,
 )
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
+from apps.partidos.models import CargoElectivo, OrganoElectivo
 
 
 ROL_ELECTOR = [FechaAdministrativa.RolDestinatario.ELECTOR]
@@ -32,6 +33,45 @@ DEPARTAMENTOS = (
     ("V", "Ingeniería Química"),
     ("K", "Ingeniería en Sistemas de Información"),
     ("W", "Ingeniería Textil"),
+)
+
+ORGANOS_ELECTIVOS = (
+    (
+        "Consejo Directivo",
+        "Órgano de gobierno de la Facultad Regional con representación de los claustros.",
+    ),
+    (
+        "Consejo Departamental",
+        "Órgano de gobierno de cada departamento académico.",
+    ),
+    (
+        "Consejo DASUTeN",
+        "Representación electoral ante la obra social universitaria.",
+    ),
+)
+
+PUESTOS_ELECTIVOS = (
+    (
+        "Consejo Directivo",
+        "Consejero/a directivo/a",
+        True,
+        False,
+        "Puesto de representación general, configurable para uno o más claustros.",
+    ),
+    (
+        "Consejo Departamental",
+        "Consejero/a departamental",
+        True,
+        True,
+        "Puesto configurable por claustro y por departamento de forma independiente.",
+    ),
+    (
+        "Consejo DASUTeN",
+        "Consejero/a DASUTeN",
+        True,
+        False,
+        "Puesto configurable para los claustros que participan de la elección de DASUTeN.",
+    ),
 )
 
 FECHAS = (
@@ -104,6 +144,28 @@ class Command(BaseCommand):
             self._upsert(conteo, Turno, {"hora_inicio": inicio, "hora_fin": fin, "activo": True}, nombre=nombre)
         for codigo, nombre in DEPARTAMENTOS:
             self._upsert(conteo, Departamento, {"nombre": nombre, "activo": True}, codigo=codigo)
+
+        organos = {}
+        for nombre, descripcion in ORGANOS_ELECTIVOS:
+            organos[nombre] = self._upsert(
+                conteo,
+                OrganoElectivo,
+                {"descripcion": descripcion, "activo": True},
+                nombre=nombre,
+            )
+        for organo_nombre, nombre, filtra_claustros, filtra_departamentos, descripcion in PUESTOS_ELECTIVOS:
+            self._upsert(
+                conteo,
+                CargoElectivo,
+                {
+                    "permite_filtrar_claustros": filtra_claustros,
+                    "permite_filtrar_departamentos": filtra_departamentos,
+                    "descripcion": descripcion,
+                    "activo": True,
+                },
+                organo=organos[organo_nombre],
+                nombre=nombre,
+            )
 
         fechas = {}
         for codigo, nombre, modalidad, duracion, roles, criterio, evento in FECHAS:

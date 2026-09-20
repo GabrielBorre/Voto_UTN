@@ -2,6 +2,7 @@ import hashlib
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -24,30 +25,155 @@ from apps.mesas.models import AsignacionMesa, Mesa
 from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
 from apps.padron.models import Elector, ErrorImportacionPadron, ImportacionPadron, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
+from apps.partidos.models import (
+    Candidato,
+    CargoElectivo,
+    ListaCandidatos,
+    ParticipacionPartido,
+    PuestoEleccion,
+)
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
+PRESENTACIONES_DEMO = (
+    {
+        "codigo": "docentes-sistemas-lista-3",
+        "claustro": "Docentes",
+        "numero": "3",
+        "nombre": "SISTEMAS",
+        "apoderado": "Andrés Fabián Carosella",
+        "listas": (
+            ("directivo", (("1090", "REINOSA, Enrique Jose"), ("1159", "SACLIER, Lucas Javier"))),
+            ("departamental", (("453", "ESTAYNO, Marcelo Gustavo"), ("1370", "ZAKHEM, Yamila Ariadna"))),
+        ),
+    },
+    {
+        "codigo": "docentes-dasuten-lista-3",
+        "claustro": "Docentes",
+        "numero": "3",
+        "nombre": "INTEGRACIÓN DOCENTE",
+        "apoderado": "Nicolás Zabrana",
+        "listas": (
+            ("dasuten", (("1181", "SANCHEZ, Pablo Cesar Vicente"), ("114", "BARBERIO LAJE, Milena Trinidad"))),
+        ),
+    },
+    {
+        "codigo": "nodocentes-lista-9",
+        "claustro": "No docentes",
+        "numero": "9",
+        "nombre": "UNIÓN Y PARTICIPACIÓN",
+        "apoderado": "Mariano De Luca",
+        "listas": (
+            ("directivo", (("25", "BONANNI, Pablo Fabián"), ("188", "SACK, María Eugenia"))),
+            ("dasuten", (("171", "RIPOLL, Walter Adrian"), ("94", "IBARROLA, Lidia Valentina"))),
+        ),
+    },
+    {
+        "codigo": "estudiantes-lista-19",
+        "claustro": "Estudiantes",
+        "numero": "19",
+        "nombre": "19 DE AGOSTO",
+        "apoderado": "Malena Rivas",
+        "listas": (
+            ("directivo", (("21523", "RIVAS, Malena"), ("18858", "PALAVECINO, Sofía Ornella"))),
+            ("departamental", (("26336", "VENCE, Joaquin"), ("16352", "MELCHIORI CALLEGHER, Lautaro Agustín"))),
+        ),
+    },
+    {
+        "codigo": "estudiantes-lista-3",
+        "claustro": "Estudiantes",
+        "numero": "3",
+        "nombre": "FRANJA MORADA TECNOLÓGICA",
+        "apoderado": "Franco Licciardi",
+        "listas": (
+            ("directivo", (("23388", "SANTOS, Ana"), ("20286", "PORMI, Matias Ezequiel"))),
+            ("departamental", (("20286", "PORMI, Matias Ezequiel"), ("16673", "MICELI, Catriel Baltasar"))),
+        ),
+    },
+    {
+        "codigo": "estudiantes-lista-10",
+        "claustro": "Estudiantes",
+        "numero": "10",
+        "nombre": "INNOVACIÓN TECNOLÓGICA",
+        "apoderado": "Gustavo Gabriel Niz",
+        "listas": (
+            ("directivo", (("8349", "ESCALANTE GONZALEZ, Braian Victor"), ("11910", "GUGLIELMINO, Santiago"))),
+            ("departamental", (("16520", "MENDOZA QUISPE, Ariel Marcelo"), ("18585", "OSA POCHELU, Valentín Rodrigo"))),
+        ),
+    },
+    {
+        "codigo": "estudiantes-lista-16",
+        "claustro": "Estudiantes",
+        "numero": "16",
+        "nombre": "La UES",
+        "apoderado": "Ignacio Nicolás Brandariz",
+        "listas": (
+            ("directivo", (("ues-est-1", "BRANDARIZ, Ignacio Nicolas"), ("ues-est-2", "ROLDAN, Leila Sofia"))),
+            ("departamental", (("ues-sis-1", "BRANDARIZ, Ignacio Nicolas"), ("ues-sis-2", "TADIC, Facundo Agustin"))),
+        ),
+    },
+    {
+        "codigo": "graduados-lista-19",
+        "claustro": "Graduados",
+        "numero": "19",
+        "nombre": "19 DE AGOSTO",
+        "apoderado": "Malena Rivas",
+        "listas": (
+            ("directivo", (("14257", "LOPEZ BISIO, Martina Azul"), ("314", "AGUIRRE DAUD, Juan Manuel"))),
+            ("departamental", (("7555", "DIGON, Hernan Gabriel"), ("1158", "ARCE JOFRE, Fabian Leandro"))),
+        ),
+    },
+    {
+        "codigo": "graduados-lista-3",
+        "claustro": "Graduados",
+        "numero": "3",
+        "nombre": "INTEGRACIÓN - CLUB DEL GRADUADO",
+        "apoderado": "Damián Salinas",
+        "listas": (
+            ("directivo", (("10229", "GARCIA CUNIGLIO, Debora Alicia"), ("7091", "DELLA PITTIMA, Marcos Alberto"))),
+            ("departamental", (("9526", "FRANZO, Paula Romina"), ("6406", "D'ALESSANDRO, Juan Jose"))),
+        ),
+    },
+    {
+        "codigo": "graduados-lista-10",
+        "claustro": "Graduados",
+        "numero": "10",
+        "nombre": "MOGRAT / La UES",
+        "apoderado": "Héctor Bargiela",
+        "listas": (
+            ("directivo", (("1912", "BARGIELA, Héctor Marcelo"), ("20687", "RIBERA, Emilio José Ramón"))),
+            ("departamental", (("26111", "WEJEMAN, Pablo Maximiliano"), ("16180", "MENDIETA, Nancy Mabel"))),
+        ),
+    },
+)
+
+
 class Command(BaseCommand):
-    help = "Carga un conjunto reducido de datos demo en los modelos principales del sistema."
+    help = "Carga los parámetros estándar y una elección demo integral, de forma idempotente."
 
     @transaction.atomic
     def handle(self, *args, **options):
         counters = {"created": 0, "updated": 0}
 
-        sede_central, turno_manana, turno_tarde, claustro_docentes, departamento_sistemas = self._seed_catalogos(counters)
-        eleccion, eleccion_claustro, configuracion_departamento = self._seed_eleccion(
+        call_command("cargar_parametros_estandar", stdout=self.stdout)
+        sede_central, turno_manana, turno_tarde, claustros, departamento_sistemas = self._seed_catalogos()
+        eleccion, elecciones_claustro, configuraciones_departamento = self._seed_eleccion(
             sede_central,
             turno_manana,
             turno_tarde,
-            claustro_docentes,
+            claustros,
             departamento_sistemas,
             counters,
         )
+        eleccion_claustro = elecciones_claustro["Docentes"]
+        configuracion_departamento = configuraciones_departamento["Docentes"]
         mesas = self._seed_mesas(eleccion, configuracion_departamento, sede_central, turno_manana, turno_tarde, counters)
         usuarios = self._seed_usuarios_y_roles(eleccion, sede_central, mesas, counters)
         padrones = self._seed_electores_y_padron(eleccion, configuracion_departamento, sede_central, mesas, counters)
+        puestos = self._seed_puestos(elecciones_claustro, configuraciones_departamento, counters)
+        self._seed_presentaciones(eleccion, elecciones_claustro, configuraciones_departamento, puestos, counters)
 
-        tipo_justificativo, fecha_admin, plantilla = self._seed_configuracion_operativa(claustro_docentes, counters)
+        tipo_justificativo, fecha_admin, plantilla = self._seed_configuracion_operativa(claustros["Docentes"], counters)
         self._seed_registros_operativos(
             eleccion,
             eleccion_claustro,
@@ -79,30 +205,20 @@ class Command(BaseCommand):
         counters["created" if created else "updated"] += 1
         return instance
 
-    def _seed_catalogos(self, counters):
-        sede_central = self._upsert(counters, Sede.objects, nombre="Campus Central", defaults={"activa": True})
-        claustro_docentes = self._upsert(counters, Claustro.objects, nombre="Docentes", defaults={"activo": True})
-        departamento_sistemas = self._upsert(
-            counters,
-            Departamento.objects,
-            codigo="DSI",
-            defaults={"nombre": "Departamento de Sistemas", "activo": True},
+    def _seed_catalogos(self):
+        claustros = {
+            nombre: Claustro.objects.get(nombre=nombre)
+            for nombre in ("Docentes", "Estudiantes", "Graduados", "No docentes")
+        }
+        return (
+            Sede.objects.get(nombre="Campus"),
+            Turno.objects.get(nombre="Mañana"),
+            Turno.objects.get(nombre="Tarde"),
+            claustros,
+            Departamento.objects.get(codigo="K"),
         )
-        turno_manana = self._upsert(
-            counters,
-            Turno.objects,
-            nombre="Manana",
-            defaults={"hora_inicio": "08:00", "hora_fin": "12:00", "activo": True},
-        )
-        turno_tarde = self._upsert(
-            counters,
-            Turno.objects,
-            nombre="Tarde",
-            defaults={"hora_inicio": "13:00", "hora_fin": "17:00", "activo": True},
-        )
-        return sede_central, turno_manana, turno_tarde, claustro_docentes, departamento_sistemas
 
-    def _seed_eleccion(self, sede, turno_manana, turno_tarde, claustro, departamento, counters):
+    def _seed_eleccion(self, sede, turno_manana, turno_tarde, claustros, departamento, counters):
         now = timezone.now()
         inicio = now + timedelta(days=3)
         fin = inicio + timedelta(days=1)
@@ -127,30 +243,148 @@ class Command(BaseCommand):
         )
 
         self._get_or_create(counters, EleccionSede.objects, eleccion=eleccion, sede=sede)
-        eleccion_claustro = self._get_or_create(
-            counters,
-            EleccionClaustro.objects,
-            eleccion=eleccion,
-            claustro=claustro,
-            defaults={"fecha_votacion": inicio.date(), "maximo_votantes_por_mesa": 500},
-        )
         self._get_or_create(counters, EleccionTurno.objects, eleccion=eleccion, turno=turno_manana)
         self._get_or_create(counters, EleccionTurno.objects, eleccion=eleccion, turno=turno_tarde)
-        self._get_or_create(counters, EleccionClaustroSede.objects, eleccion_claustro=eleccion_claustro, sede=sede)
-        configuracion_departamento = self._get_or_create(
-            counters,
-            EleccionClaustroDepartamento.objects,
-            eleccion_claustro=eleccion_claustro,
-            departamento=departamento,
-        )
-        self._get_or_create(
-            counters,
-            EleccionClaustroDepartamentoSede.objects,
-            eleccion_claustro_departamento=configuracion_departamento,
-            sede=sede,
-        )
+        elecciones_claustro = {}
+        configuraciones_departamento = {}
+        for nombre, claustro in claustros.items():
+            eleccion_claustro = self._upsert(
+                counters,
+                EleccionClaustro.objects,
+                eleccion=eleccion,
+                claustro=claustro,
+                defaults={"fecha_votacion": inicio.date(), "maximo_votantes_por_mesa": 500},
+            )
+            elecciones_claustro[nombre] = eleccion_claustro
+            self._get_or_create(
+                counters,
+                EleccionClaustroSede.objects,
+                eleccion_claustro=eleccion_claustro,
+                sede=sede,
+            )
+            if nombre == "No docentes":
+                continue
+            configuracion_departamento = self._get_or_create(
+                counters,
+                EleccionClaustroDepartamento.objects,
+                eleccion_claustro=eleccion_claustro,
+                departamento=departamento,
+            )
+            configuraciones_departamento[nombre] = configuracion_departamento
+            self._get_or_create(
+                counters,
+                EleccionClaustroDepartamentoSede.objects,
+                eleccion_claustro_departamento=configuracion_departamento,
+                sede=sede,
+            )
 
-        return eleccion, eleccion_claustro, configuracion_departamento
+        return eleccion, elecciones_claustro, configuraciones_departamento
+
+    def _seed_puestos(self, elecciones_claustro, configuraciones_departamento, counters):
+        cargos = {
+            "directivo": CargoElectivo.objects.get(
+                organo__nombre="Consejo Directivo",
+                nombre="Consejero/a directivo/a",
+            ),
+            "departamental": CargoElectivo.objects.get(
+                organo__nombre="Consejo Departamental",
+                nombre="Consejero/a departamental",
+            ),
+            "dasuten": CargoElectivo.objects.get(
+                organo__nombre="Consejo DASUTeN",
+                nombre="Consejero/a DASUTeN",
+            ),
+        }
+        cantidades = {
+            "Docentes": {"directivo": 2, "departamental": 10, "dasuten": 2},
+            "No docentes": {"directivo": 2, "dasuten": 2},
+            "Estudiantes": {"directivo": 10, "departamental": 6},
+            "Graduados": {"directivo": 10, "departamental": 4},
+        }
+        puestos = {}
+        for claustro_nombre, configuracion in cantidades.items():
+            for tipo, cantidad in configuracion.items():
+                alcance_departamental = (
+                    configuraciones_departamento[claustro_nombre]
+                    if tipo == "departamental"
+                    else None
+                )
+                puestos[(claustro_nombre, tipo)] = self._upsert(
+                    counters,
+                    PuestoEleccion.objects,
+                    puesto=cargos[tipo],
+                    eleccion_claustro=elecciones_claustro[claustro_nombre],
+                    eleccion_claustro_departamento=alcance_departamental,
+                    defaults={
+                        "cantidad_titulares": cantidad,
+                        "cantidad_suplentes": 0,
+                        "activo": True,
+                    },
+                )
+        return puestos
+
+    def _seed_presentaciones(
+        self,
+        eleccion,
+        elecciones_claustro,
+        configuraciones_departamento,
+        puestos,
+        counters,
+    ):
+        for datos in PRESENTACIONES_DEMO:
+            claustro_nombre = datos["claustro"]
+            eleccion_claustro = elecciones_claustro[claustro_nombre]
+            presentacion = self._upsert(
+                counters,
+                ParticipacionPartido.objects,
+                eleccion=eleccion,
+                codigo_presentacion=datos["codigo"],
+                defaults={
+                    "partido": None,
+                    "eleccion_claustro": eleccion_claustro,
+                    "numero_lista": datos["numero"],
+                    "nombre_lista": datos["nombre"],
+                    "apoderado_nombre": datos["apoderado"],
+                    "apoderado_email": "",
+                    "activa": True,
+                },
+            )
+            for tipo_puesto, candidatos in datos["listas"]:
+                puesto_eleccion = puestos[(claustro_nombre, tipo_puesto)]
+                alcance_departamental = (
+                    configuraciones_departamento[claustro_nombre]
+                    if tipo_puesto == "departamental"
+                    else None
+                )
+                lista = self._upsert(
+                    counters,
+                    ListaCandidatos.objects,
+                    participacion=presentacion,
+                    puesto_eleccion=puesto_eleccion,
+                    defaults={
+                        "eleccion_claustro": eleccion_claustro,
+                        "eleccion_claustro_departamento": alcance_departamental,
+                        "nombre": f"Lista {datos['numero']} - {datos['nombre']}",
+                        "activa": True,
+                    },
+                )
+                for orden, (identificador, nombre) in enumerate(candidatos, 1):
+                    self._upsert(
+                        counters,
+                        Candidato.objects,
+                        lista=lista,
+                        tipo=Candidato.Tipo.TITULAR,
+                        orden=orden,
+                        defaults={
+                            "elector": None,
+                            "nombre": nombre,
+                            "identificador_persona": identificador,
+                            "dni": "",
+                            "correo_electronico": "",
+                            "cargo": puesto_eleccion.puesto.nombre,
+                            "activo": True,
+                        },
+                    )
 
     def _seed_mesas(self, eleccion, configuracion_departamento, sede, turno_manana, turno_tarde, counters):
         mesa_1 = self._upsert(
