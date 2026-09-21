@@ -1,14 +1,31 @@
+import csv
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.http import Http404, HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.autoridades.forms import FormularioArchivoAutoridades, FormularioAsignacionAutoridad, FormularioPreferenciaAutoridad
-from apps.autoridades.services import asignar_autoridad, importar_autoridades, responder_asignacion
+from apps.autoridades.services import PLANTILLA_AUTORIDADES_EJEMPLO, PLANTILLA_AUTORIDADES_HEADERS, asignar_autoridad, importar_autoridades, responder_asignacion
 from apps.autoridades.models import AsignacionAutoridad, PreferenciaAutoridad
 from apps.elecciones.models import Eleccion
 from apps.usuarios.permisos import puede_administrar_elecciones
+
+
+@login_required
+def descargar_plantilla_autoridades(request, eleccion_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para descargar la plantilla.")
+    respuesta = HttpResponse(content_type="text/csv; charset=utf-8")
+    respuesta["Content-Disposition"] = f'attachment; filename="plantilla_autoridades_{eleccion.id}.csv"'
+    respuesta.write("\ufeff")
+    escritor = csv.writer(respuesta)
+    escritor.writerow(PLANTILLA_AUTORIDADES_HEADERS)
+    for fila in PLANTILLA_AUTORIDADES_EJEMPLO:
+        escritor.writerow(fila)
+    return respuesta
 
 
 @login_required
