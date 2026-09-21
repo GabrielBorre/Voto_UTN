@@ -3,6 +3,8 @@ import qrcode
 from qrcode.constants import ERROR_CORRECT_L
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+from django.utils import timezone
 from PIL import Image
 from apps.elecciones.models import Eleccion, EleccionClaustroDepartamento
 from apps.padron.models import RegistroPadron
@@ -46,10 +48,6 @@ class Command(BaseCommand):
         if configuracion is None:
             raise CommandError("La configuración de departamento no pertenece a la elección.")
 
-        output.mkdir(parents=True, exist_ok=True)
-        for png_existente in output.glob("*.png"):
-            png_existente.unlink(missing_ok=True)
-
         registros_qr = []
         qr_images = {}
 
@@ -64,6 +62,18 @@ class Command(BaseCommand):
         )
         if not padrones.exists():
             raise CommandError("No hay registros de padron activos para esa eleccion/configuracion.")
+
+        for registro_padron in padrones:
+            mesa = getattr(getattr(registro_padron, "asignacion_mesa", None), "mesa", None)
+            if registro_padron.qr_generado_en and mesa and registro_padron.numero_mesa_qr != mesa.numero:
+                raise CommandError(
+                    f"El QR del legajo {registro_padron.elector.legajo} fue emitido para la mesa "
+                    f"{registro_padron.numero_mesa_qr}; no puede regenerarse para la mesa {mesa.numero}."
+                )
+
+        output.mkdir(parents=True, exist_ok=True)
+        for png_existente in output.glob("*.png"):
+            png_existente.unlink(missing_ok=True)
 
         padrones_sin_mesa = 0
         for registro_padron in padrones:
@@ -81,13 +91,21 @@ class Command(BaseCommand):
             legajo = registro_padron.elector.legajo
             qr_images[legajo] = qr
             qr.save(output / f"mesa_{mesa.numero}_legajo_{legajo}.png")
-            registros_qr.append((registro_padron.elector, mesa.numero))
+            registros_qr.append((registro_padron.elector, mesa.numero, registro_padron.pk))
 
         if not registros_qr:
             raise CommandError("No se pudo generar ningun QR: todos los padrones quedaron sin mesa asignada.")
 
         # Generar las hojas de a 15 votantes
         hojas_creadas = self.crear_hojas(registros_qr, qr_images, output)
+
+        momento_emision = timezone.now()
+        with transaction.atomic():
+            for _, mesa_numero, registro_id in registros_qr:
+                RegistroPadron.objects.filter(pk=registro_id, qr_generado_en__isnull=True).update(
+                    qr_generado_en=momento_emision,
+                    numero_mesa_qr=mesa_numero,
+                )
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -125,7 +143,7 @@ class Command(BaseCommand):
 
         registros_ordenados = sorted(registros_qr, key=lambda item: (item[1], item[0].legajo))
         por_mesa = {}
-        for elector, mesa_numero in registros_ordenados:
+        for elector, mesa_numero, _ in registros_ordenados:
             por_mesa.setdefault(mesa_numero, []).append(elector)
 
         for mesa_numero, electores_mesa in por_mesa.items():

@@ -40,6 +40,8 @@ class RegistroPadron(models.Model):
     nivel = models.CharField(max_length=50, blank=True)
     activo = models.BooleanField(default=True)
     identificador_qr = models.CharField(max_length=LONGITUD_CODIGO_QR, unique=True, blank=True, editable=False)
+    qr_generado_en = models.DateTimeField(null=True, blank=True, editable=False)
+    numero_mesa_qr = models.PositiveIntegerField(null=True, blank=True, editable=False)
 
     class Meta:
         db_table = "elecciones_registropadron"
@@ -62,6 +64,15 @@ class RegistroPadron(models.Model):
         return "".join(secrets.choice(cls.ALFABETO_CODIGO_QR) for _ in range(cls.LONGITUD_CODIGO_QR))
 
     def save(self, *args, **kwargs):
+        if self.pk:
+            anterior = RegistroPadron.objects.filter(pk=self.pk).only(
+                "qr_generado_en", "eleccion_id", "eleccion_claustro_departamento_id", "sede_id", "activo"
+            ).first()
+            if anterior and anterior.qr_generado_en and any(
+                getattr(anterior, campo) != getattr(self, campo)
+                for campo in ("eleccion_id", "eleccion_claustro_departamento_id", "sede_id", "activo")
+            ):
+                raise ValidationError("No se puede modificar el alcance del padrón después de emitir su QR.")
         if not self.identificador_qr:
             for _ in range(12):
                 candidato = self.generar_codigo_qr_corto()

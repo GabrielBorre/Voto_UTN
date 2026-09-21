@@ -275,6 +275,12 @@ def registrar_errores(importacion, errores):
 
 
 def generar_mesas_automaticas(eleccion_claustro):
+    if RegistroPadron.objects.filter(
+        eleccion=eleccion_claustro.eleccion,
+        eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+        qr_generado_en__isnull=False,
+    ).exists():
+        raise ValueError("No se pueden regenerar las mesas: ya se emitieron códigos QR para este claustro.")
     maximo = eleccion_claustro.maximo_votantes_por_mesa
     if not maximo:
         maximo = 1
@@ -331,6 +337,12 @@ def generar_mesas_automaticas(eleccion_claustro):
 def confirmar_importacion(importacion):
     if importacion.estado == ImportacionPadron.Estado.CONFIRMADA:
         return 0
+    if RegistroPadron.objects.filter(
+        eleccion=importacion.eleccion,
+        eleccion_claustro_departamento__eleccion_claustro=importacion.eleccion_claustro,
+        qr_generado_en__isnull=False,
+    ).exists():
+        raise ValueError("No se puede confirmar un nuevo padrón: ya se emitieron códigos QR para este claustro.")
     importacion.archivo.open("rb")
     try:
         contenido = importacion.archivo.read()

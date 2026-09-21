@@ -6,6 +6,13 @@
 - `Claustro`
 - `Turno`
 - `Departamento`
+- `FechaAdministrativa`
+- `TipoJustificativo`
+
+`FechaAdministrativa` es una definición reutilizable con código estable,
+modalidad y duración sugeridas, roles, alcance de claustros, criterio de
+destinatarios y evento sugerido. La fecha concreta por elección continúa en
+`FechaAdministrativaEleccion`.
 
 `Departamento` tendrá como mínimo:
 
@@ -63,6 +70,9 @@ Por lo tanto, `K-001` y `E-001` no pueden coexistir en una misma elección.
 
 `RegistroPadron` representa la participación/habilitación del elector en una elección concreta y debe relacionarlo con su claustro, departamento, sede y mesa según corresponda.
 
+La emisión de QR queda registrada en `qr_generado_en` y `numero_mesa_qr`. Esa
+marca protege la correspondencia entre el papel emitido y la asignación de mesa.
+
 ## Autoridades
 
 - `AsignacionAutoridad`
@@ -91,14 +101,28 @@ No registra el voto.
 ## Partidos y candidatos
 
 - `Partido`
+- `OrganoElectivo`
+- `CargoElectivo`
+- `PuestoEleccion`
 - `ParticipacionPartido`
 - `ListaCandidatos`
 - `Candidato`
+- `ImportacionCandidaturas`
 
-`ParticipacionPartido` vincula un partido con una eleccion y define su numero de
-lista. `ListaCandidatos` acota la candidatura a un claustro y opcionalmente a un
-departamento. `Candidato` conserva sus datos identificatorios y puede vincularse
-opcionalmente con `Elector`; no requiere pertenecer al padron.
+`CargoElectivo` es el puesto reutilizable, pertenece a un `OrganoElectivo` e indica
+si permite filtrar claustros y departamentos de forma independiente. Los valores
+concretos no forman parte del parámetro. `PuestoEleccion` representa cada alcance
+resultante en una elección: un claustro sin filtro departamental o una combinación
+de claustro y departamento, con cantidades de titulares y suplentes. Una misma
+operación puede crear varios alcances. `ParticipacionPartido`
+representa una presentación electoral propia de la elección y conserva código,
+número y nombre de lista, claustro y apoderado. Su vínculo con `Partido` es opcional
+y existe solamente para compatibilidad histórica.
+
+`ListaCandidatos` vincula una presentación con un `PuestoEleccion`. `Candidato`
+conserva sus datos identificatorios, tipo y orden; puede vincularse opcionalmente
+con `Elector` y no requiere pertenecer al padrón. `ImportacionCandidaturas` conserva
+la previsualización, errores, advertencias, usuario y confirmación de cada CSV.
 
 ## Justificativos
 
@@ -108,7 +132,14 @@ opcionalmente con `Elector`; no requiere pertenecer al padron.
 ## Notificaciones
 
 - `PlantillaNotificacion`
+- `ComunicacionFechaAdministrativa`
+- `VarianteComunicacionFechaAdministrativa`
 - `EnvioNotificacion`
+
+La comunicación define referencia temporal, desplazamiento y hora sugerida. Sus
+variantes enlazan plantillas por prioridad y por un criterio adicional
+controlado. Esta estructura es configuración reutilizable: no ejecuta todavía
+una programación automática por elección.
 
 ## Importaciones
 
@@ -132,9 +163,11 @@ comportamiento principal:
 - `mesas`: `Mesa` y `AsignacionMesa`.
 - `autoridades`: `CandidaturaAutoridad`, `AsignacionAutoridad` y
   `PreferenciaAutoridad`.
-- `partidos`: `Partido`, `ParticipacionPartido`, `ListaCandidatos` y `Candidato`.
+- `partidos`: `Partido`, `OrganoElectivo`, `CargoElectivo`, `PuestoEleccion`,
+  `ParticipacionPartido`, `ListaCandidatos`, `Candidato` e `ImportacionCandidaturas`.
 - `justificativos`: `TipoJustificativo` y `JustificativoAusencia`.
-- `notificaciones`: `PlantillaNotificacion` y `EnvioNotificacion`.
+- `notificaciones`: `PlantillaNotificacion`, `ComunicacionFechaAdministrativa`,
+  `VarianteComunicacionFechaAdministrativa` y `EnvioNotificacion`.
 - `asistencia`: `RegistroParticipacion`.
 - `usuarios`: `PerfilUsuario` y `AsignacionRol`.
 - `auditoria`: `EventoAuditoria`.
