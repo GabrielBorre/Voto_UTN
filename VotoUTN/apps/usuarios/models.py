@@ -12,6 +12,7 @@ class PerfilUsuario(models.Model):
     usuario = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="perfil_electoral")
     elector = models.OneToOneField(Elector, on_delete=models.PROTECT, related_name="perfil_usuario", null=True, blank=True)
     activo = models.BooleanField(default=True)
+    dni = models.CharField(max_length=12, unique=True, null=True, blank=True)
 
 
 class AsignacionRol(models.Model):

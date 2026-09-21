@@ -1,0 +1,58 @@
+{% extends "elecciones/base_publica.html" %}
+
+{% block title %}Mi información electoral | Voto UTN{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Mi información electoral</h1>
+  <p>Consultá tus datos de votación y gestiones disponibles.</p>
+</section>
+
+<section class="grid-1">
+  {% for registro in registros %}
+  <div class="card">
+    <h2>{{ registro.eleccion }}</h2>
+    <section class="toolbar">
+            {% if registro.asignacion_autoridad %}
+      <div class="option">
+        <h3>Desempeño como Autoridad de Mesa</h3>
+        <p><strong>Sede:</strong> {{ registro.asignacion_autoridad.mesa.sede|default:"Sin asignar" }}</p>
+        <p><strong>Turno:</strong> {{ registro.asignacion_autoridad.mesa.turno|default:"Sin asignar" }}</p>
+      </div>
+      {% endif %}
+      <div class="option">
+        <h3>Mesa y sede de votación</h3>
+        <p><strong>Mesa:</strong> {{ registro.asignacion_mesa.mesa.numero|default:"Sin asignar" }}</p>
+        <p><strong>Sede:</strong> {{ registro.sede|default:"Sin asignar" }}</p>
+        <p><strong>Turno:</strong> {{ registro.asignacion_mesa.mesa.turno|default:"Sin asignar" }}</p>
+      </div>
+      <div class="option">
+        <h3>Fecha de la elección</h3>
+        <p><strong>Inicio:</strong> {{ registro.eleccion.fecha_inicio|date:"j \d\e F \d\e Y" }}</p>
+        <p><strong>Fin:</strong> {{ registro.eleccion.fecha_fin|date:"j \d\e F \d\e Y" }}</p>
+      </div>
+      <div class="option">
+        <h3>Justificación electores</h3>
+        <p>Fecha límite de carga:</p>
+        <p><strong>{{ registro.eleccion.fecha_limite_justificacion_electores|date:"j \d\e F \d\e Y"|default:"A confirmar" }}</strong></p>
+      </div>
+
+    </section>
+  </div>
+  {% empty %}
+  <div class="card">
+    <h2>Sin información disponible</h2>
+    <p class="muted">No encontramos un registro de padrón asociado a tu identidad.</p>
+  </div>
+  {% endfor %}
+
+  <div class="card">
+    <h2>Gestiones</h2>
+    <p><a class="btn primary" href="{% url 'mis-justificativos' %}">Mis justificativos</a></p>
+    <p><a class="btn primary" href="{% url 'mis-notificaciones' %}">Mis notificaciones</a></p>
+    {% if es_autoridad %}
+    <p><a class="btn primary" href="{% url 'mis-asignaciones-autoridad' %}">Mis asignaciones de autoridad</a></p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

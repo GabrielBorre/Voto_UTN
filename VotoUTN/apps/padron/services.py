@@ -44,7 +44,7 @@ PLANTILLA_PADRON_EJEMPLO = [
         "Juan",
         "Perez",
         "K",
-        "juan.perez@utn.edu.ar",
+        "juan.perez@frba.utn.edu.ar",
         "Si",
         "K",
         "Campus",
@@ -56,7 +56,7 @@ PLANTILLA_PADRON_EJEMPLO = [
         "Maria",
         "Garcia",
         "K",
-        "maria.garcia@utn.edu.ar",
+        "maria.garcia@frba.utn.edu.ar",
         "No",
         "K",
         "Campus",
@@ -68,7 +68,7 @@ PLANTILLA_PADRON_EJEMPLO = [
         "Carlos",
         "Lopez",
         "K",
-        "carlos.lopez@utn.edu.ar",
+        "carlos.lopez@frba.utn.edu.ar",
         "Si",
         "K",
         "Campus",
@@ -101,6 +101,7 @@ HEADER_VARIANTS_TO_CANONICAL = {
 }
 
 CARACTERES_FORMULA = ("=", "+", "-", "@")
+DOMINIO_EMAIL_INSTITUCIONAL = "frba.utn.edu.ar"
 
 
 def normalizar_identificador_numerico(valor: str) -> str:
@@ -237,6 +238,9 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             validate_email(fila["mail"])
         except Exception:
             errores.append((numero_fila, "mail", "El correo electronico no tiene un formato valido."))
+        else:
+            if fila["mail"].rsplit("@", 1)[-1].casefold() != DOMINIO_EMAIL_INSTITUCIONAL:
+                errores.append((numero_fila, "mail", f"El correo electronico debe pertenecer al dominio @{DOMINIO_EMAIL_INSTITUCIONAL}."))
         for campo in ("dni", "legajo"):
             if fila[campo] and fila[campo] in vistos[campo]:
                 errores.append((numero_fila, campo, f"El {campo} esta repetido dentro del archivo."))

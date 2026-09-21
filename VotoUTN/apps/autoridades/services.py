@@ -22,8 +22,8 @@ PLANTILLA_AUTORIDADES_HEADERS = (
     "Mail",
 )
 PLANTILLA_AUTORIDADES_EJEMPLO = [
-    ("40123456", "2024001", "Juan", "Perez", "K", "juan.perez@utn.edu.ar"),
-    ("40234567", "2024002", "Maria", "Garcia", "K", "maria.garcia@utn.edu.ar"),
+    ("40123456", "2024001", "Juan", "Perez", "K", "juan.perez@frba.utn.edu.ar"),
+    ("40234567", "2024002", "Maria", "Garcia", "K", "maria.garcia@frba.utn.edu.ar"),
 ]
 
 CANONICAL_FIELDS = ("dni", "legajo", "nombre", "apellido", "departamento", "mail")
@@ -45,6 +45,7 @@ HEADER_VARIANTS_TO_CANONICAL = {
     "mai": "mail",
 }
 CARACTERES_FORMULA = ("=", "+", "-", "@")
+DOMINIO_EMAIL_INSTITUCIONAL = "frba.utn.edu.ar"
 
 
 def leer_filas_autoridades(contenido: bytes, nombre_archivo: str = "") -> list[dict[str, str]]:
@@ -170,6 +171,9 @@ def validar_csv_autoridades(contenido, eleccion):
             validate_email(fila["mail"])
         except Exception:
             errores.append((numero, "El correo electronico no tiene un formato valido."))
+        else:
+            if fila["mail"].rsplit("@", 1)[-1].casefold() != DOMINIO_EMAIL_INSTITUCIONAL:
+                errores.append((numero, f"El correo electronico debe pertenecer al dominio @{DOMINIO_EMAIL_INSTITUCIONAL}."))
 
         if not fila["departamento"]:
             errores.append((numero, "El departamento es obligatorio."))
