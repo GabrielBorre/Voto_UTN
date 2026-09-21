@@ -15,6 +15,8 @@ from .models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.autoridades.models import AsignacionAutoridad
 from apps.auditoria.services import registrar_evento
 from apps.partidos.models import ParticipacionPartido
+from apps.padron.models import RegistroPadron
+from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import elecciones_con_participacion
 from apps.usuarios.permisos import puede_administrar_elecciones
 from apps.usuarios.models import AsignacionRol
@@ -39,6 +41,20 @@ def contexto_formulario_eleccion(formulario, incluir_parametros=False):
 
 @login_required
 def inicio_autenticado(request):
+    if getattr(request.user, "es_elector", False):
+        elector = elector_de_identidad(request.user)
+        registros = RegistroPadron.objects.none()
+        if elector is not None:
+            registros = RegistroPadron.objects.filter(elector=elector, activo=True).select_related(
+                "eleccion",
+                "eleccion_claustro_departamento__eleccion_claustro",
+                "sede",
+                "asignacion_mesa__mesa__turno",
+                "asignacion_autoridad__mesa__sede",
+                "asignacion_autoridad__mesa__turno",
+            )
+        es_autoridad = AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists() if elector is not None else False
+        return render(request, "elecciones/inicio_elector.html", {"registros": registros, "es_autoridad": es_autoridad})
     if puede_administrar_elecciones(request.user):
         return redirect("gestionar-elecciones")
     return redirect("lista-elecciones")

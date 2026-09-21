@@ -2,7 +2,6 @@ import csv
 import io
 
 from django.core.exceptions import ValidationError
-from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
@@ -26,30 +25,6 @@ def asignar_autoridad(registro_padron, mesa, usuario):
     if not creada and asignacion.mesa_id != mesa.id:
         raise ValidationError("El elector ya fue asignado como autoridad de otra mesa.")
     asignacion.full_clean()
-    if creada:
-        from apps.usuarios.models import AsignacionRol, PerfilUsuario
-
-        perfil = PerfilUsuario.objects.filter(elector=registro_padron.elector, activo=True).select_related("usuario").first()
-        if perfil is None:
-            Usuario = get_user_model()
-            base = f"autoridad-{registro_padron.elector.legajo}"
-            nombre_usuario = base
-            indice = 1
-            while Usuario.objects.filter(username=nombre_usuario).exists():
-                indice += 1
-                nombre_usuario = f"{base}-{indice}"
-            usuario_autoridad = Usuario(username=nombre_usuario, email=registro_padron.elector.correo_electronico)
-            usuario_autoridad.set_unusable_password()
-            usuario_autoridad.save()
-            perfil = PerfilUsuario.objects.create(usuario=usuario_autoridad, elector=registro_padron.elector)
-        if perfil:
-            AsignacionRol.objects.get_or_create(
-                usuario=perfil.usuario,
-                rol=AsignacionRol.Rol.AUTORIDAD_MESA,
-                eleccion=registro_padron.eleccion,
-                sede=mesa.sede,
-                mesa=mesa,
-            )
     return asignacion, creada
 
 

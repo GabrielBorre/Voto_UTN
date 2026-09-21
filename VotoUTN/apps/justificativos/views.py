@@ -7,6 +7,7 @@ from django.utils import timezone
 from apps.elecciones.models import Eleccion
 from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
+from apps.padron.models import Elector
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import puede_revisar_justificativo
 
@@ -15,14 +16,19 @@ from apps.usuarios.permisos import puede_revisar_justificativo
 def mis_justificativos(request):
     perfil = getattr(request.user, "perfil_electoral", None)
     elector = perfil.elector if perfil and perfil.elector_id else None
+    if elector is None:
+        dni = getattr(request.user, "dni", None)
+        if dni:
+            elector = Elector.objects.filter(dni=dni).first()
+    if elector is None:
+        return HttpResponseForbidden("No existe un elector asociado a esta identidad.")
     formulario = FormularioJustificativo(request.POST or None, request.FILES or None, elector=elector)
     if request.method == "POST" and formulario.is_valid():
         formulario.save()
         messages.success(request, "El justificativo fue presentado para revision.")
         return redirect("mis-justificativos")
     justificativos = JustificativoAusencia.objects.select_related("registro_padron__eleccion", "tipo")
-    if elector is not None:
-        justificativos = justificativos.filter(registro_padron__elector=elector)
+    justificativos = justificativos.filter(registro_padron__elector=elector)
     return render(request, "justificativos/mis_justificativos.html", {"formulario": formulario, "justificativos": justificativos})
 
 
