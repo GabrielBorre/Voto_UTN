@@ -1,4 +1,4 @@
-{
+{_
   "id" : "36fc1fce-ac6a-4f2b-abdc-c7c16abff1ad",
   "realm" : "FRBA",
   "notBefore" : 0,
@@ -417,10 +417,10 @@
     "email" : "administrativojunta@frba.utn.edu.ar",
     "emailVerified" : true,
     "attributes" : {
-      "filiacion" : [ "Administrador" ],
-      "dni" : [ "22555777" ],
+      "legajo" : [ "2222221" ],
       "id" : [ "15218" ],
-      "legajo" : [ "2222221" ]
+      "filiacion" : [ "Administrador" ],
+      "dni" : [ "22555777" ]
     },
     "enabled" : true,
     "createdTimestamp" : 1789010672041,
@@ -445,10 +445,10 @@
     "email" : "alumnocg@frba.utn.edu.ar",
     "emailVerified" : true,
     "attributes" : {
-      "filiacion" : [ "Alumno" ],
-      "dni" : [ "38999222" ],
+      "legajo" : [ "4444443" ],
       "id" : [ "15216" ],
-      "legajo" : [ "4444443" ]
+      "filiacion" : [ "Alumno" ],
+      "dni" : [ "38999222" ]
     },
     "enabled" : true,
     "createdTimestamp" : 1789010671314,
@@ -473,10 +473,10 @@
     "email" : "autmesa@frba.utn.edu.ar",
     "emailVerified" : true,
     "attributes" : {
-      "filiacion" : [ "Personal" ],
-      "dni" : [ "28111333" ],
+      "legajo" : [ "3333332" ],
       "id" : [ "15217" ],
-      "legajo" : [ "3333332" ]
+      "filiacion" : [ "Personal" ],
+      "dni" : [ "28111333" ]
     },
     "enabled" : true,
     "createdTimestamp" : 1789010671685,
@@ -501,10 +501,10 @@
     "email" : "juanb@frba.utn.edu.ar",
     "emailVerified" : true,
     "attributes" : {
-      "filiacion" : [ "NoDocente" ],
-      "dni" : [ "35444111" ],
+      "legajo" : [ "1111110" ],
       "id" : [ "15215" ],
-      "legajo" : [ "1111110" ]
+      "filiacion" : [ "NoDocente" ],
+      "dni" : [ "35444111" ]
     },
     "enabled" : true,
     "createdTimestamp" : 1789010670310,
@@ -1528,7 +1528,7 @@
       "subType" : "anonymous",
       "subComponents" : { },
       "config" : {
-        "allowed-protocol-mapper-types" : [ "saml-role-list-mapper", "oidc-sha256-pairwise-sub-mapper", "oidc-usermodel-property-mapper", "oidc-usermodel-attribute-mapper", "saml-user-attribute-mapper", "oidc-address-mapper", "saml-user-property-mapper", "oidc-full-name-mapper" ]
+        "allowed-protocol-mapper-types" : [ "oidc-address-mapper", "saml-user-property-mapper", "oidc-usermodel-attribute-mapper", "oidc-full-name-mapper", "oidc-usermodel-property-mapper", "saml-user-attribute-mapper", "saml-role-list-mapper", "oidc-sha256-pairwise-sub-mapper" ]
       }
     }, {
       "id" : "fb3cb616-cc88-4367-a22f-e7ff773b93ea",
@@ -1570,7 +1570,7 @@
       "subType" : "authenticated",
       "subComponents" : { },
       "config" : {
-        "allowed-protocol-mapper-types" : [ "saml-user-attribute-mapper", "oidc-usermodel-attribute-mapper", "oidc-full-name-mapper", "saml-role-list-mapper", "oidc-address-mapper", "saml-user-property-mapper", "oidc-usermodel-property-mapper", "oidc-sha256-pairwise-sub-mapper" ]
+        "allowed-protocol-mapper-types" : [ "oidc-full-name-mapper", "saml-role-list-mapper", "oidc-usermodel-property-mapper", "oidc-sha256-pairwise-sub-mapper", "oidc-address-mapper", "saml-user-property-mapper", "saml-user-attribute-mapper", "oidc-usermodel-attribute-mapper" ]
       }
     }, {
       "id" : "9523b5e4-7897-44ac-9720-0ec238a5765b",
