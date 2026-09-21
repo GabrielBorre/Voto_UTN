@@ -252,10 +252,10 @@ class GestionEleccionesTests(TestCase):
 
     def test_crea_fechas_administrativas_seleccionadas_para_la_eleccion(self):
         fecha_administrativa = FechaAdministrativa.objects.create(
+            codigo="publicacion-padron",
             nombre="Publicacion de padron",
             roles_destinatarios=[FechaAdministrativa.RolDestinatario.ELECTOR],
-            asunto_notificacion="Padron disponible",
-            mensaje_notificacion="El padron esta disponible.",
+            alcance_todos_claustros=False,
         )
         fecha_administrativa.claustros.add(self.claustro)
         formulario = FormularioEleccion(

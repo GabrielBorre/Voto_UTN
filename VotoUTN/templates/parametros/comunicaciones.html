@@ -1,0 +1,8 @@
+{% extends "gestion/base.html" %}
+{% block title %}Comunicaciones de {{ fecha.nombre }} | Junta Electoral UTN{% endblock %}
+{% block content %}
+<section class="hero"><h1>Comunicaciones de {{ fecha.nombre }}</h1><p>Reglas reutilizables de momento de envío y variantes que reducen el alcance definido por la fecha.</p></section>
+<section class="card"><div class="section-title"><div><h2>Comunicaciones sugeridas</h2></div><a class="button primary" href="{% url 'crear-comunicacion-fecha' fecha.id %}">Agregar comunicación</a></div>
+{% for comunicacion in comunicaciones %}<article class="option"><h3>{{ comunicacion.nombre }}</h3><p>{{ comunicacion.get_referencia_display }} {{ comunicacion.desplazamiento_dias|stringformat:"+d" }} días, {{ comunicacion.hora_sugerida|time:"H:i" }}.</p><div class="actions"><a class="button light small" href="{% url 'editar-comunicacion-fecha' fecha.id comunicacion.id %}">Editar</a> <a class="button secondary small" href="{% url 'crear-variante-comunicacion' comunicacion.id %}">Agregar variante</a></div><ul>{% for variante in comunicacion.variantes.all %}<li>Prioridad {{ variante.prioridad }}: {{ variante.plantilla.nombre }} — {{ variante.get_criterio_adicional_display }} <a href="{% url 'editar-variante-comunicacion' comunicacion.id variante.id %}">Editar</a></li>{% empty %}<li class="muted">Sin variantes.</li>{% endfor %}</ul></article>{% empty %}<p class="muted">No hay comunicaciones configuradas.</p>{% endfor %}
+</section><div class="footer-actions"><a class="button light" href="{% url 'listar-parametros' 'fechas-administrativas' %}">Volver</a></div>
+{% endblock %}
