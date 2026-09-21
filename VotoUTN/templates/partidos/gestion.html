@@ -1,14 +1,41 @@
 {% extends "gestion/base.html" %}
-{% block title %}Partidos y candidatos | {{ eleccion.nombre }}{% endblock %}
+{% block title %}Listas y candidaturas | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero"><h1>Partidos participantes</h1><p>{{ eleccion.nombre }}. Registre partidos y vincule sus listas a la eleccion.</p></section>
-<div class="gestion-form-grid">
-  <section class="card"><h2>Nuevo partido</h2><form method="post">{% csrf_token %}<input type="hidden" name="accion" value="crear_partido">{% for error in formulario_partido.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}{% for field in formulario_partido %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}<div class="footer-actions"><button class="button secondary" type="submit">Crear partido</button></div></form></section>
-  <section class="card"><h2>Incorporar a la eleccion</h2><form method="post">{% csrf_token %}<input type="hidden" name="accion" value="incorporar_partido">{% for error in formulario_participacion.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}{% for field in formulario_participacion %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}<div class="footer-actions"><button class="button primary" type="submit">Incorporar partido</button></div></form></section>
-</div>
-<div class="section-title"><div><h2>Participantes</h2><p>Partidos y listas registrados para esta eleccion.</p></div><span class="tag">{{ participaciones|length }} partidos</span></div>
-<div class="table-wrap"><table><thead><tr><th>Numero</th><th>Partido</th><th>Nombre de lista</th><th>Listas</th><th>Candidatos</th><th>Estado</th><th></th></tr></thead><tbody>
-{% for participacion in participaciones %}<tr><td>{{ participacion.numero_lista }}</td><td>{{ participacion.partido }}</td><td>{{ participacion.nombre_lista|default:"-" }}</td><td>{{ participacion.cantidad_listas }}</td><td>{{ participacion.cantidad_candidatos }}</td><td><span class="pill {% if participacion.activa %}ok{% else %}gray{% endif %}">{% if participacion.activa %}Activa{% else %}Inactiva{% endif %}</span></td><td class="actions"><a class="button light small" href="{% url 'detalle-participacion-partido' eleccion.id participacion.id %}">Listas</a><form class="inline-form" method="post" action="{% url 'cambiar-estado-participacion-partido' eleccion.id participacion.id %}">{% csrf_token %}<input type="hidden" name="activo" value="{% if participacion.activa %}0{% else %}1{% endif %}"><button class="button secondary small">{% if participacion.activa %}Desactivar{% else %}Activar{% endif %}</button></form></td></tr>{% empty %}<tr><td colspan="7" class="muted">No hay partidos incorporados.</td></tr>{% endfor %}
+<section class="hero">
+  <h1>Listas y candidaturas</h1>
+  <p>{{ eleccion.nombre }}. Primero definí qué puestos se votan y después cargá las presentaciones manualmente o mediante CSV.</p>
+</section>
+
+<section class="card">
+  <div class="section-title"><div><h2>1. Puestos habilitados en esta elección</h2><p>Los filtros son independientes: podés limitar por claustros, por departamentos, por ambos o por ninguno. Un filtro desactivado incluye todos los valores disponibles.</p></div><span class="tag">{{ puestos|length }} configurados</span></div>
+  <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="configurar_puesto">
+    {% for error in formulario_puesto.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+    <div class="gestion-form-grid">{% for field in formulario_puesto %}<div class="field {% if field.field.widget.input_type == 'checkbox' %}field-checkbox{% endif %}">{% if field.field.widget.input_type == 'checkbox' %}{{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}</div>
+    <div class="footer-actions"><a class="button light" href="{% url 'catalogos-candidaturas' %}">Administrar parámetros de puestos</a><button class="button primary" type="submit">Habilitar puesto</button></div>
+  </form>
+  <div class="table-wrap"><table><thead><tr><th>Puesto</th><th>Claustro</th><th>Departamento</th><th>Titulares</th><th>Suplentes</th><th>Estado</th><th></th></tr></thead><tbody>
+  {% for configuracion in puestos %}<tr><td>{{ configuracion.puesto }}</td><td>{{ configuracion.eleccion_claustro.claustro }}</td><td>{{ configuracion.eleccion_claustro_departamento.departamento|default:"General" }}</td><td>{{ configuracion.cantidad_titulares }}</td><td>{{ configuracion.cantidad_suplentes }}</td><td>{% if configuracion.activo %}<span class="pill ok">Activo</span>{% else %}<span class="pill gray">Inactivo</span>{% endif %}</td><td class="actions"><a class="button light small" href="{% url 'editar-puesto-eleccion' eleccion.id configuracion.id %}">Editar</a><form class="inline-form" method="post" action="{% url 'cambiar-estado-puesto-eleccion' eleccion.id configuracion.id %}">{% csrf_token %}<input type="hidden" name="activo" value="{% if configuracion.activo %}0{% else %}1{% endif %}"><button class="button secondary small">{% if configuracion.activo %}Desactivar{% else %}Activar{% endif %}</button></form></td></tr>{% empty %}<tr><td colspan="7" class="muted">Todavía no se configuraron puestos para esta elección.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+
+<section class="card">
+  <div class="section-title"><div><h2>2. Importar listas y candidaturas</h2><p>El CSV contiene número, nombre y apoderado de cada presentación, además de sus personas candidatas.</p></div><a class="button primary" href="{% url 'importar-candidaturas' eleccion.id %}">Importar CSV</a></div>
+  <div class="footer-actions"><a class="button light" href="{% url 'plantilla-candidaturas' eleccion.id %}">Descargar plantilla CSV</a></div>
+</section>
+
+<section class="card form-card">
+  <h2>Crear una presentación manualmente</h2>
+  <p class="muted">El código identifica la presentación dentro de esta elección; el número de lista puede repetirse en otros claustros o alcances.</p>
+  <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="crear_presentacion">
+    {% for error in formulario_participacion.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+    {% for field in formulario_participacion %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small class="muted">{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}
+    <div class="footer-actions"><button class="button secondary" type="submit">Crear presentación</button></div>
+  </form>
+</section>
+
+<div class="section-title"><div><h2>Presentaciones registradas</h2><p>Son propias de esta elección y pueden compartir número con otras presentaciones.</p></div><span class="tag">{{ participaciones|length }} presentaciones</span></div>
+<div class="table-wrap"><table><thead><tr><th>Código</th><th>Número</th><th>Nombre</th><th>Claustro</th><th>Apoderado/a</th><th>Candidaturas</th><th>Personas</th><th>Estado</th><th></th></tr></thead><tbody>
+{% for participacion in participaciones %}<tr><td>{{ participacion.codigo_presentacion|default:"Legada" }}</td><td>{{ participacion.numero_lista }}</td><td>{{ participacion.nombre_lista|default:participacion.partido }}</td><td>{{ participacion.eleccion_claustro.claustro|default:"Sin especificar" }}</td><td>{{ participacion.apoderado_nombre|default:"—" }}</td><td>{{ participacion.cantidad_listas }}</td><td>{{ participacion.cantidad_candidatos }}</td><td><span class="pill {% if participacion.activa %}ok{% else %}gray{% endif %}">{% if participacion.activa %}Activa{% else %}Inactiva{% endif %}</span></td><td class="actions"><a class="button light small" href="{% url 'detalle-participacion-partido' eleccion.id participacion.id %}">Ver</a><form class="inline-form" method="post" action="{% url 'cambiar-estado-participacion-partido' eleccion.id participacion.id %}">{% csrf_token %}<input type="hidden" name="activo" value="{% if participacion.activa %}0{% else %}1{% endif %}"><button class="button secondary small">{% if participacion.activa %}Desactivar{% else %}Activar{% endif %}</button></form></td></tr>{% empty %}<tr><td colspan="9" class="muted">No hay presentaciones cargadas.</td></tr>{% endfor %}
 </tbody></table></div>
-<div class="footer-actions"><a class="button light" href="{% url 'configurar-eleccion' eleccion.id %}">Volver a configuracion</a></div>
+<div class="footer-actions"><a class="button light" href="{% url 'configurar-eleccion' eleccion.id %}">Volver a configuración</a></div>
 {% endblock %}
