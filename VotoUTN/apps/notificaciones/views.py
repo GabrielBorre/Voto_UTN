@@ -38,12 +38,15 @@ def gestionar_notificaciones(request):
 
 @login_required
 def mis_notificaciones(request):
-    notificaciones = request.user.notificaciones.all()
+    relacion_notificaciones = getattr(request.user, "notificaciones", None)
+    notificaciones = relacion_notificaciones.all() if relacion_notificaciones is not None else EnvioNotificacion.objects.none()
     return render(request, "notificaciones/mis_notificaciones.html", {"notificaciones": notificaciones})
 
 
 @login_required
 def leer_notificacion(request, notificacion_id):
+    if not hasattr(request.user, "notificaciones"):
+        return HttpResponseForbidden("No tiene notificaciones asociadas.")
     notificacion = get_object_or_404(EnvioNotificacion, pk=notificacion_id, destinatario=request.user)
     if notificacion.leida_en is None:
         notificacion.leida_en = timezone.now()

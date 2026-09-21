@@ -46,6 +46,8 @@ def mis_asignaciones_autoridad(request):
         return render(request, "autoridades/mis_asignaciones.html", {"asignaciones": asignaciones, "vista_administrativa": True})
     if elector is not None:
         asignaciones = asignaciones.filter(registro_padron__elector=elector)
+        if not asignaciones.exists():
+            return HttpResponseForbidden("No tiene asignaciones de autoridad de mesa.")
     elif getattr(request.user, "es_elector", False) or not request.user.asignaciones_rol.filter(rol="autoridad_mesa", activo=True).exists():
         return HttpResponseForbidden("No tiene permiso de autoridad de mesa.")
     else:

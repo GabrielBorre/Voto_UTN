@@ -10,7 +10,7 @@ from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientError
 
 
-URL_KEYCLOAK = "http://localhost:8081"
+URL_KEYCLOAK = "http://localhost:8080"
 URL_VOTOUTN = "http://localhost:8000"
 KEYCLOAK_REALM = "FRBA"
 KEYCLOAK_CLIENT_ID = "VOTOUTN"
@@ -82,7 +82,7 @@ def keycloak_login_callback_view(request):
             "subject": user.subject,
         }
     if getattr(user, "es_elector", False):
-        return redirect("index")
+        return redirect("inicio-autenticado")
     return redirect("inicio-autenticado")
 
 
