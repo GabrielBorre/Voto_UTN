@@ -272,7 +272,7 @@ class Candidato(models.Model):
     def clean(self):
         errores = {}
         if self.elector_id:
-            self.nombre = self.elector.nombre
+            self.nombre = self.elector.nombre_completo
             self.dni = self.elector.dni
             if not self.correo_electronico:
                 self.correo_electronico = self.elector.correo_electronico

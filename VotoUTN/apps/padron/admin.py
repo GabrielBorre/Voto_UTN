@@ -5,8 +5,8 @@ from apps.padron.models import Elector, ErrorImportacionPadron, ImportacionPadro
 
 @admin.register(Elector)
 class ElectorAdmin(admin.ModelAdmin):
-    list_display = ("id", "legajo", "nombre", "dni")
-    search_fields = ("legajo", "nombre", "dni")
+    list_display = ("id", "legajo", "nombre", "apellido", "dni")
+    search_fields = ("legajo", "nombre", "apellido", "dni")
 
 
 admin.site.register((RegistroPadron, ImportacionPadron, ErrorImportacionPadron))
