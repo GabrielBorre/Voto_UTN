@@ -1,20 +1,24 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib.auth import get_user_model, login
+from django.core.exceptions import ValidationError
 from django.contrib.sessions.backends.db import SessionStore
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils.timezone import make_aware
 
-from apps.autoridades.services import validar_csv_autoridades
+from apps.autoridades.models import AsignacionAutoridad
+from apps.autoridades.services import asignar_autoridad, validar_csv_autoridades
 from apps.elecciones.models import (
     Eleccion,
     EleccionClaustro,
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
+    EleccionTurno,
 )
+from apps.mesas.models import Mesa
 from apps.padron.models import Elector, RegistroPadron
-from apps.parametros.models import Claustro, Departamento, Sede
+from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.usuarios.backend_auth import ElectorBackend, ElectorUser
 from apps.usuarios.models import AsignacionRol
 
@@ -87,6 +91,114 @@ class AutoridadesImportTests(TestCase):
 
         self.assertEqual(errores, [])
         self.assertEqual(len(filas), 1)
+
+
+class TurnosAutoridadesTests(TestCase):
+    def setUp(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        self.eleccion = Eleccion.objects.create(
+            nombre="Elección por turnos",
+            fecha_inicio=inicio,
+            fecha_fin=inicio + timedelta(hours=8),
+            maximo_autoridades_por_mesa=2,
+        )
+        self.usuario = get_user_model().objects.create_user(username="junta-turnos")
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.sede = Sede.objects.create(nombre="Campus turnos")
+        claustro = Claustro.objects.create(nombre="Docentes turnos")
+        departamento = Departamento.objects.create(nombre="Sistemas turnos", codigo="ST")
+        eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=claustro)
+        configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=eleccion_claustro,
+            departamento=departamento,
+        )
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=configuracion,
+            sede=self.sede,
+        )
+        self.mesa = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=1,
+            eleccion_claustro_departamento=configuracion,
+            sede=self.sede,
+        )
+        self.manana = Turno.objects.create(nombre="Mañana autoridades", hora_inicio=time(8), hora_fin=time(13))
+        self.tarde = Turno.objects.create(nombre="Tarde autoridades", hora_inicio=time(13), hora_fin=time(18))
+        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.manana)
+        self.registros = []
+        for indice in range(3):
+            elector = Elector.objects.create(
+                dni=f"4012300{indice}",
+                legajo=f"AUT-{indice}",
+                nombre=f"Autoridad {indice}",
+                correo_electronico=f"autoridad{indice}@frba.utn.edu.ar",
+            )
+            self.registros.append(
+                RegistroPadron.objects.create(
+                    elector=elector,
+                    eleccion=self.eleccion,
+                    eleccion_claustro_departamento=configuracion,
+                    sede=self.sede,
+                )
+            )
+
+    def test_los_turnos_se_configuran_desde_autoridades(self):
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("gestionar-autoridades", args=(self.eleccion.id,)),
+            {
+                "configuracion-turnos": [self.manana.id, self.tarde.id],
+                "guardar-turnos": "",
+            },
+        )
+
+        self.assertRedirects(
+            respuesta,
+            reverse("gestionar-autoridades", args=(self.eleccion.id,)),
+            fetch_redirect_response=False,
+        )
+        self.assertSetEqual(
+            set(self.eleccion.elecciones_turno.values_list("turno_id", flat=True)),
+            {self.manana.id, self.tarde.id},
+        )
+
+    def test_el_limite_se_aplica_por_mesa_y_turno(self):
+        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.tarde)
+
+        primera, _ = asignar_autoridad(self.registros[0], self.mesa, self.manana, self.usuario)
+        segunda, _ = asignar_autoridad(self.registros[1], self.mesa, self.manana, self.usuario)
+
+        self.assertEqual(primera.turno, self.manana)
+        self.assertEqual(segunda.turno, self.manana)
+        with self.assertRaisesMessage(ValidationError, "máximo de autoridades"):
+            asignar_autoridad(self.registros[2], self.mesa, self.manana, self.usuario)
+
+        tercera, creada = asignar_autoridad(self.registros[2], self.mesa, self.tarde, self.usuario)
+        self.assertTrue(creada)
+        self.assertEqual(tercera.turno, self.tarde)
+
+    def test_no_permite_quitar_un_turno_con_autoridades_asignadas(self):
+        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.tarde)
+        asignar_autoridad(self.registros[0], self.mesa, self.manana, self.usuario)
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("gestionar-autoridades", args=(self.eleccion.id,)),
+            {
+                "configuracion-turnos": [self.tarde.id],
+                "guardar-turnos": "",
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "No se puede quitar un turno que ya tiene autoridades asignadas")
+        self.assertTrue(AsignacionAutoridad.objects.filter(turno=self.manana).exists())
+        self.assertTrue(EleccionTurno.objects.filter(eleccion=self.eleccion, turno=self.manana).exists())
 
 
 class ElectorBackendTests(TestCase):

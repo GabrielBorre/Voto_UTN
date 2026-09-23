@@ -45,6 +45,10 @@ destinatarios y evento sugerido. La fecha concreta por elección continúa en
 
 `EleccionClaustroDepartamento 1 --- N Mesa`
 
+`Eleccion 1 --- N EleccionTurno N --- 1 Turno`
+
+`AsignacionAutoridad N --- 1 Turno`
+
 ### Mesa
 
 Campos conceptuales:
@@ -56,6 +60,9 @@ Campos conceptuales:
 - `numero`
 - `codigo`
 - `activa`
+
+La mesa no tiene turno: permanece operativa durante toda la jornada electoral.
+El turno representa exclusivamente la ronda de trabajo de una autoridad.
 
 Restricción obligatoria:
 
@@ -79,6 +86,9 @@ marca protege la correspondencia entre el papel emitido y la asignación de mesa
 - `PreferenciaAutoridad`
 
 Una autoridad es el mismo elector con una asignación adicional; no una persona duplicada.
+`AsignacionAutoridad` vincula una autoridad con una mesa y un único turno de trabajo
+habilitado para la elección. Una mesa puede recibir varias asignaciones en un mismo
+turno y en turnos diferentes.
 
 ## Participación
 

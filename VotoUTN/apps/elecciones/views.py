@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -9,6 +10,7 @@ from .forms import (
     FormularioAlcanceSedes,
     FormularioEleccion,
     FormularioEditarEleccion,
+    FormularioFechasAdministrativasEleccion,
     FormularioPrepararClaustro,
 )
 from .models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
@@ -25,18 +27,21 @@ from apps.usuarios.models import AsignacionRol
 def contexto_formulario_eleccion(formulario, incluir_parametros=False):
     contexto = {
         "campos_generales": [formulario[nombre] for nombre in ("nombre", "fecha_inicio", "fecha_fin")],
-        "campos_fechas_administrativas": [
-            {
-                "definicion": definicion,
-                "seleccionada": formulario[f"fecha_{definicion.id}_seleccionada"],
-                "fecha": formulario[f"fecha_{definicion.id}_valor"],
-            }
-            for definicion in getattr(formulario, "definiciones_fechas", [])
-        ],
     }
     if incluir_parametros:
-        contexto["campos_parametros"] = [formulario[nombre] for nombre in ("sedes", "claustros", "turnos")]
+        contexto["campos_parametros"] = [formulario[nombre] for nombre in ("sedes", "claustros")]
     return contexto
+
+
+def contexto_fechas_administrativas(formulario):
+    return [
+        {
+            "definicion": definicion,
+            "seleccionada": formulario[f"fecha_{definicion.id}_seleccionada"],
+            "fecha": formulario[f"fecha_{definicion.id}_valor"],
+        }
+        for definicion in formulario.definiciones_fechas
+    ]
 
 
 @login_required
@@ -49,9 +54,8 @@ def inicio_autenticado(request):
                 "eleccion",
                 "eleccion_claustro_departamento__eleccion_claustro",
                 "sede",
-                "asignacion_mesa__mesa__turno",
                 "asignacion_autoridad__mesa__sede",
-                "asignacion_autoridad__mesa__turno",
+                "asignacion_autoridad__turno",
             )
         es_autoridad = AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists() if elector is not None else False
         return render(request, "elecciones/inicio_elector.html", {"registros": registros, "es_autoridad": es_autoridad})
@@ -87,6 +91,14 @@ def configurar_eleccion(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
+    formulario_fechas = FormularioFechasAdministrativasEleccion(
+        request.POST or None,
+        eleccion=eleccion,
+    )
+    if request.method == "POST" and formulario_fechas.is_valid():
+        formulario_fechas.guardar()
+        messages.success(request, "Las fechas administrativas fueron actualizadas.")
+        return redirect("configurar-eleccion", eleccion_id=eleccion.id)
     return render(
         request,
         "elecciones/configurar_eleccion.html",
@@ -96,6 +108,8 @@ def configurar_eleccion(request, eleccion_id):
             "cantidad_mesas": eleccion.mesas.count(),
             "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),
             "cantidad_partidos": ParticipacionPartido.objects.filter(eleccion=eleccion, activa=True).count(),
+            "formulario_fechas": formulario_fechas,
+            "fechas_administrativas": contexto_fechas_administrativas(formulario_fechas),
         },
     )
 
@@ -107,9 +121,18 @@ def crear_eleccion(request):
 
     formulario = FormularioEleccion(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
-        eleccion = formulario.save()
+        with transaction.atomic():
+            eleccion = formulario.save()
+            AsignacionRol.objects.update_or_create(
+                usuario=request.user,
+                rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+                eleccion=eleccion,
+                sede=None,
+                mesa=None,
+                defaults={"activo": True},
+            )
         messages.success(request, "La eleccion fue creada y quedo configurada.")
-        return redirect("preparar-eleccion", eleccion_id=eleccion.id)
+        return redirect("configurar-eleccion", eleccion_id=eleccion.id)
     return render(request, "elecciones/formulario_eleccion.html", {"formulario": formulario, **contexto_formulario_eleccion(formulario, incluir_parametros=True)})
 
 

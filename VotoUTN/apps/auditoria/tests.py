@@ -45,7 +45,6 @@ class BaseAuditoriaElectoralTests(TestCase):
             numero=1,
             eleccion_claustro_departamento=self.configuracion,
             sede=self.sede,
-            turno=self.turno,
         )
         self.usuario = get_user_model().objects.create_user(username="operador", password="clave")
 

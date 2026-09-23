@@ -5,7 +5,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
 )
 from apps.mesas.models import Mesa
-from apps.parametros.models import Sede, Turno
+from apps.parametros.models import Sede
 
 
 class FormularioGenerarMesas(forms.Form):
@@ -14,7 +14,6 @@ class FormularioGenerarMesas(forms.Form):
         label="Claustro y departamento",
     )
     sede = forms.ModelChoiceField(queryset=Sede.objects.none())
-    turno = forms.ModelChoiceField(queryset=Turno.objects.none())
     cantidad = forms.IntegerField(min_value=1, max_value=500, initial=1)
 
     def __init__(self, *args, eleccion, **kwargs):
@@ -25,9 +24,6 @@ class FormularioGenerarMesas(forms.Form):
         ).select_related("eleccion_claustro__claustro", "departamento")
         self.fields["sede"].queryset = Sede.objects.filter(
             elecciones_sede__eleccion=eleccion,
-        ).distinct()
-        self.fields["turno"].queryset = Turno.objects.filter(
-            elecciones_turno__eleccion=eleccion,
         ).distinct()
         for field in self.fields.values():
             field.widget.attrs["class"] = (
@@ -58,14 +54,12 @@ class FormularioGenerarMesas(forms.Form):
         )
         configuracion = self.cleaned_data["configuracion"]
         sede = self.cleaned_data["sede"]
-        turno = self.cleaned_data["turno"]
         mesas = [
             Mesa(
                 eleccion=self.eleccion,
                 numero=ultimo_numero + indice,
                 eleccion_claustro_departamento=configuracion,
                 sede=sede,
-                turno=turno,
             )
             for indice in range(1, self.cleaned_data["cantidad"] + 1)
         ]

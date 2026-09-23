@@ -252,7 +252,7 @@ class ProteccionEmisionQrTests(TestCase):
         )
         self.mesa = Mesa.objects.create(
             eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion,
-            sede=self.sede, turno=self.turno, generada_automaticamente=True,
+            sede=self.sede, generada_automaticamente=True,
         )
         elector = Elector.objects.create(legajo="1001", dni="12345678", nombre="Ana Pérez")
         self.registro = RegistroPadron.objects.create(
@@ -294,7 +294,7 @@ class ProteccionEmisionQrTests(TestCase):
         self.registro.save(update_fields=("qr_generado_en", "numero_mesa_qr"))
         otra_mesa = Mesa.objects.create(
             eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=self.configuracion,
-            sede=self.sede, turno=self.turno,
+            sede=self.sede,
         )
         asignacion = self.registro.asignacion_mesa
         asignacion.mesa = otra_mesa

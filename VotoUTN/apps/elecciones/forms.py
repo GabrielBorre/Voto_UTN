@@ -1,5 +1,6 @@
 from django import forms
 from django.db import transaction
+from django.db.models import Q
 
 from .models import (
     Eleccion,
@@ -8,18 +9,16 @@ from .models import (
     EleccionClaustroDepartamentoSede,
     EleccionClaustroSede,
     EleccionSede,
-    EleccionTurno,
     FechaAdministrativaEleccion,
 )
 from apps.mesas.models import Mesa
 from apps.padron.models import RegistroPadron
-from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede
 
 
 class FormularioEleccion(forms.ModelForm):
     sedes = forms.ModelMultipleChoiceField(queryset=Sede.objects.none(), widget=forms.CheckboxSelectMultiple)
     claustros = forms.ModelMultipleChoiceField(queryset=Claustro.objects.none(), widget=forms.CheckboxSelectMultiple)
-    turnos = forms.ModelMultipleChoiceField(queryset=Turno.objects.none(), widget=forms.CheckboxSelectMultiple)
 
     class Meta:
         model = Eleccion
@@ -28,25 +27,24 @@ class FormularioEleccion(forms.ModelForm):
             "fecha_inicio",
             "fecha_fin",
         )
+        labels = {
+            "nombre": "Nombre de la elección",
+            "fecha_inicio": "Inicio del proceso electoral",
+            "fecha_fin": "Fin del proceso electoral",
+        }
         widgets = {
-            "fecha_inicio": forms.DateTimeInput(attrs={"type": "datetime-local"}),
-            "fecha_fin": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
+            "fecha_fin": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["sedes"].queryset = Sede.objects.filter(activa=True)
         self.fields["claustros"].queryset = Claustro.objects.filter(activo=True)
-        self.fields["turnos"].queryset = Turno.objects.filter(activo=True)
-        for nombre in ("sedes", "claustros", "turnos"):
+        for nombre in ("sedes", "claustros"):
             self.fields[nombre].widget.attrs["class"] = "checkbox-list"
         for nombre in self.Meta.fields:
             self.fields[nombre].widget.attrs.setdefault("class", "form-control")
-        self.definiciones_fechas = list(FechaAdministrativa.objects.filter(activa=True).prefetch_related("claustros"))
-        for definicion in self.definiciones_fechas:
-            self.fields[f"fecha_{definicion.id}_seleccionada"] = forms.BooleanField(required=False, label=definicion.nombre)
-            self.fields[f"fecha_{definicion.id}_valor"] = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
-
     @transaction.atomic
     def save(self, commit=True):
         eleccion = super().save(commit=commit)
@@ -61,44 +59,80 @@ class FormularioEleccion(forms.ModelForm):
         EleccionSede.objects.bulk_create(
             [EleccionSede(eleccion=eleccion, sede=sede) for sede in sedes]
         )
-        EleccionTurno.objects.bulk_create(
-            [EleccionTurno(eleccion=eleccion, turno=turno) for turno in self.cleaned_data["turnos"]]
-        )
         for claustro in self.cleaned_data["claustros"]:
             eleccion_claustro = EleccionClaustro.objects.create(eleccion=eleccion, claustro=claustro)
             EleccionClaustroSede.objects.bulk_create(
                 [EleccionClaustroSede(eleccion_claustro=eleccion_claustro, sede=sede) for sede in sedes]
             )
-        for definicion in self.definiciones_fechas:
-            if self.cleaned_data.get(f"fecha_{definicion.id}_seleccionada"):
-                FechaAdministrativaEleccion.objects.create(
-                    eleccion=eleccion,
-                    fecha_administrativa=definicion,
-                    fecha=self.cleaned_data[f"fecha_{definicion.id}_valor"],
-                )
         return eleccion
+
+
+class FormularioFechasAdministrativasEleccion(forms.Form):
+    def __init__(self, *args, eleccion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eleccion = eleccion
+        self.definiciones_fechas = list(
+            FechaAdministrativa.objects.filter(
+                Q(activa=True) | Q(programaciones__eleccion=eleccion),
+            ).distinct().prefetch_related("claustros")
+        )
+        programaciones = {
+            programacion.fecha_administrativa_id: programacion
+            for programacion in eleccion.fechas_administrativas.all()
+        }
+        for definicion in self.definiciones_fechas:
+            programacion = programaciones.get(definicion.id)
+            self.fields[f"fecha_{definicion.id}_seleccionada"] = forms.BooleanField(
+                required=False,
+                label=definicion.nombre,
+                initial=programacion is not None,
+            )
+            self.fields[f"fecha_{definicion.id}_valor"] = forms.DateField(
+                required=False,
+                label="Fecha",
+                initial=programacion.fecha if programacion else None,
+                widget=forms.DateInput(attrs={"type": "date"}),
+            )
 
     def clean(self):
         cleaned_data = super().clean()
-        inicio = cleaned_data.get("fecha_inicio")
-        fin = cleaned_data.get("fecha_fin")
         for definicion in self.definiciones_fechas:
             seleccionada = cleaned_data.get(f"fecha_{definicion.id}_seleccionada")
             fecha = cleaned_data.get(f"fecha_{definicion.id}_valor")
             if seleccionada and not fecha:
                 self.add_error(f"fecha_{definicion.id}_valor", "Debe indicar una fecha.")
-            if seleccionada and fecha and inicio and fin and not inicio.date() <= fecha <= fin.date():
-                self.add_error(f"fecha_{definicion.id}_valor", "Debe estar entre el inicio y el fin de la eleccion.")
+            if seleccionada and fecha and not self.eleccion.fecha_inicio <= fecha <= self.eleccion.fecha_fin:
+                self.add_error(
+                    f"fecha_{definicion.id}_valor",
+                    "Debe estar dentro del periodo completo de la eleccion.",
+                )
         return cleaned_data
+
+    @transaction.atomic
+    def guardar(self):
+        for definicion in self.definiciones_fechas:
+            seleccionada = self.cleaned_data.get(f"fecha_{definicion.id}_seleccionada")
+            if seleccionada:
+                FechaAdministrativaEleccion.objects.update_or_create(
+                    eleccion=self.eleccion,
+                    fecha_administrativa=definicion,
+                    defaults={"fecha": self.cleaned_data[f"fecha_{definicion.id}_valor"]},
+                )
+            else:
+                FechaAdministrativaEleccion.objects.filter(
+                    eleccion=self.eleccion,
+                    fecha_administrativa=definicion,
+                ).delete()
 
 
 class FormularioEditarEleccion(forms.ModelForm):
     class Meta:
         model = Eleccion
         fields = FormularioEleccion.Meta.fields
+        labels = FormularioEleccion.Meta.labels
         widgets = {
-            "fecha_inicio": forms.DateTimeInput(attrs={"type": "datetime-local"}),
-            "fecha_fin": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
+            "fecha_fin": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):

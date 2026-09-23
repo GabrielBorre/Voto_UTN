@@ -1,7 +1,6 @@
 from datetime import datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.timezone import make_aware
@@ -50,13 +49,12 @@ class MesasTests(TestCase):
             sede=self.sede,
         )
 
-    def test_formulario_genera_mesas_numeradas_y_valida_turno_habilitado(self):
+    def test_formulario_genera_mesas_numeradas_sin_turno_de_elector(self):
         formulario = FormularioGenerarMesas(
             eleccion=self.eleccion,
             data={
                 "configuracion": self.configuracion.id,
                 "sede": self.sede.id,
-                "turno": self.turno.id,
                 "cantidad": 2,
             },
         )
@@ -67,21 +65,7 @@ class MesasTests(TestCase):
             list(self.eleccion.mesas.values_list("numero", flat=True)),
             [1, 2],
         )
-
-        turno_ajeno = Turno.objects.create(
-            nombre="Tarde",
-            hora_inicio=time(13),
-            hora_fin=time(18),
-        )
-        mesa = Mesa(
-            eleccion=self.eleccion,
-            numero=3,
-            eleccion_claustro_departamento=self.configuracion,
-            sede=self.sede,
-            turno=turno_ajeno,
-        )
-        with self.assertRaises(ValidationError):
-            mesa.full_clean()
+        self.assertFalse(hasattr(self.eleccion.mesas.first(), "turno_id"))
 
     def test_gestionar_mesas_conserva_la_ruta_y_requiere_permiso(self):
         usuario = get_user_model().objects.create_user(

@@ -83,16 +83,20 @@ def leer_filas_autoridades(contenido: bytes, nombre_archivo: str = "") -> list[d
 
 
 @transaction.atomic
-def asignar_autoridad(registro_padron, mesa, usuario):
-    if AsignacionAutoridad.objects.filter(mesa=mesa).exclude(estado=AsignacionAutoridad.Estado.RECHAZADA).count() >= mesa.eleccion.maximo_autoridades_por_mesa:
-        raise ValidationError("La mesa ya alcanzo el maximo de autoridades configurado.")
+def asignar_autoridad(registro_padron, mesa, turno, usuario):
+    if not mesa.eleccion.elecciones_turno.filter(turno=turno).exists():
+        raise ValidationError("El turno de trabajo no está habilitado para esta elección.")
+    if AsignacionAutoridad.objects.filter(mesa=mesa, turno=turno).exclude(estado=AsignacionAutoridad.Estado.RECHAZADA).count() >= mesa.eleccion.maximo_autoridades_por_mesa:
+        raise ValidationError("La mesa ya alcanzó el máximo de autoridades configurado para este turno.")
     candidatura, _ = CandidaturaAutoridad.objects.get_or_create(registro_padron=registro_padron, defaults={"cargada_por": usuario})
     asignacion, creada = AsignacionAutoridad.objects.get_or_create(
         registro_padron=registro_padron,
-        defaults={"mesa": mesa, "candidatura": candidatura, "asignada_por": usuario},
+        defaults={"mesa": mesa, "turno": turno, "candidatura": candidatura, "asignada_por": usuario},
     )
     if not creada and asignacion.mesa_id != mesa.id:
         raise ValidationError("El elector ya fue asignado como autoridad de otra mesa.")
+    if not creada and asignacion.turno_id != turno.id:
+        raise ValidationError("El elector ya fue asignado como autoridad en otro turno.")
     asignacion.full_clean()
     if creada:
         from apps.usuarios.models import AsignacionRol, PerfilUsuario

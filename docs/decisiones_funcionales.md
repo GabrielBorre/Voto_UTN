@@ -50,6 +50,8 @@ Ejemplo: `Sistemas de Información` / `K`.
 - Cada mesa pertenece a una elección.
 - Cada mesa pertenece a una combinación `EleccionClaustroDepartamento`.
 - Cada mesa se asigna a una sede habilitada.
+- La mesa funciona durante toda la jornada electoral y no tiene turno.
+- El elector puede votar en cualquier momento de la jornada y no recibe un turno.
 - `numero` es único dentro de toda la elección.
 - El prefijo del departamento no permite repetir números.
 - `K-001` y `E-001` no pueden coexistir dentro de la misma elección.
@@ -64,6 +66,10 @@ Ejemplo: `Sistemas de Información` / `K`.
 - No puede ser autoridad de otro claustro.
 - Puede incorporarse por CSV o selección manual.
 - Ambos mecanismos producen la misma asignación.
+- Cada asignación de autoridad tiene un único turno de trabajo.
+- Una mesa puede tener varias autoridades en el mismo turno y autoridades en turnos diferentes para cubrir los cambios de ronda.
+- Los turnos se habilitan por elección desde la gestión de autoridades y no desde la creación inicial de la elección.
+- El máximo de autoridades se aplica por mesa y por turno.
 - Conserva las funcionalidades de elector.
 - La autoridad de mesa no registra participación.
 

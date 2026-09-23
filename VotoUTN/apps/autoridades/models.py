@@ -24,6 +24,7 @@ class AsignacionAutoridad(models.Model):
     registro_padron = models.OneToOneField(RegistroPadron, on_delete=models.PROTECT, related_name="asignacion_autoridad")
     candidatura = models.OneToOneField(CandidaturaAutoridad, on_delete=models.PROTECT, related_name="asignacion", null=True, blank=True)
     mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name="autoridades")
+    turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="asignaciones_autoridad")
     estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.PENDIENTE)
     asignada_por = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="autoridades_asignadas")
     asignada_en = models.DateTimeField(auto_now_add=True)
@@ -40,6 +41,8 @@ class AsignacionAutoridad(models.Model):
                 raise ValidationError({"mesa": "Debe pertenecer a la misma eleccion que el padron."})
             if self.registro_padron.eleccion_claustro_departamento.eleccion_claustro_id != self.mesa.eleccion_claustro_departamento.eleccion_claustro_id:
                 raise ValidationError({"mesa": "La autoridad debe pertenecer al mismo claustro que la mesa."})
+            if self.turno_id and not self.turno.elecciones_turno.filter(eleccion_id=self.mesa.eleccion_id).exists():
+                raise ValidationError({"turno": "El turno de trabajo debe estar habilitado para la elección."})
 
 
 class PreferenciaAutoridad(models.Model):

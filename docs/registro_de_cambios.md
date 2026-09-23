@@ -560,3 +560,38 @@ Fecha de implementación: 2026-09-20
 - `seed_demo_data` es el inicializador integral para el equipo: primero carga los parámetros estándar y luego crea una elección demo idempotente.
 - La elección de ejemplo incluye los cuatro claustros, el alcance departamental de Sistemas, nueve configuraciones de puestos y casos representativos de las listas 2026 entregadas por la Junta.
 - Los ejemplos conservan números repetidos cuando representan presentaciones diferentes y cubren cargos generales, departamentales y de DASUTeN.
+
+## Fechas del proceso y calendario administrativo
+
+Fecha de implementación: 2026-09-22
+
+- La creación de una elección solicita solamente el nombre, el rango general del proceso y sus parámetros iniciales.
+- Las fechas administrativas se cargan y modifican desde la configuración de la elección, dentro de su calendario administrativo.
+- El inicio y el fin del proceso se almacenan como días, sin componente horario. Se admite que ambos coincidan para procesos de un solo día.
+- La migración conserva el día calendario de los datos existentes según la zona `America/Argentina/Buenos_Aires` y descarta solamente la hora.
+- Los campos de inicio y fin incorporan ayuda contextual accesible para distinguir el proceso electoral del día de votación.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: se validó la operación segura de `elecciones.0021_fechas_de_eleccion_sin_hora`.
+- `python manage.py test`: 111 pruebas correctas.
+
+## Turnos de trabajo de autoridades
+
+Fecha de implementación: 2026-09-23
+
+- Los turnos representan exclusivamente rondas de trabajo de autoridades de mesa; no restringen el horario de votación de los electores.
+- La mesa dejó de tener turno y permanece operativa durante toda la jornada electoral.
+- La creación de elecciones solicita únicamente claustros y sedes como configuración inicial.
+- Los turnos habilitados se administran desde Autoridades de mesa y cada asignación vincula autoridad, mesa y turno de trabajo.
+- El máximo de autoridades se aplica por mesa y por turno, permitiendo varias autoridades simultáneas y el recambio entre rondas.
+- La migración copió los turnos históricos de las mesas a las autoridades antes de retirar el campo anterior.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate`: aplicó `autoridades.0003_turno_de_trabajo_en_autoridad` y `mesas.0002_remove_mesa_turno`.
+- `python manage.py test`: 114 pruebas correctas.

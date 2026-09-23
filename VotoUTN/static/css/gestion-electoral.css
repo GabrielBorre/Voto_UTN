@@ -388,6 +388,96 @@ th {
     margin-bottom: 7px;
 }
 
+.field-label {
+    align-items: center;
+    display: flex;
+    gap: 7px;
+    margin-bottom: 7px;
+}
+
+.field-label label {
+    margin-bottom: 0;
+}
+
+.field-label-row {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 7px;
+}
+
+.field-label-row > label {
+    margin-bottom: 0;
+}
+
+.select-all {
+    align-items: center;
+    color: var(--azul-900);
+    display: inline-flex;
+    font-size: 12px;
+    font-weight: 700;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.select-all input {
+    accent-color: var(--azul-700);
+    height: 16px;
+    margin: 0;
+    width: 16px;
+}
+
+.help-tip {
+    align-items: center;
+    border-radius: 50%;
+    color: var(--azul-900);
+    cursor: help;
+    display: inline-flex;
+    height: 22px;
+    justify-content: center;
+    outline: none;
+    position: relative;
+    width: 22px;
+}
+
+.help-tip-icon {
+    display: block;
+    height: 20px;
+    width: 20px;
+}
+
+.help-tip:focus {
+    box-shadow: 0 0 0 3px rgba(21, 87, 176, .2);
+}
+
+.help-tip-text {
+    background: #172033;
+    border-radius: 8px;
+    bottom: calc(100% + 8px);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    left: 50%;
+    line-height: 1.35;
+    max-width: min(300px, 80vw);
+    opacity: 0;
+    padding: 9px 11px;
+    pointer-events: none;
+    position: absolute;
+    transform: translateX(-50%);
+    transition: opacity .15s ease;
+    visibility: hidden;
+    width: max-content;
+    z-index: 20;
+}
+
+.help-tip:hover .help-tip-text,
+.help-tip:focus .help-tip-text {
+    opacity: 1;
+    visibility: visible;
+}
+
 .field input:not([type="checkbox"]),
 .field select {
     background: #fff;

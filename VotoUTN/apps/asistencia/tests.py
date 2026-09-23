@@ -13,7 +13,11 @@ from apps.asistencia.models import RegistroParticipacion
 from apps.asistencia.serializers import SerializadorLoteAsistencia
 from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.padron.management.commands.cargar_electores_demo import Command as GeneradorQr
-from apps.elecciones.forms import FormularioAlcanceSedes, FormularioEleccion
+from apps.elecciones.forms import (
+    FormularioAlcanceSedes,
+    FormularioEleccion,
+    FormularioFechasAdministrativasEleccion,
+)
 from apps.elecciones.models import (
     Eleccion,
     EleccionClaustro,
@@ -96,7 +100,6 @@ class ServicioRegistroParticipacionEleccionTests(TestCase):
             numero=1,
             eleccion_claustro_departamento=self.cfg_activa,
             sede=sede,
-            turno=turno,
         )
 
         ec_ajena = EleccionClaustro.objects.create(eleccion=self.eleccion_ajena, claustro=claustro)
@@ -106,7 +109,6 @@ class ServicioRegistroParticipacionEleccionTests(TestCase):
             numero=2,
             eleccion_claustro_departamento=cfg_ajena,
             sede=sede,
-            turno=turno,
         )
 
         elector = Elector.objects.create(legajo="110001", nombre="Elector Ajeno", dni="40111222")
@@ -217,13 +219,12 @@ class GestionEleccionesTests(TestCase):
         formulario = FormularioEleccion(
             data={
                 "nombre": "Eleccion de prueba",
-                "fecha_inicio": "2026-08-03T08:00",
-                "fecha_fin": "2026-08-03T18:00",
+                "fecha_inicio": "2026-08-03",
+                "fecha_fin": "2026-08-03",
                 "estado": Eleccion.Estado.PREPARADA,
                 "habilitada": "on",
                 "sedes": [self.sede.id],
                 "claustros": [self.claustro.id],
-                "turnos": [self.turno.id],
             }
         )
 
@@ -235,7 +236,7 @@ class GestionEleccionesTests(TestCase):
         self.assertEqual(eleccion.elecciones_sede.count(), 1)
         self.assertEqual(eleccion.elecciones_claustro.count(), 1)
         self.assertEqual(EleccionClaustroDepartamento.objects.filter(eleccion_claustro__eleccion=eleccion).count(), 0)
-        self.assertTrue(EleccionTurno.objects.filter(eleccion=eleccion, turno=self.turno).exists())
+        self.assertFalse(EleccionTurno.objects.filter(eleccion=eleccion).exists())
 
     def test_calendario_administrativo_exige_orden_del_padron(self):
         inicio = make_aware(datetime(2026, 8, 10, 8))
@@ -250,7 +251,7 @@ class GestionEleccionesTests(TestCase):
         with self.assertRaises(ValidationError):
             eleccion.full_clean()
 
-    def test_crea_fechas_administrativas_seleccionadas_para_la_eleccion(self):
+    def test_configura_fechas_administrativas_despues_de_crear_la_eleccion(self):
         fecha_administrativa = FechaAdministrativa.objects.create(
             codigo="publicacion-padron",
             nombre="Publicacion de padron",
@@ -261,18 +262,25 @@ class GestionEleccionesTests(TestCase):
         formulario = FormularioEleccion(
             data={
                 "nombre": "Eleccion con hitos",
-                "fecha_inicio": "2026-08-03T08:00",
-                "fecha_fin": "2026-08-03T18:00",
+                "fecha_inicio": "2026-08-03",
+                "fecha_fin": "2026-08-04",
                 "sedes": [self.sede.id],
                 "claustros": [self.claustro.id],
-                "turnos": [self.turno.id],
-                f"fecha_{fecha_administrativa.id}_seleccionada": "on",
-                f"fecha_{fecha_administrativa.id}_valor": "2026-08-03",
             }
         )
 
         self.assertTrue(formulario.is_valid(), formulario.errors)
         eleccion = formulario.save()
+        formulario_fechas = FormularioFechasAdministrativasEleccion(
+            data={
+                f"fecha_{fecha_administrativa.id}_seleccionada": "on",
+                f"fecha_{fecha_administrativa.id}_valor": "2026-08-03",
+            },
+            eleccion=eleccion,
+        )
+
+        self.assertTrue(formulario_fechas.is_valid(), formulario_fechas.errors)
+        formulario_fechas.guardar()
         self.assertTrue(
             FechaAdministrativaEleccion.objects.filter(
                 eleccion=eleccion,
@@ -284,10 +292,16 @@ class GestionEleccionesTests(TestCase):
         programacion = FechaAdministrativaEleccion(
             eleccion=eleccion,
             fecha_administrativa=fecha_administrativa,
-            fecha=date(2026, 8, 4),
+            fecha=date(2026, 8, 5),
         )
         with self.assertRaises(ValidationError):
             programacion.full_clean()
+
+    def test_formulario_usa_fechas_sin_hora(self):
+        formulario = FormularioEleccion()
+
+        self.assertEqual(formulario.fields["fecha_inicio"].widget.input_type, "date")
+        self.assertEqual(formulario.fields["fecha_fin"].widget.input_type, "date")
 
 
 class ParametrosElectoralesTests(TestCase):
@@ -350,7 +364,7 @@ class CicloDeVidaEleccionTests(TestCase):
         with self.assertRaises(ValidationError):
             self.eleccion.cambiar_estado(Eleccion.Estado.ABIERTA)
 
-        Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=self.sede, turno=self.turno)
+        Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=self.sede)
         self.eleccion.cambiar_estado(Eleccion.Estado.ABIERTA)
         self.eleccion.refresh_from_db()
         self.assertTrue(self.eleccion.habilitada)
@@ -364,7 +378,7 @@ class CicloDeVidaEleccionTests(TestCase):
         EleccionSede.objects.create(eleccion=self.eleccion, sede=otra_sede)
         EleccionClaustroSede.objects.create(eleccion_claustro=self.eleccion_claustro, sede=otra_sede)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=otra_sede)
-        Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=otra_sede, turno=self.turno)
+        Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=otra_sede)
 
         formulario = FormularioAlcanceSedes(
             data={"sedes": [self.sede.id]},
@@ -412,16 +426,16 @@ class ImportacionPadronTests(TestCase):
         )
 
     def test_confirma_csv_valido_y_es_idempotente(self):
-        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@example.com,K,Campus Medrano\n"
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano\n"
         importacion = self.crear_importacion(contenido)
 
         self.assertEqual(confirmar_importacion(importacion), 1)
         self.assertEqual(RegistroPadron.objects.count(), 1)
-        self.assertEqual(Elector.objects.get(dni="12345678").correo_electronico, "ana@example.com")
+        self.assertEqual(Elector.objects.get(dni="12345678").correo_electronico, "ana@frba.utn.edu.ar")
         self.assertEqual(confirmar_importacion(importacion), 0)
 
     def test_rechaza_formula_y_sede_fuera_del_alcance(self):
-        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n=12345678,1001,Ana,Perez,ana@example.com,K,Sede ajena\n"
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n=12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Sede ajena\n"
         resultado = validar_csv_padron(contenido, self.claustro)
 
         self.assertGreaterEqual(len(resultado.errores), 2)
@@ -432,7 +446,7 @@ class ImportacionPadronTests(TestCase):
         self.usuario.is_superuser = True
         self.usuario.save(update_fields=("is_superuser",))
         self.client.force_login(self.usuario)
-        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@example.com,K,Campus Medrano\n"
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano\n"
 
         respuesta = self.client.post(
             reverse("previsualizar-padron", args=(self.eleccion.id, self.claustro.id)),
@@ -445,17 +459,36 @@ class ImportacionPadronTests(TestCase):
     def test_divide_padron_alfabeticamente_segun_maximo_por_mesa(self):
         contenido = (
             b"dni,legajo,nombres,apellidos,mail,departamento,sede\n"
-            b"12345678,1003,Zoe,Alvarez,zoe@example.com,K,Campus Medrano\n"
-            b"12345679,1001,Ana,Perez,ana@example.com,K,Campus Medrano\n"
-            b"12345680,1002,Bruno,Gomez,bruno@example.com,K,Campus Medrano\n"
+            b"12345678,1003,Zoe,Alvarez,zoe@frba.utn.edu.ar,K,Campus Medrano\n"
+            b"12345679,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano\n"
+            b"12345680,1002,Bruno,Gomez,bruno@frba.utn.edu.ar,K,Campus Medrano\n"
         )
 
         confirmar_importacion(self.crear_importacion(contenido))
 
         mesas = list(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).order_by("numero"))
         self.assertEqual(len(mesas), 2)
-        self.assertEqual(list(mesas[0].asignaciones_padron.order_by("registro_padron__elector__nombre").values_list("registro_padron__elector__nombre", flat=True)), ["Ana Perez", "Bruno Gomez"])
-        self.assertEqual(list(mesas[1].asignaciones_padron.values_list("registro_padron__elector__nombre", flat=True)), ["Zoe Alvarez"])
+        self.assertEqual(
+            list(
+                mesas[0].asignaciones_padron.order_by(
+                    "registro_padron__elector__apellido",
+                    "registro_padron__elector__nombre",
+                ).values_list(
+                    "registro_padron__elector__apellido",
+                    "registro_padron__elector__nombre",
+                )
+            ),
+            [("Alvarez", "Zoe"), ("Gomez", "Bruno")],
+        )
+        self.assertEqual(
+            list(
+                mesas[1].asignaciones_padron.values_list(
+                    "registro_padron__elector__apellido",
+                    "registro_padron__elector__nombre",
+                )
+            ),
+            [("Perez", "Ana")],
+        )
 
 
 class AutoridadesMesaTests(TestCase):
@@ -467,10 +500,11 @@ class AutoridadesMesaTests(TestCase):
         sede = Sede.objects.create(nombre="Campus")
         turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
         EleccionTurno.objects.create(eleccion=self.eleccion, turno=turno)
+        self.turno = turno
         configuracion_a = EleccionClaustroDepartamento.objects.create(eleccion_claustro=claustro_a, departamento=Departamento.objects.create(nombre="Sistemas", codigo="K"))
         configuracion_b = EleccionClaustroDepartamento.objects.create(eleccion_claustro=claustro_b, departamento=Departamento.objects.create(nombre="Basicas", codigo="B"))
-        self.mesa_a = Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=configuracion_a, sede=sede, turno=turno)
-        self.mesa_b = Mesa.objects.create(eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=configuracion_b, sede=sede, turno=turno)
+        self.mesa_a = Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=configuracion_a, sede=sede)
+        self.mesa_b = Mesa.objects.create(eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=configuracion_b, sede=sede)
         elector = Elector.objects.create(dni="12345678", legajo="100", nombre="Ana Perez")
         self.padron = RegistroPadron.objects.create(elector=elector, eleccion=self.eleccion, eleccion_claustro_departamento=configuracion_a, sede=sede)
         self.usuario = get_user_model().objects.create_user(username="ana")
@@ -478,7 +512,7 @@ class AutoridadesMesaTests(TestCase):
         self.administrador = get_user_model().objects.create_superuser(username="admin", email="admin@example.com", password="clave")
 
     def test_asignacion_valida_sincroniza_el_rol_operativo(self):
-        asignacion, creada = asignar_autoridad(self.padron, self.mesa_a, self.administrador)
+        asignacion, creada = asignar_autoridad(self.padron, self.mesa_a, self.turno, self.administrador)
 
         self.assertTrue(creada)
         self.assertEqual(asignacion.estado, AsignacionAutoridad.Estado.PENDIENTE)
@@ -486,4 +520,4 @@ class AutoridadesMesaTests(TestCase):
 
     def test_rechaza_mesa_de_otro_claustro(self):
         with self.assertRaises(ValidationError):
-            asignar_autoridad(self.padron, self.mesa_b, self.administrador)
+            asignar_autoridad(self.padron, self.mesa_b, self.turno, self.administrador)

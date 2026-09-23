@@ -14,7 +14,6 @@ def gestionar_mesas(request, eleccion_id):
 
     mesas = eleccion.mesas.select_related(
         "sede",
-        "turno",
         "eleccion_claustro_departamento__eleccion_claustro__claustro",
         "eleccion_claustro_departamento__departamento",
     )
