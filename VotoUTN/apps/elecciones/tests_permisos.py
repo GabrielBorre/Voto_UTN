@@ -48,6 +48,7 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         self.assertContains(respuesta, "No corresponde al día de votación", count=2)
         self.assertNotContains(respuesta, "Turnos de trabajo")
         self.assertContains(respuesta, 'class="select-all"', count=2)
+        self.assertContains(respuesta, 'class="field checkbox-group"', count=2)
 
     def test_al_crear_eleccion_queda_asignado_como_administrador(self):
         inicio = timezone.localdate() + timedelta(days=30)
@@ -89,7 +90,7 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         )
 
         respuesta = self.client.post(
-            reverse("configurar-eleccion", args=(self.eleccion_asignada.pk,)),
+            reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),
             {
                 f"fecha_{definicion.pk}_seleccionada": "on",
                 f"fecha_{definicion.pk}_valor": self.eleccion_asignada.fecha_inicio.isoformat(),
@@ -98,7 +99,7 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
         self.assertRedirects(
             respuesta,
-            reverse("configurar-eleccion", args=(self.eleccion_asignada.pk,)),
+            reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),
             fetch_redirect_response=False,
         )
         self.assertTrue(
@@ -108,6 +109,19 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
                 fecha=self.eleccion_asignada.fecha_inicio,
             ).exists()
         )
+
+    def test_la_configuracion_enlaza_un_panel_independiente_de_fechas(self):
+        respuesta = self.client.get(
+            reverse("configurar-eleccion", args=(self.eleccion_asignada.pk,)),
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Fechas administrativas")
+        self.assertContains(
+            respuesta,
+            reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),
+        )
+        self.assertNotContains(respuesta, "Guardar fechas administrativas")
 
     def test_el_periodo_puede_comenzar_y_terminar_el_mismo_dia(self):
         eleccion = Eleccion(

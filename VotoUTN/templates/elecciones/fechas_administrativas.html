@@ -1,0 +1,33 @@
+{% extends "gestion/base.html" %}
+
+{% block title %}Fechas administrativas | {{ eleccion.nombre }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Fechas administrativas</h1>
+  <p>{{ eleccion.nombre }} · Configurá los hitos comprendidos entre el {{ eleccion.fecha_inicio|date:"d/m/Y" }} y el {{ eleccion.fecha_fin|date:"d/m/Y" }}.</p>
+</section>
+<section class="card form-card">
+  <div class="section-title">
+    <div><h2>Calendario administrativo</h2><p>Seleccioná los hitos aplicables e indicá la fecha de cada uno.</p></div>
+    <span class="tag">Calendario</span>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    {% for error in formulario_fechas.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+    {% for item in fechas_administrativas %}
+      <div class="date-option">
+        <div class="field field-checkbox">{{ item.seleccionada }}<label for="{{ item.seleccionada.id_for_label }}">{{ item.definicion.nombre }}</label></div>
+        <p class="muted">{{ item.definicion.roles_destinatarios_display }}. {{ item.definicion.get_modalidad_sugerida_display }}{% if item.definicion.descripcion %}. {{ item.definicion.descripcion }}{% endif %}</p>
+        <div class="field"><label for="{{ item.fecha.id_for_label }}">Fecha</label>{{ item.fecha }}{% for error in item.fecha.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>
+      </div>
+    {% empty %}
+      <p class="muted">No hay fechas administrativas activas configuradas.</p>
+    {% endfor %}
+    <div class="footer-actions">
+      <a class="button light" href="{% url 'configurar-eleccion' eleccion.id %}">Volver a configuración</a>
+      <button class="button primary" type="submit">Guardar fechas administrativas</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -1,7 +1,7 @@
 {% extends "gestion/base.html" %}
-{% block title %}Configuracion | {{ eleccion.nombre }}{% endblock %}
+{% block title %}Configuración | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero"><h1>Configuracion de eleccion</h1><p>{{ eleccion.nombre }} · {{ eleccion.get_estado_display }}</p></section>
+<section class="hero"><h1>Configuración de elección</h1><p>{{ eleccion.nombre }} · {{ eleccion.get_estado_display }}</p></section>
 <section class="toolbar">
   <article class="option"><h2>Datos generales</h2><p>Nombre y periodo completo del proceso electoral.</p><a class="button secondary" href="{% url 'editar-eleccion' eleccion.id %}">Editar datos</a></article>
   <article class="option"><h2>Sedes y departamentos</h2><p>Ajusta las sedes habilitadas para cada claustro y departamento.</p><a class="button secondary" href="{% url 'gestionar-alcances' eleccion.id %}">Gestionar alcances</a></article>
@@ -10,23 +10,7 @@
   <article class="option"><h2>Puestos, listas y candidaturas</h2><p>{{ cantidad_partidos }} presentaciones registradas. Configure puestos por alcance e importe las listas de la elección.</p><a class="button secondary" href="{% url 'gestionar-partidos' eleccion.id %}">Gestionar candidaturas</a></article>
   <article class="option"><h2>Justificativos</h2><p>Revise y resuelva las presentaciones de ausencia.</p><a class="button secondary" href="{% url 'gestionar-justificativos' eleccion.id %}">Revisar justificativos</a></article>
   <article class="option"><h2>Reportes</h2><p>Exporte información operativa de la elección.</p><a class="button secondary" href="{% url 'gestionar-reportes' eleccion.id %}">Ver reportes</a></article>
-</section>
-<section class="card form-card">
-  <div class="section-title"><div><h2>Fechas administrativas</h2><p>Configura los hitos que ocurren entre el {{ eleccion.fecha_inicio|date:"d/m/Y" }} y el {{ eleccion.fecha_fin|date:"d/m/Y" }}.</p></div><span class="tag">Calendario</span></div>
-  <form method="post">
-    {% csrf_token %}
-    {% for error in formulario_fechas.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
-    {% for item in fechas_administrativas %}
-      <div class="date-option">
-        <div class="field field-checkbox">{{ item.seleccionada }}<label for="{{ item.seleccionada.id_for_label }}">{{ item.definicion.nombre }}</label></div>
-        <p class="muted">{{ item.definicion.roles_destinatarios_display }}. {{ item.definicion.get_modalidad_sugerida_display }}{% if item.definicion.descripcion %}. {{ item.definicion.descripcion }}{% endif %}</p>
-        <div class="field"><label for="{{ item.fecha.id_for_label }}">Fecha</label>{{ item.fecha }}{% for error in item.fecha.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>
-      </div>
-    {% empty %}
-      <p class="muted">No hay fechas administrativas activas configuradas.</p>
-    {% endfor %}
-    <div class="footer-actions"><button class="button primary" type="submit">Guardar fechas administrativas</button></div>
-  </form>
+  <article class="option"><h2>Fechas administrativas</h2><p>{{ cantidad_fechas_administrativas }} hitos configurados dentro del período electoral.</p><a class="button secondary" href="{% url 'gestionar-fechas-administrativas' eleccion.id %}">Configurar fechas</a></article>
 </section>
 <section class="card"><div class="section-title"><div><h2>Mesas automaticas</h2><p>{{ cantidad_mesas }} mesas. Se generan al confirmar cada padrón, ordenando electores alfabéticamente y aplicando el máximo del claustro.</p></div><a class="button primary" href="{% url 'gestionar-mesas' eleccion.id %}">Ver mesas</a></div></section>
 <div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Volver a elecciones</a></div>

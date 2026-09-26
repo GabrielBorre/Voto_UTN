@@ -91,14 +91,6 @@ def configurar_eleccion(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
-    formulario_fechas = FormularioFechasAdministrativasEleccion(
-        request.POST or None,
-        eleccion=eleccion,
-    )
-    if request.method == "POST" and formulario_fechas.is_valid():
-        formulario_fechas.guardar()
-        messages.success(request, "Las fechas administrativas fueron actualizadas.")
-        return redirect("configurar-eleccion", eleccion_id=eleccion.id)
     return render(
         request,
         "elecciones/configurar_eleccion.html",
@@ -108,6 +100,29 @@ def configurar_eleccion(request, eleccion_id):
             "cantidad_mesas": eleccion.mesas.count(),
             "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),
             "cantidad_partidos": ParticipacionPartido.objects.filter(eleccion=eleccion, activa=True).count(),
+            "cantidad_fechas_administrativas": eleccion.fechas_administrativas.count(),
+        },
+    )
+
+
+@login_required
+def gestionar_fechas_administrativas(request, eleccion_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
+    formulario_fechas = FormularioFechasAdministrativasEleccion(
+        request.POST or None,
+        eleccion=eleccion,
+    )
+    if request.method == "POST" and formulario_fechas.is_valid():
+        formulario_fechas.guardar()
+        messages.success(request, "Las fechas administrativas fueron actualizadas.")
+        return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
+    return render(
+        request,
+        "elecciones/fechas_administrativas.html",
+        {
+            "eleccion": eleccion,
             "formulario_fechas": formulario_fechas,
             "fechas_administrativas": contexto_fechas_administrativas(formulario_fechas),
         },

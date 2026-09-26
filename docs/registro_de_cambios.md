@@ -595,3 +595,20 @@ Fecha de implementación: 2026-09-23
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate`: aplicó `autoridades.0003_turno_de_trabajo_en_autoridad` y `mesas.0002_remove_mesa_turno`.
 - `python manage.py test`: 114 pruebas correctas.
+
+## Ajustes visuales de creación y fechas administrativas
+
+Fecha de implementación: 2026-09-26
+
+- La selección de sedes y claustros en la creación de elecciones se presenta en una sola columna, sin recuadros individuales y con espacios uniformes.
+- La acción «Seleccionar todas» conserva su comportamiento, pero queda separada del estilo visual de las opciones.
+- Fechas administrativas se incorporó como una tarjeta del panel de configuración de la elección.
+- La edición del calendario administrativo se trasladó a una pantalla propia, con los mismos permisos, validaciones y datos existentes.
+- Se agregaron pruebas de regresión para la nueva estructura del selector y la navegación al panel independiente.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 115 pruebas correctas.

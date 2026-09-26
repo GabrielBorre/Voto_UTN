@@ -17,7 +17,7 @@
     {% for field in campos_generales %}{% include "elecciones/_campo_general.html" with field=field %}{% endfor %}
     <div class="section-title"><div><h2>Configuración inicial</h2><p>Elegí qué claustros participan y qué sedes estarán habilitadas. Después podrás ajustar las sedes para cada claustro y departamento.</p></div></div>
     {% for field in campos_parametros %}
-      <div class="field checkbox-list" data-checkbox-group="eleccion-{{ field.name }}">
+      <div class="field checkbox-group" data-checkbox-group="eleccion-{{ field.name }}">
         <div class="field-label-row">
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           <span class="select-all"><input type="checkbox" data-select-all aria-label="Seleccionar todas las opciones de {{ field.label|lower }}"><span>Seleccionar todas</span></span>

@@ -428,6 +428,23 @@ th {
     width: 16px;
 }
 
+.checkbox-group {
+    border-top: 1px solid var(--borde);
+    margin-top: 22px;
+    padding-top: 18px;
+}
+
+.checkbox-group .checkbox-list {
+    gap: 2px;
+    margin-top: 10px;
+}
+
+.checkbox-group .checkbox-list>div {
+    background: transparent;
+    border: 0;
+    padding: 7px 0;
+}
+
 .help-tip {
     align-items: center;
     border-radius: 50%;
