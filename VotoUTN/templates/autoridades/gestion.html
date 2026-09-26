@@ -73,5 +73,5 @@
     </tbody>
   </table>
 </div>
-<div class="footer-actions"><a class="button light" href="{% url 'configurar-eleccion' eleccion.id %}">Volver a configuración</a></div>
+{% include "elecciones/_volver_configuracion.html" %}
 {% endblock %}

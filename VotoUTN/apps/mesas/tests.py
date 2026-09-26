@@ -83,6 +83,8 @@ class MesasTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "mesas/gestion.html")
+        self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
+        self.assertContains(respuesta, "Volver a configuración", count=1)
 
         sin_permiso = get_user_model().objects.create_user(
             username="sin_permiso",

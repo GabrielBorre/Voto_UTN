@@ -612,3 +612,19 @@ Fecha de implementación: 2026-09-26
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 115 pruebas correctas.
+
+## Navegación interna de la configuración electoral
+
+Fecha de implementación: 2026-09-26
+
+- Las secciones principales de una elección regresan de forma consistente a su panel de configuración, sin redirigir al listado general.
+- La acción «Volver a configuración» aparece una sola vez, fuera de las tarjetas, al final de la pantalla y alineada con el borde derecho del contenido.
+- Los formularios de Datos generales y Fechas administrativas ubican su acción de guardado a la izquierda del regreso y mantienen ambas acciones alineadas con el ancho de la tarjeta.
+- Se incorporó un componente reutilizable para el regreso y pruebas de regresión en elecciones, mesas, autoridades, candidaturas, justificativos y reportes.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 117 pruebas correctas.

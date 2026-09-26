@@ -31,3 +31,5 @@ class JustificativosViewsTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "justificativos/gestion.html")
+        self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
+        self.assertContains(respuesta, "Volver a configuración", count=1)

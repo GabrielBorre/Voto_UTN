@@ -8,4 +8,5 @@
 <div class="section-title"><div><h2>Mesas creadas</h2><p>Detalle operativo de la elección.</p></div></div><div class="table-wrap"><table><thead><tr><th>Número</th><th>Claustro</th><th>Departamento</th><th>Sede</th><th>Origen</th></tr></thead><tbody>
 {% for mesa in mesas %}<tr><td>{{ mesa.numero }}</td><td>{{ mesa.eleccion_claustro_departamento.eleccion_claustro.claustro }}</td><td>{{ mesa.eleccion_claustro_departamento.departamento }}</td><td>{{ mesa.sede }}</td><td>{% if mesa.generada_automaticamente %}Padrón{% else %}Manual{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="muted">Todavía no hay mesas; se crean al confirmar un padrón válido.</td></tr>{% endfor %}
 </tbody></table></div>
+{% include "elecciones/_volver_configuracion.html" %}
 {% endblock %}

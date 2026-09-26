@@ -123,6 +123,49 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         )
         self.assertNotContains(respuesta, "Guardar fechas administrativas")
 
+    def test_las_secciones_principales_vuelven_a_la_configuracion(self):
+        rutas = (
+            reverse("editar-eleccion", args=(self.eleccion_asignada.pk,)),
+            reverse("gestionar-alcances", args=(self.eleccion_asignada.pk,)),
+            reverse("preparar-eleccion", args=(self.eleccion_asignada.pk,)),
+            reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),
+        )
+        destino = reverse("configurar-eleccion", args=(self.eleccion_asignada.pk,))
+
+        for ruta in rutas:
+            with self.subTest(ruta=ruta):
+                respuesta = self.client.get(ruta)
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertContains(respuesta, destino)
+                self.assertContains(respuesta, "Volver a configuración", count=1)
+                self.assertNotContains(respuesta, "← Volver a configuración")
+
+    def test_los_formularios_alinean_guardar_antes_de_volver(self):
+        casos = (
+            (
+                reverse("editar-eleccion", args=(self.eleccion_asignada.pk,)),
+                'form="formulario-datos-generales"',
+                "Guardar cambios",
+            ),
+            (
+                reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),
+                'form="formulario-fechas-administrativas"',
+                "Guardar fechas administrativas",
+            ),
+        )
+
+        for ruta, atributo_formulario, texto_guardar in casos:
+            with self.subTest(ruta=ruta):
+                respuesta = self.client.get(ruta)
+                contenido = respuesta.content.decode()
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertContains(respuesta, 'class="section-actions form-card-actions"')
+                self.assertContains(respuesta, atributo_formulario)
+                self.assertLess(
+                    contenido.index(texto_guardar),
+                    contenido.index("Volver a configuración"),
+                )
+
     def test_el_periodo_puede_comenzar_y_terminar_el_mismo_dia(self):
         eleccion = Eleccion(
             nombre="Proceso de un dia",

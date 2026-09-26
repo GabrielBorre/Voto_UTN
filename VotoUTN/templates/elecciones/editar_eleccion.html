@@ -3,11 +3,14 @@
 {% block content %}
 <section class="hero"><h1>Editar eleccion</h1><p>Actualiza el nombre y el periodo completo de {{ eleccion.nombre }}.</p></section>
 <section class="card form-card">
-  <form method="post">
+  <form id="formulario-datos-generales" method="post">
     {% csrf_token %}
     {% for field in campos_generales %}{% include "elecciones/_campo_general.html" with field=field %}{% endfor %}
     {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
-    <div class="footer-actions"><a class="button light" href="{% url 'configurar-eleccion' eleccion.id %}">Cancelar</a><button class="button primary">Guardar cambios</button></div>
   </form>
 </section>
+<div class="section-actions form-card-actions">
+  <button class="button primary" type="submit" form="formulario-datos-generales">Guardar cambios</button>
+  <a class="button light" href="{% url 'configurar-eleccion' eleccion.id %}">Volver a configuración</a>
+</div>
 {% endblock %}
