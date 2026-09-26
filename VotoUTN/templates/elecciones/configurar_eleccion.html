@@ -2,7 +2,7 @@
 {% block title %}Configuración | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
 <section class="hero"><h1>Configuración de elección</h1><p>{{ eleccion.nombre }} · {{ eleccion.get_estado_display }}</p></section>
-<section class="toolbar">
+<section class="toolbar configuration-grid">
   <article class="option"><h2>Datos generales</h2><p>Nombre y periodo completo del proceso electoral.</p><a class="button secondary" href="{% url 'editar-eleccion' eleccion.id %}">Editar datos</a></article>
   <article class="option"><h2>Sedes y departamentos</h2><p>Ajusta las sedes habilitadas para cada claustro y departamento.</p><a class="button secondary" href="{% url 'gestionar-alcances' eleccion.id %}">Gestionar alcances</a></article>
   <article class="option"><h2>Padrones</h2><p>{{ cantidad_padrones }} electores registrados. Configura claustros e importa CSV.</p><a class="button secondary" href="{% url 'preparar-eleccion' eleccion.id %}">Gestionar padrones</a></article>

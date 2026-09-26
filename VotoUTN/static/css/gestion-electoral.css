@@ -184,6 +184,29 @@
     margin-bottom: 28px;
 }
 
+.configuration-grid {
+    align-items: stretch;
+    grid-auto-rows: 1fr;
+}
+
+.configuration-grid .option {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 200px;
+}
+
+.configuration-grid .option p {
+    margin: 0 0 18px;
+}
+
+.configuration-grid .option>.button {
+    align-self: stretch;
+    margin-top: auto;
+    text-align: center;
+    width: 100%;
+}
+
 .grid-1 {
     display: grid;
     gap: 18px;
@@ -779,6 +802,14 @@ table td:last-child {
     .summary-grid,
     .summary {
         grid-template-columns: 1fr;
+    }
+
+    .configuration-grid {
+        grid-auto-rows: auto;
+    }
+
+    .configuration-grid .option {
+        min-height: 0;
     }
 
     .row,

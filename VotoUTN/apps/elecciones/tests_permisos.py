@@ -117,6 +117,9 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Fechas administrativas")
+        self.assertContains(respuesta, 'class="toolbar configuration-grid"')
+        self.assertContains(respuesta, 'class="option"', count=8)
+        self.assertContains(respuesta, 'class="button secondary"', count=8)
         self.assertContains(
             respuesta,
             reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),

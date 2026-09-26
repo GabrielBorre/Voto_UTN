@@ -628,3 +628,19 @@ Fecha de implementación: 2026-09-26
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 117 pruebas correctas.
+
+## Tarjetas uniformes del panel de configuración
+
+Fecha de implementación: 2026-09-26
+
+- Las ocho tarjetas principales del panel de configuración utilizan una grilla visual específica, sin alterar otros paneles del sistema.
+- En escritorio comparten altura y distribución interna entre ambas filas.
+- Las acciones tienen ancho uniforme y se alinean al borde inferior de cada tarjeta.
+- En pantallas móviles las tarjetas recuperan su altura natural para evitar espacios vacíos.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 117 pruebas correctas.
