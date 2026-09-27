@@ -83,7 +83,15 @@ def bandeja_justificativos(request):
 
 @login_required
 def resolver_justificativo(request, justificativo_id):
-    justificativo = get_object_or_404(JustificativoAusencia.objects.select_related("registro_padron__eleccion"), pk=justificativo_id)
+    justificativo = get_object_or_404(
+        JustificativoAusencia.objects.select_related(
+            "registro_padron__eleccion",
+            "registro_padron__elector",
+            "tipo",
+            "resuelta_por",
+        ),
+        pk=justificativo_id,
+    )
     if not puede_revisar_justificativo(request.user, justificativo.registro_padron.eleccion):
         return HttpResponseForbidden("No tiene permiso para resolver este justificativo.")
     formulario = FormularioResolucionJustificativo(request.POST or None)

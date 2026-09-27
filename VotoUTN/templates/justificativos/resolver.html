@@ -1,2 +1,73 @@
 {% extends "gestion/base.html" %}
-{% block content %}<section class="hero"><h1>Resolver justificativo</h1><p>{{ justificativo.registro_padron.elector.nombre_completo }} · {{ justificativo.tipo }}</p></section><section class="card form-card"><p>{{ justificativo.detalle }}</p><form method="post">{% csrf_token %}{% for field in formulario %}<div class="field"><label>{{ field.label }}</label>{{ field }}</div>{% endfor %}<div class="footer-actions"><button class="button primary">Guardar resolución</button></div></form></section>{% endblock %}
+
+{% block title %}Revisar justificativo | {{ justificativo.registro_padron.eleccion.nombre }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Revisar justificativo</h1>
+  <p>{{ justificativo.registro_padron.eleccion.nombre }}. Revisá la solicitud antes de registrar su resolución.</p>
+</section>
+
+<section class="card form-card">
+  <div class="section-title">
+    <div>
+      <h2>Solicitud presentada</h2>
+      <p>{{ justificativo.registro_padron.elector.nombre_completo }}</p>
+    </div>
+    {% if justificativo.estado == "pendiente" %}
+      <span class="pill info">Pendiente</span>
+    {% elif justificativo.estado == "aprobado" %}
+      <span class="pill ok">Aprobado</span>
+    {% else %}
+      <span class="pill danger">Rechazado</span>
+    {% endif %}
+  </div>
+
+  <div class="request-summary">
+    <div class="request-summary-item">
+      <span>Motivo</span>
+      <strong>{{ justificativo.tipo }}</strong>
+    </div>
+    <div class="request-summary-item">
+      <span>Presentado</span>
+      <strong>{{ justificativo.presentada_en|date:"d/m/Y H:i" }}</strong>
+    </div>
+    <div class="request-summary-item full-width">
+      <span>Detalle</span>
+      <div>{{ justificativo.detalle|linebreaksbr }}</div>
+    </div>
+    <div class="request-summary-item full-width">
+      <span>Documento</span>
+      {% if justificativo.documento %}
+        <a class="button light small" href="{{ justificativo.documento.url }}">Ver documento adjunto</a>
+      {% else %}
+        <span class="muted">No se adjuntó documentación.</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="section-title">
+    <div>
+      <h2>Resolución</h2>
+      <p>Seleccioná el resultado y agregá una observación cuando sea necesario.</p>
+    </div>
+  </div>
+
+  <form id="formulario-resolucion-justificativo" method="post">
+    {% csrf_token %}
+    {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+    {% for field in formulario %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+    {% endfor %}
+  </form>
+</section>
+
+<div class="section-actions form-card-actions">
+  <button class="button primary" type="submit" form="formulario-resolucion-justificativo">Guardar resolución</button>
+  <a class="button light" href="{% url 'gestionar-justificativos' justificativo.registro_padron.eleccion.id %}">Volver a justificativos</a>
+</div>
+{% endblock %}
