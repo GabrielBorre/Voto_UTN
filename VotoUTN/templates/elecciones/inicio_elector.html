@@ -51,13 +51,5 @@
   </div>
   {% endfor %}
 
-  <div class="card">
-    <h2>Gestiones</h2>
-    <p><a class="btn primary" href="{% url 'mis-justificativos' %}">Mis justificativos</a></p>
-    <p><a class="btn primary" href="{% url 'mis-notificaciones' %}">Mis notificaciones</a></p>
-    {% if es_autoridad %}
-    <p><a class="btn primary" href="{% url 'mis-asignaciones-autoridad' %}">Mis asignaciones de autoridad</a></p>
-    {% endif %}
-  </div>
 </section>
 {% endblock %}
