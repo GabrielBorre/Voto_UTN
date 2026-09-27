@@ -8,6 +8,7 @@ from .views import (
     gestionar_elecciones,
     gestionar_fechas_administrativas,
     gestionar_alcances,
+    gestionar_departamentos_claustro,
     preparar_claustro,
     preparar_eleccion,
     historial_elecciones,
@@ -34,5 +35,10 @@ urlpatterns = [
     ),
     path("gestion/elecciones/<int:eleccion_id>/estado/", cambiar_estado_eleccion, name="cambiar-estado-eleccion"),
     path("gestion/elecciones/<int:eleccion_id>/alcances/", gestionar_alcances, name="gestionar-alcances"),
+    path(
+        "gestion/elecciones/<int:eleccion_id>/alcances/claustros/<int:claustro_id>/departamentos/",
+        gestionar_departamentos_claustro,
+        name="gestionar-departamentos-claustro",
+    ),
     path("gestion/elecciones/<int:eleccion_id>/alcances/<str:tipo>/<int:objeto_id>/", editar_alcance_sedes, name="editar-alcance-sedes"),
 ]

@@ -5,8 +5,17 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.elecciones.models import Eleccion, FechaAdministrativaEleccion
-from apps.parametros.models import Claustro, FechaAdministrativa, Sede, Turno
+from apps.elecciones.models import (
+    Eleccion,
+    EleccionClaustro,
+    EleccionClaustroDepartamento,
+    EleccionClaustroDepartamentoSede,
+    EleccionClaustroSede,
+    EleccionSede,
+    FechaAdministrativaEleccion,
+)
+from apps.mesas.models import Mesa
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.usuarios.models import AsignacionRol
 
 
@@ -168,6 +177,195 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
                     contenido.index(texto_guardar),
                     contenido.index("Volver a configuración"),
                 )
+
+    def test_nueva_eleccion_copia_la_organizacion_del_claustro(self):
+        claustro_sin_departamentos = Claustro.objects.create(
+            nombre="No docentes",
+            abreviatura="ND",
+            organizacion_departamentos=Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO,
+            activo=True,
+        )
+        inicio = timezone.localdate() + timedelta(days=30)
+
+        respuesta = self.client.post(
+            reverse("crear-eleccion"),
+            {
+                "nombre": "Elección sin distinción departamental",
+                "fecha_inicio": inicio.isoformat(),
+                "fecha_fin": inicio.isoformat(),
+                "sedes": [self.sede.pk],
+                "claustros": [claustro_sin_departamentos.pk],
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        configuracion = EleccionClaustro.objects.get(
+            eleccion__nombre="Elección sin distinción departamental",
+            claustro=claustro_sin_departamentos,
+        )
+        self.assertEqual(
+            configuracion.organizacion_departamentos,
+            Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO,
+        )
+        alcance = configuracion.departamentos.get()
+        self.assertIsNone(alcance.departamento)
+        self.assertEqual(
+            set(alcance.sedes_habilitadas.values_list("sede_id", flat=True)),
+            {self.sede.pk},
+        )
+
+    def test_claustro_sin_departamentos_muestra_un_alcance_interno(self):
+        EleccionSede.objects.create(eleccion=self.eleccion_asignada, sede=self.sede)
+        eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion_asignada,
+            claustro=self.claustro,
+            organizacion_departamentos=Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO,
+        )
+        EleccionClaustroSede.objects.create(eleccion_claustro=eleccion_claustro, sede=self.sede)
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=eleccion_claustro,
+            departamento=None,
+        )
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=alcance,
+            sede=self.sede,
+        )
+
+        respuesta = self.client.get(reverse("gestionar-alcances", args=(self.eleccion_asignada.pk,)))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Sin distinción por departamento")
+        self.assertNotContains(respuesta, "Gestionar departamentos")
+        self.assertContains(
+            respuesta,
+            reverse(
+                "editar-alcance-sedes",
+                args=(self.eleccion_asignada.pk, "departamento", alcance.pk),
+            ),
+        )
+
+    def test_gestiona_departamentos_del_claustro_y_hereda_sus_sedes(self):
+        EleccionSede.objects.create(eleccion=self.eleccion_asignada, sede=self.sede)
+        eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion_asignada,
+            claustro=self.claustro,
+        )
+        EleccionClaustroSede.objects.create(eleccion_claustro=eleccion_claustro, sede=self.sede)
+        sistemas = Departamento.objects.create(nombre="Sistemas", codigo="SIS", activo=True)
+        mecanica = Departamento.objects.create(nombre="Mecánica", codigo="MEC", activo=True)
+        ruta = reverse(
+            "gestionar-departamentos-claustro",
+            args=(self.eleccion_asignada.pk, eleccion_claustro.pk),
+        )
+
+        formulario = self.client.get(ruta)
+        respuesta = self.client.post(
+            ruta,
+            {"departamentos": [sistemas.pk, mecanica.pk]},
+        )
+
+        self.assertContains(formulario, 'data-select-all="departamentos-claustro"')
+        self.assertContains(formulario, 'form="formulario-departamentos-claustro"')
+        self.assertRedirects(
+            respuesta,
+            reverse("gestionar-alcances", args=(self.eleccion_asignada.pk,)),
+            fetch_redirect_response=False,
+        )
+        configuraciones = eleccion_claustro.departamentos.all()
+        self.assertEqual(configuraciones.count(), 2)
+        self.assertTrue(
+            all(
+                configuracion.sedes_habilitadas.filter(sede=self.sede).exists()
+                for configuracion in configuraciones
+            )
+        )
+
+    def test_no_permite_quitar_un_departamento_utilizado_por_una_mesa(self):
+        EleccionSede.objects.create(eleccion=self.eleccion_asignada, sede=self.sede)
+        eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion_asignada,
+            claustro=self.claustro,
+        )
+        EleccionClaustroSede.objects.create(eleccion_claustro=eleccion_claustro, sede=self.sede)
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="SIS", activo=True)
+        configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=eleccion_claustro,
+            departamento=departamento,
+        )
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=configuracion,
+            sede=self.sede,
+        )
+        Mesa.objects.create(
+            eleccion=self.eleccion_asignada,
+            numero=1,
+            eleccion_claustro_departamento=configuracion,
+            sede=self.sede,
+        )
+
+        respuesta = self.client.post(
+            reverse(
+                "gestionar-departamentos-claustro",
+                args=(self.eleccion_asignada.pk, eleccion_claustro.pk),
+            ),
+            {"departamentos": []},
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "No se pueden quitar departamentos")
+        self.assertTrue(EleccionClaustroDepartamento.objects.filter(pk=configuracion.pk).exists())
+
+    def test_sedes_y_departamentos_organiza_cada_claustro_en_una_tarjeta(self):
+        EleccionSede.objects.create(eleccion=self.eleccion_asignada, sede=self.sede)
+        eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion_asignada,
+            claustro=self.claustro,
+        )
+        EleccionClaustroSede.objects.create(eleccion_claustro=eleccion_claustro, sede=self.sede)
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="SIS", activo=True)
+        alcance_departamento = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=eleccion_claustro,
+            departamento=departamento,
+        )
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=alcance_departamento,
+            sede=self.sede,
+        )
+
+        respuesta = self.client.get(reverse("gestionar-alcances", args=(self.eleccion_asignada.pk,)))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'class="management-panel scopes-panel"')
+        self.assertContains(respuesta, 'class="card management-section"', count=1)
+        self.assertContains(respuesta, "Gestionar sedes del claustro")
+        self.assertContains(respuesta, "Sistemas")
+        self.assertContains(respuesta, "Gestionar sedes")
+
+    def test_editar_sedes_alinea_guardar_y_volver_fuera_de_la_tarjeta(self):
+        EleccionSede.objects.create(eleccion=self.eleccion_asignada, sede=self.sede)
+        eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion_asignada,
+            claustro=self.claustro,
+        )
+        EleccionClaustroSede.objects.create(eleccion_claustro=eleccion_claustro, sede=self.sede)
+
+        respuesta = self.client.get(
+            reverse(
+                "editar-alcance-sedes",
+                args=(self.eleccion_asignada.pk, "claustro", eleccion_claustro.pk),
+            )
+        )
+        contenido = respuesta.content.decode()
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'id="formulario-alcance-sedes"')
+        self.assertContains(respuesta, 'data-select-all="alcance-sedes"')
+        self.assertContains(respuesta, 'class="section-actions form-card-actions"')
+        self.assertContains(respuesta, 'form="formulario-alcance-sedes"')
+        self.assertLess(
+            contenido.index("Guardar sedes"),
+            contenido.index("Volver a sedes y departamentos"),
+        )
 
     def test_el_periodo_puede_comenzar_y_terminar_el_mismo_dia(self):
         eleccion = Eleccion(

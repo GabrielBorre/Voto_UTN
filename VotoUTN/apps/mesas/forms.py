@@ -11,7 +11,7 @@ from apps.parametros.models import Sede
 class FormularioGenerarMesas(forms.Form):
     configuracion = forms.ModelChoiceField(
         queryset=EleccionClaustroDepartamento.objects.none(),
-        label="Claustro y departamento",
+        label="Claustro y alcance",
     )
     sede = forms.ModelChoiceField(queryset=Sede.objects.none())
     cantidad = forms.IntegerField(min_value=1, max_value=500, initial=1)
@@ -39,7 +39,7 @@ class FormularioGenerarMesas(forms.Form):
         ).exists():
             self.add_error(
                 "sede",
-                "La sede no esta habilitada para el departamento seleccionado.",
+                "La sede no está habilitada para el alcance seleccionado.",
             )
         return cleaned_data
 

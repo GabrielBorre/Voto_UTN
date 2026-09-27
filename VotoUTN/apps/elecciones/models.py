@@ -83,6 +83,11 @@ class EleccionSede(models.Model):
 class EleccionClaustro(models.Model):
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="elecciones_claustro")
     claustro = models.ForeignKey(Claustro, on_delete=models.PROTECT, related_name="elecciones_claustro")
+    organizacion_departamentos = models.CharField(
+        max_length=24,
+        choices=Claustro.OrganizacionDepartamentos.choices,
+        default=Claustro.OrganizacionDepartamentos.POR_DEPARTAMENTO,
+    )
     fecha_votacion = models.DateField(null=True, blank=True)
     maximo_votantes_por_mesa = models.PositiveIntegerField(null=True, blank=True)
 
@@ -116,10 +121,34 @@ class EleccionClaustroSede(models.Model):
 
 class EleccionClaustroDepartamento(models.Model):
     eleccion_claustro = models.ForeignKey(EleccionClaustro, on_delete=models.PROTECT, related_name="departamentos")
-    departamento = models.ForeignKey(Departamento, on_delete=models.PROTECT, related_name="elecciones_claustro_departamento")
+    departamento = models.ForeignKey(
+        Departamento,
+        on_delete=models.PROTECT,
+        related_name="elecciones_claustro_departamento",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=("eleccion_claustro", "departamento"), name="departamento_unico_por_claustro")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("eleccion_claustro", "departamento"),
+                condition=models.Q(departamento__isnull=False),
+                name="departamento_unico_por_claustro",
+            ),
+            models.UniqueConstraint(
+                fields=("eleccion_claustro",),
+                condition=models.Q(departamento__isnull=True),
+                name="alcance_sin_departamento_unico_por_claustro",
+            ),
+        ]
+
+    @property
+    def nombre_alcance(self):
+        return str(self.departamento) if self.departamento_id else "Sin distinción por departamento"
+
+    def __str__(self):
+        return f"{self.eleccion_claustro.claustro} / {self.nombre_alcance}"
 
 
 class EleccionClaustroDepartamentoSede(models.Model):

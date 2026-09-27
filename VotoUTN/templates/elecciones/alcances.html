@@ -1,16 +1,81 @@
 {% extends "gestion/base.html" %}
-{% block title %}Alcances | {{ eleccion.nombre }}{% endblock %}
+{% block title %}Sedes y departamentos | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero"><h1>Alcances de sedes</h1><p>{{ eleccion.nombre }}. Cada claustro y departamento hereda las sedes iniciales, que pueden ajustarse de forma controlada.</p></section>
-{% for configuracion in claustros %}
-  <section class="card">
-    <div class="section-title"><div><h2>{{ configuracion.claustro }}</h2><p>Sedes habilitadas para el claustro.</p></div><a class="button secondary" href="{% url 'editar-alcance-sedes' eleccion.id 'claustro' configuracion.id %}">Ajustar sedes</a></div>
-    {% for departamento in configuracion.departamentos.all %}<div class="option"><h2>{{ departamento.departamento }}</h2><p>Configuracion particular del departamento.</p><a class="button light" href="{% url 'editar-alcance-sedes' eleccion.id 'departamento' departamento.id %}">Ajustar sedes</a></div>{% endfor %}
-  </section>
-{% empty %}
-  <section class="card">
-    <p class="muted">No hay claustros configurados para esta elección.</p>
-  </section>
-{% endfor %}
+<section class="hero">
+  <h1>Sedes y departamentos</h1>
+  <p>{{ eleccion.nombre }}. Definí las sedes habilitadas para cada claustro y, cuando corresponda, sus departamentos.</p>
+</section>
+
+<div class="management-panel scopes-panel">
+  {% for configuracion in claustros %}
+    <section class="card management-section">
+      <div class="section-title">
+        <div>
+          <h2>{{ configuracion.claustro }}</h2>
+          {% if configuracion.organizacion_departamentos == "sin_departamento" %}
+            <p>Este claustro se gestiona sin distinción por departamento.</p>
+          {% else %}
+            <p>Alcance general del claustro y configuración particular por departamento.</p>
+          {% endif %}
+        </div>
+        <div class="scope-heading-actions">
+          <span class="scope-count">{{ configuracion.sedes_habilitadas.count }} sede{{ configuracion.sedes_habilitadas.count|pluralize:"s" }} habilitada{{ configuracion.sedes_habilitadas.count|pluralize:"s" }}</span>
+          <div class="scope-heading-buttons">
+            {% if configuracion.organizacion_departamentos != "sin_departamento" %}
+              <a class="button light" href="{% url 'gestionar-departamentos-claustro' eleccion.id configuracion.id %}">Gestionar departamentos</a>
+            {% endif %}
+            <a class="button secondary" href="{% url 'editar-alcance-sedes' eleccion.id 'claustro' configuracion.id %}">Gestionar sedes del claustro</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Departamento</th>
+              <th>Sedes habilitadas</th>
+              <th class="actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if configuracion.organizacion_departamentos == "sin_departamento" %}
+              {% for alcance in configuracion.departamentos.all %}
+                <tr>
+                  <td><strong>{{ alcance.nombre_alcance }}</strong></td>
+                  <td>{{ alcance.sedes_habilitadas.count }}</td>
+                  <td class="actions">
+                    <a class="button light small" href="{% url 'editar-alcance-sedes' eleccion.id 'departamento' alcance.id %}">Gestionar sedes</a>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="3" class="muted">El alcance interno todavía no fue creado.</td></tr>
+              {% endfor %}
+            {% else %}
+              {% for departamento in configuracion.departamentos.all %}
+                <tr>
+                  <td><strong>{{ departamento.nombre_alcance }}</strong></td>
+                  <td>{{ departamento.sedes_habilitadas.count }}</td>
+                  <td class="actions">
+                    <a class="button light small" href="{% url 'editar-alcance-sedes' eleccion.id 'departamento' departamento.id %}">Gestionar sedes</a>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="3" class="muted">Todavía no seleccionaste departamentos para este claustro.</td>
+                </tr>
+              {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% empty %}
+    <section class="card management-section">
+      <p class="muted">No hay claustros configurados para esta elección.</p>
+    </section>
+  {% endfor %}
+</div>
+
 {% include "elecciones/_volver_configuracion.html" %}
 {% endblock %}

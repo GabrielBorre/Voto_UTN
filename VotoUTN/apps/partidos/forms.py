@@ -23,7 +23,7 @@ class CampoClaustro(forms.ModelChoiceField):
 
 class CampoDepartamento(forms.ModelChoiceField):
     def label_from_instance(self, objeto):
-        return f"{objeto.eleccion_claustro.claustro} / {objeto.departamento}"
+        return str(objeto)
 
 
 class CampoMultipleClaustro(forms.ModelMultipleChoiceField):
@@ -152,6 +152,7 @@ class FormularioPuestoEleccion(forms.ModelForm):
         ).select_related("claustro")
         self.fields["eleccion_claustro_departamento"].queryset = EleccionClaustroDepartamento.objects.filter(
             eleccion_claustro__eleccion=eleccion,
+            departamento__isnull=False,
         ).select_related("eleccion_claustro__claustro", "departamento")
         self.fields["eleccion_claustro_departamento"].required = False
         self.fields["puesto"].label = "Puesto a habilitar"

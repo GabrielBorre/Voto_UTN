@@ -59,10 +59,31 @@ class FormularioEleccion(forms.ModelForm):
             [EleccionSede(eleccion=eleccion, sede=sede) for sede in sedes]
         )
         for claustro in self.cleaned_data["claustros"]:
-            eleccion_claustro = EleccionClaustro.objects.create(eleccion=eleccion, claustro=claustro)
+            eleccion_claustro = EleccionClaustro.objects.create(
+                eleccion=eleccion,
+                claustro=claustro,
+                organizacion_departamentos=claustro.organizacion_departamentos,
+            )
             EleccionClaustroSede.objects.bulk_create(
                 [EleccionClaustroSede(eleccion_claustro=eleccion_claustro, sede=sede) for sede in sedes]
             )
+            if (
+                claustro.organizacion_departamentos
+                == Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO
+            ):
+                alcance = EleccionClaustroDepartamento.objects.create(
+                    eleccion_claustro=eleccion_claustro,
+                    departamento=None,
+                )
+                EleccionClaustroDepartamentoSede.objects.bulk_create(
+                    [
+                        EleccionClaustroDepartamentoSede(
+                            eleccion_claustro_departamento=alcance,
+                            sede=sede,
+                        )
+                        for sede in sedes
+                    ]
+                )
         return eleccion
 
 
@@ -189,6 +210,82 @@ class FormularioAlcanceSedes(forms.Form):
             for sede_id in nuevas:
                 EleccionClaustroDepartamentoSede.objects.get_or_create(eleccion_claustro_departamento=self.objeto, sede_id=sede_id)
             EleccionClaustroDepartamentoSede.objects.filter(eleccion_claustro_departamento=self.objeto, sede_id__in=removidas).delete()
+
+
+class FormularioDepartamentosClaustro(forms.Form):
+    departamentos = forms.ModelMultipleChoiceField(
+        queryset=Departamento.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Departamentos habilitados",
+    )
+
+    def __init__(self, *args, eleccion_claustro, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eleccion_claustro = eleccion_claustro
+        actuales = eleccion_claustro.departamentos.filter(
+            departamento__isnull=False,
+        ).values_list("departamento_id", flat=True)
+        self.fields["departamentos"].queryset = Departamento.objects.filter(
+            Q(activo=True)
+            | Q(elecciones_claustro_departamento__eleccion_claustro=eleccion_claustro)
+        ).distinct()
+        self.fields["departamentos"].initial = actuales
+        self.fields["departamentos"].widget.attrs["class"] = "checkbox-list"
+
+    def clean_departamentos(self):
+        seleccionados = self.cleaned_data["departamentos"]
+        ids_seleccionados = set(seleccionados.values_list("id", flat=True))
+        configuraciones_removidas = self.eleccion_claustro.departamentos.filter(
+            departamento__isnull=False,
+        ).exclude(departamento_id__in=ids_seleccionados)
+        departamentos_en_uso = []
+        for configuracion in configuraciones_removidas.select_related("departamento"):
+            if any(
+                relacion.exists()
+                for relacion in (
+                    configuracion.mesas,
+                    configuracion.registros_padron,
+                    configuracion.puestos_electivos,
+                    configuracion.listas_candidatos,
+                )
+            ):
+                departamentos_en_uso.append(str(configuracion.departamento))
+        if departamentos_en_uso:
+            raise forms.ValidationError(
+                "No se pueden quitar departamentos con padrón, mesas, puestos o listas asociados: "
+                + ", ".join(departamentos_en_uso)
+                + "."
+            )
+        return seleccionados
+
+    @transaction.atomic
+    def guardar(self):
+        seleccionados = set(self.cleaned_data["departamentos"].values_list("id", flat=True))
+        configuraciones = self.eleccion_claustro.departamentos.filter(departamento__isnull=False)
+        actuales = set(configuraciones.values_list("departamento_id", flat=True))
+
+        sedes = list(self.eleccion_claustro.sedes_habilitadas.values_list("sede_id", flat=True))
+        for departamento_id in seleccionados - actuales:
+            configuracion = EleccionClaustroDepartamento.objects.create(
+                eleccion_claustro=self.eleccion_claustro,
+                departamento_id=departamento_id,
+            )
+            EleccionClaustroDepartamentoSede.objects.bulk_create(
+                [
+                    EleccionClaustroDepartamentoSede(
+                        eleccion_claustro_departamento=configuracion,
+                        sede_id=sede_id,
+                    )
+                    for sede_id in sedes
+                ]
+            )
+
+        removidas = configuraciones.filter(departamento_id__in=actuales - seleccionados)
+        EleccionClaustroDepartamentoSede.objects.filter(
+            eleccion_claustro_departamento__in=removidas,
+        ).delete()
+        removidas.delete()
 
 
 class FormularioPrepararClaustro(forms.ModelForm):

@@ -19,7 +19,11 @@
       <div class="option-summary">
         <p><strong>Fecha de votación:</strong> {{ item.fecha_votacion|date:"d/m/Y"|default:"Pendiente" }}</p>
         <p><strong>Máximo por mesa:</strong> {{ item.maximo_votantes_por_mesa|default:"Pendiente" }}</p>
-        <p><strong>{{ item.departamentos.count }}</strong> departamentos</p>
+        {% if item.organizacion_departamentos == "sin_departamento" %}
+          <p><strong>Sin distinción</strong> por departamento</p>
+        {% else %}
+          <p><strong>{{ item.departamentos.count }}</strong> departamentos</p>
+        {% endif %}
         <p><strong>{{ item.importaciones_padron.count }}</strong> importaciones</p>
       </div>
       <a class="button primary" href="{% url 'previsualizar-padron' eleccion.id item.id %}">Gestionar padrón</a>

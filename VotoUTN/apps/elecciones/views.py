@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from .forms import (
     FormularioAlcanceSedes,
+    FormularioDepartamentosClaustro,
     FormularioEleccion,
     FormularioEditarEleccion,
     FormularioFechasAdministrativasEleccion,
@@ -17,6 +18,7 @@ from apps.autoridades.models import AsignacionAutoridad
 from apps.auditoria.services import registrar_evento
 from apps.partidos.models import ParticipacionPartido
 from apps.padron.models import RegistroPadron
+from apps.parametros.models import Claustro
 from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import elecciones_con_participacion
 from apps.usuarios.permisos import puede_administrar_elecciones
@@ -221,7 +223,48 @@ def gestionar_alcances(request, eleccion_id):
         "elecciones/alcances.html",
         {
             "eleccion": eleccion,
-            "claustros": eleccion.elecciones_claustro.select_related("claustro").prefetch_related("departamentos__departamento"),
+            "claustros": eleccion.elecciones_claustro.select_related("claustro").prefetch_related(
+                "sedes_habilitadas__sede",
+                "departamentos__departamento",
+                "departamentos__sedes_habilitadas__sede",
+            ),
+        },
+    )
+
+
+@login_required
+def gestionar_departamentos_claustro(request, eleccion_id, claustro_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
+    if eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
+        return HttpResponseForbidden("No se pueden modificar alcances en una eleccion abierta o cerrada.")
+    eleccion_claustro = get_object_or_404(
+        EleccionClaustro.objects.select_related("claustro"),
+        pk=claustro_id,
+        eleccion=eleccion,
+    )
+    if (
+        eleccion_claustro.organizacion_departamentos
+        == Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO
+    ):
+        return HttpResponseForbidden("Este claustro no se organiza por departamentos.")
+
+    formulario = FormularioDepartamentosClaustro(
+        request.POST if request.method == "POST" else None,
+        eleccion_claustro=eleccion_claustro,
+    )
+    if request.method == "POST" and formulario.is_valid():
+        formulario.guardar()
+        messages.success(request, "Los departamentos habilitados fueron actualizados.")
+        return redirect("gestionar-alcances", eleccion_id=eleccion.id)
+    return render(
+        request,
+        "elecciones/editar_departamentos.html",
+        {
+            "eleccion": eleccion,
+            "eleccion_claustro": eleccion_claustro,
+            "formulario": formulario,
         },
     )
 
@@ -238,7 +281,7 @@ def editar_alcance_sedes(request, eleccion_id, tipo, objeto_id):
         titulo = f"Sedes de {objeto.claustro}"
     elif tipo == "departamento":
         objeto = get_object_or_404(EleccionClaustroDepartamento, pk=objeto_id, eleccion_claustro__eleccion=eleccion)
-        titulo = f"Sedes de {objeto.departamento}"
+        titulo = f"Sedes de {objeto.nombre_alcance}"
     else:
         raise Http404()
     formulario = FormularioAlcanceSedes(request.POST or None, eleccion=eleccion, objeto=objeto, tipo=tipo)

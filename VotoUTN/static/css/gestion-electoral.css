@@ -274,6 +274,26 @@
     margin-top: 8px;
 }
 
+.scope-heading-actions {
+    align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.scope-count {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.scope-heading-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    justify-content: flex-end;
+}
+
 .authorities-cloister-grid .cloister-summary {
     margin-bottom: 18px;
 }
@@ -866,6 +886,24 @@ table td:last-child {
 
     .footer-actions {
         justify-content: flex-start;
+    }
+
+    .scopes-panel .section-title {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .scope-heading-actions {
+        align-items: stretch;
+    }
+
+    .scope-heading-actions .button {
+        text-align: center;
+    }
+
+    .scope-heading-buttons {
+        flex-direction: column;
     }
 
     table .btn {
