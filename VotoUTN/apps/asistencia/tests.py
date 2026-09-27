@@ -412,16 +412,16 @@ class ImportacionPadronTests(TestCase):
         )
 
     def test_confirma_csv_valido_y_es_idempotente(self):
-        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@example.com,K,Campus Medrano\n"
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano\n"
         importacion = self.crear_importacion(contenido)
 
         self.assertEqual(confirmar_importacion(importacion), 1)
         self.assertEqual(RegistroPadron.objects.count(), 1)
-        self.assertEqual(Elector.objects.get(dni="12345678").correo_electronico, "ana@example.com")
+        self.assertEqual(Elector.objects.get(dni="12345678").correo_electronico, "ana@frba.utn.edu.ar")
         self.assertEqual(confirmar_importacion(importacion), 0)
 
     def test_rechaza_formula_y_sede_fuera_del_alcance(self):
-        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n=12345678,1001,Ana,Perez,ana@example.com,K,Sede ajena\n"
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n=12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Sede ajena\n"
         resultado = validar_csv_padron(contenido, self.claustro)
 
         self.assertGreaterEqual(len(resultado.errores), 2)
@@ -432,7 +432,7 @@ class ImportacionPadronTests(TestCase):
         self.usuario.is_superuser = True
         self.usuario.save(update_fields=("is_superuser",))
         self.client.force_login(self.usuario)
-        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@example.com,K,Campus Medrano\n"
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano\n"
 
         respuesta = self.client.post(
             reverse("previsualizar-padron", args=(self.eleccion.id, self.claustro.id)),
@@ -445,17 +445,27 @@ class ImportacionPadronTests(TestCase):
     def test_divide_padron_alfabeticamente_segun_maximo_por_mesa(self):
         contenido = (
             b"dni,legajo,nombres,apellidos,mail,departamento,sede\n"
-            b"12345678,1003,Zoe,Alvarez,zoe@example.com,K,Campus Medrano\n"
-            b"12345679,1001,Ana,Perez,ana@example.com,K,Campus Medrano\n"
-            b"12345680,1002,Bruno,Gomez,bruno@example.com,K,Campus Medrano\n"
+            b"12345678,1003,Zoe,Alvarez,zoe@frba.utn.edu.ar,K,Campus Medrano\n"
+            b"12345679,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano\n"
+            b"12345680,1002,Bruno,Gomez,bruno@frba.utn.edu.ar,K,Campus Medrano\n"
         )
 
         confirmar_importacion(self.crear_importacion(contenido))
 
         mesas = list(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).order_by("numero"))
         self.assertEqual(len(mesas), 2)
-        self.assertEqual(list(mesas[0].asignaciones_padron.order_by("registro_padron__elector__nombre").values_list("registro_padron__elector__nombre", flat=True)), ["Ana Perez", "Bruno Gomez"])
-        self.assertEqual(list(mesas[1].asignaciones_padron.values_list("registro_padron__elector__nombre", flat=True)), ["Zoe Alvarez"])
+        self.assertEqual(
+            list(
+                mesas[0].asignaciones_padron.order_by(
+                    "registro_padron__elector__apellido", "registro_padron__elector__nombre"
+                ).values_list("registro_padron__elector__nombre", "registro_padron__elector__apellido")
+            ),
+            [("Zoe", "Alvarez"), ("Bruno", "Gomez")],
+        )
+        self.assertEqual(
+            list(mesas[1].asignaciones_padron.values_list("registro_padron__elector__nombre", "registro_padron__elector__apellido")),
+            [("Ana", "Perez")],
+        )
 
 
 class AutoridadesMesaTests(TestCase):

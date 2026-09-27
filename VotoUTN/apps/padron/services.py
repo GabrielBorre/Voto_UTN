@@ -314,7 +314,8 @@ def generar_mesas_automaticas(eleccion_claustro):
 
     ultimo_numero = Mesa.objects.filter(eleccion=eleccion).order_by("-numero").values_list("numero", flat=True).first() or 0
     mesas, asignaciones = [], []
-    for (configuracion, sede), registros in grupos.items():
+    grupos_ordenados = list(grupos.items())
+    for (configuracion, sede), registros in grupos_ordenados:
         for inicio in range(0, len(registros), maximo):
             ultimo_numero += 1
             mesas.append(Mesa(
@@ -328,7 +329,7 @@ def generar_mesas_automaticas(eleccion_claustro):
     Mesa.objects.bulk_create(mesas)
 
     indice_mesa = 0
-    for registros in grupos.values():
+    for (_configuracion, _sede), registros in grupos_ordenados:
         for inicio in range(0, len(registros), maximo):
             mesa = mesas[indice_mesa]
             indice_mesa += 1

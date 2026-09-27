@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlparse
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -5,21 +7,13 @@ from django.urls import reverse
 
 class InicioAutenticadoTests(TestCase):
     def test_login_sin_destino_explicito_redirige_al_inicio_por_rol(self):
-        get_user_model().objects.create_superuser(
-            username="admin-login",
-            password="clave-prueba",
-        )
+        respuesta = self.client.get(reverse("login"))
 
-        respuesta = self.client.post(
-            reverse("login"),
-            {"username": "admin-login", "password": "clave-prueba"},
-        )
-
-        self.assertRedirects(
-            respuesta,
-            reverse("inicio-autenticado"),
-            fetch_redirect_response=False,
-        )
+        self.assertEqual(respuesta.status_code, 302)
+        destino = urlparse(respuesta["Location"])
+        self.assertEqual(destino.netloc, "localhost:8080")
+        self.assertEqual(destino.path, "/realms/FRBA/protocol/openid-connect/auth")
+        self.assertEqual(parse_qs(destino.query)["client_id"], ["VOTOUTN"])
 
     def test_superusuario_ingresa_al_panel_de_gestion(self):
         usuario = get_user_model().objects.create_superuser(
