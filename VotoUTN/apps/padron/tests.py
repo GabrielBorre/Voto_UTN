@@ -21,7 +21,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionSede,
-    EleccionTurno,
+    EleccionClaustroTurno,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.forms import FormularioArchivoPadron
@@ -41,8 +41,8 @@ class PadronViewsTests(TestCase):
         self.claustro = Claustro.objects.create(nombre="Estudiantes")
         self.departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
         EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.turno)
         self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=self.claustro, maximo_votantes_por_mesa=20)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.turno)
         self.configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=self.eleccion_claustro, departamento=self.departamento)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=self.sede)
         self.usuario = get_user_model().objects.create_user(username="admin", password="clave")
@@ -191,7 +191,7 @@ class FormularioArchivoPadronTests(TestCase):
         self.assertTrue(respuesta.is_valid())
 
     def test_confirmar_importacion_xlsx_conserva_el_archivo(self):
-        from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede, EleccionSede, EleccionTurno
+        from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede, EleccionClaustroTurno, EleccionSede
         from apps.padron.models import ImportacionPadron
         from apps.padron.services import confirmar_importacion
         from apps.parametros.models import Claustro, Departamento, Sede, Turno
@@ -205,8 +205,8 @@ class FormularioArchivoPadronTests(TestCase):
         claustro = Claustro.objects.create(nombre="Estudiantes XLSX")
         departamento = Departamento.objects.create(nombre="Sistemas XLSX", codigo="KX")
         EleccionSede.objects.create(eleccion=eleccion, sede=sede)
-        EleccionTurno.objects.create(eleccion=eleccion, turno=turno)
         eleccion_claustro = EleccionClaustro.objects.create(eleccion=eleccion, claustro=claustro, maximo_votantes_por_mesa=20)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=eleccion_claustro, turno=turno)
         configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=eleccion_claustro, departamento=departamento)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=configuracion, sede=sede)
 
@@ -236,12 +236,12 @@ class ProteccionEmisionQrTests(TestCase):
         self.eleccion = Eleccion.objects.create(nombre="Eleccion QR", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8))
         self.sede = Sede.objects.create(nombre="Campus")
         self.turno = Turno.objects.create(nombre="Mañana", hora_inicio=time(8), hora_fin=time(13))
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.turno)
         self.eleccion_claustro = EleccionClaustro.objects.create(
             eleccion=self.eleccion,
             claustro=Claustro.objects.create(nombre="Estudiantes"),
             maximo_votantes_por_mesa=100,
         )
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.turno)
         self.configuracion = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=self.eleccion_claustro,
             departamento=Departamento.objects.create(nombre="Sistemas", codigo="K"),

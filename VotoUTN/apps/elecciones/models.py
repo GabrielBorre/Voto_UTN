@@ -42,9 +42,11 @@ class Eleccion(models.Model):
                 raise ValidationError({final: "Debe ser posterior o igual a la fecha administrativa anterior."})
 
     def validar_configuracion(self):
-        if not self.elecciones_sede.exists() or not self.elecciones_claustro.exists() or not self.elecciones_turno.exists():
-            raise ValidationError("La elección debe tener sedes, claustros y turnos de autoridades configurados.")
+        if not self.elecciones_sede.exists() or not self.elecciones_claustro.exists():
+            raise ValidationError("La elección debe tener sedes y claustros configurados.")
         for eleccion_claustro in self.elecciones_claustro.all():
+            if not eleccion_claustro.turnos_autoridad.exists():
+                raise ValidationError("Cada claustro debe tener al menos un turno de autoridades configurado.")
             if not eleccion_claustro.sedes_habilitadas.exists():
                 raise ValidationError("Cada claustro debe tener al menos una sede habilitada.")
             for configuracion in eleccion_claustro.departamentos.all():
@@ -92,12 +94,12 @@ class EleccionClaustro(models.Model):
             raise ValidationError({"fecha_votacion": "Debe estar comprendida entre el inicio y el fin de la eleccion."})
 
 
-class EleccionTurno(models.Model):
-    eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="elecciones_turno")
+class EleccionClaustroTurno(models.Model):
+    eleccion_claustro = models.ForeignKey(EleccionClaustro, on_delete=models.PROTECT, related_name="turnos_autoridad")
     turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="elecciones_turno")
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=("eleccion", "turno"), name="turno_unico_por_eleccion")]
+        constraints = [models.UniqueConstraint(fields=("eleccion_claustro", "turno"), name="turno_unico_por_claustro")]
 
 
 class EleccionClaustroSede(models.Model):

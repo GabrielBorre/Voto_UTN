@@ -256,22 +256,34 @@
     margin: 0 0 10px;
 }
 
-.candidaturas-panel .management-section>.section-title:first-child {
+.management-panel .management-section>.section-title:first-child {
     margin-top: 0;
 }
 
-.candidaturas-panel .management-section .table-wrap {
+.management-panel .management-section .table-wrap {
     box-shadow: none;
     margin-top: 22px;
 }
 
-.candidaturas-panel .field-help {
+.management-panel .field-help {
     display: block;
     margin-top: 6px;
 }
 
-.candidaturas-panel .choice-field>.checkbox-list {
+.management-panel .choice-field>.checkbox-list {
     margin-top: 8px;
+}
+
+.authorities-cloister-grid .cloister-summary {
+    margin-bottom: 18px;
+}
+
+.authorities-cloister-grid .cloister-summary p {
+    margin-bottom: 6px;
+}
+
+.authorities-cloister-grid .cloister-summary p:last-child {
+    margin-bottom: 0;
 }
 
 .div-btn {

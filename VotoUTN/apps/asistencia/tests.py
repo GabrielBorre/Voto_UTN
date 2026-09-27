@@ -24,8 +24,8 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionClaustroSede,
+    EleccionClaustroTurno,
     EleccionSede,
-    EleccionTurno,
     FechaAdministrativaEleccion,
 )
 from apps.autoridades.models import AsignacionAutoridad
@@ -236,7 +236,7 @@ class GestionEleccionesTests(TestCase):
         self.assertEqual(eleccion.elecciones_sede.count(), 1)
         self.assertEqual(eleccion.elecciones_claustro.count(), 1)
         self.assertEqual(EleccionClaustroDepartamento.objects.filter(eleccion_claustro__eleccion=eleccion).count(), 0)
-        self.assertFalse(EleccionTurno.objects.filter(eleccion=eleccion).exists())
+        self.assertFalse(EleccionClaustroTurno.objects.filter(eleccion_claustro__eleccion=eleccion).exists())
 
     def test_calendario_administrativo_exige_orden_del_padron(self):
         inicio = make_aware(datetime(2026, 8, 10, 8))
@@ -349,8 +349,8 @@ class CicloDeVidaEleccionTests(TestCase):
         claustro = Claustro.objects.create(nombre="Docentes")
         turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
         EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=turno)
         self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=claustro)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=turno)
         EleccionClaustroSede.objects.create(eleccion_claustro=self.eleccion_claustro, sede=self.sede)
         self.configuracion = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=self.eleccion_claustro,
@@ -405,7 +405,7 @@ class ImportacionPadronTests(TestCase):
             maximo_votantes_por_mesa=2,
         )
         turno = Turno.objects.create(nombre="Tarde", hora_inicio=time(13), hora_fin=time(18))
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=turno)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.claustro, turno=turno)
         configuracion = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=self.claustro,
             departamento=Departamento.objects.create(nombre="Sistemas", codigo="K"),
@@ -499,7 +499,8 @@ class AutoridadesMesaTests(TestCase):
         claustro_b = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=Claustro.objects.create(nombre="Docentes"))
         sede = Sede.objects.create(nombre="Campus")
         turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=turno)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=claustro_a, turno=turno)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=claustro_b, turno=turno)
         self.turno = turno
         configuracion_a = EleccionClaustroDepartamento.objects.create(eleccion_claustro=claustro_a, departamento=Departamento.objects.create(nombre="Sistemas", codigo="K"))
         configuracion_b = EleccionClaustroDepartamento.objects.create(eleccion_claustro=claustro_b, departamento=Departamento.objects.create(nombre="Basicas", codigo="B"))

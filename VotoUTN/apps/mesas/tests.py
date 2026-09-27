@@ -11,7 +11,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionSede,
-    EleccionTurno,
+    EleccionClaustroTurno,
 )
 from apps.mesas.forms import FormularioGenerarMesas
 from apps.mesas.models import Mesa
@@ -35,11 +35,11 @@ class MesasTests(TestCase):
             hora_fin=time(12),
         )
         EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.turno)
         eleccion_claustro = EleccionClaustro.objects.create(
             eleccion=self.eleccion,
             claustro=self.claustro,
         )
+        EleccionClaustroTurno.objects.create(eleccion_claustro=eleccion_claustro, turno=self.turno)
         self.configuracion = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=eleccion_claustro,
             departamento=Departamento.objects.create(nombre="Sistemas", codigo="SIS"),

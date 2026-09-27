@@ -41,8 +41,10 @@ class AsignacionAutoridad(models.Model):
                 raise ValidationError({"mesa": "Debe pertenecer a la misma eleccion que el padron."})
             if self.registro_padron.eleccion_claustro_departamento.eleccion_claustro_id != self.mesa.eleccion_claustro_departamento.eleccion_claustro_id:
                 raise ValidationError({"mesa": "La autoridad debe pertenecer al mismo claustro que la mesa."})
-            if self.turno_id and not self.turno.elecciones_turno.filter(eleccion_id=self.mesa.eleccion_id).exists():
-                raise ValidationError({"turno": "El turno de trabajo debe estar habilitado para la elección."})
+            if self.turno_id and not self.turno.elecciones_turno.filter(
+                eleccion_claustro_id=self.mesa.eleccion_claustro_departamento.eleccion_claustro_id,
+            ).exists():
+                raise ValidationError({"turno": "El turno de trabajo debe estar habilitado para el claustro."})
 
 
 class PreferenciaAutoridad(models.Model):

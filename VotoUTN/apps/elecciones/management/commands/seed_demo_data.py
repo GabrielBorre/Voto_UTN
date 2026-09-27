@@ -16,8 +16,8 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionClaustroSede,
+    EleccionClaustroTurno,
     EleccionSede,
-    EleccionTurno,
     FechaAdministrativaEleccion,
 )
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
@@ -243,8 +243,6 @@ class Command(BaseCommand):
         )
 
         self._get_or_create(counters, EleccionSede.objects, eleccion=eleccion, sede=sede)
-        self._get_or_create(counters, EleccionTurno.objects, eleccion=eleccion, turno=turno_manana)
-        self._get_or_create(counters, EleccionTurno.objects, eleccion=eleccion, turno=turno_tarde)
         elecciones_claustro = {}
         configuraciones_departamento = {}
         for nombre, claustro in claustros.items():
@@ -256,6 +254,18 @@ class Command(BaseCommand):
                 defaults={"fecha_votacion": inicio, "maximo_votantes_por_mesa": 500},
             )
             elecciones_claustro[nombre] = eleccion_claustro
+            self._get_or_create(
+                counters,
+                EleccionClaustroTurno.objects,
+                eleccion_claustro=eleccion_claustro,
+                turno=turno_manana,
+            )
+            self._get_or_create(
+                counters,
+                EleccionClaustroTurno.objects,
+                eleccion_claustro=eleccion_claustro,
+                turno=turno_tarde,
+            )
             self._get_or_create(
                 counters,
                 EleccionClaustroSede.objects,

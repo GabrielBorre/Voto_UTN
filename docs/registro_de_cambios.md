@@ -660,3 +660,22 @@ Fecha de implementación: 2026-09-26
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 117 pruebas correctas.
+
+## Gestión de autoridades por claustro
+
+Fecha de implementación: 2026-09-27
+
+- Autoridades de mesa incorpora una pantalla previa con una tarjeta uniforme por claustro y un resumen de turnos, mesas, candidatos y asignaciones.
+- Cada claustro dispone de una pantalla independiente para configurar turnos, realizar asignaciones manuales, cargar candidatos por archivo y consultar asignaciones registradas.
+- Los bloques se presentan como opciones independientes, sin numeración ni una secuencia obligatoria.
+- Los formularios, listados e importaciones quedan limitados al claustro seleccionado y rechazan candidatos, mesas o turnos pertenecientes a otro claustro.
+- Los turnos de autoridades dejaron de configurarse globalmente y ahora pertenecen a cada claustro. La migración replica los turnos existentes en todos los claustros de su elección antes de retirar la relación anterior.
+- Los datos demo, el administrador y los comandos auxiliares fueron actualizados al nuevo alcance por claustro.
+- La futura asignación automática de candidatos a mesas no forma parte de este cambio; el archivo continúa cargando candidatos sin indicar mesas.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate`: aplicó `elecciones.0022_turnos_autoridades_por_claustro` y conservó los turnos existentes.
+- `python manage.py test`: 122 pruebas correctas.
