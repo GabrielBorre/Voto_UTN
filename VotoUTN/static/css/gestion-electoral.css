@@ -286,6 +286,18 @@
     margin-bottom: 0;
 }
 
+.configuration-grid .option-summary {
+    margin-bottom: 18px;
+}
+
+.configuration-grid .option-summary p {
+    margin-bottom: 6px;
+}
+
+.configuration-grid .option-summary p:last-child {
+    margin-bottom: 0;
+}
+
 .div-btn {
     margin-top: 1rem;
     text-align: right;

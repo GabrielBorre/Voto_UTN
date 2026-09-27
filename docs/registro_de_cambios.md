@@ -679,3 +679,21 @@ Fecha de implementación: 2026-09-27
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate`: aplicó `elecciones.0022_turnos_autoridades_por_claustro` y conservó los turnos existentes.
 - `python manage.py test`: 122 pruebas correctas.
+
+## Gestión integrada de padrones por claustro
+
+Fecha de implementación: 2026-09-27
+
+- La pantalla de Padrones presenta una tarjeta uniforme por claustro y una única acción «Gestionar padrón».
+- La gestión de cada claustro reúne la fecha de votación, el máximo de electores por mesa, la carga del archivo y su historial de importaciones.
+- Departamentos y sedes dejaron de editarse desde Padrones y permanecen centralizados en «Sedes y departamentos».
+- El historial integrado muestra exclusivamente las importaciones del claustro seleccionado.
+- La ruta anterior de configuración del claustro redirige a la nueva pantalla para conservar compatibilidad con enlaces existentes.
+- La validación, previsualización y confirmación de archivos mantienen su comportamiento funcional.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 125 pruebas correctas.

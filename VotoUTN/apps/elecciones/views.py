@@ -11,7 +11,6 @@ from .forms import (
     FormularioEleccion,
     FormularioEditarEleccion,
     FormularioFechasAdministrativasEleccion,
-    FormularioPrepararClaustro,
 )
 from .models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.autoridades.models import AsignacionAutoridad
@@ -165,12 +164,7 @@ def preparar_claustro(request, eleccion_id, claustro_id):
     eleccion_claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion_claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para preparar este claustro.")
-    formulario = FormularioPrepararClaustro(request.POST or None, instance=eleccion_claustro)
-    if request.method == "POST" and formulario.is_valid():
-        formulario.save()
-        messages.success(request, "La configuracion del claustro fue guardada.")
-        return redirect("preparar-eleccion", eleccion_id=eleccion_id)
-    return render(request, "elecciones/preparar_claustro.html", {"eleccion": eleccion_claustro.eleccion, "claustro": eleccion_claustro, "formulario": formulario})
+    return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
 
 
 
