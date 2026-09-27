@@ -64,6 +64,12 @@ class ReportesViewsTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "reportes/gestion.html")
+        self.assertContains(respuesta, 'class="toolbar reports-grid"')
+        self.assertContains(respuesta, 'class="option report-option"', count=3)
+        self.assertContains(respuesta, 'class="report-actions"', count=3)
+        self.assertContains(respuesta, "Padrón imprimible no disponible")
+        self.assertContains(respuesta, "Generar padrón imprimible")
+        self.assertContains(respuesta, "disabled")
         self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
         self.assertContains(respuesta, "Volver a configuración", count=1)
 
