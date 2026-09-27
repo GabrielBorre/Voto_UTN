@@ -13,6 +13,7 @@ class Elector(models.Model):
     nombre = models.CharField("nombre", max_length=180)
     apellido = models.CharField("apellido", max_length=180, blank=True)
     dni = models.CharField("DNI", max_length=12, unique=True)
+    tipo_documento = models.CharField("tipo documento", max_length=30, default="DNI")
     correo_electronico = models.EmailField("correo electronico", blank=True)
     tiene_discapacidad = models.BooleanField("tiene discapacidad", default=False)
     departamento_principal = models.ForeignKey(Departamento, on_delete=models.PROTECT, null=True, blank=True, related_name="electores_principal")

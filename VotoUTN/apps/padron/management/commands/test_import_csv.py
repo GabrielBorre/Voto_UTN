@@ -18,8 +18,8 @@ class Command(BaseCommand):
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=config, sede=sede)
 
         csv_text = (
-            'DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n'
-            '12345678,LG001,Juan,Perez,DEP1,juan.perez@example.com,No,DEP1,Sede1,Pregrado\n'
+            'DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n'
+            '12345678,DNI,LG001,Juan,Perez,DEP1,juan.perez@example.com,No,DEP1,Sede1,Pregrado\n'
         )
 
         resultado = validar_csv_padron(csv_text.encode('utf-8'), claustro)

@@ -73,13 +73,13 @@ class PadronViewsTests(TestCase):
         contenido = respuesta.content.decode("utf-8-sig")
         lineas = contenido.splitlines()
         self.assertGreaterEqual(len(lineas), 2)
-        self.assertEqual(lineas[0], "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel")
-        self.assertEqual(lineas[1], "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1")
+        self.assertEqual(lineas[0], "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel")
+        self.assertEqual(lineas[1], "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1")
 
     def test_validar_csv_padron_mapea_departamento_principal_correctamente(self):
         contenido = (
-            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
-            "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
         ).encode("utf-8")
 
         from apps.padron.models import ImportacionPadron
@@ -112,8 +112,8 @@ class PadronViewsTests(TestCase):
 
     def test_validar_csv_padron_acepta_dni_numerico_de_excel(self):
         contenido = (
-            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
-            "40123456.0,2024004,Lucia,Diaz,K,lucia.diaz@frba.utn.edu.ar,No,K,Campus,1\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
+            "40123456.0,DNI,2024004,Lucia,Diaz,K,lucia.diaz@frba.utn.edu.ar,No,K,Campus,1\n"
         ).encode("utf-8")
 
         from apps.padron.services import validar_csv_padron
@@ -129,8 +129,8 @@ class PadronViewsTests(TestCase):
 
         Elector.objects.create(dni="40123456", legajo="2024999", nombre="Juan", apellido="Perez")
         contenido = (
-            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
-            "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
         ).encode("utf-8")
 
         validacion = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
@@ -142,8 +142,8 @@ class PadronViewsTests(TestCase):
         self.eleccion_claustro.maximo_votantes_por_mesa = None
         self.eleccion_claustro.save(update_fields=("maximo_votantes_por_mesa",))
         contenido = (
-            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
-            "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
         ).encode("utf-8")
 
         from apps.padron.models import ImportacionPadron
@@ -180,8 +180,8 @@ class FormularioArchivoPadronTests(TestCase):
     def test_validar_archivo_xlsx_acepta_formato_excel(self):
         libro = Workbook()
         hoja = libro.active
-        hoja.append(["DNI", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail", "Sede", "TieneDiscapacidad", "Departamento Principal", "Nivel"])
-        hoja.append(["40123456", "2024001", "Juan", "Perez", "Sistemas", "juan.perez@frba.utn.edu.ar", "Campus", "Si", "Ingenieria", "1"])
+        hoja.append(["DNI", "Tipo Documento", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail", "Sede", "TieneDiscapacidad", "Departamento Principal", "Nivel"])
+        hoja.append(["40123456", "DNI", "2024001", "Juan", "Perez", "Sistemas", "juan.perez@frba.utn.edu.ar", "Campus", "Si", "Ingenieria", "1"])
 
         archivo = io.BytesIO()
         libro.save(archivo)
@@ -212,8 +212,8 @@ class FormularioArchivoPadronTests(TestCase):
 
         libro = Workbook()
         hoja = libro.active
-        hoja.append(["DNI", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail", "Sede"])
-        hoja.append(["40123457", "2024007", "Ana", "Perez", "KX", "ana.perez@frba.utn.edu.ar", "Campus XLSX"])
+        hoja.append(["DNI", "Tipo Documento", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail", "Sede"])
+        hoja.append(["40123457", "DNI", "2024007", "Ana", "Perez", "KX", "ana.perez@frba.utn.edu.ar", "Campus XLSX"])
         contenido = io.BytesIO()
         libro.save(contenido)
         contenido.seek(0)
