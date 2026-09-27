@@ -644,3 +644,19 @@ Fecha de implementación: 2026-09-26
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 117 pruebas correctas.
+
+## Unificación visual de puestos, listas y candidaturas
+
+Fecha de implementación: 2026-09-26
+
+- La gestión de candidaturas se reorganizó en cuatro tarjetas de ancho uniforme: puestos habilitados, importación CSV, presentación manual y presentaciones registradas.
+- Los encabezados, etiquetas, formularios, tablas y acciones siguen una jerarquía visual común y responsive.
+- Los selectores múltiples de claustros y departamentos utilizan el componente visual de listas de selección en lugar del estilo de campos de texto.
+- Se preservaron los formularios, rutas y reglas funcionales existentes.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 117 pruebas correctas.

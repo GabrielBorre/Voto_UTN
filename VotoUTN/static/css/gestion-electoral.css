@@ -256,6 +256,24 @@
     margin: 0 0 10px;
 }
 
+.candidaturas-panel .management-section>.section-title:first-child {
+    margin-top: 0;
+}
+
+.candidaturas-panel .management-section .table-wrap {
+    box-shadow: none;
+    margin-top: 22px;
+}
+
+.candidaturas-panel .field-help {
+    display: block;
+    margin-top: 6px;
+}
+
+.candidaturas-panel .choice-field>.checkbox-list {
+    margin-top: 8px;
+}
+
 .div-btn {
     margin-top: 1rem;
     text-align: right;

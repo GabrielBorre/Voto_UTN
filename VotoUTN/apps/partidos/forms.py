@@ -248,6 +248,10 @@ class FormularioHabilitacionPuesto(forms.Form):
             elecciones_claustro_departamento__eleccion_claustro__eleccion=eleccion,
         ).distinct().order_by("nombre")
         estilizar_campos(self)
+        for nombre in ("claustros", "departamentos"):
+            self.fields[nombre].widget.attrs["class"] = "checkbox-list"
+        for nombre in ("limitar_por_claustros", "limitar_por_departamentos", "activo"):
+            self.fields[nombre].widget.attrs.pop("class", None)
 
     def clean(self):
         datos = super().clean()
