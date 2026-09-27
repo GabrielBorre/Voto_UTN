@@ -1,6 +1,7 @@
 from urllib.parse import urlencode
 
 import jwt
+import os
 import requests
 from django.contrib.auth import authenticate, login, logout
 from django.core.exceptions import SuspiciousOperation
@@ -10,8 +11,11 @@ from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientError
 
 
-URL_KEYCLOAK = "http://localhost:8080"
-URL_VOTOUTN = "http://localhost:8000"
+# URL vista por el navegador (redirecciones); puede diferir de la usada por el
+# propio contenedor de Django para llamar a Keycloak dentro de la red Docker.
+URL_KEYCLOAK = os.getenv("KEYCLOAK_URL_PUBLICO", "http://localhost:8080")
+URL_KEYCLOAK_INTERNO = os.getenv("KEYCLOAK_URL_INTERNO", URL_KEYCLOAK)
+URL_VOTOUTN = os.getenv("VOTOUTN_URL_PUBLICO", "http://localhost:8000")
 KEYCLOAK_REALM = "FRBA"
 KEYCLOAK_CLIENT_ID = "VOTOUTN"
 
@@ -33,7 +37,8 @@ def keycloak_login_callback_view(request):
         return JsonResponse({"error": "No code in callback"}, status=400)
 
     issuer = f"{URL_KEYCLOAK}/realms/{KEYCLOAK_REALM}"
-    token_url = f"{issuer}/protocol/openid-connect/token"
+    issuer_interno = f"{URL_KEYCLOAK_INTERNO}/realms/{KEYCLOAK_REALM}"
+    token_url = f"{issuer_interno}/protocol/openid-connect/token"
     data = {
         "client_id": KEYCLOAK_CLIENT_ID,
         "grant_type": "authorization_code",
@@ -46,7 +51,7 @@ def keycloak_login_callback_view(request):
         response.raise_for_status()
         tokens = response.json()
         id_token = tokens["id_token"]
-        signing_key = PyJWKClient(f"{issuer}/protocol/openid-connect/certs").get_signing_key_from_jwt(id_token)
+        signing_key = PyJWKClient(f"{issuer_interno}/protocol/openid-connect/certs").get_signing_key_from_jwt(id_token)
         decoded = jwt.decode(
             id_token,
             signing_key.key,

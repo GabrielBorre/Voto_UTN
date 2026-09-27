@@ -2,11 +2,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.elecciones.models import Eleccion
 from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
+from apps.notificaciones.models import PlantillaNotificacion
+from apps.notificaciones.services import crear_envio_individual, procesar_envios_pendientes
 from apps.padron.models import Elector
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import puede_revisar_justificativo
@@ -70,7 +73,10 @@ def bandeja_justificativos(request):
 
 @login_required
 def resolver_justificativo(request, justificativo_id):
-    justificativo = get_object_or_404(JustificativoAusencia.objects.select_related("registro_padron__eleccion"), pk=justificativo_id)
+    justificativo = get_object_or_404(
+        JustificativoAusencia.objects.select_related("registro_padron__eleccion", "registro_padron__elector__perfil_usuario"),
+        pk=justificativo_id,
+    )
     if not puede_revisar_justificativo(request.user, justificativo.registro_padron.eleccion):
         return HttpResponseForbidden("No tiene permiso para resolver este justificativo.")
     formulario = FormularioResolucionJustificativo(request.POST or None)
@@ -80,6 +86,41 @@ def resolver_justificativo(request, justificativo_id):
         justificativo.resuelta_por = request.user
         justificativo.resuelta_en = timezone.now()
         justificativo.save(update_fields=("estado", "observacion_resolucion", "resuelta_por", "resuelta_en"))
-        messages.success(request, "El justificativo fue resuelto.")
+        if _notificar_resolucion_justificativo(request, justificativo):
+            messages.success(request, "El justificativo fue resuelto y se notificó al elector por correo.")
+        else:
+            messages.success(request, "El justificativo fue resuelto.")
+            messages.warning(request, "No se pudo enviar la notificación: el elector no tiene una cuenta de usuario vinculada.")
         return redirect("gestionar-justificativos", eleccion_id=justificativo.registro_padron.eleccion_id)
     return render(request, "justificativos/resolver.html", {"justificativo": justificativo, "formulario": formulario})
+
+
+def _notificar_resolucion_justificativo(request, justificativo):
+    perfil = getattr(justificativo.registro_padron.elector, "perfil_usuario", None)
+    if perfil is None:
+        return False
+    codigo = (
+        "justificacion-aprobacion"
+        if justificativo.estado == JustificativoAusencia.Estado.APROBADO
+        else "justificacion-rechazo"
+    )
+    plantilla = PlantillaNotificacion.objects.filter(codigo=codigo, activa=True).first()
+    if plantilla is None:
+        return False
+    variables = {
+        "nombre_destinatario": perfil.usuario.get_full_name() or perfil.usuario.username,
+        "nombre_eleccion": str(justificativo.registro_padron.eleccion),
+        "fecha_presentacion": justificativo.presentada_en.strftime("%d/%m/%Y"),
+        "estado_solicitud": justificativo.get_estado_display(),
+        "observacion_resolucion": justificativo.observacion_resolucion,
+        "url_accion": request.build_absolute_uri(reverse("mis-justificativos")),
+    }
+    crear_envio_individual(
+        plantilla,
+        perfil.usuario,
+        eleccion=justificativo.registro_padron.eleccion,
+        variables=variables,
+    )
+    procesar_envios_pendientes()
+    return True
+    procesar_envios_pendientes()
