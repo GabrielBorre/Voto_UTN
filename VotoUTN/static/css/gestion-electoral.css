@@ -367,6 +367,11 @@
     color: #526071;
 }
 
+.pill.danger {
+    background: #fde8ed;
+    color: var(--rojo-utn);
+}
+
 .button,
 .btn {
     border: 1px solid transparent;

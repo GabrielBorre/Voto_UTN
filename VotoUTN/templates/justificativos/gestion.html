@@ -1,2 +1,78 @@
 {% extends "gestion/base.html" %}
-{% block content %}<section class="hero"><h1>Revision de justificativos</h1><p>{{ eleccion.nombre }}</p></section><div class="table-wrap"><table><thead><tr><th>Elector</th><th>Motivo</th><th>Estado</th><th>Documento</th><th></th></tr></thead><tbody>{% for item in justificativos %}<tr><td>{{ item.registro_padron.elector.nombre_completo }}</td><td>{{ item.tipo }}</td><td>{{ item.get_estado_display }}</td><td>{% if item.documento %}<a href="{{ item.documento.url }}">Ver adjunto</a>{% else %}Sin adjunto{% endif %}</td><td><a class="button primary small" href="{% url 'resolver-justificativo' item.id %}">Resolver</a></td></tr>{% empty %}<tr><td colspan="5">No hay justificativos.</td></tr>{% endfor %}</tbody></table></div>{% include "elecciones/_volver_configuracion.html" %}{% endblock %}
+
+{% block title %}Justificativos | {{ eleccion.nombre }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Justificativos</h1>
+  <p>{{ eleccion.nombre }}. Revisá la documentación presentada y consultá el estado de cada solicitud.</p>
+</section>
+
+<div class="management-panel justifications-panel">
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Solicitudes recibidas</h2>
+        <p>Las solicitudes pendientes pueden aprobarse o rechazarse dejando una observación de resolución.</p>
+      </div>
+      <span class="tag">{{ eleccion.get_estado_display }}</span>
+    </div>
+
+    <div class="summary-grid management-summary-grid">
+      <div><strong>Total</strong><span>{{ resumen.total }}</span></div>
+      <div><strong>Pendientes</strong><span>{{ resumen.pendientes }}</span></div>
+      <div><strong>Aprobados</strong><span>{{ resumen.aprobados }}</span></div>
+      <div><strong>Rechazados</strong><span>{{ resumen.rechazados }}</span></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Elector</th>
+            <th>Motivo</th>
+            <th>Presentado</th>
+            <th>Estado</th>
+            <th>Documento</th>
+            <th class="actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in justificativos %}
+            <tr>
+              <td><strong>{{ item.registro_padron.elector.nombre_completo }}</strong></td>
+              <td>{{ item.tipo }}</td>
+              <td>{{ item.presentada_en|date:"d/m/Y H:i" }}</td>
+              <td>
+                {% if item.estado == "pendiente" %}
+                  <span class="pill info">Pendiente</span>
+                {% elif item.estado == "aprobado" %}
+                  <span class="pill ok">Aprobado</span>
+                {% else %}
+                  <span class="pill danger">Rechazado</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if item.documento %}
+                  <a class="button light small" href="{{ item.documento.url }}">Ver adjunto</a>
+                {% else %}
+                  <span class="muted">Sin adjunto</span>
+                {% endif %}
+              </td>
+              <td class="actions">
+                <a class="button secondary small" href="{% url 'resolver-justificativo' item.id %}">Revisar</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="muted">Todavía no hay justificativos para esta elección.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+{% include "elecciones/_volver_configuracion.html" %}
+{% endblock %}

@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -37,8 +38,20 @@ def gestionar_justificativos(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_revisar_justificativo(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
-    justificativos = JustificativoAusencia.objects.filter(registro_padron__eleccion=eleccion).select_related("registro_padron__elector", "tipo", "resuelta_por")
-    return render(request, "justificativos/gestion.html", {"eleccion": eleccion, "justificativos": justificativos})
+    justificativos = JustificativoAusencia.objects.filter(
+        registro_padron__eleccion=eleccion,
+    ).select_related("registro_padron__elector", "tipo", "resuelta_por").order_by("-presentada_en")
+    resumen = justificativos.aggregate(
+        total=Count("id"),
+        pendientes=Count("id", filter=Q(estado=JustificativoAusencia.Estado.PENDIENTE)),
+        aprobados=Count("id", filter=Q(estado=JustificativoAusencia.Estado.APROBADO)),
+        rechazados=Count("id", filter=Q(estado=JustificativoAusencia.Estado.RECHAZADO)),
+    )
+    return render(
+        request,
+        "justificativos/gestion.html",
+        {"eleccion": eleccion, "justificativos": justificativos, "resumen": resumen},
+    )
 
 
 @login_required
