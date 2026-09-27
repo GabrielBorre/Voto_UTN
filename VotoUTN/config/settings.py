@@ -31,6 +31,7 @@ TEMPLATES = [{
         "django.template.context_processors.request", "django.contrib.auth.context_processors.auth",
         "django.contrib.messages.context_processors.messages",
         "apps.elecciones.context_processors.notificaciones_usuario",
+        "apps.usuarios.context_processors.navegacion_por_rol",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"

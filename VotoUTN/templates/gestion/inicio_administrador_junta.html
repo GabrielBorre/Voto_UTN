@@ -1,0 +1,27 @@
+{% extends "gestion/base.html" %}
+{% block title %}Inicio | Administrador Junta Electoral UTN{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Panel de Administración Electoral</h1>
+  <p>Administrá las elecciones de la Junta Electoral, su configuración y el seguimiento de las solicitudes recibidas.</p>
+</section>
+
+<section class="toolbar">
+  <article class="option">
+    <h2>Elección actual</h2>
+    <p><strong>{% if eleccion_actual %}{{ eleccion_actual.get_estado_display }}{% else %}Sin elección asignada{% endif %}</strong></p>
+    {% if eleccion_actual %}<p class="muted">{{ eleccion_actual.nombre }}</p>{% endif %}
+  </article>
+  <article class="option">
+    <h2>Elecciones asignadas</h2>
+    <p><strong>{{ cantidad_elecciones }}</strong></p>
+    <a class="button primary" href="{% url 'gestionar-elecciones' %}">Gestionar elecciones</a>
+  </article>
+  <article class="option">
+    <h2>Justificativos pendientes</h2>
+    <p><strong>{{ solicitudes_pendientes }}</strong></p>
+    <a class="button secondary" href="{% url 'bandeja-justificativos' %}">Revisar solicitudes</a>
+  </article>
+</section>
+
+{% endblock %}

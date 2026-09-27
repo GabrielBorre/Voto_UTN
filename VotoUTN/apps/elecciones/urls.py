@@ -10,6 +10,8 @@ from .views import (
     preparar_claustro,
     preparar_eleccion,
     historial_elecciones,
+    inicio_administrador_junta,
+    inicio_administrativo_junta,
     inicio_autenticado,
     listar_elecciones,
     index,
@@ -18,6 +20,8 @@ from .views import (
 urlpatterns = [
     path("", index, name="index"),
     path("inicio/", inicio_autenticado, name="inicio-autenticado"),
+    path("inicio/administrador-junta/", inicio_administrador_junta, name="inicio-administrador-junta"),
+    path("inicio/administrativo-junta/", inicio_administrativo_junta, name="inicio-administrativo-junta"),
     path("gestion/elecciones/listar_elecciones/", listar_elecciones, name="lista-elecciones"),
     path("gestion/elecciones/", gestionar_elecciones, name="gestionar-elecciones"),
     path("gestion/elecciones/historial/", historial_elecciones, name="historial-elecciones"),
