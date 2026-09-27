@@ -1,5 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -16,9 +18,10 @@ from apps.autoridades.models import AsignacionAutoridad
 from apps.auditoria.services import registrar_evento
 from apps.partidos.models import ParticipacionPartido
 from apps.padron.models import RegistroPadron
+from apps.justificativos.models import JustificativoAusencia
 from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import elecciones_con_participacion
-from apps.usuarios.permisos import puede_administrar_elecciones
+from apps.usuarios.permisos import puede_administrar_elecciones, puede_crear_elecciones
 from apps.usuarios.models import AsignacionRol
 
 
@@ -41,7 +44,17 @@ def contexto_formulario_eleccion(formulario, incluir_parametros=False):
 
 @login_required
 def inicio_autenticado(request):
-    if getattr(request.user, "es_elector", False):
+    es_elector = getattr(request.user, "es_elector", False)
+    es_autoridad_asignada = False
+    if not es_elector:
+        roles_persona = AsignacionRol.objects.filter(
+            usuario=request.user,
+            activo=True,
+            rol__in=(AsignacionRol.Rol.ELECTOR, AsignacionRol.Rol.AUTORIDAD_MESA),
+        )
+        es_elector = roles_persona.filter(rol=AsignacionRol.Rol.ELECTOR).exists()
+        es_autoridad_asignada = roles_persona.filter(rol=AsignacionRol.Rol.AUTORIDAD_MESA).exists()
+    if es_elector or es_autoridad_asignada:
         elector = elector_de_identidad(request.user)
         registros = RegistroPadron.objects.none()
         if elector is not None:
@@ -55,9 +68,74 @@ def inicio_autenticado(request):
             )
         es_autoridad = AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists() if elector is not None else False
         return render(request, "elecciones/inicio_elector.html", {"registros": registros, "es_autoridad": es_autoridad})
+    if AsignacionRol.objects.filter(
+        usuario=request.user,
+        activo=True,
+        rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+    ).exists():
+        return redirect("inicio-administrador-junta")
+    if AsignacionRol.objects.filter(
+        usuario=request.user,
+        activo=True,
+        rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+    ).exists():
+        return redirect("inicio-administrativo-junta")
     if puede_administrar_elecciones(request.user):
         return redirect("gestionar-elecciones")
     return redirect("lista-elecciones")
+
+
+@login_required
+def inicio_administrativo_junta(request):
+    roles = AsignacionRol.objects.filter(
+        usuario=request.user,
+        activo=True,
+        rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+    ).exclude(eleccion__isnull=True).select_related("eleccion")
+    if not roles.exists():
+        return HttpResponseForbidden("No tiene permiso para acceder al panel administrativo de junta.")
+    elecciones = Eleccion.objects.filter(
+        asignaciones_rol__in=roles,
+    ).distinct()
+    eleccion_actual = elecciones.first()
+    solicitudes_pendientes = JustificativoAusencia.objects.filter(
+        registro_padron__eleccion__in=elecciones,
+        estado=JustificativoAusencia.Estado.PENDIENTE,
+    ).count()
+    return render(
+        request,
+        "gestion/inicio_administrativo_junta.html",
+        {
+            "eleccion_actual": eleccion_actual,
+            "solicitudes_pendientes": solicitudes_pendientes,
+        },
+    )
+
+
+@login_required
+def inicio_administrador_junta(request):
+    roles = AsignacionRol.objects.filter(
+        usuario=request.user,
+        activo=True,
+        rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+    ).exclude(eleccion__isnull=True)
+    if not roles.exists():
+        return HttpResponseForbidden("No tiene permiso para acceder al panel de administrador de junta.")
+    elecciones = Eleccion.objects.filter(asignaciones_rol__in=roles).distinct()
+    eleccion_actual = elecciones.first()
+    solicitudes_pendientes = JustificativoAusencia.objects.filter(
+        registro_padron__eleccion__in=elecciones,
+        estado=JustificativoAusencia.Estado.PENDIENTE,
+    ).count()
+    return render(
+        request,
+        "gestion/inicio_administrador_junta.html",
+        {
+            "eleccion_actual": eleccion_actual,
+            "cantidad_elecciones": elecciones.count(),
+            "solicitudes_pendientes": solicitudes_pendientes,
+        },
+    )
 
 
 @login_required
@@ -102,12 +180,23 @@ def configurar_eleccion(request, eleccion_id):
 
 @login_required
 def crear_eleccion(request):
-    if not puede_administrar_elecciones(request.user):
+    if not puede_crear_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para crear elecciones.")
 
     formulario = FormularioEleccion(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
-        eleccion = formulario.save()
+        with transaction.atomic():
+            eleccion = formulario.save()
+            if AsignacionRol.objects.filter(
+                usuario=request.user,
+                activo=True,
+                rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            ).exists():
+                AsignacionRol.objects.get_or_create(
+                    usuario=request.user,
+                    rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+                    eleccion=eleccion,
+                )
         messages.success(request, "La eleccion fue creada y quedo configurada.")
         return redirect("preparar-eleccion", eleccion_id=eleccion.id)
     return render(request, "elecciones/formulario_eleccion.html", {"formulario": formulario, **contexto_formulario_eleccion(formulario, incluir_parametros=True)})
