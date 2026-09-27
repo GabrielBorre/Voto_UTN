@@ -294,6 +294,12 @@
     justify-content: flex-end;
 }
 
+.management-summary-grid>div {
+    background: #fafbfc;
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+}
+
 .authorities-cloister-grid .cloister-summary {
     margin-bottom: 18px;
 }
