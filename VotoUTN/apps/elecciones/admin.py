@@ -6,13 +6,13 @@ from .models import (
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionClaustroSede,
+    EleccionClaustroTurno,
     EleccionSede,
-    EleccionTurno,
     FechaAdministrativaEleccion,
 )
 
 
-admin.site.register((EleccionSede, EleccionClaustro, EleccionClaustroSede, EleccionTurno))
+admin.site.register((EleccionSede, EleccionClaustro, EleccionClaustroSede, EleccionClaustroTurno))
 admin.site.register((EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede, FechaAdministrativaEleccion))
 
 

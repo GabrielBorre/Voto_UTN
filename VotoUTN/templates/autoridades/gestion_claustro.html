@@ -1,0 +1,118 @@
+{% extends "gestion/base.html" %}
+{% block title %}Autoridades de {{ eleccion_claustro.claustro }} | {{ eleccion.nombre }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Autoridades de {{ eleccion_claustro.claustro }}</h1>
+  <p>{{ eleccion.nombre }}. Cargá candidatos y asigná autoridades únicamente a las mesas de este claustro.</p>
+</section>
+
+<div class="management-panel autoridades-panel">
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Turnos de trabajo</h2>
+        <p>Definen los cambios de ronda de las autoridades de {{ eleccion_claustro.claustro }}.</p>
+      </div>
+      <span class="tag">Configuración del claustro</span>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="field choice-field">
+        <label for="{{ formulario_turnos.turnos.id_for_label }}">{{ formulario_turnos.turnos.label }}</label>
+        {{ formulario_turnos.turnos }}
+        {% for error in formulario_turnos.turnos.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="footer-actions">
+        <button class="button primary" name="guardar-turnos">Guardar turnos</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Asignación manual</h2>
+        <p>Asigná individualmente un candidato a una mesa y un turno de trabajo.</p>
+      </div>
+      <span class="tag">Máximo {{ eleccion.maximo_autoridades_por_mesa }} por mesa y turno</span>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      {% for error in formulario_manual.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+      <div class="gestion-form-grid">
+        {% for field in formulario_manual %}
+          <div class="field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class="footer-actions">
+        <button class="button primary" name="asignar-autoridad">Asignar candidato</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Carga de candidatos por archivo</h2>
+        <p>Incorporá la nómina de candidatos de {{ eleccion_claustro.claustro }} sin asignarles una mesa manualmente.</p>
+      </div>
+      <span class="tag">CSV o Excel</span>
+    </div>
+    <div class="notice">
+      <strong>Formato esperado:</strong> DNI, Legajo, Nombre, Apellido, Depto/Carrera, Mail.
+      <span class="field-help">Ejemplo: <span class="mono">40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar</span></span>
+    </div>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="field">
+        <label for="{{ formulario_csv.archivo.id_for_label }}">{{ formulario_csv.archivo.label }}</label>
+        {{ formulario_csv.archivo }}
+        {% for error in formulario_csv.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="footer-actions">
+        <a class="button light" href="{% url 'descargar-plantilla-autoridades-claustro' eleccion.id eleccion_claustro.id %}">Descargar plantilla</a>
+        <button class="button primary" name="cargar-candidatos">Cargar candidatos</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Asignaciones registradas</h2>
+        <p>Estado y trazabilidad de las autoridades de {{ eleccion_claustro.claustro }}.</p>
+      </div>
+      <span class="tag">{{ autoridades|length }} asignaciones</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Autoridad</th><th>Mesa</th><th>Turno de trabajo</th><th>Estado</th><th>Asignada por</th><th>Fecha</th></tr>
+        </thead>
+        <tbody>
+          {% for autoridad in autoridades %}
+            <tr>
+              <td>{{ autoridad.registro_padron.elector.nombre_completo }}<br><span class="muted">{{ autoridad.registro_padron.elector.legajo }}</span></td>
+              <td>{{ autoridad.mesa.numero }} · {{ autoridad.mesa.sede }}</td>
+              <td>{{ autoridad.turno }}</td>
+              <td><span class="pill info">{{ autoridad.get_estado_display }}</span></td>
+              <td>{{ autoridad.asignada_por }}</td>
+              <td>{{ autoridad.asignada_en|date:"d/m/Y H:i" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="muted">Todavía no hay autoridades asignadas en este claustro.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div class="section-actions">
+  <a class="button light" href="{% url 'gestionar-autoridades' eleccion.id %}">Volver a autoridades</a>
+</div>
+{% endblock %}

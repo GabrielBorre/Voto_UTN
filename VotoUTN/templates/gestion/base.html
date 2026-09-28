@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Junta Electoral UTN{% endblock %}</title>
   {% load static %}
-  <link href="{% static 'css/gestion-electoral.css' %}" rel="stylesheet">
+  <link href="{% static 'css/gestion-electoral.css' %}?v=20260927.7" rel="stylesheet">
 </head>
 <body class="gestion-electoral">
   <header class="topbar">
@@ -24,7 +24,7 @@
   </header>
   <nav class="gestion-nav" aria-label="Navegacion de Junta Electoral">
     <a class="{% if request.resolver_match.url_name == 'gestionar-elecciones' %}active{% endif %}" href="{% url 'gestionar-elecciones' %}">Inicio</a>
-    <a class="{% if request.resolver_match.url_name == 'crear-eleccion' %}active{% endif %}" href="{% url 'crear-eleccion' %}">Nueva eleccion</a>
+    <a class="{% if request.resolver_match.url_name == 'crear-eleccion' %}active{% endif %}" href="{% url 'crear-eleccion' %}">Nueva elección</a>
     <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parametros de eleccion</a>
     <a class="{% if request.resolver_match.url_name == 'historial-elecciones' %}active{% endif %}" href="{% url 'historial-elecciones' %}">Historial de elecciones</a>
     <a class="{% if request.resolver_match.url_name == 'bandeja-justificativos' %}active{% endif %}" href="{% url 'bandeja-justificativos' %}">Justificativos</a>
@@ -36,5 +36,6 @@
     {% block content %}{% endblock %}
   </main>
   {% block scripts %}{% endblock %}
+  <script src="{% static 'js/seleccion-multiple.js' %}?v=20260923.2" defer></script>
 </body>
 </html>

@@ -20,7 +20,7 @@ def puede_administrar_elecciones(usuario, eleccion=None):
     if asignaciones.filter(rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():
         return True
     if eleccion is None:
-        return False
+        return asignaciones.filter(rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA).exists()
     return asignaciones.filter(
         rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
         eleccion=eleccion,

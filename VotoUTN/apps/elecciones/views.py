@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -7,15 +8,17 @@ from django.utils import timezone
 
 from .forms import (
     FormularioAlcanceSedes,
+    FormularioDepartamentosClaustro,
     FormularioEleccion,
     FormularioEditarEleccion,
-    FormularioPrepararClaustro,
+    FormularioFechasAdministrativasEleccion,
 )
 from .models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.autoridades.models import AsignacionAutoridad
 from apps.auditoria.services import registrar_evento
 from apps.partidos.models import ParticipacionPartido
 from apps.padron.models import RegistroPadron
+from apps.parametros.models import Claustro
 from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import elecciones_con_participacion
 from apps.usuarios.permisos import puede_administrar_elecciones
@@ -25,18 +28,21 @@ from apps.usuarios.models import AsignacionRol
 def contexto_formulario_eleccion(formulario, incluir_parametros=False):
     contexto = {
         "campos_generales": [formulario[nombre] for nombre in ("nombre", "fecha_inicio", "fecha_fin")],
-        "campos_fechas_administrativas": [
-            {
-                "definicion": definicion,
-                "seleccionada": formulario[f"fecha_{definicion.id}_seleccionada"],
-                "fecha": formulario[f"fecha_{definicion.id}_valor"],
-            }
-            for definicion in getattr(formulario, "definiciones_fechas", [])
-        ],
     }
     if incluir_parametros:
-        contexto["campos_parametros"] = [formulario[nombre] for nombre in ("sedes", "claustros", "turnos")]
+        contexto["campos_parametros"] = [formulario[nombre] for nombre in ("sedes", "claustros")]
     return contexto
+
+
+def contexto_fechas_administrativas(formulario):
+    return [
+        {
+            "definicion": definicion,
+            "seleccionada": formulario[f"fecha_{definicion.id}_seleccionada"],
+            "fecha": formulario[f"fecha_{definicion.id}_valor"],
+        }
+        for definicion in formulario.definiciones_fechas
+    ]
 
 
 @login_required
@@ -49,9 +55,8 @@ def inicio_autenticado(request):
                 "eleccion",
                 "eleccion_claustro_departamento__eleccion_claustro",
                 "sede",
-                "asignacion_mesa__mesa__turno",
                 "asignacion_autoridad__mesa__sede",
-                "asignacion_autoridad__mesa__turno",
+                "asignacion_autoridad__turno",
             )
         es_autoridad = AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists() if elector is not None else False
         return render(request, "elecciones/inicio_elector.html", {"registros": registros, "es_autoridad": es_autoridad})
@@ -96,6 +101,31 @@ def configurar_eleccion(request, eleccion_id):
             "cantidad_mesas": eleccion.mesas.count(),
             "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),
             "cantidad_partidos": ParticipacionPartido.objects.filter(eleccion=eleccion, activa=True).count(),
+            "cantidad_fechas_administrativas": eleccion.fechas_administrativas.count(),
+        },
+    )
+
+
+@login_required
+def gestionar_fechas_administrativas(request, eleccion_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
+    formulario_fechas = FormularioFechasAdministrativasEleccion(
+        request.POST or None,
+        eleccion=eleccion,
+    )
+    if request.method == "POST" and formulario_fechas.is_valid():
+        formulario_fechas.guardar()
+        messages.success(request, "Las fechas administrativas fueron actualizadas.")
+        return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
+    return render(
+        request,
+        "elecciones/fechas_administrativas.html",
+        {
+            "eleccion": eleccion,
+            "formulario_fechas": formulario_fechas,
+            "fechas_administrativas": contexto_fechas_administrativas(formulario_fechas),
         },
     )
 
@@ -107,9 +137,18 @@ def crear_eleccion(request):
 
     formulario = FormularioEleccion(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
-        eleccion = formulario.save()
+        with transaction.atomic():
+            eleccion = formulario.save()
+            AsignacionRol.objects.update_or_create(
+                usuario=request.user,
+                rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+                eleccion=eleccion,
+                sede=None,
+                mesa=None,
+                defaults={"activo": True},
+            )
         messages.success(request, "La eleccion fue creada y quedo configurada.")
-        return redirect("preparar-eleccion", eleccion_id=eleccion.id)
+        return redirect("configurar-eleccion", eleccion_id=eleccion.id)
     return render(request, "elecciones/formulario_eleccion.html", {"formulario": formulario, **contexto_formulario_eleccion(formulario, incluir_parametros=True)})
 
 
@@ -127,12 +166,7 @@ def preparar_claustro(request, eleccion_id, claustro_id):
     eleccion_claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion_claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para preparar este claustro.")
-    formulario = FormularioPrepararClaustro(request.POST or None, instance=eleccion_claustro)
-    if request.method == "POST" and formulario.is_valid():
-        formulario.save()
-        messages.success(request, "La configuracion del claustro fue guardada.")
-        return redirect("preparar-eleccion", eleccion_id=eleccion_id)
-    return render(request, "elecciones/preparar_claustro.html", {"eleccion": eleccion_claustro.eleccion, "claustro": eleccion_claustro, "formulario": formulario})
+    return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
 
 
 
@@ -189,7 +223,48 @@ def gestionar_alcances(request, eleccion_id):
         "elecciones/alcances.html",
         {
             "eleccion": eleccion,
-            "claustros": eleccion.elecciones_claustro.select_related("claustro").prefetch_related("departamentos__departamento"),
+            "claustros": eleccion.elecciones_claustro.select_related("claustro").prefetch_related(
+                "sedes_habilitadas__sede",
+                "departamentos__departamento",
+                "departamentos__sedes_habilitadas__sede",
+            ),
+        },
+    )
+
+
+@login_required
+def gestionar_departamentos_claustro(request, eleccion_id, claustro_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
+    if eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
+        return HttpResponseForbidden("No se pueden modificar alcances en una eleccion abierta o cerrada.")
+    eleccion_claustro = get_object_or_404(
+        EleccionClaustro.objects.select_related("claustro"),
+        pk=claustro_id,
+        eleccion=eleccion,
+    )
+    if (
+        eleccion_claustro.organizacion_departamentos
+        == Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO
+    ):
+        return HttpResponseForbidden("Este claustro no se organiza por departamentos.")
+
+    formulario = FormularioDepartamentosClaustro(
+        request.POST if request.method == "POST" else None,
+        eleccion_claustro=eleccion_claustro,
+    )
+    if request.method == "POST" and formulario.is_valid():
+        formulario.guardar()
+        messages.success(request, "Los departamentos habilitados fueron actualizados.")
+        return redirect("gestionar-alcances", eleccion_id=eleccion.id)
+    return render(
+        request,
+        "elecciones/editar_departamentos.html",
+        {
+            "eleccion": eleccion,
+            "eleccion_claustro": eleccion_claustro,
+            "formulario": formulario,
         },
     )
 
@@ -206,7 +281,7 @@ def editar_alcance_sedes(request, eleccion_id, tipo, objeto_id):
         titulo = f"Sedes de {objeto.claustro}"
     elif tipo == "departamento":
         objeto = get_object_or_404(EleccionClaustroDepartamento, pk=objeto_id, eleccion_claustro__eleccion=eleccion)
-        titulo = f"Sedes de {objeto.departamento}"
+        titulo = f"Sedes de {objeto.nombre_alcance}"
     else:
         raise Http404()
     formulario = FormularioAlcanceSedes(request.POST or None, eleccion=eleccion, objeto=objeto, tipo=tipo)

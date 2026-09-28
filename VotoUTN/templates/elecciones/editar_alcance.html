@@ -1,3 +1,30 @@
 {% extends "gestion/base.html" %}
 {% block title %}{{ titulo }} | Junta Electoral UTN{% endblock %}
-{% block content %}<section class="hero"><h1>{{ titulo }}</h1><p>Selecciona las sedes habilitadas. No se pueden quitar sedes que ya tengan mesas asignadas.</p></section><section class="card form-card"><form method="post">{% csrf_token %}<div class="field"><label>{{ formulario.sedes.label }}</label>{{ formulario.sedes }}{% for error in formulario.sedes.errors %}<div class="error">{{ error }}</div>{% endfor %}</div><div class="footer-actions"><a class="button light" href="{% url 'gestionar-alcances' eleccion.id %}">Cancelar</a><button class="button primary">Guardar sedes</button></div></form></section>{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>{{ titulo }}</h1>
+  <p>Seleccioná las sedes habilitadas. No se pueden quitar sedes que ya tengan mesas asignadas.</p>
+</section>
+
+<section class="card form-card">
+  <form id="formulario-alcance-sedes" method="post">
+    {% csrf_token %}
+    <div class="field checkbox-group" data-checkbox-group="alcance-sedes">
+      <div class="field-label-row">
+        <label>{{ formulario.sedes.label }}</label>
+        <label class="select-all">
+          <input type="checkbox" data-select-all="alcance-sedes">
+          <span>Seleccionar todas</span>
+        </label>
+      </div>
+      {{ formulario.sedes }}
+      {% for error in formulario.sedes.errors %}<div class="error">{{ error }}</div>{% endfor %}
+    </div>
+  </form>
+</section>
+
+<div class="section-actions form-card-actions">
+  <button class="button primary" type="submit" form="formulario-alcance-sedes">Guardar sedes</button>
+  <a class="button light" href="{% url 'gestionar-alcances' eleccion.id %}">Volver a sedes y departamentos</a>
+</div>
+{% endblock %}

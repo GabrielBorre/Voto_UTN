@@ -1,9 +1,106 @@
 {% extends "gestion/base.html" %}
-{% block title %}Cargar padron | Junta Electoral UTN{% endblock %}
+{% block title %}Padrón de {{ claustro.claustro }} | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero"><h1>Cargar padron</h1><p>{{ eleccion.nombre }} · {{ claustro.claustro }}. El archivo se valida antes de incorporar cualquier elector.</p></section>
-<section class="card form-card"><form method="post" enctype="multipart/form-data">{% csrf_token %}
-  <div class="field"><label for="{{ formulario.archivo.id_for_label }}">Archivo CSV o Excel</label>{{ formulario.archivo }}{% for error in formulario.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>
-  <div class="footer-actions"><a class="button light" href="{% url 'descargar-plantilla-padron' eleccion.id claustro.id %}">Descargar plantilla</a><a class="button light" href="{% url 'preparar-eleccion' eleccion.id %}">Volver</a><button class="button primary">Previsualizar archivo</button></div>
-</form></section>
+<section class="hero">
+  <h1>Padrón de {{ claustro.claustro }}</h1>
+  <p>{{ eleccion.nombre }}. Configurá los datos operativos, cargá el archivo y consultá sus importaciones.</p>
+</section>
+
+<div class="management-panel padron-panel">
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Configuración del padrón</h2>
+        <p>La fecha corresponde a la votación del claustro y el máximo determina la generación automática de mesas.</p>
+      </div>
+      <span class="tag">{{ claustro.claustro }}</span>
+    </div>
+    {% if puede_configurar %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="gestion-form-grid">
+          {% for field in formulario_configuracion %}
+            <div class="field">
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+        <small class="muted field-help">Los departamentos y las sedes se administran desde “Sedes y departamentos” en la configuración de la elección.</small>
+        <div class="footer-actions">
+          <button class="button primary" name="guardar-configuracion">Guardar configuración</button>
+        </div>
+      </form>
+    {% else %}
+      <div class="summary-grid compact-summary">
+        <div><strong>Fecha de votación</strong><span>{{ claustro.fecha_votacion|date:"d/m/Y"|default:"Pendiente" }}</span></div>
+        <div><strong>Máximo por mesa</strong><span>{{ claustro.maximo_votantes_por_mesa|default:"Pendiente" }}</span></div>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Cargar archivo</h2>
+        <p>El archivo se valida y se previsualiza antes de incorporar cualquier elector.</p>
+      </div>
+      <span class="tag">CSV o Excel</span>
+    </div>
+    {% if puede_cargar %}
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="field">
+          <label for="{{ formulario_archivo.archivo.id_for_label }}">Archivo del padrón</label>
+          {{ formulario_archivo.archivo }}
+          {% for error in formulario_archivo.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="footer-actions">
+          <a class="button light" href="{% url 'descargar-plantilla-padron' eleccion.id claustro.id %}">Descargar plantilla</a>
+          <button class="button primary" name="previsualizar-archivo">Previsualizar archivo</button>
+        </div>
+      </form>
+    {% else %}
+      <div class="notice">La carga de padrones no está disponible cuando la elección está abierta o cerrada.</div>
+    {% endif %}
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Historial de importaciones</h2>
+        <p>Solo se muestran los archivos cargados para {{ claustro.claustro }}.</p>
+      </div>
+      <span class="tag">{{ importaciones|length }} importaciones</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Fecha</th><th>Archivo</th><th>Filas</th><th>Válidas</th><th>Errores</th><th>Estado</th><th>Usuario</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for item in importaciones %}
+            <tr>
+              <td>{{ item.creada_en|date:"d/m/Y H:i" }}</td>
+              <td>{{ item.nombre_archivo }}</td>
+              <td>{{ item.cantidad_filas }}</td>
+              <td>{{ item.cantidad_validas }}</td>
+              <td>{{ item.cantidad_errores }}</td>
+              <td><span class="pill info">{{ item.get_estado_display }}</span></td>
+              <td>{{ item.usuario }}</td>
+              <td><a class="button light small" href="{% url 'detalle-importacion-padron' eleccion.id item.id %}">Ver</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8" class="muted">Todavía no hay importaciones para este claustro.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div class="section-actions">
+  <a class="button light" href="{% url 'preparar-eleccion' eleccion.id %}">Volver a padrones</a>
+</div>
 {% endblock %}

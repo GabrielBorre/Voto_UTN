@@ -23,7 +23,7 @@ class CampoClaustro(forms.ModelChoiceField):
 
 class CampoDepartamento(forms.ModelChoiceField):
     def label_from_instance(self, objeto):
-        return f"{objeto.eleccion_claustro.claustro} / {objeto.departamento}"
+        return str(objeto)
 
 
 class CampoMultipleClaustro(forms.ModelMultipleChoiceField):
@@ -152,6 +152,7 @@ class FormularioPuestoEleccion(forms.ModelForm):
         ).select_related("claustro")
         self.fields["eleccion_claustro_departamento"].queryset = EleccionClaustroDepartamento.objects.filter(
             eleccion_claustro__eleccion=eleccion,
+            departamento__isnull=False,
         ).select_related("eleccion_claustro__claustro", "departamento")
         self.fields["eleccion_claustro_departamento"].required = False
         self.fields["puesto"].label = "Puesto a habilitar"
@@ -248,6 +249,10 @@ class FormularioHabilitacionPuesto(forms.Form):
             elecciones_claustro_departamento__eleccion_claustro__eleccion=eleccion,
         ).distinct().order_by("nombre")
         estilizar_campos(self)
+        for nombre in ("claustros", "departamentos"):
+            self.fields[nombre].widget.attrs["class"] = "checkbox-list"
+        for nombre in ("limitar_por_claustros", "limitar_por_departamentos", "activo"):
+            self.fields[nombre].widget.attrs.pop("class", None)
 
     def clean(self):
         datos = super().clean()

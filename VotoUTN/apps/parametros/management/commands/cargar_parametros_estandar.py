@@ -16,7 +16,12 @@ ROL_ELECTOR = [FechaAdministrativa.RolDestinatario.ELECTOR]
 ROL_AUTORIDAD = [FechaAdministrativa.RolDestinatario.AUTORIDAD_MESA]
 
 SEDES = ("Medrano", "Campus")
-CLAUSTROS = ("Docentes", "Estudiantes", "Graduados", "No docentes")
+CLAUSTROS = (
+    ("Docentes", "DOC", Claustro.OrganizacionDepartamentos.POR_DEPARTAMENTO),
+    ("Estudiantes", "EST", Claustro.OrganizacionDepartamentos.POR_DEPARTAMENTO),
+    ("Graduados", "GRAD", Claustro.OrganizacionDepartamentos.POR_DEPARTAMENTO),
+    ("No docentes", "ND", Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO),
+)
 TURNOS = (
     ("Mañana", time(8), time(13)),
     ("Tarde", time(13), time(18)),
@@ -138,8 +143,17 @@ class Command(BaseCommand):
 
         for nombre in SEDES:
             self._upsert(conteo, Sede, {"activa": True}, nombre=nombre)
-        for nombre in CLAUSTROS:
-            self._upsert(conteo, Claustro, {"activo": True}, nombre=nombre)
+        for nombre, abreviatura, organizacion_departamentos in CLAUSTROS:
+            self._upsert(
+                conteo,
+                Claustro,
+                {
+                    "abreviatura": abreviatura,
+                    "organizacion_departamentos": organizacion_departamentos,
+                    "activo": True,
+                },
+                nombre=nombre,
+            )
         for nombre, inicio, fin in TURNOS:
             self._upsert(conteo, Turno, {"hora_inicio": inicio, "hora_fin": fin, "activo": True}, nombre=nombre)
         for codigo, nombre in DEPARTAMENTOS:

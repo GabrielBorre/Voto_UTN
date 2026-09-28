@@ -9,7 +9,7 @@ Voto UTN es una aplicación web responsive para administrar elecciones universit
 **El sistema debe permitir:**
 - Configurar parámetros reutilizables: sedes, claustros y turnos.
 - Crear, editar, preparar, habilitar, cerrar y consultar elecciones.
-- Configurar para cada elección sus claustros participantes, turnos y sedes habilitadas generales; luego definir, entre esas sedes, cuáles corresponden a cada claustro y, finalmente, cuáles corresponden a cada departamento de cada claustro.
+- Configurar para cada elección sus claustros participantes y sedes habilitadas generales; luego definir, entre esas sedes, cuáles corresponden a cada claustro y, finalmente, cuáles corresponden a cada departamento de cada claustro. Los turnos se configuran como rondas de trabajo de las autoridades de mesa.
 - Administrar mesas electorales.
 - Importar padrones y otros datos mediante archivos CSV.
 - Exportar información y resultados operativos en CSV.
@@ -393,7 +393,7 @@ El sistema no reemplaza el acto electoral ni constituye una urna electrónica. N
 **La solución deberá permitir:**
 - Configurar parámetros reutilizables: sedes, claustros y turnos.
 - Crear, editar, preparar, habilitar, cerrar y consultar elecciones.
-- Configurar para cada elección sus claustros participantes, turnos y sedes habilitadas generales; luego definir, entre esas sedes, cuáles corresponden a cada claustro y, finalmente, cuáles corresponden a cada departamento de cada claustro.
+- Configurar para cada elección sus claustros participantes y sedes habilitadas generales; luego definir, entre esas sedes, cuáles corresponden a cada claustro y, finalmente, cuáles corresponden a cada departamento de cada claustro. Los turnos se configuran como rondas de trabajo de las autoridades de mesa.
 - Administrar mesas electorales.
 - Importar padrones y otros datos mediante archivos CSV.
 - Exportar información y resultados operativos en CSV.
@@ -452,6 +452,7 @@ La autoridad de mesa es un elector que conserva todas las funcionalidades del pe
 Toda autoridad debe existir previamente como Elector y pertenecer al padrón de la elección correspondiente. No se crea una identidad o cuenta duplicada: se asignan capacidades y una designación de autoridad al mismo usuario/elector.
 No puede ser autoridad de un claustro distinto al claustro al que pertenece en el padrón de esa elección.
 Su incorporación puede realizarse mediante CSV o selección manual de un elector existente. Ambos mecanismos deben producir la misma entidad y aplicar las mismas validaciones.
+Cada autoridad cubre un único turno de trabajo por elección. La mesa y el elector no tienen turno: la mesa funciona durante toda la jornada y distintas autoridades pueden cubrir sus cambios de ronda.
 **Puede:**
 - consultar sus asignaciones;
 - informar preferencias de turno para ser autoridad de mesa;
@@ -764,7 +765,7 @@ Incluí códigos HTTP apropiados y errores estructurados. No expongas trazas int
 - puede_registrar_participacion;
 - puede_revisar_justificativo;
 - puede_exportar_información.
-- Las autoridades de mesa podrán incorporarse mediante CSV o mediante selección manual de un elector existente. Ambos mecanismos deben invocar el mismo caso de uso, crear la misma asignación funcional y aplicar idénticas validaciones. La asignación debe vincular al elector con su elección, claustro, sede, turno y mesa, sin crear una identidad duplicada.
+- Las autoridades de mesa podrán incorporarse mediante CSV o mediante selección manual de un elector existente. Ambos mecanismos deben invocar el mismo caso de uso, crear la misma asignación funcional y aplicar idénticas validaciones. La asignación debe vincular al elector con su elección, claustro, sede, turno de trabajo y mesa, sin crear una identidad duplicada.
 
 ## 14. Importación y exportación CSV
 
@@ -1020,7 +1021,7 @@ No escribas código en esa primera respuesta.
 
 - ABM de parámetros;
 - creación de elección;
-- selección múltiple de claustros, sedes y turnos;
+- selección múltiple de claustros y sedes en la creación, y de turnos de trabajo en la gestión de autoridades;
 - generación de mesas;
 - estados y validaciones.
 

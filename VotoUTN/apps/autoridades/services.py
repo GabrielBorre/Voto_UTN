@@ -50,7 +50,9 @@ DOMINIO_EMAIL_INSTITUCIONAL = "frba.utn.edu.ar"
 
 def leer_filas_autoridades(contenido: bytes, nombre_archivo: str = "") -> list[dict[str, str]]:
     nombre_archivo = (nombre_archivo or "").lower()
-    if nombre_archivo.endswith((".xlsx", ".xls")):
+    if nombre_archivo.endswith(".xls"):
+        raise ValueError("El formato .xls no es compatible. Guardá la planilla como .xlsx o CSV.")
+    if nombre_archivo.endswith(".xlsx"):
         libro = load_workbook(filename=io.BytesIO(contenido), read_only=True, data_only=True)
         hoja = libro.active
         filas = list(hoja.iter_rows(values_only=True))
@@ -83,16 +85,21 @@ def leer_filas_autoridades(contenido: bytes, nombre_archivo: str = "") -> list[d
 
 
 @transaction.atomic
-def asignar_autoridad(registro_padron, mesa, usuario):
-    if AsignacionAutoridad.objects.filter(mesa=mesa).exclude(estado=AsignacionAutoridad.Estado.RECHAZADA).count() >= mesa.eleccion.maximo_autoridades_por_mesa:
-        raise ValidationError("La mesa ya alcanzo el maximo de autoridades configurado.")
+def asignar_autoridad(registro_padron, mesa, turno, usuario):
+    eleccion_claustro = mesa.eleccion_claustro_departamento.eleccion_claustro
+    if not eleccion_claustro.turnos_autoridad.filter(turno=turno).exists():
+        raise ValidationError("El turno de trabajo no está habilitado para este claustro.")
+    if AsignacionAutoridad.objects.filter(mesa=mesa, turno=turno).exclude(estado=AsignacionAutoridad.Estado.RECHAZADA).count() >= mesa.eleccion.maximo_autoridades_por_mesa:
+        raise ValidationError("La mesa ya alcanzó el máximo de autoridades configurado para este turno.")
     candidatura, _ = CandidaturaAutoridad.objects.get_or_create(registro_padron=registro_padron, defaults={"cargada_por": usuario})
     asignacion, creada = AsignacionAutoridad.objects.get_or_create(
         registro_padron=registro_padron,
-        defaults={"mesa": mesa, "candidatura": candidatura, "asignada_por": usuario},
+        defaults={"mesa": mesa, "turno": turno, "candidatura": candidatura, "asignada_por": usuario},
     )
     if not creada and asignacion.mesa_id != mesa.id:
         raise ValidationError("El elector ya fue asignado como autoridad de otra mesa.")
+    if not creada and asignacion.turno_id != turno.id:
+        raise ValidationError("El elector ya fue asignado como autoridad en otro turno.")
     asignacion.full_clean()
     if creada:
         from apps.usuarios.models import AsignacionRol, PerfilUsuario
@@ -121,9 +128,9 @@ def asignar_autoridad(registro_padron, mesa, usuario):
     return asignacion, creada
 
 
-def validar_csv_autoridades(contenido, eleccion):
+def validar_csv_autoridades(contenido, eleccion_claustro, nombre_archivo=""):
     try:
-        filas = leer_filas_autoridades(contenido)
+        filas = leer_filas_autoridades(contenido, nombre_archivo)
     except ValueError as error:
         return [], [(None, str(error))]
 
@@ -179,14 +186,15 @@ def validar_csv_autoridades(contenido, eleccion):
             errores.append((numero, "El departamento es obligatorio."))
 
         padron = RegistroPadron.objects.filter(
-            eleccion=eleccion,
+            eleccion=eleccion_claustro.eleccion,
+            eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
             elector__dni=fila["dni"],
             elector__legajo=fila["legajo"],
             activo=True,
         ).select_related("elector", "eleccion_claustro_departamento__departamento").first()
 
         if padron is None:
-            errores.append((numero, "El elector no pertenece al padron activo de esta eleccion."))
+            errores.append((numero, "El elector no pertenece al padron activo de este claustro."))
             continue
 
         departamento = padron.eleccion_claustro_departamento.departamento
@@ -197,13 +205,18 @@ def validar_csv_autoridades(contenido, eleccion):
 
 
 @transaction.atomic
-def importar_autoridades(contenido, eleccion, usuario):
-    filas, errores = validar_csv_autoridades(contenido, eleccion)
+def importar_autoridades(contenido, eleccion_claustro, usuario, nombre_archivo=""):
+    filas, errores = validar_csv_autoridades(contenido, eleccion_claustro, nombre_archivo)
     if errores:
         return 0, errores
     creadas = 0
     for fila in filas:
-        padron = RegistroPadron.objects.get(eleccion=eleccion, elector__dni=fila["dni"], elector__legajo=fila["legajo"])
+        padron = RegistroPadron.objects.get(
+            eleccion=eleccion_claustro.eleccion,
+            eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+            elector__dni=fila["dni"],
+            elector__legajo=fila["legajo"],
+        )
         _, creada = CandidaturaAutoridad.objects.get_or_create(registro_padron=padron, defaults={"cargada_por": usuario})
         creadas += int(creada)
     return creadas, []
