@@ -30,6 +30,19 @@ class Mesa(models.Model):
     def __str__(self):
         return f"{self.eleccion} - Mesa {self.numero}"
 
+    def save(self, *args, **kwargs):
+        if self.pk:
+            anterior = Mesa.objects.filter(pk=self.pk).first()
+            tiene_qr_emitidos = self.asignaciones_padron.filter(
+                registro_padron__qr_generado_en__isnull=False
+            ).exists()
+            if anterior and tiene_qr_emitidos and any(
+                getattr(anterior, campo) != getattr(self, campo)
+                for campo in ("eleccion_id", "numero", "eleccion_claustro_departamento_id", "sede_id", "turno_id")
+            ):
+                raise ValidationError("No se puede modificar una mesa con códigos QR emitidos.")
+        super().save(*args, **kwargs)
+
 
 class AsignacionMesa(models.Model):
     registro_padron = models.OneToOneField(RegistroPadron, on_delete=models.PROTECT, related_name="asignacion_mesa")
@@ -41,3 +54,19 @@ class AsignacionMesa(models.Model):
     def clean(self):
         if self.registro_padron_id and self.mesa_id and self.registro_padron.eleccion_id != self.mesa.eleccion_id:
             raise ValidationError({"mesa": "Debe pertenecer a la misma eleccion del padron."})
+        if (
+            self.registro_padron_id
+            and self.mesa_id
+            and self.registro_padron.qr_generado_en
+            and self.registro_padron.numero_mesa_qr != self.mesa.numero
+        ):
+            raise ValidationError({"mesa": "El QR ya fue emitido para otra mesa."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.registro_padron.qr_generado_en:
+            raise ValidationError("No se puede eliminar una asignación con el QR emitido.")
+        return super().delete(*args, **kwargs)

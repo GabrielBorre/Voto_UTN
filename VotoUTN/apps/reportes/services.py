@@ -38,7 +38,7 @@ def exportar_reporte_eleccion(eleccion, tipo):
                     for valor in (
                         registro.elector.dni,
                         registro.elector.legajo,
-                        registro.elector.nombre,
+                        registro.elector.nombre_completo,
                         registro.elector.correo_electronico,
                         registro.eleccion_claustro_departamento.eleccion_claustro.claustro,
                         registro.eleccion_claustro_departamento.departamento,
@@ -70,7 +70,7 @@ def exportar_reporte_eleccion(eleccion, tipo):
         for item in AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).select_related("registro_padron__elector", "mesa"):
             escritor.writerow(
                 (
-                    valor_csv(item.registro_padron.elector.nombre),
+                    valor_csv(item.registro_padron.elector.nombre_completo),
                     valor_csv(item.registro_padron.elector.legajo),
                     item.mesa.numero,
                     item.estado,
@@ -82,7 +82,7 @@ def exportar_reporte_eleccion(eleccion, tipo):
         for item in RegistroParticipacion.objects.filter(registro_padron__eleccion=eleccion).select_related("registro_padron__elector", "mesa"):
             escritor.writerow(
                 (
-                    valor_csv(item.registro_padron.elector.nombre),
+                    valor_csv(item.registro_padron.elector.nombre_completo),
                     valor_csv(item.registro_padron.elector.legajo),
                     item.mesa.numero,
                     item.registrada_en.isoformat(),
@@ -96,7 +96,7 @@ def exportar_reporte_eleccion(eleccion, tipo):
                 [
                     valor_csv(valor)
                     for valor in (
-                        item.registro_padron.elector.nombre,
+                        item.registro_padron.elector.nombre_completo,
                         item.tipo,
                         item.estado,
                         item.presentada_en.isoformat(),

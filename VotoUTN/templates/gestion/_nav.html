@@ -1,0 +1,27 @@
+{% if user.is_authenticated %}
+<nav class="gestion-nav" aria-label="Navegación de Junta Electoral">
+  <a class="{% if request.resolver_match.url_name == 'inicio-autenticado' or request.resolver_match.url_name == 'inicio-administrador-junta' or request.resolver_match.url_name == 'inicio-administrativo-junta' or request.resolver_match.url_name == 'gestionar-elecciones' %}active{% endif %}" href="{% if nav_es_administrador_junta %}{% url 'inicio-administrador-junta' %}{% elif nav_es_administrativo_junta %}{% url 'inicio-administrativo-junta' %}{% else %}{% url 'inicio-autenticado' %}{% endif %}">Inicio</a>
+  {% if nav_puede_ver_elecciones %}
+  <a class="{% if request.resolver_match.url_name == 'lista-elecciones' %}active{% endif %}" href="{% url 'lista-elecciones' %}">Elecciones y asistencia</a>
+  {% endif %}
+  {% if nav_puede_crear_elecciones %}
+  <a class="{% if request.resolver_match.url_name == 'crear-eleccion' %}active{% endif %}" href="{% url 'crear-eleccion' %}">Nueva elección</a>
+  {% endif %}
+  {% if nav_puede_gestionar_parametros %}
+  <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parámetros de elección</a>
+  {% endif %}
+  {% if nav_puede_gestionar_elecciones %}
+  <a class="{% if request.resolver_match.url_name == 'historial-elecciones' %}active{% endif %}" href="{% url 'historial-elecciones' %}">Historial de elecciones</a>
+  {% endif %}
+  {% if nav_puede_revisar_justificativos %}
+  <a class="{% if request.resolver_match.url_name == 'bandeja-justificativos' %}active{% endif %}" href="{% url 'bandeja-justificativos' %}">Justificativos</a>
+  {% elif nav_puede_ver_justificativos %}
+  <a class="{% if request.resolver_match.url_name == 'mis-justificativos' %}active{% endif %}" href="{% url 'mis-justificativos' %}">Mis justificativos</a>
+  {% endif %}
+  {% if nav_es_autoridad %}
+  <a class="{% if request.resolver_match.url_name == 'mis-asignaciones-autoridad' %}active{% endif %}" href="{% url 'mis-asignaciones-autoridad' %}">Mis asignaciones</a>
+  {% endif %}
+  <a class="{% if request.resolver_match.url_name == 'mis-notificaciones' or request.resolver_match.url_name == 'leer-notificacion' %}active{% endif %}" href="{% url 'mis-notificaciones' %}">Notificaciones{% if notificaciones_no_leidas %} ({{ notificaciones_no_leidas }}){% endif %}</a>
+  <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Cerrar Sesión</button></form>
+</nav>
+{% endif %}

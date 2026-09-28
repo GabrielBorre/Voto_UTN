@@ -69,13 +69,16 @@ Ejemplo: `Sistemas de Información` / `K`.
 
 ## Partidos y candidatos
 
-- Un partido se registra una vez y puede participar en distintas elecciones.
-- La participacion define el numero y nombre de lista dentro de una eleccion.
-- Las listas se organizan por claustro y, cuando corresponda, por departamento.
+- El parámetro reutilizable es el puesto a elegir y el órgano o cuerpo al que pertenece; DASUTeN se modela como órgano, no como atributo de una lista. El puesto indica si permite limitar por claustros y si permite limitar por departamentos; ambas capacidades son independientes.
+- Las agrupaciones, nombres y números de lista y apoderados no son parámetros reutilizables: se registran como presentaciones propias de cada elección.
+- El modelo histórico `Partido` se conserva únicamente por compatibilidad con registros anteriores y no participa del nuevo flujo de parámetros.
+- En cada elección, un filtro de claustros desactivado incluye todos los claustros y uno activado permite elegir un subconjunto. El filtro de departamentos funciona del mismo modo y no exige activar el de claustros. Si ambos están activos se combinan; si ambos están inactivos se incluyen todos los alcances disponibles.
+- El código de presentación identifica una lista y su alcance dentro de la elección. El número de lista puede repetirse en presentaciones o alcances distintos.
+- Las listas y candidaturas pueden cargarse manualmente o mediante un CSV con previsualización y confirmación.
 - Un candidato puede vincularse opcionalmente con un elector existente.
 - No es obligatorio que el candidato pertenezca al padron.
 - Si el candidato esta en el padron de la eleccion, debe coincidir con el claustro y departamento de la lista.
-- Una misma persona no puede integrar dos listas diferentes dentro de la misma eleccion.
+- Una misma persona puede integrar más de una candidatura. Si su identificador aparece en presentaciones competidoras, la importación lo permite pero genera una advertencia para revisión de la Junta.
 
 ## QR
 
@@ -113,3 +116,17 @@ Reglas:
 - La notificación interna muestra el mismo contenido del correo.
 - El módulo interno administra plantillas, programación, estados, historial y lectura.
 - El envío efectivo puede delegarse a un proveedor externo mediante un adaptador desacoplado.
+
+## Catálogos administrativos, mensajes y emisión de QR
+
+- Los catálogos reutilizables son sede, claustro, departamento, turno, fecha administrativa, tipo de justificativo y plantilla de mensaje.
+- Todos admiten alta, edición, activación y desactivación. No existe eliminación física desde la gestión web.
+- Una fecha administrativa define el alcance y criterio base de destinatarios. Sus variantes de comunicación solo pueden reducir ese alcance.
+- Las plantillas usan texto plano y un conjunto controlado de variables; no incluyen DNI, legajo ni adjuntos.
+- Las plantillas automáticas o transaccionales no pueden seleccionarse en la pantalla de envío manual.
+- El calendario por elección y el motor de envíos automáticos quedan fuera de esta entrega. Se conserva temporalmente el calendario electoral existente.
+- Las mesas se generan automáticamente desde el padrón y continúan siendo de consulta; no se incorpora un ABM manual de mesas.
+- Las mesas y el padrón pueden ajustarse hasta la primera emisión de QR del claustro.
+- Cada `RegistroPadron` conserva la fecha de emisión y el número de mesa incluido en su QR.
+- Después de emitir un QR no se permite reimportar el padrón ni regenerar automáticamente las mesas del claustro.
+- Volver a producir el mismo QR para la misma mesa no cambia su primera marca de emisión; producirlo para otra mesa se rechaza.

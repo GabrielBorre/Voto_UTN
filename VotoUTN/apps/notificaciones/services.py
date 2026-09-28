@@ -8,6 +8,8 @@ from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 @transaction.atomic
 def crear_envios(plantilla, eleccion=None):
+    if not plantilla.activa or not plantilla.permite_envio_manual:
+        raise ValueError("La plantilla no está habilitada para envíos manuales.")
     usuarios = set()
     roles = plantilla.roles_destinatarios
     asignaciones = AsignacionRol.objects.filter(activo=True, rol__in=roles)

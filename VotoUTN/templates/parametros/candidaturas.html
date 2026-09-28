@@ -1,0 +1,20 @@
+{% extends "gestion/base.html" %}
+
+{% block title %}Puestos a elegir | Junta Electoral UTN{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Puestos a elegir</h1>
+  <p>Definí los puestos reutilizables. El órgano es únicamente el cuerpo representado, por ejemplo Consejo Directivo o DASUTeN. Las listas, números y apoderados se cargan dentro de cada elección.</p>
+</section>
+<section class="toolbar">
+  {% for catalogo in catalogos %}
+  <article class="option">
+    <h2>{{ catalogo.titulo }}</h2>
+    <p>{{ catalogo.cantidad }} registros. {% if catalogo.tipo == "organos-electivos" %}Paso auxiliar: cuerpos representados, como Consejo Directivo, Consejo Departamental o DASUTeN.{% else %}Puestos concretos que luego se habilitarán por claustro y departamento en cada elección.{% endif %}</p>
+    <a class="button secondary" href="{% url 'listar-parametros' catalogo.tipo %}">Administrar</a>
+  </article>
+  {% endfor %}
+</section>
+<div class="footer-actions"><a class="button light" href="{% url 'gestionar-parametros' %}">Volver a parámetros</a></div>
+{% endblock %}

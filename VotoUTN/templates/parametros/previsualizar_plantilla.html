@@ -1,0 +1,3 @@
+{% extends "gestion/base.html" %}
+{% block title %}Vista previa | Junta Electoral UTN{% endblock %}
+{% block content %}<section class="hero"><h1>Vista previa de {{ plantilla.nombre }}</h1><p>Ejemplo con valores ficticios; no genera ningún envío.</p></section><section class="card"><h2>{{ asunto }}</h2><p style="white-space: pre-line">{{ contenido }}</p></section><div class="footer-actions"><a class="button light" href="{% url 'listar-parametros' 'plantillas-mensajes' %}">Volver</a></div>{% endblock %}

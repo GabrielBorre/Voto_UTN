@@ -1,0 +1,29 @@
+{% extends "gestion/base.html" %}
+{% block title %}Importar candidaturas | {{ eleccion.nombre }}{% endblock %}
+{% block content %}
+<section class="hero"><h1>Importar listas y candidaturas</h1><p>{{ eleccion.nombre }}. El archivo se valida y previsualiza antes de guardar las candidaturas.</p></section>
+<section class="card form-card">
+  <div class="section-title"><div><h2>Archivo CSV</h2><p>Configurá primero los puestos habilitados en la elección.</p></div><a class="button light" href="{% url 'plantilla-candidaturas' eleccion.id %}">Descargar plantilla</a></div>
+  <p class="muted"><strong>Una fila representa una persona en un puesto.</strong> Usá el mismo <code>codigo_presentacion</code> para todas las filas de una misma lista y alcance. El código debe ser único en la elección; el número de lista puede repetirse en otro claustro o presentación.</p>
+  <p class="muted">Los valores de <code>claustro</code>, <code>organo</code>, <code>puesto</code> y <code>departamento</code> deben coincidir con la configuración de esta elección. Dejá <code>departamento</code> vacío para puestos generales. <code>tipo_candidatura</code> admite <code>titular</code> o <code>suplente</code>.</p>
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+    {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+    {% for field in formulario %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small class="muted">{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}
+    <div class="footer-actions"><button class="button primary" type="submit">Previsualizar</button></div>
+  </form>
+</section>
+{% if importacion %}
+<section class="card">
+  <div class="section-title"><div><h2>Resultado de la previsualización</h2><p>{{ importacion.nombre_archivo }}: {{ importacion.cantidad_valida }} de {{ importacion.cantidad_total }} filas válidas.</p></div><span class="pill {% if importacion.errores %}gray{% else %}ok{% endif %}">{{ importacion.get_estado_display }}</span></div>
+  {% for error in importacion.errores %}<div class="error">{{ error }}</div>{% endfor %}
+  {% for advertencia in importacion.advertencias %}<p class="muted">Advertencia: {{ advertencia }}</p>{% endfor %}
+  {% if not importacion.errores %}
+  <div class="table-wrap"><table><thead><tr><th>Fila</th><th>Código</th><th>Lista</th><th>Persona</th><th>Tipo</th><th>Orden</th></tr></thead><tbody>
+  {% for fila in importacion.filas %}<tr><td>{{ fila.numero_fila }}</td><td>{{ fila.codigo_presentacion }}</td><td>{{ fila.numero_lista }} — {{ fila.nombre_lista }}</td><td>{{ fila.apellido }}, {{ fila.nombres }}</td><td>{{ fila.tipo }}</td><td>{{ fila.orden }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  <form method="post" action="{% url 'confirmar-importacion-candidaturas' eleccion.id importacion.id %}">{% csrf_token %}<div class="footer-actions"><button class="button primary" type="submit">Confirmar importación</button></div></form>
+  {% endif %}
+</section>
+{% endif %}
+<div class="footer-actions"><a class="button light" href="{% url 'gestionar-partidos' eleccion.id %}">Volver a listas y candidaturas</a></div>
+{% endblock %}

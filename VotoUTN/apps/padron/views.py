@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from apps.elecciones.models import Eleccion, EleccionClaustro
 from apps.padron.models import ImportacionPadron
 from apps.padron.forms import FormularioArchivoPadron
-from apps.padron.services import CABECERAS_PADRON, confirmar_importacion, registrar_errores, validar_csv_padron
+from apps.padron.services import PLANTILLA_PADRON_EJEMPLO, PLANTILLA_PADRON_HEADERS, confirmar_importacion, detectar_columnas_archivo, registrar_errores, validar_csv_padron
 from apps.usuarios.permisos import puede_importar_padron
 
 
@@ -21,7 +21,10 @@ def descargar_plantilla_padron(request, eleccion_id, claustro_id):
     respuesta = HttpResponse(content_type="text/csv; charset=utf-8")
     respuesta["Content-Disposition"] = f'attachment; filename="plantilla_padron_{eleccion_claustro.claustro.nombre}.csv"'
     respuesta.write("\ufeff")
-    csv.writer(respuesta).writerow(CABECERAS_PADRON)
+    escritor = csv.writer(respuesta)
+    escritor.writerow(PLANTILLA_PADRON_HEADERS)
+    for fila in PLANTILLA_PADRON_EJEMPLO:
+        escritor.writerow(fila)
     return respuesta
 
 
@@ -37,7 +40,7 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
         archivo = formulario.cleaned_data["archivo"]
         contenido = archivo.read()
         archivo.seek(0)
-        resultado = validar_csv_padron(contenido, eleccion_claustro)
+        resultado = validar_csv_padron(contenido, eleccion_claustro, archivo.name)
         importacion = ImportacionPadron.objects.create(
             eleccion=eleccion_claustro.eleccion,
             eleccion_claustro=eleccion_claustro,
@@ -60,7 +63,13 @@ def detalle_importacion_padron(request, eleccion_id, importacion_id):
     importacion = get_object_or_404(ImportacionPadron.objects.select_related("eleccion_claustro__claustro", "usuario"), pk=importacion_id, eleccion_id=eleccion_id)
     if not puede_importar_padron(request.user, importacion.eleccion):
         return HttpResponseForbidden("No tiene permiso para consultar esta importacion.")
-    return render(request, "padron/detalle_importacion.html", {"eleccion": importacion.eleccion, "importacion": importacion})
+    importacion.archivo.open("rb")
+    try:
+        contenido_archivo = importacion.archivo.read()
+    finally:
+        importacion.archivo.close()
+    columnas_detectadas = detectar_columnas_archivo(contenido_archivo, importacion.nombre_archivo)
+    return render(request, "padron/detalle_importacion.html", {"eleccion": importacion.eleccion, "importacion": importacion, "columnas_detectadas": columnas_detectadas})
 
 
 @login_required
@@ -78,7 +87,12 @@ def confirmar_importacion_padron(request, eleccion_id, importacion_id):
     except ValueError as error:
         messages.error(request, str(error))
     else:
-        messages.success(request, f"Padron confirmado. Se incorporaron {cantidad} registros nuevos.")
+        cantidad_existente = max(importacion.cantidad_validas - cantidad, 0)
+        messages.success(
+            request,
+            f"Padron confirmado. Filas procesadas: {importacion.cantidad_validas}. "
+            f"Nuevos: {cantidad}. Ya existentes: {cantidad_existente}.",
+        )
     return redirect("detalle-importacion-padron", eleccion_id=eleccion_id, importacion_id=importacion.id)
 
 

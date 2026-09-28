@@ -37,7 +37,11 @@ def registrar_evento(
     usuario_auditoria = usuario
     if usuario_auditoria is None and request is not None:
         usuario_auditoria = getattr(request, "user", None)
-    if isinstance(usuario_auditoria, AnonymousUser) or not getattr(usuario_auditoria, "is_authenticated", False):
+    if (
+        isinstance(usuario_auditoria, AnonymousUser)
+        or getattr(usuario_auditoria, "es_elector", False)
+        or not getattr(usuario_auditoria, "is_authenticated", False)
+    ):
         usuario_auditoria = None
 
     return EventoAuditoria.objects.create(

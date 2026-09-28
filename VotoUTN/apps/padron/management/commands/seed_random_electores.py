@@ -32,7 +32,7 @@ class Command(BaseCommand):
             "Garcia", "Fernandez", "Lopez", "Martinez", "Gonzalez", "Perez", "Rodriguez", "Sanchez", "Romero", "Diaz",
             "Alvarez", "Torres", "Ruiz", "Ramirez", "Flores", "Acosta", "Benitez", "Herrera", "Molina", "Castro",
         ]
-        return f"{random.choice(nombres)} {random.choice(apellidos)}"
+        return random.choice(nombres), random.choice(apellidos)
 
     def _sincronizar_secuencias(self):
         if connection.vendor != "postgresql":
@@ -71,12 +71,13 @@ class Command(BaseCommand):
             else:
                 raise CommandError("No se pudo generar legajo/dni unicos luego de varios intentos.")
 
-            nombre = self._generar_nombre()
+            nombre, apellido = self._generar_nombre()
             email = f"{legajo.lower()}@demo.utn.local"
 
             elector = Elector.objects.create(
                 legajo=legajo,
                 nombre=nombre,
+                apellido=apellido,
                 dni=dni,
                 correo_electronico=email,
             )

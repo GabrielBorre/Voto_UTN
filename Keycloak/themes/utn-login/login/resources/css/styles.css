@@ -1,0 +1,130 @@
+/* css/styles.css */
+body {
+  font-family: Arial, sans-serif;
+  background: url("../img/background.jpg") no-repeat center center fixed;
+  margin: 0;
+  padding: 0;
+  background-size: cover;
+}
+
+header {
+  color: white;
+  padding: 3rem;
+  text-align: center;
+}
+
+.login-box {
+  background: white;
+  max-width: 400px;
+  margin: 3rem auto;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    position: relative; /* importante para posicionar el círculo */
+  
+}
+
+
+.circle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;       /* lo hace circular */
+  overflow: hidden;         /* recorta la imagen dentro del círculo */
+  position: absolute;
+  top: -50px;               /* sobresale la mitad por encima */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: white;
+    display: flex;              /* activa flexbox */
+  align-items: center;        /* centra verticalmente */
+  justify-content: center;    /* centra horizontalmente */
+}
+
+.circle img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;        /* ajusta la imagen dentro del círculo */
+  background-color: white;
+}
+
+.img-utnba {
+ 
+    display: flex;              /* activa flexbox */
+  align-items: center;        /* centra verticalmente */
+  justify-content: center;    /* centra horizontalmente */
+  margin-top: 20px;
+}
+.img-utnba img {
+  width: 50%;
+  height: 50%;
+  object-fit: contain;        /* ajusta la imagen dentro del círculo */
+  background-color: white;
+}
+
+.login-box h2 {
+  margin-bottom: 1rem;
+  color: rgb(0, 0, 0);
+  font-size: 20px;
+   display: block;
+  text-align: center;
+    font-weight: 300;
+}
+
+.login-box a {
+  color: rgb(183, 18, 52);
+  font-size: 14px;
+  display: inline-block;    /* permite aplicar estilos de caja */
+  float: right;               /* lo manda a la derecha de la línea */
+  padding: 10px 1px;        /* espacio interno */
+}
+
+.login-box input {
+  padding-bottom: 12px;
+  padding-top: 12px;
+  padding-right: 1px; 
+  margin-bottom: 15px;
+  margin-top: 15px;
+}
+
+label {
+  display: block;
+  margin-top: 1rem;
+}
+
+input {
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.3rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  margin-top: 1.5rem;
+  width: 100%;
+  padding: 0.7rem;
+  background: rgb(183, 18, 52);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+button:hover {
+  background: rgb(128, 12, 36);
+}
+
+footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.disclaimer-academic-footer{
+    text-align: center;
+  padding: 1rem;
+  font-size: 0.9rem;
+  color: #ffffff;
+}
