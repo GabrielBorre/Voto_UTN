@@ -8,6 +8,7 @@ import {
 } from "./ui.js";
 
 const app = document.querySelector("#scanner-app");
+const esDispositivoMovil = window.matchMedia("(max-width: 767.98px)").matches;
 const camera = new Camera(
     document.querySelector("#camera-video")
 );
@@ -127,6 +128,8 @@ const cameraPanel = document.querySelector("#camera-panel");
 const scanControls = document.querySelector("#scan-controls");
 const mesaSummaryView = document.querySelector("#mesa-summary-view");
 const lastPageSummary = document.querySelector("#last-page-summary");
+const manualDesktopForm = document.querySelector("#manual-desktop-form");
+const manualDesktopStatus = document.querySelector("#manual-desktop-status");
 
 setCount(0);
 setRegisterButtonLabel(null, 0, null);
@@ -548,14 +551,61 @@ manualLoadButton.addEventListener("click", () => {
 
 resetSessionButton.addEventListener("click", resetSession);
 
-void startCamera();
+if (manualDesktopForm) {
+    manualDesktopForm.addEventListener("submit", event => {
+        event.preventDefault();
+
+        const formData = new FormData(manualDesktopForm);
+        const mesaNumero = Number.parseInt(formData.get("mesa_numero"), 10);
+        const dni = String(formData.get("dni") || "").trim();
+        const submitButton = manualDesktopForm.querySelector('button[type="submit"]');
+
+        if (!Number.isInteger(mesaNumero) || mesaNumero <= 0 || !dni) {
+            return;
+        }
+
+        void (async () => {
+            submitButton.disabled = true;
+            manualDesktopStatus.textContent = "Registrando asistencia...";
+            manualDesktopStatus.dataset.estado = "info";
+
+            try {
+                const result = await submitManualAttendance(manualDesktopForm.dataset.apiUrl, mesaNumero, dni);
+                if (result.invalidos?.length) {
+                    manualDesktopStatus.textContent = `No se encontró al elector en la mesa ${mesaNumero}.`;
+                    manualDesktopStatus.dataset.estado = "error";
+                } else if (result.creados?.length) {
+                    manualDesktopStatus.textContent = `Asistencia registrada en la mesa ${mesaNumero}.`;
+                    manualDesktopStatus.dataset.estado = "success";
+                    manualDesktopForm.reset();
+                    document.querySelector("#manual-mesa-numero").focus();
+                } else if (result.ya_registrados?.length) {
+                    manualDesktopStatus.textContent = `El elector ya estaba registrado en la mesa ${mesaNumero}.`;
+                    manualDesktopStatus.dataset.estado = "info";
+                } else {
+                    manualDesktopStatus.textContent = "No se pudo completar la carga manual.";
+                    manualDesktopStatus.dataset.estado = "error";
+                }
+            } catch (error) {
+                manualDesktopStatus.textContent = error.message;
+                manualDesktopStatus.dataset.estado = "error";
+            } finally {
+                submitButton.disabled = false;
+            }
+        })();
+    });
+}
+
+if (esDispositivoMovil) {
+    void startCamera();
+}
 
 document.addEventListener(
     "visibilitychange",
     () => {
         if (document.hidden) {
             stopAll();
-        } else {
+        } else if (esDispositivoMovil) {
             void startCamera();
         }
     }
