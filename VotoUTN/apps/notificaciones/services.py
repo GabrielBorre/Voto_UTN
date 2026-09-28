@@ -6,29 +6,6 @@ from apps.notificaciones.models import EnvioNotificacion
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
-class _FormateoParcial(dict):
-    """Permite reemplazar solo las variables provistas y dejar el resto sin tocar."""
-
-    def __missing__(self, clave):
-        return "{" + clave + "}"
-
-
-def _renderizar(texto, variables):
-    return texto.format_map(_FormateoParcial(variables or {}))
-
-
-def crear_envio_individual(plantilla, destinatario, eleccion=None, variables=None):
-    if not plantilla.activa:
-        raise ValueError("La plantilla no está habilitada.")
-    return EnvioNotificacion.objects.create(
-        plantilla=plantilla,
-        eleccion=eleccion,
-        destinatario=destinatario,
-        asunto=_renderizar(plantilla.asunto, variables),
-        contenido=_renderizar(plantilla.contenido, variables),
-    )
-
-
 @transaction.atomic
 def crear_envios(plantilla, eleccion=None):
     if not plantilla.activa or not plantilla.permite_envio_manual:
