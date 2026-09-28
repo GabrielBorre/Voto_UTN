@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+staticfiles/
+media/
+generated_qrs/
+*.pem
+.git/
+.env
