@@ -59,3 +59,6 @@ Instalá también la CA generada por mkcert en el teléfono, y abrí `https://19
 
 
 python manage.py seed_voters --election-id 1 --configuracion-departamento-id 2
+
+docker compose exec web python manage.py seed_demo_data
+docker compose exec web python manage.py seed_keycloak_demo

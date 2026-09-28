@@ -1,0 +1,68 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: voto_utn_db
+    restart: unless-stopped
+    env_file:
+      - ./VotoUTN/.env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.2
+    container_name: keycloak
+    command: start-dev --import-realm
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Keycloak/realm-export:/opt/keycloak/data/import
+      - ./Keycloak/themes/utn-login:/opt/keycloak/themes/utn-login
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    ports:
+      - "8025:8025" # interfaz web para revisar los correos recibidos
+      - "1025:1025" # puerto SMTP que usa Django para enviar los correos
+    environment:
+      - MP_MAX_MESSAGES=500
+      - MP_SMTP_AUTH_ACCEPT_ANY=1
+      - MP_SMTP_AUTH_ALLOW_INSECURE=1
+
+  web:
+    build:
+      context: ./VotoUTN
+    container_name: voto_utn_web
+    env_file:
+      - ./VotoUTN/.env
+    environment:
+      # Sobrescriben al .env local para resolver los demas servicios por su nombre en la red de Docker.
+      - POSTGRES_HOST=db
+      - EMAIL_HOST=mailpit
+      - KEYCLOAK_URL_INTERNO=http://keycloak:8080
+      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,web
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./VotoUTN:/app
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      mailpit:
+        condition: service_started
+
+volumes:
+  pgdata:
