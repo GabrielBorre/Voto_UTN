@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Elecciones UTN.BA{% endblock %}</title>
   <link href="{% static 'css/gestion-electoral.css' %}" rel="stylesheet">
+  <link href="{% static 'css/gestion-nav.css' %}" rel="stylesheet">
 </head>
 <body class="gestion-electoral">
   <header class="topbar">
@@ -14,16 +15,12 @@
       <span class="brand-title"><strong>UTN.<i>BA</i></strong><small>Sistema de Gestion Electoral</small></span>
     </a>
     {% if user.is_authenticated %}
-      <div class="d-flex align-items-center gap-3">
-        <span class="text-white">{{ user.first_name|default:user.username }}{% if user.last_name %} {{ user.last_name }}{% endif %}</span>
-          {% csrf_token %}
-          <button type="submit" class="btn primary">Salir</button>
-        </form>
-      </div>
+      <div class="userbox"><strong>{{ user.first_name|default:user.username }}{% if user.last_name %} {{ user.last_name }}{% endif %}</strong><span>{% if nav_es_administrador_junta %}Rol: <b>Administrador de Junta Electoral</b>{% elif nav_es_administrativo_junta %}Rol: <b>Administrativo de Junta Electoral</b>{% elif nav_es_autoridad %}Rol: <b>Autoridad de Mesa</b>{% elif nav_es_elector %}Rol: <b>Elector</b>{% else %}Proceso: <b>Junta Electoral</b>{% endif %}</span></div>
     {% else %}
       <a href="{% url 'keycloak_login' %}" class="btn primary">Iniciar sesión</a>
     {% endif %}
   </header>
+  {% include "gestion/_nav.html" %}
   <main class="gestion-page">
     {% block content %}{% endblock %}
   </main>

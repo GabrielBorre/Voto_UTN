@@ -27,6 +27,17 @@ def puede_administrar_elecciones(usuario, eleccion=None):
     ).exists()
 
 
+def puede_crear_elecciones(usuario):
+    if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
+        return False
+    if usuario.is_superuser:
+        return True
+    asignaciones = AsignacionRol.objects.filter(usuario=usuario, activo=True)
+    return asignaciones.filter(
+        rol__in=(AsignacionRol.Rol.ADMINISTRADOR_SISTEMA, AsignacionRol.Rol.ADMINISTRADOR_JUNTA)
+    ).exists()
+
+
 def puede_administrar_parametros(usuario):
     if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
         return False
