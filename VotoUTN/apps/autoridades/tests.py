@@ -6,7 +6,9 @@ from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils.timezone import make_aware
 
+from apps.autoridades.forms import FormularioAsignacionAutoridad
 from apps.autoridades.services import validar_csv_autoridades
+from apps.autoridades.models import CandidaturaAutoridad
 from apps.elecciones.models import (
     Eleccion,
     EleccionClaustro,
@@ -14,6 +16,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamentoSede,
 )
 from apps.padron.models import Elector, RegistroPadron
+from apps.mesas.models import Mesa
 from apps.parametros.models import Claustro, Departamento, Sede
 from apps.usuarios.backend_auth import ElectorBackend, ElectorUser
 from apps.usuarios.models import AsignacionRol
@@ -87,6 +90,31 @@ class AutoridadesImportTests(TestCase):
 
         self.assertEqual(errores, [])
         self.assertEqual(len(filas), 1)
+
+    def test_formulario_rechaza_persona_de_otro_claustro_que_la_mesa(self):
+        usuario = get_user_model().objects.create_user(username="cargador")
+        candidatura = CandidaturaAutoridad.objects.create(registro_padron=self.registro, cargada_por=usuario)
+        mesa = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=1,
+            eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede,
+        )
+        otro_claustro = Claustro.objects.create(nombre="Docentes")
+        otra_configuracion = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=otro_claustro)
+        formulario = FormularioAsignacionAutoridad(
+            data={"claustro": otra_configuracion.pk, "mesa": mesa.pk, "candidatura": candidatura.pk},
+            eleccion=self.eleccion,
+        )
+
+        self.assertFalse(formulario.is_valid())
+        self.assertIn("mesa", formulario.errors)
+        self.assertIn("candidatura", formulario.errors)
+
+    def test_candidatura_muestra_nombre_dni_y_legajo(self):
+        candidatura = CandidaturaAutoridad.objects.create(registro_padron=self.registro, cargada_por=get_user_model().objects.create_user(username="cargador"))
+
+        self.assertEqual(str(candidatura), "Juan · DNI 40123456 · Legajo 2024001")
 
 
 class ElectorBackendTests(TestCase):
