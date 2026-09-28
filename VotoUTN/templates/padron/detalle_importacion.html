@@ -1,9 +1,93 @@
 {% extends "gestion/base.html" %}
-{% block title %}Revision de importacion | Junta Electoral UTN{% endblock %}
+
+{% block title %}Revisión de importación | {{ eleccion.nombre }}{% endblock %}
+
 {% block content %}
-<section class="hero"><h1>Revision de importacion</h1><p>{{ importacion.eleccion_claustro.claustro }} · {{ importacion.nombre_archivo }}</p></section>
-<section class="card"><div class="summary-grid"><div><strong>Filas</strong><span>{{ importacion.cantidad_filas }}</span></div><div><strong>Validas</strong><span>{{ importacion.cantidad_validas }}</span></div><div><strong>Errores</strong><span>{{ importacion.cantidad_errores }}</span></div><div><strong>Estado</strong><span>{{ importacion.get_estado_display }}</span></div></div></section>
-{% if columnas_detectadas %}<section class="card"><h2>Columnas detectadas</h2><div class="chip-list">{% for columna in columnas_detectadas %}<span class="tag">{{ columna }}</span>{% endfor %}</div></section>{% endif %}
-{% if importacion.errores.exists %}<section class="table-wrap"><table><thead><tr><th>Fila</th><th>Campo</th><th>Detalle</th></tr></thead><tbody>{% for error in importacion.errores.all %}<tr><td>{{ error.fila|default:"Archivo" }}</td><td>{{ error.campo }}</td><td>{{ error.mensaje }}</td></tr>{% endfor %}</tbody></table></section>{% endif %}
-<div class="footer-actions"><a class="button light" href="{% url 'previsualizar-padron' eleccion.id importacion.eleccion_claustro.id %}">Volver al padrón</a>{% if importacion.cantidad_errores %}<a class="button light" href="{% url 'descargar-errores-importacion' eleccion.id importacion.id %}">Descargar errores</a>{% endif %}{% if importacion.estado == 'previsualizada' %}<form method="post" action="{% url 'confirmar-importacion-padron' eleccion.id importacion.id %}">{% csrf_token %}<button class="button primary">Confirmar importacion</button></form>{% endif %}</div>
+<section class="hero">
+  <h1>Revisión de importación</h1>
+  <p>{{ eleccion.nombre }}. Revisá el resultado de la validación antes de incorporar el padrón.</p>
+</section>
+
+<div class="management-panel import-review-panel">
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Resultado de la validación</h2>
+        <p>{{ importacion.eleccion_claustro.claustro }} · {{ importacion.nombre_archivo }}</p>
+      </div>
+      {% if importacion.estado == "confirmada" %}
+        <span class="pill ok">Confirmada</span>
+      {% elif importacion.estado == "rechazada" %}
+        <span class="pill danger">Rechazada</span>
+      {% else %}
+        <span class="pill info">Previsualizada</span>
+      {% endif %}
+    </div>
+
+    <div class="summary-grid management-summary-grid">
+      <div><strong>Filas</strong><span>{{ importacion.cantidad_filas }}</span></div>
+      <div><strong>Válidas</strong><span>{{ importacion.cantidad_validas }}</span></div>
+      <div><strong>Errores</strong><span>{{ importacion.cantidad_errores }}</span></div>
+      <div><strong>Cargada</strong><span>{{ importacion.creada_en|date:"d/m/Y" }}</span></div>
+    </div>
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Columnas detectadas</h2>
+        <p>Estos son los campos identificados en el archivo cargado.</p>
+      </div>
+      <span class="tag">{{ columnas_detectadas|length }} columnas</span>
+    </div>
+    {% if columnas_detectadas %}
+      <div class="chip-list">
+        {% for columna in columnas_detectadas %}<span class="tag">{{ columna }}</span>{% endfor %}
+      </div>
+    {% else %}
+      <p class="muted">No se pudieron detectar columnas en el archivo.</p>
+    {% endif %}
+  </section>
+
+  {% if importacion.errores.exists %}
+    <section class="card management-section">
+      <div class="section-title">
+        <div>
+          <h2>Errores encontrados</h2>
+          <p>Corregí estas observaciones en el archivo antes de volver a cargarlo.</p>
+        </div>
+        <span class="pill danger">{{ importacion.cantidad_errores }} errores</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Fila</th><th>Campo</th><th>Detalle</th></tr>
+          </thead>
+          <tbody>
+            {% for error in importacion.errores.all %}
+              <tr>
+                <td>{{ error.fila|default:"Archivo" }}</td>
+                <td>{{ error.campo|default:"General" }}</td>
+                <td>{{ error.mensaje }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+</div>
+
+<div class="section-actions">
+  {% if importacion.estado == "previsualizada" %}
+    <form method="post" action="{% url 'confirmar-importacion-padron' eleccion.id importacion.id %}">
+      {% csrf_token %}
+      <button class="button primary" type="submit">Confirmar importación</button>
+    </form>
+  {% endif %}
+  {% if importacion.cantidad_errores %}
+    <a class="button light" href="{% url 'descargar-errores-importacion' eleccion.id importacion.id %}">Descargar errores</a>
+  {% endif %}
+  <a class="button light" href="{% url 'previsualizar-padron' eleccion.id importacion.eleccion_claustro.id %}">Volver al padrón</a>
+</div>
 {% endblock %}

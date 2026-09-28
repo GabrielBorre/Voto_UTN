@@ -56,6 +56,35 @@ class PadronViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "padron/cargar.html")
 
+    def test_detalle_importacion_usa_presentacion_visual_unificada(self):
+        importacion = ImportacionPadron.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro=self.eleccion_claustro,
+            archivo=SimpleUploadedFile(
+                "estudiantes.csv",
+                b"DNI,Legajo,Nombre,Apellido\n40123456,2024001,Juan,Perez\n",
+            ),
+            nombre_archivo="estudiantes.csv",
+            huella_archivo="archivo-ejemplo",
+            cantidad_filas=1,
+            cantidad_validas=1,
+            usuario=self.usuario,
+        )
+        self.client.login(username="admin", password="clave")
+
+        respuesta = self.client.get(
+            reverse("detalle-importacion-padron", args=(self.eleccion.id, importacion.id))
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTemplateUsed(respuesta, "padron/detalle_importacion.html")
+        self.assertContains(respuesta, 'class="management-panel import-review-panel"')
+        self.assertContains(respuesta, 'class="card management-section"', count=2)
+        self.assertContains(respuesta, "Resultado de la validación")
+        self.assertContains(respuesta, "Columnas detectadas")
+        self.assertContains(respuesta, "Confirmar importación")
+        self.assertContains(respuesta, "Volver al padrón")
+
     def test_gestion_de_padrones_presenta_tarjetas_por_claustro(self):
         administrador = get_user_model().objects.create_user(username="admin-padrones")
         AsignacionRol.objects.create(
