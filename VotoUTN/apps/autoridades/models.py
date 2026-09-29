@@ -14,6 +14,10 @@ class CandidaturaAutoridad(models.Model):
     class Meta:
         db_table = "elecciones_candidaturaautoridad"
 
+    def __str__(self):
+        elector = self.registro_padron.elector
+        return f"{elector.nombre_completo} · DNI {elector.dni} · Legajo {elector.legajo}"
+
 
 class AsignacionAutoridad(models.Model):
     class Estado(models.TextChoices):

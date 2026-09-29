@@ -215,6 +215,20 @@ class AutoridadesImportTests(TestCase):
         self.assertNotIn(mesa_ajena, formulario.fields["mesa"].queryset)
 
 
+    def test_candidatura_muestra_nombre_dni_y_legajo(self):
+        usuario = get_user_model().objects.create_user(username="cargador-candidatura")
+        candidatura = CandidaturaAutoridad.objects.create(
+            registro_padron=self.registro,
+            cargada_por=usuario,
+        )
+
+        elector = self.registro.elector
+        self.assertEqual(
+            str(candidatura),
+            f"{elector.nombre_completo} · DNI {elector.dni} · Legajo {elector.legajo}",
+        )
+
+
 class TurnosAutoridadesTests(TestCase):
     def setUp(self):
         inicio = make_aware(datetime(2026, 8, 3, 8))

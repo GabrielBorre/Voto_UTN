@@ -205,8 +205,8 @@ class PadronViewsTests(TestCase):
         contenido = respuesta.content.decode("utf-8-sig")
         lineas = contenido.splitlines()
         self.assertGreaterEqual(len(lineas), 2)
-        self.assertEqual(lineas[0], "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel")
-        self.assertEqual(lineas[1], "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1")
+        self.assertEqual(lineas[0], "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel")
+        self.assertEqual(lineas[1], "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1")
 
     def test_validar_csv_padron_mapea_departamento_principal_correctamente(self):
         contenido = (

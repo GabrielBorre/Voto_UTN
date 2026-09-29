@@ -1,7 +1,9 @@
+import secrets
 from urllib.parse import urlencode
 
 import jwt
 import requests
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.core.exceptions import SuspiciousOperation
 from django.http import JsonResponse
@@ -10,35 +12,43 @@ from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientError
 
 
-URL_KEYCLOAK = "http://localhost:8080"
-URL_VOTOUTN = "http://localhost:8000"
-KEYCLOAK_REALM = "FRBA"
-KEYCLOAK_CLIENT_ID = "VOTOUTN"
-
-
 def keycloak_login_view(request):
-    base_url = f"{URL_KEYCLOAK}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/auth"
+    estado = secrets.token_urlsafe(32)
+    # El redirect_uri debe coincidir exactamente entre el pedido de autorizacion y el canje de
+    # token, por eso se calcula segun el host real usado por el navegador y se guarda en sesion.
+    redirect_uri = request.build_absolute_uri("/callback")
+    request.session["keycloak_estado"] = estado
+    request.session["keycloak_redirect_uri"] = redirect_uri
+    base_url = f"{settings.KEYCLOAK_URL_PUBLICO}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/auth"
     params = {
-        "client_id": KEYCLOAK_CLIENT_ID,
-        "redirect_uri": f"{URL_VOTOUTN}/callback",
+        "client_id": settings.KEYCLOAK_CLIENT_ID,
+        "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": "openid",
+        "state": estado,
     }
     return redirect(f"{base_url}?{urlencode(params)}")
 
 
 def keycloak_login_callback_view(request):
     code = request.GET.get("code")
+    estado_esperado = request.session.pop("keycloak_estado", None)
+    redirect_uri = request.session.pop("keycloak_redirect_uri", None)
+    if not estado_esperado or request.GET.get("state") != estado_esperado or not redirect_uri:
+        raise SuspiciousOperation("El estado de la autenticacion de Keycloak no es valido")
     if not code:
         return JsonResponse({"error": "No code in callback"}, status=400)
 
-    issuer = f"{URL_KEYCLOAK}/realms/{KEYCLOAK_REALM}"
-    token_url = f"{issuer}/protocol/openid-connect/token"
+    # Las llamadas server-to-server (token y certs) usan la URL interna del contenedor;
+    # los redirects al navegador usan la URL publica.
+    issuer_interno = f"{settings.KEYCLOAK_URL_INTERNO}/realms/{settings.KEYCLOAK_REALM}"
+    issuer_publico = f"{settings.KEYCLOAK_URL_PUBLICO}/realms/{settings.KEYCLOAK_REALM}"
+    token_url = f"{issuer_interno}/protocol/openid-connect/token"
     data = {
-        "client_id": KEYCLOAK_CLIENT_ID,
+        "client_id": settings.KEYCLOAK_CLIENT_ID,
         "grant_type": "authorization_code",
         "code": code,
-        "redirect_uri": f"{URL_VOTOUTN}/callback",
+        "redirect_uri": redirect_uri,
     }
 
     try:
@@ -46,13 +56,13 @@ def keycloak_login_callback_view(request):
         response.raise_for_status()
         tokens = response.json()
         id_token = tokens["id_token"]
-        signing_key = PyJWKClient(f"{issuer}/protocol/openid-connect/certs").get_signing_key_from_jwt(id_token)
+        signing_key = PyJWKClient(f"{issuer_interno}/protocol/openid-connect/certs").get_signing_key_from_jwt(id_token)
         decoded = jwt.decode(
             id_token,
             signing_key.key,
             algorithms=["RS256"],
-            audience=KEYCLOAK_CLIENT_ID,
-            issuer=issuer,
+            audience=settings.KEYCLOAK_CLIENT_ID,
+            issuer=issuer_publico,
         )
     except (KeyError, jwt.InvalidTokenError, PyJWKClientError, requests.RequestException) as error:
         raise SuspiciousOperation("La autenticacion de Keycloak no es valida") from error
@@ -94,10 +104,10 @@ def keycloak_logout_view(request):
     logout(request)
 
     params = {
-        "post_logout_redirect_uri": f"{URL_VOTOUTN}",
-        "client_id": KEYCLOAK_CLIENT_ID,
+        "post_logout_redirect_uri": request.build_absolute_uri("/"),
+        "client_id": settings.KEYCLOAK_CLIENT_ID,
     }
     if id_token:
         params["id_token_hint"] = id_token
 
-    return redirect(f"{URL_KEYCLOAK}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/logout?{urlencode(params)}")
+    return redirect(f"{settings.KEYCLOAK_URL_PUBLICO}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/logout?{urlencode(params)}")

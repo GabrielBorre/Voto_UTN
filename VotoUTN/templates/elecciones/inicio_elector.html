@@ -13,7 +13,7 @@
   <div class="card">
     <h2>{{ registro.eleccion }}</h2>
     <section class="toolbar">
-            {% if registro.asignacion_autoridad %}
+      {% if registro.asignacion_autoridad %}
       <div class="option">
         <h3>Desempeño como Autoridad de Mesa</h3>
         <p><strong>Sede:</strong> {{ registro.asignacion_autoridad.mesa.sede|default:"Sin asignar" }}</p>
@@ -31,9 +31,14 @@
         <p><strong>Fin:</strong> {{ registro.eleccion.fecha_fin|date:"j \d\e F \d\e Y" }}</p>
       </div>
       <div class="option">
-        <h3>Justificación electores</h3>
-        <p>Fecha límite de carga:</p>
+        <h3>Justificación </h3>
+                    {% if registro.asignacion_autoridad %}
+        <p>Fecha límite de carga autoridades de mesa:</p>
+        <p><strong>{{ registro.eleccion.|date:"j \d\e F \d\e Y"|default:"A confirmar" }}</strong></p>
+            {% endif %}
+        <p>Fecha límite de carga electores:</p>
         <p><strong>{{ registro.eleccion.fecha_limite_justificacion_electores|date:"j \d\e F \d\e Y"|default:"A confirmar" }}</strong></p>
+
       </div>
 
     </section>
@@ -45,13 +50,5 @@
   </div>
   {% endfor %}
 
-  <div class="card">
-    <h2>Gestiones</h2>
-    <p><a class="btn primary" href="{% url 'mis-justificativos' %}">Mis justificativos</a></p>
-    <p><a class="btn primary" href="{% url 'mis-notificaciones' %}">Mis notificaciones</a></p>
-    {% if es_autoridad %}
-    <p><a class="btn primary" href="{% url 'mis-asignaciones-autoridad' %}">Mis asignaciones de autoridad</a></p>
-    {% endif %}
-  </div>
 </section>
 {% endblock %}

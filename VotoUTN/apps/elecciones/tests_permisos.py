@@ -17,6 +17,7 @@ from apps.elecciones.models import (
 from apps.mesas.models import Mesa
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.usuarios.models import AsignacionRol
+from apps.usuarios.permisos import puede_crear_elecciones
 
 
 class CreacionEleccionPorAdministradorJuntaTests(TestCase):
@@ -383,3 +384,14 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         respuesta = self.client.get(reverse("crear-eleccion"))
 
         self.assertEqual(respuesta.status_code, 403)
+
+    def test_administrativo_junta_no_puede_crear_elecciones(self):
+        self.usuario.asignaciones_rol.all().delete()
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+            eleccion=self.eleccion_asignada,
+        )
+
+        self.assertFalse(puede_crear_elecciones(self.usuario))
+        self.assertEqual(self.client.get(reverse("crear-eleccion")).status_code, 403)

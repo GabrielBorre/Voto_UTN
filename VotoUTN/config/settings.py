@@ -31,6 +31,7 @@ TEMPLATES = [{
         "django.template.context_processors.request", "django.contrib.auth.context_processors.auth",
         "django.contrib.messages.context_processors.messages",
         "apps.elecciones.context_processors.notificaciones_usuario",
+        "apps.usuarios.context_processors.navegacion_por_rol",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"
@@ -68,3 +69,12 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",  # backend normal
     "apps.usuarios.backend_auth.ElectorBackend",  # tu backend custom
 ]
+
+# KEYCLOAK_URL_PUBLICO: la que ve el navegador. KEYCLOAK_URL_INTERNO: usada por el propio
+# contenedor web para llamadas server-to-server (token/certs); en docker-compose apunta al
+# servicio "keycloak" en vez de "localhost".
+KEYCLOAK_URL_PUBLICO = os.getenv("KEYCLOAK_URL_PUBLICO", "http://localhost:8080")
+KEYCLOAK_URL_INTERNO = os.getenv("KEYCLOAK_URL_INTERNO", "http://localhost:8080")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "FRBA")
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "VOTOUTN")
+VOTOUTN_URL_PUBLICO = os.getenv("VOTOUTN_URL_PUBLICO", "http://localhost:8000")

@@ -21,11 +21,12 @@ from apps.parametros.models import Departamento, Sede
 
 # Campos canónicos que el sistema espera para procesar el padrón
 CANONICAL_FIELDS = ("dni", "legajo", "nombres", "apellidos", "mail", "departamento", "sede")
-OPTIONAL_FIELDS = ("tiene_discapacidad", "departamento_principal", "nivel")
+OPTIONAL_FIELDS = ("tipo_documento", "tiene_discapacidad", "departamento_principal", "nivel")
 
 # Cabeceras exactas que se muestran en la plantilla CSV descargada desde la UI.
 PLANTILLA_PADRON_HEADERS = (
     "DNI",
+    "Tipo Documento",
     "Legajo",
     "Nombre",
     "Apellido",
@@ -40,6 +41,7 @@ PLANTILLA_PADRON_HEADERS = (
 PLANTILLA_PADRON_EJEMPLO = [
     (
         "40123456",
+        "DNI",
         "2024001",
         "Juan",
         "Perez",
@@ -52,6 +54,7 @@ PLANTILLA_PADRON_EJEMPLO = [
     ),
     (
         "40234567",
+        "DNI",
         "2024002",
         "Maria",
         "Garcia",
@@ -64,6 +67,7 @@ PLANTILLA_PADRON_EJEMPLO = [
     ),
     (
         "40345678",
+        "DNI",
         "2024003",
         "Carlos",
         "Lopez",
@@ -82,6 +86,7 @@ PLANTILLA_PADRON_EJEMPLO = [
 # 'Sede donde asiste' -> 'sede').
 HEADER_VARIANTS_TO_CANONICAL = {
     "dni": "dni",
+    "tipo documento": "tipo_documento",
     "legajo": "legajo",
     "nombres": "nombres",
     "nombre": "nombres",
@@ -222,6 +227,8 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
         for campo in OPTIONAL_FIELDS:
             original_header = canonical_to_original.get(campo)
             fila[campo] = (fila_original.get(original_header) or "").strip() if original_header is not None else ""
+        if not fila["tipo_documento"]:
+            fila["tipo_documento"] = "DNI"
         filas[numero_fila - 2] = fila
         for campo, valor in fila.items():
             if valor.startswith(CARACTERES_FORMULA):
@@ -384,6 +391,7 @@ def confirmar_importacion(importacion):
         if elector is None:
             elector = Elector.objects.create(
                 dni=fila["dni"],
+                tipo_documento=fila["tipo_documento"],
                 legajo=fila["legajo"],
                 nombre=fila["nombres"],
                 apellido=fila["apellidos"],
@@ -401,10 +409,11 @@ def confirmar_importacion(importacion):
                     elector.save(update_fields=("departamento_principal",))
         else:
             elector.nombre = fila["nombres"]
+            elector.tipo_documento = fila["tipo_documento"]
             elector.apellido = fila["apellidos"]
             elector.correo_electronico = fila["mail"]
             # actualizar discapacidad y departamento principal si cambian
-            updated_fields = ["nombre", "apellido", "correo_electronico"]
+            updated_fields = ["nombre", "apellido", "tipo_documento", "correo_electronico"]
             tiene_disc = fila.get("tiene_discapacidad", "").strip().lower() in ("si", "s", "yes", "y", "true", "1")
             if elector.tiene_discapacidad != tiene_disc:
                 elector.tiene_discapacidad = tiene_disc
