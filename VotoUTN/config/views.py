@@ -14,11 +14,15 @@ from jwt.exceptions import PyJWKClientError
 
 def keycloak_login_view(request):
     estado = secrets.token_urlsafe(32)
+    # El redirect_uri debe coincidir exactamente entre el pedido de autorizacion y el canje de
+    # token, por eso se calcula segun el host real usado por el navegador y se guarda en sesion.
+    redirect_uri = request.build_absolute_uri("/callback")
     request.session["keycloak_estado"] = estado
+    request.session["keycloak_redirect_uri"] = redirect_uri
     base_url = f"{settings.KEYCLOAK_URL_PUBLICO}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/auth"
     params = {
         "client_id": settings.KEYCLOAK_CLIENT_ID,
-        "redirect_uri": f"{settings.VOTOUTN_URL_PUBLICO}/callback",
+        "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": "openid",
         "state": estado,
@@ -29,7 +33,8 @@ def keycloak_login_view(request):
 def keycloak_login_callback_view(request):
     code = request.GET.get("code")
     estado_esperado = request.session.pop("keycloak_estado", None)
-    if not estado_esperado or request.GET.get("state") != estado_esperado:
+    redirect_uri = request.session.pop("keycloak_redirect_uri", None)
+    if not estado_esperado or request.GET.get("state") != estado_esperado or not redirect_uri:
         raise SuspiciousOperation("El estado de la autenticacion de Keycloak no es valido")
     if not code:
         return JsonResponse({"error": "No code in callback"}, status=400)
@@ -43,7 +48,7 @@ def keycloak_login_callback_view(request):
         "client_id": settings.KEYCLOAK_CLIENT_ID,
         "grant_type": "authorization_code",
         "code": code,
-        "redirect_uri": f"{settings.VOTOUTN_URL_PUBLICO}/callback",
+        "redirect_uri": redirect_uri,
     }
 
     try:
@@ -99,7 +104,7 @@ def keycloak_logout_view(request):
     logout(request)
 
     params = {
-        "post_logout_redirect_uri": f"{settings.VOTOUTN_URL_PUBLICO}",
+        "post_logout_redirect_uri": request.build_absolute_uri("/"),
         "client_id": settings.KEYCLOAK_CLIENT_ID,
     }
     if id_token:
