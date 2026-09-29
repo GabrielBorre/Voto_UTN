@@ -22,6 +22,12 @@ services:
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
       - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+      # Fija el hostname/puerto publicos para que el claim "iss" del token sea siempre el mismo,
+      # sin importar si la llamada llega por la red interna (web->keycloak) o por el navegador.
+      - KC_HOSTNAME=localhost
+      - KC_HOSTNAME_PORT=8080
+      - KC_HOSTNAME_STRICT=false
+      - KC_HTTP_ENABLED=true
     ports:
       - "8080:8080"
     volumes:
