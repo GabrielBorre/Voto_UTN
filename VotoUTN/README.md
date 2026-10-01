@@ -57,6 +57,21 @@ Instalá también la CA generada por mkcert en el teléfono, y abrí `https://19
 
 > El comando `seed_voters` genera payloads opacos firmados a partir del padrón. La primera emisión queda registrada y bloquea cambios automáticos de padrón o mesa que invalidarían los QR impresos.
 
+## Acceso por HTTPS con Docker (PC y celular, sin mkcert)
+
+Con `docker compose up -d` el stack levanta además `proxy` (Caddy), que expone:
+
+- `http://localhost:8000/` → redirige a HTTPS.
+- `https://localhost:8443/` desde la PC.
+- `https://<IP-de-tu-PC-en-la-Wi-Fi>:8443/` desde el celular (misma red Wi-Fi).
+
+Caddy firma el certificado al vuelo con su propia CA local (`tls internal` + `on_demand`), para
+cualquier host o IP con el que se lo llame, sin generar ni instalar nada manualmente. El navegador
+va a mostrar una advertencia de certificado no confiable la primera vez (es autofirmado); hay que
+aceptarla/continuar una sola vez por dispositivo. Eso ya alcanza para que `getUserMedia` (la cámara)
+funcione, porque la conexión es HTTPS real.
+
+
 
 python manage.py seed_voters --election-id 1 --configuracion-departamento-id 2
 

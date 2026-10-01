@@ -1,0 +1,33 @@
+{
+	auto_https disable_redirects
+}
+
+# Redirige a HTTPS; HTTP queda disponible solo para no romper enlaces antiguos.
+http://:8000 {
+	redir https://{host}:8443{uri} permanent
+}
+
+# "tls internal" firma el certificado con una CA local propia de Caddy para
+# cualquier host/IP que se use (localhost, 127.0.0.1 o la IP de la red Wi-Fi),
+# sin tener que generar ni instalar certificados manualmente como con mkcert.
+https://:8443 {
+	# "on_demand" firma al vuelo para cualquier host/IP con el que se lo llame
+	# (localhost, 127.0.0.1 o la IP de la red Wi-Fi), sin generar nada a mano.
+	tls internal {
+		on_demand
+	}
+
+	encode gzip
+
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+	}
+
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+
+	reverse_proxy web:8000
+}
