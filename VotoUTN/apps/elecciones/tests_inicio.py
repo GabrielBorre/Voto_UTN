@@ -19,6 +19,17 @@ class InicioAutenticadoTests(TestCase):
         self.assertEqual(parametros["response_type"], ["code"])
         self.assertEqual(parametros["redirect_uri"], ["http://localhost:8000/callback"])
 
+    def test_seccion_protegida_redirige_al_login_configurado(self):
+        destino = reverse("gestionar-partidos", args=(4,))
+
+        respuesta = self.client.get(destino)
+
+        self.assertRedirects(
+            respuesta,
+            f"{reverse('keycloak_login')}?next={destino}",
+            fetch_redirect_response=False,
+        )
+
     def test_superusuario_ingresa_al_panel_de_gestion(self):
         usuario = get_user_model().objects.create_superuser(
             username="admin-prueba",
