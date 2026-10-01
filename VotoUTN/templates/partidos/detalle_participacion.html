@@ -1,11 +1,160 @@
 {% extends "gestion/base.html" %}
-{% block title %}Candidaturas | {{ participacion.nombre_lista }}{% endblock %}
+{% load static %}
+{% block title %}Candidatos de {{ participacion_seleccionada.nombre_lista }} | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero"><h1>Lista {{ participacion.numero_lista }} — {{ participacion.nombre_lista|default:participacion.partido }}</h1><p>{{ participacion.eleccion.nombre }} · {{ participacion.eleccion_claustro.claustro|default:"Alcance histórico" }} · Apoderado/a: {{ participacion.apoderado_nombre|default:"No informado" }}.</p></section>
-<section class="card form-card"><h2>Agregar candidatura a un puesto</h2><p class="muted">Solo se ofrecen puestos previamente habilitados para esta elección.</p><form method="post">{% csrf_token %}{% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}{% for field in formulario %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}<div class="footer-actions"><button class="button primary" type="submit">Agregar candidatura</button></div></form></section>
-<div class="section-title"><div><h2>Candidaturas por puesto</h2><p>Una misma presentación puede competir por varios puestos y alcances.</p></div></div>
-<div class="table-wrap"><table><thead><tr><th>Puesto</th><th>Claustro</th><th>Departamento</th><th>Personas</th><th>Estado</th><th></th></tr></thead><tbody>
-{% for lista in listas %}<tr><td>{{ lista.puesto_eleccion.puesto|default:lista.nombre }}</td><td>{{ lista.eleccion_claustro.claustro }}</td><td>{{ lista.eleccion_claustro_departamento.departamento|default:"General" }}</td><td>{{ lista.candidatos.count }}</td><td><span class="pill {% if lista.activa %}ok{% else %}gray{% endif %}">{% if lista.activa %}Activa{% else %}Inactiva{% endif %}</span></td><td class="actions"><a class="button light small" href="{% url 'detalle-lista-candidatos' participacion.eleccion_id lista.id %}">Personas</a><form class="inline-form" method="post" action="{% url 'cambiar-estado-lista-candidatos' participacion.eleccion_id lista.id %}">{% csrf_token %}<input type="hidden" name="activo" value="{% if lista.activa %}0{% else %}1{% endif %}"><button class="button secondary small">{% if lista.activa %}Desactivar{% else %}Activar{% endif %}</button></form></td></tr>{% empty %}<tr><td colspan="6" class="muted">No hay candidaturas configuradas.</td></tr>{% endfor %}
-</tbody></table></div>
-<div class="footer-actions"><a class="button light" href="{% url 'gestionar-partidos' participacion.eleccion_id %}">Volver a listas y candidaturas</a></div>
+<section class="hero">
+  <h1>Candidatos de la lista {{ participacion_seleccionada.numero_lista }}</h1>
+  <p>{{ eleccion.nombre }} · {{ participacion_seleccionada.nombre_lista|default:participacion_seleccionada.partido }}</p>
+</section>
+
+<div class="management-panel candidaturas-panel">
+  <section class="card management-section" id="candidaturas">
+    <div class="section-title">
+      <div>
+        <h2>Candidatos de la lista</h2>
+        <p>Vinculá los puestos de esta lista y cargá sus candidatos manualmente o por CSV.</p>
+      </div>
+      {% if participacion_seleccionada %}<span class="tag">Lista {{ participacion_seleccionada.numero_lista }}</span>{% endif %}
+    </div>
+
+    {% if not participacion_seleccionada %}
+      <div class="notice">Elegí una lista en la tabla anterior o creá una nueva para continuar.</div>
+    {% else %}
+      <p class="candidaturas-lista-actual"><strong>{{ participacion_seleccionada.nombre_lista|default:participacion_seleccionada.partido }}</strong> · {{ participacion_seleccionada.eleccion_claustro.claustro|default:"Alcance histórico" }} · Apoderado/a: {{ participacion_seleccionada.apoderado_nombre|default:"No informado" }}</p>
+
+      <div class="candidaturas-subsection">
+        <h3>Puestos por los que se presenta</h3>
+        <p>Elegí entre los puestos habilitados para el claustro de esta lista.</p>
+        {% if hay_puestos_disponibles %}
+          <form method="post" action="#candidaturas">
+            {% csrf_token %}<input type="hidden" name="accion" value="vincular_puesto">
+            {% for error in formulario_vincular.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+            <div class="field puesto-selector">
+              <label for="{{ formulario_vincular.puesto_eleccion.id_for_label }}">{{ formulario_vincular.puesto_eleccion.label }}</label>
+              {{ formulario_vincular.puesto_eleccion }}
+              {% for error in formulario_vincular.puesto_eleccion.errors %}<div class="error">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="footer-actions"><button class="button primary" type="submit">Agregar puesto a la lista</button></div>
+          </form>
+        {% elif not asociaciones %}
+          <p class="muted">No hay puestos habilitados para esta lista. Habilitá uno en la primera sección.</p>
+        {% endif %}
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Puesto</th><th>Departamento</th><th>Personas</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              {% for asociacion in asociaciones %}
+                <tr{% if asociacion_seleccionada.id == asociacion.id %} class="candidaturas-puesto-seleccionado"{% endif %}>
+                  <td>{{ asociacion.puesto_eleccion.puesto|default:asociacion.nombre }}</td>
+                  <td>{{ asociacion.eleccion_claustro_departamento.departamento|default:"General" }}</td>
+                  <td>{{ asociacion.candidatos.count }}</td>
+                  <td><span class="pill {% if asociacion.activa %}ok{% else %}gray{% endif %}">{% if asociacion.activa %}Activo{% else %}Inactivo{% endif %}</span></td>
+                  <td class="actions">
+                    {% if asociacion_seleccionada.id == asociacion.id %}
+                      <strong class="pill info">Seleccionado</strong>
+                    {% else %}
+                      <a class="button light small" href="?puesto={{ asociacion.id }}#candidaturas">Editar candidatos</a>
+                    {% endif %}
+                    <form class="inline-form" method="post" action="{% url 'cambiar-estado-lista-candidatos' eleccion.id asociacion.id %}">
+                      {% csrf_token %}<input type="hidden" name="activo" value="{% if asociacion.activa %}0{% else %}1{% endif %}">
+                      <button class="button secondary small" type="submit">{% if asociacion.activa %}Desactivar{% else %}Activar{% endif %}</button>
+                    </form>
+                  </td>
+                </tr>
+              {% empty %}<tr><td colspan="5" class="muted">Todavía no vinculaste puestos a esta lista.</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {% if asociacion_seleccionada %}
+        <div class="candidaturas-subsection">
+          <h3>{% if candidato_en_edicion %}Editar candidato{% else %}Carga manual{% endif %}</h3>
+          <p>{% if candidato_en_edicion %}Actualizá el documento o el lugar de {{ candidato_en_edicion.nombre }}.{% else %}Buscá un elector del padrón por DNI, CUIL o legajo para <strong>{{ asociacion_seleccionada.puesto_eleccion.puesto|default:asociacion_seleccionada.nombre }}</strong>. Confirmá el nombre encontrado antes de guardar.{% endif %}</p>
+          <form method="post" data-busqueda-candidato="{{ formulario_candidato.url_busqueda }}" action="?puesto={{ asociacion_seleccionada.id }}{% if candidato_en_edicion %}&amp;editar={{ candidato_en_edicion.id }}{% endif %}#candidaturas">
+            {% csrf_token %}<input type="hidden" name="accion" value="{% if candidato_en_edicion %}guardar_candidato{% else %}agregar_candidato{% endif %}">
+            {% for error in formulario_candidato.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+            <div class="gestion-form-grid">
+              {% include 'partidos/campos_candidato.html' with formulario=formulario_candidato %}
+            </div>
+            <div class="footer-actions">
+              {% if candidato_en_edicion %}<a class="button light" href="?puesto={{ asociacion_seleccionada.id }}#candidaturas">Cancelar edición</a>{% endif %}
+              <button class="button primary" type="submit">{% if candidato_en_edicion %}Guardar cambios{% else %}Agregar candidato{% endif %}</button>
+            </div>
+          </form>
+        </div>
+
+        <details class="candidaturas-subsection" {% if importacion or formulario_csv.archivo.errors %}open{% endif %}>
+          <summary>Importar candidatos por CSV</summary>
+          <div class="section-title">
+            <div><p>El archivo agrega electores del padrón a los puestos de esta lista; no crea otra lista.</p></div>
+            <a class="button light" href="{% url 'plantilla-candidatos-lista' eleccion.id participacion_seleccionada.id %}">Descargar plantilla</a>
+          </div>
+          <form method="post" enctype="multipart/form-data" action="#candidaturas">
+            {% csrf_token %}<input type="hidden" name="accion" value="previsualizar_candidatos">
+            {% for error in formulario_csv.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+            <div class="field puesto-selector">
+              <label for="{{ formulario_csv.archivo.id_for_label }}">{{ formulario_csv.archivo.label }}</label>
+              {{ formulario_csv.archivo }}
+              {% for error in formulario_csv.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
+            </div>
+            <small class="muted field-help">La plantilla incluye los puestos y lugares disponibles. Completá tipo_documento (DNI, CUIL o LEGAJO) y documento en las filas que quieras cargar. Se admiten también los CSV anteriores con columna dni.</small>
+            <div class="footer-actions"><button class="button primary" type="submit">Previsualizar candidatos</button></div>
+          </form>
+          {% if importacion %}
+            <div class="candidaturas-subsection">
+              <h3>Previsualización: {{ importacion.nombre_archivo }}</h3>
+              <p>{{ importacion.cantidad_valida }} de {{ importacion.cantidad_total }} filas válidas.</p>
+              {% for error in importacion.errores %}<div class="error">{{ error }}</div>{% endfor %}
+              {% for advertencia in importacion.advertencias %}<p class="muted">Advertencia: {{ advertencia }}</p>{% endfor %}
+              {% if not importacion.errores %}
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>Fila</th><th>Puesto</th><th>Persona</th><th>Tipo</th><th>Orden</th></tr></thead>
+                    <tbody>{% for fila in importacion.filas %}<tr><td>{{ fila.numero_fila }}</td><td>{{ fila.nombre_puesto }}</td><td>{{ fila.nombre }}</td><td>{{ fila.tipo }}</td><td>{{ fila.orden }}</td></tr>{% endfor %}</tbody>
+                  </table>
+                </div>
+                <form method="post" action="#candidaturas">
+                  {% csrf_token %}<input type="hidden" name="accion" value="confirmar_candidatos">
+                  <input type="hidden" name="importacion_id" value="{{ importacion.id }}">
+                  <div class="footer-actions"><button class="button primary" type="submit">Confirmar carga de candidatos</button></div>
+                </form>
+              {% endif %}
+            </div>
+          {% endif %}
+        </details>
+
+        <div class="candidaturas-subsection">
+          <div class="section-title"><div><h3>Candidatos de este puesto</h3><p>Titulares y suplentes ya cargados.</p></div><span class="tag">{{ asociacion_seleccionada.candidatos.count }} personas</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Orden</th><th>Nombre</th><th>Documento</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
+              <tbody>
+                {% for candidato in asociacion_seleccionada.candidatos.all %}
+                  <tr>
+                    <td>{{ candidato.orden }}</td><td>{{ candidato.nombre }}</td>
+                    <td>{{ candidato.elector.tipo_documento|default:"DNI" }} {{ candidato.dni|default:"—" }}</td><td>{{ candidato.get_tipo_display }}</td>
+                    <td><span class="pill {% if candidato.activo %}ok{% else %}gray{% endif %}">{% if candidato.activo %}Activo{% else %}Inactivo{% endif %}</span></td>
+                    <td class="actions">
+                      <a class="button light small" href="?puesto={{ asociacion_seleccionada.id }}&amp;editar={{ candidato.id }}#candidaturas">Editar</a>
+                      <form class="inline-form" method="post" action="{% url 'cambiar-estado-candidato' eleccion.id candidato.id %}">
+                        {% csrf_token %}<input type="hidden" name="activo" value="{% if candidato.activo %}0{% else %}1{% endif %}">
+                        <button class="button secondary small" type="submit">{% if candidato.activo %}Desactivar{% else %}Activar{% endif %}</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% empty %}<tr><td colspan="6" class="muted">Todavía no hay candidatos para este puesto.</td></tr>{% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% endif %}
+    {% endif %}
+  </section>
+</div>
+
+<div class="section-actions">
+  <a class="button light" href="{% url 'gestionar-partidos' eleccion.id %}">Volver a listas y candidaturas</a>
+</div>
 {% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/busqueda-candidato.js' %}"></script>{% endblock %}

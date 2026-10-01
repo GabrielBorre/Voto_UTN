@@ -130,8 +130,13 @@ número y nombre de lista, claustro y apoderado. Su vínculo con `Partido` es op
 y existe solamente para compatibilidad histórica.
 
 `ListaCandidatos` vincula una presentación con un `PuestoEleccion`. `Candidato`
-conserva sus datos identificatorios, tipo y orden; puede vincularse opcionalmente
-con `Elector` y no requiere pertenecer al padrón. `ImportacionCandidaturas` conserva
+conserva sus datos identificatorios, tipo y orden; las nuevas candidaturas deben
+vincularse con un `Elector` del padrón activo de la elección y del alcance correspondiente.
+La búsqueda usa tipo y número de documento (DNI/CUIL en `Elector.tipo_documento`
+y el campo histórico `Elector.dni`) o el campo independiente `Elector.legajo`.
+La candidatura conserva la identidad canónica del elector aunque se la haya buscado por legajo.
+Las referencias opcionales y el identificador independiente se conservan para registros históricos.
+`ImportacionCandidaturas` conserva
 la previsualización, errores, advertencias, usuario y confirmación de cada CSV.
 
 ## Justificativos

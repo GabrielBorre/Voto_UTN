@@ -3,7 +3,9 @@ from django.db import transaction
 from django.db.models import Q
 
 from apps.elecciones.models import EleccionClaustro, EleccionClaustroDepartamento
-from apps.padron.models import Elector
+from django.core.exceptions import ValidationError
+from django.urls import reverse
+from apps.partidos.services import TIPOS_DOCUMENTO_CANDIDATO, buscar_elector_candidato
 from apps.parametros.models import Departamento
 from apps.partidos.models import (
     Candidato,
@@ -81,10 +83,14 @@ class FormularioCargoElectivo(forms.ModelForm):
         self.fields["organo"].queryset = organos.order_by("nombre")
 
 class FormularioParticipacionPartido(forms.ModelForm):
+    eleccion_claustro = CampoClaustro(
+        queryset=EleccionClaustro.objects.none(),
+        label="Claustro",
+    )
+
     class Meta:
         model = ParticipacionPartido
         fields = (
-            "codigo_presentacion",
             "eleccion_claustro",
             "numero_lista",
             "nombre_lista",
@@ -98,21 +104,10 @@ class FormularioParticipacionPartido(forms.ModelForm):
         self.instance.eleccion = eleccion
         self.fields["eleccion_claustro"].queryset = EleccionClaustro.objects.filter(
             eleccion=eleccion,
-        ).select_related("claustro")
-        self.fields["codigo_presentacion"].required = True
+        ).select_related("claustro").order_by("claustro__nombre")
         self.fields["nombre_lista"].required = True
         self.fields["apoderado_nombre"].required = True
         estilizar_campos(self)
-
-    def clean_codigo_presentacion(self):
-        codigo = self.cleaned_data["codigo_presentacion"].strip()
-        if ParticipacionPartido.objects.filter(
-            eleccion=self.eleccion,
-            codigo_presentacion__iexact=codigo,
-        ).exclude(pk=self.instance.pk).exists():
-            raise forms.ValidationError("El código de presentación ya está utilizado en esta elección.")
-        return codigo
-
 
 class FormularioPuestoEleccion(forms.ModelForm):
     TIPO_CLAUSTRO = "claustro"
@@ -126,6 +121,10 @@ class FormularioPuestoEleccion(forms.ModelForm):
         label="Tipo de alcance",
         choices=TIPOS_ALCANCE,
         help_text="El claustro siempre es concreto; elegí si además se restringe a un departamento.",
+    )
+    eleccion_claustro = CampoClaustro(
+        queryset=EleccionClaustro.objects.none(),
+        label="Claustro seleccionado",
     )
 
     class Meta:
@@ -149,7 +148,7 @@ class FormularioPuestoEleccion(forms.ModelForm):
         ).select_related("organo")
         self.fields["eleccion_claustro"].queryset = EleccionClaustro.objects.filter(
             eleccion=eleccion,
-        ).select_related("claustro")
+        ).select_related("claustro").order_by("claustro__nombre")
         self.fields["eleccion_claustro_departamento"].queryset = EleccionClaustroDepartamento.objects.filter(
             eleccion_claustro__eleccion=eleccion,
             departamento__isnull=False,
@@ -353,14 +352,18 @@ class FormularioListaCandidatos(forms.ModelForm):
             "puesto_eleccion_id",
             flat=True,
         )
-        self.fields["puesto_eleccion"].queryset = PuestoEleccion.objects.filter(
+        puestos_disponibles = PuestoEleccion.objects.filter(
             eleccion_claustro__eleccion=eleccion,
             activo=True,
-        ).exclude(pk__in=usados).select_related(
+        )
+        if participacion.eleccion_claustro_id:
+            puestos_disponibles = puestos_disponibles.filter(eleccion_claustro=participacion.eleccion_claustro)
+        self.fields["puesto_eleccion"].queryset = puestos_disponibles.exclude(pk__in=usados).select_related(
             "puesto__organo",
             "eleccion_claustro__claustro",
             "eleccion_claustro_departamento__departamento",
         )
+        self.fields["puesto_eleccion"].label = "Puesto al que se presenta la lista"
         estilizar_campos(self)
 
     def clean(self):
@@ -376,38 +379,43 @@ class FormularioListaCandidatos(forms.ModelForm):
 
 
 class FormularioCandidato(forms.ModelForm):
-    dni_elector = forms.CharField(
-        label="DNI de elector vinculado",
-        required=False,
-        help_text="Opcional. Dejelo vacio para cargar una persona que no integra el padron.",
-    )
+    tipo_documento = forms.ChoiceField(label="Tipo de documento", choices=TIPOS_DOCUMENTO_CANDIDATO, initial="DNI")
+    documento = forms.CharField(label="Documento", max_length=20, help_text="DNI o CUIL según el padrón; para legajo se busca en su campo propio.")
+    nombre_padron = forms.CharField(label="Nombre completo en el padrón", required=False, disabled=True)
 
     class Meta:
         model = Candidato
-        fields = ("dni_elector", "identificador_persona", "nombre", "dni", "correo_electronico", "tipo", "orden")
+        fields = ("tipo_documento", "documento", "nombre_padron", "tipo", "orden")
 
     def __init__(self, *args, lista, **kwargs):
         super().__init__(*args, **kwargs)
         self.instance.lista = lista
-        self.fields["nombre"].required = False
-        self.fields["dni"].required = False
+        self.url_busqueda = reverse("buscar-elector-candidato", args=(lista.participacion.eleccion_id, lista.pk))
         if self.instance.elector_id:
-            self.fields["dni_elector"].initial = self.instance.elector.dni
+            elector = self.instance.elector
+            tipo = elector.tipo_documento.upper()
+            self.initial.update(tipo_documento=tipo if tipo in {"DNI", "CUIL"} else "LEGAJO",
+                                documento=elector.dni if tipo in {"DNI", "CUIL"} else elector.legajo,
+                                nombre_padron=elector.nombre_completo)
+        self.fields["nombre_padron"].widget.attrs["readonly"] = True
         if not lista.puesto_eleccion_id:
             self.fields["cargo"] = forms.CharField(initial=self.instance.cargo, max_length=120)
         estilizar_campos(self)
 
     def clean(self):
         datos = super().clean()
-        dni_elector = datos.get("dni_elector", "").strip()
-        if not dni_elector:
-            self.instance.elector = None
-        else:
-            elector = Elector.objects.filter(dni=dni_elector).first()
-            if elector is None:
-                self.add_error("dni_elector", "No existe un elector con ese DNI.")
-            else:
-                self.instance.elector = elector
+        self.instance.elector = None
+        self.initial["nombre_padron"] = ""
+        if datos.get("documento") and datos.get("tipo_documento"):
+            try:
+                self.instance.elector = buscar_elector_candidato(
+                    eleccion=self.instance.lista.participacion.eleccion,
+                    tipo_documento=datos["tipo_documento"], documento=datos["documento"],
+                    puesto=self.instance.lista.puesto_eleccion or self.instance.lista,
+                )
+                self.initial["nombre_padron"] = self.instance.elector.nombre_completo
+            except ValidationError as error:
+                self.add_error("documento", error)
         if self.instance.lista.puesto_eleccion_id:
             limite = (
                 self.instance.lista.puesto_eleccion.cantidad_titulares
@@ -419,3 +427,19 @@ class FormularioCandidato(forms.ModelForm):
         elif datos.get("cargo"):
             self.instance.cargo = datos["cargo"]
         return datos
+
+    def _get_validation_exclusions(self):
+        exclusiones = super()._get_validation_exclusions()
+        # El DNI canónico se obtiene del elector; debe seguir validando unicidad.
+        if self.instance.elector_id:
+            exclusiones.discard("dni")
+        if self.instance.lista_id:
+            exclusiones.discard("lista")
+        return exclusiones
+
+    def _update_errors(self, errores):
+        if hasattr(errores, "error_dict") and "dni" in errores.error_dict:
+            errores.error_dict.setdefault("documento", []).extend(errores.error_dict.pop("dni"))
+        if hasattr(errores, "error_dict") and "lista" in errores.error_dict:
+            errores.error_dict.setdefault("__all__", []).extend(errores.error_dict.pop("lista"))
+        super()._update_errors(errores)
