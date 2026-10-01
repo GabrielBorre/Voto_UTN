@@ -537,6 +537,10 @@ th {
     margin: 14px 0;
 }
 
+.estado.is-error {
+    color: var(--rojo-utn);
+}
+
 fieldset.claustro {
     border: 0;
     display: flex;
