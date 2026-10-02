@@ -1,1 +1,63 @@
-{% extends "gestion/base.html" %}{% block content %}<section class="hero"><h1>Reportes y exportaciones</h1><p>{{ eleccion.nombre }}</p></section><section class="toolbar">{% for tipo,titulo in reportes %}{% endfor %}<article class="option"><h2>Padron y mesas</h2><a class="button primary" href="{% url 'exportar-reporte' eleccion.id 'padron' %}">Exportar padron</a><a class="button light" href="{% url 'exportar-reporte' eleccion.id 'mesas' %}">Exportar mesas</a>{% if validacion_padron_pdf.apto %}<a class="button primary" href="{% url 'generar-padron-pdf' eleccion.id %}">Generar padron imprimible</a>{% else %}<button class="button light" type="button" disabled title="Complete las asignaciones faltantes antes de generar el padron.">Generar padron imprimible</button><ul class="muted">{% for motivo in validacion_padron_pdf.motivos %}<li>{{ motivo }}</li>{% endfor %}</ul>{% endif %}</article><article class="option"><h2>Operacion</h2><a class="button primary" href="{% url 'exportar-reporte' eleccion.id 'participacion' %}">Participacion</a><a class="button light" href="{% url 'exportar-reporte' eleccion.id 'autoridades' %}">Autoridades</a></article><article class="option"><h2>Control</h2><a class="button primary" href="{% url 'exportar-reporte' eleccion.id 'justificativos' %}">Justificativos</a><a class="button light" href="{% url 'exportar-reporte' eleccion.id 'errores-importacion' %}">Errores de importacion</a></article></section>{% endblock %}
+{% extends "gestion/base.html" %}
+
+{% block title %}Reportes | {{ eleccion.nombre }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Reportes y exportaciones</h1>
+  <p>{{ eleccion.nombre }}. Descargá información operativa y documentación imprimible de la elección.</p>
+</section>
+
+<div class="section-title">
+  <div>
+    <h2>Exportaciones disponibles</h2>
+    <p>Los archivos se generan con la información actualmente registrada en el sistema.</p>
+  </div>
+</div>
+
+<section class="toolbar reports-grid">
+  <article class="option report-option">
+    <h2>Padrón y mesas</h2>
+    <p>Información de electores, distribución de mesas y padrón preparado para impresión.</p>
+
+    {% if not validacion_padron_pdf.apto %}
+      <div class="report-validation">
+        <strong>Padrón imprimible no disponible</strong>
+        <ul>
+          {% for motivo in validacion_padron_pdf.motivos %}<li>{{ motivo }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <div class="report-actions">
+      <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'padron' %}">Exportar padrón</a>
+      <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'mesas' %}">Exportar mesas</a>
+      {% if validacion_padron_pdf.apto %}
+        <a class="button primary" href="{% url 'generar-padron-pdf' eleccion.id %}">Generar padrón imprimible</a>
+      {% else %}
+        <button class="button light" type="button" disabled>Generar padrón imprimible</button>
+      {% endif %}
+    </div>
+  </article>
+
+  <article class="option report-option">
+    <h2>Operación</h2>
+    <p>Seguimiento de participación electoral y autoridades asignadas a las mesas.</p>
+    <div class="report-actions">
+      <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'participacion' %}">Exportar participación</a>
+      <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'autoridades' %}">Exportar autoridades</a>
+    </div>
+  </article>
+
+  <article class="option report-option">
+    <h2>Control</h2>
+    <p>Información para revisar justificativos y errores detectados durante las importaciones.</p>
+    <div class="report-actions">
+      <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'justificativos' %}">Exportar justificativos</a>
+      <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'errores-importacion' %}">Exportar errores de importación</a>
+    </div>
+  </article>
+</section>
+
+{% include "elecciones/_volver_configuracion.html" %}
+{% endblock %}

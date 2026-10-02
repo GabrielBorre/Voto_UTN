@@ -82,11 +82,20 @@ class Command(BaseCommand):
         )
 
         if options["asignar_autoridad"]:
+            turno = (
+                mesa.eleccion_claustro_departamento.eleccion_claustro.turnos_autoridad
+                .select_related("turno")
+                .order_by("turno__hora_inicio")
+                .first()
+            )
+            if turno is None:
+                raise CommandError("La Eleccion Demo 2026 no tiene turnos de autoridades configurados.")
             AsignacionAutoridad.objects.update_or_create(
                 registro_padron=autoridad[1],
                 defaults={
                     "candidatura": candidatura,
                     "mesa": mesa,
+                    "turno": turno.turno,
                     "asignada_por": admin_junta,
                 },
             )

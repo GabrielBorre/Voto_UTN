@@ -45,6 +45,10 @@ destinatarios y evento sugerido. La fecha concreta por elección continúa en
 
 `EleccionClaustroDepartamento 1 --- N Mesa`
 
+`Eleccion 1 --- N EleccionTurno N --- 1 Turno`
+
+`AsignacionAutoridad N --- 1 Turno`
+
 ### Mesa
 
 Campos conceptuales:
@@ -56,6 +60,9 @@ Campos conceptuales:
 - `numero`
 - `codigo`
 - `activa`
+
+La mesa no tiene turno: permanece operativa durante toda la jornada electoral.
+El turno representa exclusivamente la ronda de trabajo de una autoridad.
 
 Restricción obligatoria:
 
@@ -79,6 +86,9 @@ marca protege la correspondencia entre el papel emitido y la asignación de mesa
 - `PreferenciaAutoridad`
 
 Una autoridad es el mismo elector con una asignación adicional; no una persona duplicada.
+`AsignacionAutoridad` vincula una autoridad con una mesa y un único turno de trabajo
+habilitado para la elección. Una mesa puede recibir varias asignaciones en un mismo
+turno y en turnos diferentes.
 
 ## Participación
 
@@ -120,8 +130,13 @@ número y nombre de lista, claustro y apoderado. Su vínculo con `Partido` es op
 y existe solamente para compatibilidad histórica.
 
 `ListaCandidatos` vincula una presentación con un `PuestoEleccion`. `Candidato`
-conserva sus datos identificatorios, tipo y orden; puede vincularse opcionalmente
-con `Elector` y no requiere pertenecer al padrón. `ImportacionCandidaturas` conserva
+conserva sus datos identificatorios, tipo y orden; las nuevas candidaturas deben
+vincularse con un `Elector` del padrón activo de la elección y del alcance correspondiente.
+La búsqueda usa tipo y número de documento (DNI/CUIL en `Elector.tipo_documento`
+y el campo histórico `Elector.dni`) o el campo independiente `Elector.legajo`.
+La candidatura conserva la identidad canónica del elector aunque se la haya buscado por legajo.
+Las referencias opcionales y el identificador independiente se conservan para registros históricos.
+`ImportacionCandidaturas` conserva
 la previsualización, errores, advertencias, usuario y confirmación de cada CSV.
 
 ## Justificativos

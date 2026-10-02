@@ -103,7 +103,6 @@ def _agrupar_padrones_por_mesa(eleccion):
             "elector",
             "sede",
             "asignacion_mesa__mesa__sede",
-            "asignacion_mesa__mesa__turno",
             "asignacion_mesa__mesa__eleccion_claustro_departamento__eleccion_claustro",
         )
         .order_by("elector__nombre", "elector__legajo")
@@ -125,7 +124,7 @@ def _fecha_votacion_mesa(eleccion, mesa):
     configuracion = mesa.eleccion_claustro_departamento
     if configuracion and configuracion.eleccion_claustro.fecha_votacion:
         return configuracion.eleccion_claustro.fecha_votacion
-    return eleccion.fecha_inicio.date()
+    return eleccion.fecha_inicio
 
 
 def _generar_imagen_qr(payload):

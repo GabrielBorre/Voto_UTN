@@ -238,13 +238,13 @@ class Candidato(models.Model):
         related_name="candidaturas",
         null=True,
         blank=True,
-        help_text="Vinculo opcional: un candidato no necesita integrar el padron.",
+        help_text="Debe integrar el padrón de la elección; se conserva nullable para candidaturas históricas.",
     )
     nombre = models.CharField(max_length=180, blank=True)
     identificador_persona = models.CharField(
         max_length=40,
         blank=True,
-        help_text="Identificador consignado por la Junta; no se presume que sea DNI o legajo.",
+        help_text="Dato histórico; no se utiliza en las nuevas candidaturas.",
     )
     dni = models.CharField("DNI", max_length=12, blank=True)
     correo_electronico = models.EmailField(blank=True)
@@ -285,23 +285,21 @@ class Candidato(models.Model):
             )
             if self.orden and self.orden > limite:
                 errores["orden"] = f"El orden supera los {limite} puestos {self.tipo} configurados."
-        if not self.nombre.strip():
-            errores["nombre"] = "Debe indicar el nombre o seleccionar un elector existente."
-        if not self.dni.strip() and not self.identificador_persona.strip():
-            errores["identificador_persona"] = "Debe indicar un identificador de persona, un DNI o seleccionar un elector existente."
-
-        if self.lista_id and self.dni:
+        if not self.elector_id:
+            errores["__all__"] = "El candidato debe ser un elector del padrón de esta elección."
+        if self.lista_id and self.elector_id:
             eleccion_id = self.lista.participacion.eleccion_id
-            if self.elector_id:
-                registro = self.elector.registros_padron.filter(eleccion_id=eleccion_id).select_related(
-                    "eleccion_claustro_departamento",
-                ).first()
-                if registro:
-                    configuracion = registro.eleccion_claustro_departamento
-                    if configuracion.eleccion_claustro_id != self.lista.eleccion_claustro_id:
-                        errores["elector"] = "El elector pertenece a otro claustro en el padron de esta eleccion."
-                    elif self.lista.eleccion_claustro_departamento_id and configuracion.id != self.lista.eleccion_claustro_departamento_id:
-                        errores["elector"] = "El elector pertenece a otro departamento en el padron de esta eleccion."
+            registro = self.elector.registros_padron.filter(eleccion_id=eleccion_id, activo=True).select_related(
+                "eleccion_claustro_departamento",
+            ).first()
+            if registro is None:
+                errores["__all__"] = "El elector no integra el padrón activo de esta elección."
+            else:
+                configuracion = registro.eleccion_claustro_departamento
+                if configuracion.eleccion_claustro_id != self.lista.eleccion_claustro_id:
+                    errores["__all__"] = "El elector pertenece a otro claustro del padrón de esta elección."
+                elif self.lista.eleccion_claustro_departamento_id and configuracion.id != self.lista.eleccion_claustro_departamento_id:
+                    errores["__all__"] = "El elector pertenece a otro departamento del padrón de esta elección."
         if errores:
             raise ValidationError(errores)
 

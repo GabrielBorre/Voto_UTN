@@ -17,14 +17,13 @@
       <div class="option">
         <h3>Desempeño como Autoridad de Mesa</h3>
         <p><strong>Sede:</strong> {{ registro.asignacion_autoridad.mesa.sede|default:"Sin asignar" }}</p>
-        <p><strong>Turno:</strong> {{ registro.asignacion_autoridad.mesa.turno|default:"Sin asignar" }}</p>
+        <p><strong>Turno de trabajo:</strong> {{ registro.asignacion_autoridad.turno|default:"Sin asignar" }}</p>
       </div>
       {% endif %}
       <div class="option">
         <h3>Mesa y sede de votación</h3>
         <p><strong>Mesa:</strong> {{ registro.asignacion_mesa.mesa.numero|default:"Sin asignar" }}</p>
         <p><strong>Sede:</strong> {{ registro.sede|default:"Sin asignar" }}</p>
-        <p><strong>Turno:</strong> {{ registro.asignacion_mesa.mesa.turno|default:"Sin asignar" }}</p>
       </div>
       <div class="option">
         <h3>Fecha de la elección</h3>

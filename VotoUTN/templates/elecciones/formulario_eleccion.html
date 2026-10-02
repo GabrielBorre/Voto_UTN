@@ -1,12 +1,33 @@
 {% extends "gestion/base.html" %}
 
-{% block title %}Nueva eleccion | Junta Electoral UTN{% endblock %}
+{% block title %}Nueva elección | Junta Electoral UTN{% endblock %}
 
 {% block content %}
-<section class="hero"><h1>Nueva eleccion</h1><p>Define los datos generales, el calendario administrativo y los parametros activos del proceso electoral.</p></section>
-<section class="card form-card"><div class="section-title"><div><h2>Crear nueva eleccion</h2><p>Los departamentos se asociaran al importar el padron de cada claustro.</p></div><span class="tag">Preparacion</span></div><form method="post">{% csrf_token %}
-{% for field in campos_generales %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}
-<div class="section-title"><div><h2>Parametros de eleccion</h2><p>Selecciona las opciones que participaran en este proceso.</p></div></div>{% for field in campos_parametros %}<div class="field"><label>{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}{% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
-<div class="section-title"><div><h2>Fechas administrativas</h2><p>Selecciona los hitos que aplican a esta eleccion e indica una fecha entre el inicio y el fin.</p></div></div>{% for item in campos_fechas_administrativas %}<div class="date-option"><div class="field field-checkbox">{{ item.seleccionada }}<label for="{{ item.seleccionada.id_for_label }}">{{ item.definicion.nombre }}</label></div><p class="muted">{{ item.definicion.roles_destinatarios_display }}. {{ item.definicion.get_modalidad_sugerida_display }}{% if item.definicion.descripcion %}. {{ item.definicion.descripcion }}{% endif %}</p><div class="field"><label for="{{ item.fecha.id_for_label }}">Fecha</label>{{ item.fecha }}{% for error in item.fecha.errors %}<div class="error">{{ error }}</div>{% endfor %}</div></div>{% empty %}<p class="muted">No hay fechas administrativas activas configuradas.</p>{% endfor %}
-<div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Cancelar</a><button class="button primary">Crear eleccion</button></div></form></section>
+<section class="hero">
+  <h1>Nueva elección</h1>
+  <p>Define el período completo del proceso y los parámetros electorales iniciales. El calendario administrativo se configura en el paso siguiente.</p>
+</section>
+<section class="card form-card">
+  <div class="section-title">
+    <div><h2>Crear nueva elección</h2><p>Completá los datos básicos. Después podrás configurar el resto de la elección.</p></div>
+    <span class="tag">Preparación</span>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in campos_generales %}{% include "elecciones/_campo_general.html" with field=field %}{% endfor %}
+    <div class="section-title"><div><h2>Configuración inicial</h2><p>Elegí qué claustros participan y qué sedes estarán habilitadas. Después podrás ajustar las sedes para cada claustro y departamento.</p></div></div>
+    {% for field in campos_parametros %}
+      <div class="field checkbox-group" data-checkbox-group="eleccion-{{ field.name }}">
+        <div class="field-label-row">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          <span class="select-all"><input type="checkbox" data-select-all aria-label="Seleccionar todas las opciones de {{ field.label|lower }}"><span>Seleccionar todas</span></span>
+        </div>
+        {{ field }}
+        {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+    {% endfor %}
+    {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+    <div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Cancelar</a><button class="button primary">Crear y configurar</button></div>
+  </form>
+</section>
 {% endblock %}

@@ -6,11 +6,12 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.elecciones.forms import FormularioPrepararClaustro
 from apps.elecciones.models import Eleccion, EleccionClaustro
 from apps.padron.models import ImportacionPadron
 from apps.padron.forms import FormularioArchivoPadron
 from apps.padron.services import PLANTILLA_PADRON_EJEMPLO, PLANTILLA_PADRON_HEADERS, confirmar_importacion, detectar_columnas_archivo, registrar_errores, validar_csv_padron
-from apps.usuarios.permisos import puede_importar_padron
+from apps.usuarios.permisos import puede_administrar_elecciones, puede_importar_padron
 
 
 @login_required
@@ -30,14 +31,38 @@ def descargar_plantilla_padron(request, eleccion_id, claustro_id):
 
 @login_required
 def previsualizar_padron(request, eleccion_id, claustro_id):
-    eleccion_claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
+    eleccion_claustro = get_object_or_404(
+        EleccionClaustro.objects.select_related("eleccion", "claustro"),
+        pk=claustro_id,
+        eleccion_id=eleccion_id,
+    )
     if not puede_importar_padron(request.user, eleccion_claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para importar el padron.")
-    if eleccion_claustro.eleccion.estado not in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA):
+    configura_padron = request.method == "POST" and "guardar-configuracion" in request.POST
+    carga_archivo = request.method == "POST" and not configura_padron
+    puede_configurar = puede_administrar_elecciones(request.user, eleccion_claustro.eleccion)
+    puede_cargar = eleccion_claustro.eleccion.estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA)
+
+    if configura_padron and not puede_configurar:
+        return HttpResponseForbidden("No tiene permiso para configurar este padron.")
+    if carga_archivo and not puede_cargar:
         return HttpResponseForbidden("No se puede importar un padron para una eleccion abierta o cerrada.")
-    formulario = FormularioArchivoPadron(request.POST or None, request.FILES or None)
-    if request.method == "POST" and formulario.is_valid():
-        archivo = formulario.cleaned_data["archivo"]
+
+    formulario_configuracion = FormularioPrepararClaustro(
+        request.POST if configura_padron else None,
+        instance=eleccion_claustro,
+        prefix="configuracion",
+    )
+    formulario_archivo = FormularioArchivoPadron(
+        request.POST if carga_archivo else None,
+        request.FILES if carga_archivo else None,
+    )
+    if configura_padron and formulario_configuracion.is_valid():
+        formulario_configuracion.save()
+        messages.success(request, "La configuración del padrón fue guardada.")
+        return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
+    if carga_archivo and formulario_archivo.is_valid():
+        archivo = formulario_archivo.cleaned_data["archivo"]
         contenido = archivo.read()
         archivo.seek(0)
         resultado = validar_csv_padron(contenido, eleccion_claustro, archivo.name)
@@ -55,7 +80,20 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
         )
         registrar_errores(importacion, resultado.errores)
         return redirect("detalle-importacion-padron", eleccion_id=eleccion_id, importacion_id=importacion.id)
-    return render(request, "padron/cargar.html", {"eleccion": eleccion_claustro.eleccion, "claustro": eleccion_claustro, "formulario": formulario})
+    importaciones = eleccion_claustro.importaciones_padron.select_related("usuario")
+    return render(
+        request,
+        "padron/cargar.html",
+        {
+            "eleccion": eleccion_claustro.eleccion,
+            "claustro": eleccion_claustro,
+            "formulario_configuracion": formulario_configuracion,
+            "formulario_archivo": formulario_archivo,
+            "importaciones": importaciones,
+            "puede_configurar": puede_configurar,
+            "puede_cargar": puede_cargar,
+        },
+    )
 
 
 @login_required

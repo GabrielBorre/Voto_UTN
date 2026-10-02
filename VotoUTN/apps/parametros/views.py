@@ -33,7 +33,14 @@ from apps.usuarios.permisos import puede_administrar_parametros
 
 PARAMETROS = {
     "sedes": {"modelo": Sede, "formulario": FormularioSede, "titulo": "Sedes", "estado": "activa", "codigo": False},
-    "claustros": {"modelo": Claustro, "formulario": FormularioClaustro, "titulo": "Claustros", "estado": "activo", "codigo": False},
+    "claustros": {
+        "modelo": Claustro,
+        "formulario": FormularioClaustro,
+        "titulo": "Claustros",
+        "estado": "activo",
+        "codigo": False,
+        "es_claustro": True,
+    },
     "departamentos": {"modelo": Departamento, "formulario": FormularioDepartamento, "titulo": "Departamentos", "estado": "activo", "codigo": True},
     "turnos": {"modelo": Turno, "formulario": FormularioTurno, "titulo": "Turnos", "estado": "activo", "codigo": False, "es_turno": True},
     "fechas-administrativas": {"modelo": FechaAdministrativa, "formulario": FormularioFechaAdministrativa, "titulo": "Fechas administrativas", "estado": "activa", "codigo": True, "es_fecha": True},
@@ -103,6 +110,8 @@ def listar_parametros(request, tipo):
         filtro = Q(nombre__icontains=consulta)
         if configuracion["codigo"]:
             filtro |= Q(codigo__icontains=consulta)
+        if configuracion.get("es_claustro"):
+            filtro |= Q(abreviatura__icontains=consulta)
         if configuracion.get("es_cargo"):
             filtro |= Q(organo__nombre__icontains=consulta)
         objetos = objetos.filter(filtro)
@@ -115,6 +124,7 @@ def listar_parametros(request, tipo):
             "tiene_codigo": configuracion["codigo"], "es_fecha": configuracion.get("es_fecha", False),
             "es_plantilla": configuracion.get("es_plantilla", False), "es_turno": configuracion.get("es_turno", False),
             "es_cargo": configuracion.get("es_cargo", False),
+            "es_claustro": configuracion.get("es_claustro", False),
             "es_catalogo_candidaturas": configuracion.get("grupo") == "puestos",
         },
     )
