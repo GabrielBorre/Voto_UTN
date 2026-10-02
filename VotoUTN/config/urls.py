@@ -17,6 +17,7 @@ urlpatterns = [
     path("", include("apps.partidos.urls")),
     path("asistencia/", include("apps.asistencia.urls")),
     path("api/", include("apps.asistencia.api_urls")),
+    path("api/padron/", include("apps.padron.api_urls")),
     path('login/', keycloak_login_view, name='keycloak_login'),
     path('callback', keycloak_login_callback_view, name='callback_login'),
     path("logout/", keycloak_logout_view, name="logout"),

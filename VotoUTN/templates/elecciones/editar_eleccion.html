@@ -1,3 +1,16 @@
 {% extends "gestion/base.html" %}
 {% block title %}Editar eleccion | Junta Electoral UTN{% endblock %}
-{% block content %}<section class="hero"><h1>Editar eleccion</h1><p>Actualiza los datos generales y el calendario administrativo de {{ eleccion.nombre }}.</p></section><section class="card form-card"><form method="post">{% csrf_token %}{% for field in campos_generales %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}<div class="section-title"><div><h2>Fechas administrativas</h2><p>Hitos y plazos del proceso.</p></div></div>{% for field in campos_administrativos %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}<div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Cancelar</a><button class="button primary">Guardar cambios</button></div></form></section>{% endblock %}
+{% block content %}
+<section class="hero"><h1>Editar eleccion</h1><p>Actualiza el nombre y el periodo completo de {{ eleccion.nombre }}.</p></section>
+<section class="card form-card">
+  <form id="formulario-datos-generales" method="post">
+    {% csrf_token %}
+    {% for field in campos_generales %}{% include "elecciones/_campo_general.html" with field=field %}{% endfor %}
+    {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+  </form>
+</section>
+<div class="section-actions form-card-actions">
+  <button class="button primary" type="submit" form="formulario-datos-generales">Guardar cambios</button>
+  <a class="button light" href="{% url 'configurar-eleccion' eleccion.id %}">Volver a configuración</a>
+</div>
+{% endblock %}

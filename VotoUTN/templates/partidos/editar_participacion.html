@@ -1,0 +1,38 @@
+{% extends "gestion/base.html" %}
+{% block title %}Editar lista {{ participacion.numero_lista }} | {{ eleccion.nombre }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Editar lista {{ participacion.numero_lista }}</h1>
+  <p>{{ eleccion.nombre }} · Modificá los datos de la lista y su apoderado/a.</p>
+</section>
+
+<div class="management-panel candidaturas-panel">
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Datos de la lista</h2>
+        <p>Los puestos y las personas candidatas se gestionan por separado.</p>
+      </div>
+    </div>
+    <form id="formulario-lista" method="post">
+      {% csrf_token %}
+      {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+      <div class="gestion-form-grid">
+        {% for field in formulario %}
+          <div class="field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<small class="muted field-help">{{ field.help_text }}</small>{% endif %}
+            {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </form>
+  </section>
+</div>
+
+<div class="section-actions">
+  <button class="button primary" type="submit" form="formulario-lista">Guardar cambios</button>
+  <a class="button light" href="{% url 'gestionar-partidos' eleccion.id %}">Volver a listas y candidaturas</a>
+</div>
+{% endblock %}

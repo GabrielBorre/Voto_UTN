@@ -1,11 +1,78 @@
 {% extends "gestion/base.html" %}
 
-{% block title %}Mesas | {{ eleccion.nombre }}{% endblock %}
+{% block title %}Mesas automáticas | {{ eleccion.nombre }}{% endblock %}
 
 {% block content %}
-<section class="hero"><h1>{{ eleccion.nombre }}</h1><p>Las mesas se generan automáticamente al confirmar el padrón de cada claustro.</p></section>
-<section class="card"><div class="section-title"><div><h2>Asignacion automatica</h2><p>Los electores se agrupan por departamento y sede, se ordenan alfabéticamente y se dividen según el máximo configurado por mesa.</p></div><span class="tag">{{ eleccion.get_estado_display }}</span></div></section>
-<div class="section-title"><div><h2>Mesas creadas</h2><p>Detalle operativo de la eleccion.</p></div></div><div class="table-wrap"><table><thead><tr><th>Numero</th><th>Claustro</th><th>Departamento</th><th>Sede</th><th>Turno</th><th>Origen</th></tr></thead><tbody>
-{% for mesa in mesas %}<tr><td>{{ mesa.numero }}</td><td>{{ mesa.eleccion_claustro_departamento.eleccion_claustro.claustro }}</td><td>{{ mesa.eleccion_claustro_departamento.departamento }}</td><td>{{ mesa.sede }}</td><td>{{ mesa.turno }}</td><td>{% if mesa.generada_automaticamente %}Padrón{% else %}Manual{% endif %}</td></tr>{% empty %}<tr><td colspan="6" class="muted">Todavia no hay mesas; se crean al confirmar un padrón valido.</td></tr>{% endfor %}
-</tbody></table></div>
+<section class="hero">
+  <h1>Mesas automáticas</h1>
+  <p>{{ eleccion.nombre }}. Consultá la distribución operativa de las mesas de la elección.</p>
+</section>
+
+<div class="management-panel tables-panel">
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Mesas creadas</h2>
+        <p>Los electores se agrupan por alcance y sede, se ordenan alfabéticamente y se distribuyen según el máximo configurado.</p>
+      </div>
+      <span class="tag">{{ eleccion.get_estado_display }}</span>
+    </div>
+
+    <div class="summary-grid management-summary-grid">
+      <div><strong>Total de mesas</strong><span>{{ resumen.total }}</span></div>
+      <div><strong>Automáticas</strong><span>{{ resumen.automaticas }}</span></div>
+      <div><strong>Claustros con mesas</strong><span>{{ resumen.claustros }}</span></div>
+      <div><strong>Sedes utilizadas</strong><span>{{ resumen.sedes }}</span></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Claustro</th>
+            <th>Departamento o alcance</th>
+            <th>Sede</th>
+            <th>Origen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for mesa in mesas %}
+            <tr>
+              <td><strong>{{ mesa.numero }}</strong></td>
+              <td>
+                {% if mesa.eleccion_claustro_departamento %}
+                  {{ mesa.eleccion_claustro_departamento.eleccion_claustro.claustro }}
+                {% else %}
+                  <span class="muted">Sin claustro</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if mesa.eleccion_claustro_departamento %}
+                  {{ mesa.eleccion_claustro_departamento.nombre_alcance }}
+                {% else %}
+                  <span class="muted">Sin alcance configurado</span>
+                {% endif %}
+              </td>
+              <td>{{ mesa.sede|default:"Sin sede" }}</td>
+              <td>
+                {% if mesa.generada_automaticamente %}
+                  <span class="pill info">Automática</span>
+                {% else %}
+                  <span class="pill gray">Registrada previamente</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="muted">Todavía no hay mesas creadas para esta elección.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+{% include "elecciones/_volver_configuracion.html" %}
 {% endblock %}

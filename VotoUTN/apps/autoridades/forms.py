@@ -1,70 +1,82 @@
 from django import forms
-from django.forms.models import ModelChoiceIteratorValue
+from django.db import transaction
+from django.db.models import Q
 
-from apps.autoridades.models import CandidaturaAutoridad, PreferenciaAutoridad
-from apps.elecciones.models import EleccionClaustro
+from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad, PreferenciaAutoridad
+from apps.elecciones.models import EleccionClaustroTurno
 from apps.mesas.models import Mesa
 from apps.parametros.models import Sede, Turno
 
 
-class SelectorConClaustro(forms.Select):
-    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
-        option = super().create_option(name, value, label, selected, index, subindex, attrs)
-        if isinstance(value, ModelChoiceIteratorValue) and value.instance is not None:
-            objeto = value.instance
-            if isinstance(objeto, EleccionClaustro):
-                option["attrs"]["data-claustro"] = objeto.pk
-            elif isinstance(objeto, Mesa):
-                option["attrs"]["data-claustro"] = objeto.eleccion_claustro_departamento.eleccion_claustro_id
-            elif isinstance(objeto, CandidaturaAutoridad):
-                option["attrs"]["data-claustro"] = objeto.registro_padron.eleccion_claustro_departamento.eleccion_claustro_id
-        return option
-
-
 class FormularioAsignacionAutoridad(forms.Form):
-    claustro = forms.ModelChoiceField(queryset=EleccionClaustro.objects.none(), label="1. Seleccioná el claustro", widget=SelectorConClaustro)
-    mesa = forms.ModelChoiceField(queryset=Mesa.objects.none(), label="2. Seleccioná una mesa", widget=SelectorConClaustro)
-    candidatura = forms.ModelChoiceField(queryset=CandidaturaAutoridad.objects.none(), label="3. Seleccioná una persona", widget=SelectorConClaustro)
+    candidatura = forms.ModelChoiceField(queryset=CandidaturaAutoridad.objects.none(), label="Candidato")
+    mesa = forms.ModelChoiceField(queryset=Mesa.objects.none())
+    turno = forms.ModelChoiceField(queryset=Turno.objects.none(), label="Turno de trabajo")
 
-    def __init__(self, *args, eleccion, **kwargs):
+    def __init__(self, *args, eleccion_claustro, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["claustro"].queryset = EleccionClaustro.objects.filter(eleccion=eleccion).select_related("claustro")
-        self.fields["claustro"].label_from_instance = lambda configuracion: configuracion.claustro.nombre
         self.fields["candidatura"].queryset = CandidaturaAutoridad.objects.filter(
-            registro_padron__eleccion=eleccion,
-            registro_padron__asignacion_autoridad__isnull=True,
-        ).select_related("registro_padron__elector", "registro_padron__eleccion_claustro_departamento__eleccion_claustro")
-        self.fields["mesa"].queryset = Mesa.objects.filter(eleccion=eleccion, eleccion_claustro_departamento__isnull=False).select_related("eleccion_claustro_departamento__departamento", "eleccion_claustro_departamento__eleccion_claustro__claustro", "sede")
-        self.fields["mesa"].label_from_instance = lambda mesa: (
-            f"Mesa {mesa.numero} · {mesa.eleccion_claustro_departamento.eleccion_claustro.claustro.nombre} · "
-            f"{mesa.eleccion_claustro_departamento.departamento.nombre} · {mesa.sede or 'Sin sede'}"
-        )
-        self.fields["mesa"].widget.attrs.update({"data-filtrado-por-claustro": "true", "disabled": "disabled"})
-        self.fields["mesa"].empty_label = "Elegí primero un claustro"
-        self.fields["candidatura"].widget.attrs.update({"data-filtrado-por-claustro": "true", "disabled": "disabled"})
-        self.fields["candidatura"].empty_label = "Elegí primero un claustro y una mesa"
+            registro_padron__eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+        ).select_related("registro_padron__elector")
+        self.fields["mesa"].queryset = Mesa.objects.filter(
+            eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+        ).select_related("eleccion_claustro_departamento__eleccion_claustro__claustro")
+        self.fields["turno"].queryset = Turno.objects.filter(
+            elecciones_turno__eleccion_claustro=eleccion_claustro,
+        ).order_by("hora_inicio", "nombre")
         for campo in self.fields.values():
             campo.widget.attrs["class"] = "form-select"
 
-    def clean(self):
-        datos = super().clean()
-        configuracion_claustro = datos.get("claustro")
-        candidatura = datos.get("candidatura")
-        mesa = datos.get("mesa")
-        if configuracion_claustro and mesa and mesa.eleccion_claustro_departamento.eleccion_claustro_id != configuracion_claustro.pk:
-            self.add_error("mesa", "La mesa debe pertenecer al claustro seleccionado.")
-        if configuracion_claustro and candidatura and candidatura.registro_padron.eleccion_claustro_departamento.eleccion_claustro_id != configuracion_claustro.pk:
-            self.add_error("candidatura", "La persona debe pertenecer al claustro seleccionado.")
-        if candidatura and mesa:
-            claustro_candidato = candidatura.registro_padron.eleccion_claustro_departamento.eleccion_claustro_id
-            claustro_mesa = mesa.eleccion_claustro_departamento.eleccion_claustro_id
-            if claustro_candidato != claustro_mesa:
-                self.add_error("candidatura", "La persona debe pertenecer al mismo claustro que la mesa.")
-        return datos
+
+class FormularioTurnosAutoridades(forms.Form):
+    turnos = forms.ModelMultipleChoiceField(
+        queryset=Turno.objects.none(),
+        label="Turnos de trabajo",
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    def __init__(self, *args, eleccion_claustro, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eleccion_claustro = eleccion_claustro
+        self.fields["turnos"].queryset = Turno.objects.filter(
+            Q(activo=True) | Q(elecciones_turno__eleccion_claustro=eleccion_claustro)
+        ).distinct().order_by("hora_inicio", "nombre")
+        self.fields["turnos"].initial = eleccion_claustro.turnos_autoridad.values_list("turno_id", flat=True)
+        self.fields["turnos"].widget.attrs["class"] = "checkbox-list"
+
+    def clean_turnos(self):
+        turnos = self.cleaned_data["turnos"]
+        utilizados = set(
+            AsignacionAutoridad.objects.filter(
+                mesa__eleccion_claustro_departamento__eleccion_claustro=self.eleccion_claustro,
+            ).values_list("turno_id", flat=True)
+        )
+        removidos = utilizados - set(turnos.values_list("id", flat=True))
+        if removidos:
+            raise forms.ValidationError("No se puede quitar un turno que ya tiene autoridades asignadas.")
+        return turnos
+
+    @transaction.atomic
+    def guardar(self):
+        turnos = self.cleaned_data["turnos"]
+        seleccionados = set(turnos.values_list("id", flat=True))
+        self.eleccion_claustro.turnos_autoridad.exclude(turno_id__in=seleccionados).delete()
+        EleccionClaustroTurno.objects.bulk_create(
+            [EleccionClaustroTurno(eleccion_claustro=self.eleccion_claustro, turno=turno) for turno in turnos],
+            ignore_conflicts=True,
+        )
 
 
 class FormularioArchivoAutoridades(forms.Form):
-    archivo = forms.FileField(widget=forms.ClearableFileInput(attrs={"accept": ".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}))
+    archivo = forms.FileField(
+        label="Archivo de candidatos",
+        widget=forms.ClearableFileInput(
+            attrs={
+                "accept": ".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "class": "input",
+            }
+        ),
+    )
 
     def clean_archivo(self):
         archivo = self.cleaned_data["archivo"]
@@ -81,10 +93,12 @@ class FormularioPreferenciaAutoridad(forms.ModelForm):
         model = PreferenciaAutoridad
         fields = ("sede_preferida", "turno_preferido", "disponible")
 
-    def __init__(self, *args, eleccion, registro_padron, **kwargs):
+    def __init__(self, *args, registro_padron, **kwargs):
         super().__init__(*args, **kwargs)
         self.registro_padron = registro_padron
         self.fields["sede_preferida"].queryset = Sede.objects.filter(pk=registro_padron.sede_id)
-        self.fields["turno_preferido"].queryset = Turno.objects.filter(elecciones_turno__eleccion=eleccion).distinct()
+        self.fields["turno_preferido"].queryset = Turno.objects.filter(
+            elecciones_turno__eleccion_claustro=registro_padron.eleccion_claustro_departamento.eleccion_claustro,
+        ).distinct()
         for nombre, campo in self.fields.items():
             campo.widget.attrs["class"] = "form-check-input" if nombre == "disponible" else "form-select"

@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render
 
@@ -14,12 +15,20 @@ def gestionar_mesas(request, eleccion_id):
 
     mesas = eleccion.mesas.select_related(
         "sede",
-        "turno",
         "eleccion_claustro_departamento__eleccion_claustro__claustro",
         "eleccion_claustro_departamento__departamento",
+    )
+    resumen = mesas.aggregate(
+        total=Count("id"),
+        automaticas=Count("id", filter=Q(generada_automaticamente=True)),
+        claustros=Count(
+            "eleccion_claustro_departamento__eleccion_claustro_id",
+            distinct=True,
+        ),
+        sedes=Count("sede_id", distinct=True),
     )
     return render(
         request,
         "mesas/gestion.html",
-        {"eleccion": eleccion, "mesas": mesas},
+        {"eleccion": eleccion, "mesas": mesas, "resumen": resumen},
     )

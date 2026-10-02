@@ -1,9 +1,9 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.elecciones.models import Eleccion, EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede, EleccionTurno
+from apps.elecciones.models import Eleccion, EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede
 from apps.padron.models import RegistroPadron
-from apps.parametros.models import Sede, Turno
+from apps.parametros.models import Sede
 
 
 class Mesa(models.Model):
@@ -11,7 +11,6 @@ class Mesa(models.Model):
     numero = models.PositiveIntegerField("numero")
     eleccion_claustro_departamento = models.ForeignKey(EleccionClaustroDepartamento, on_delete=models.PROTECT, related_name="mesas", null=True, blank=True)
     sede = models.ForeignKey(Sede, on_delete=models.PROTECT, related_name="mesas", null=True, blank=True)
-    turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="mesas", null=True, blank=True)
     generada_automaticamente = models.BooleanField(default=False)
 
     class Meta:
@@ -24,8 +23,6 @@ class Mesa(models.Model):
             raise ValidationError({"eleccion_claustro_departamento": "Debe pertenecer a la misma eleccion."})
         if self.eleccion_claustro_departamento_id and self.sede_id and not EleccionClaustroDepartamentoSede.objects.filter(eleccion_claustro_departamento=self.eleccion_claustro_departamento, sede=self.sede).exists():
             raise ValidationError({"sede": "La sede debe estar habilitada para el departamento."})
-        if self.eleccion_id and self.turno_id and not EleccionTurno.objects.filter(eleccion_id=self.eleccion_id, turno_id=self.turno_id).exists():
-            raise ValidationError({"turno": "El turno debe estar habilitado para la eleccion."})
 
     def __str__(self):
         return f"{self.eleccion} - Mesa {self.numero}"
@@ -38,7 +35,7 @@ class Mesa(models.Model):
             ).exists()
             if anterior and tiene_qr_emitidos and any(
                 getattr(anterior, campo) != getattr(self, campo)
-                for campo in ("eleccion_id", "numero", "eleccion_claustro_departamento_id", "sede_id", "turno_id")
+                for campo in ("eleccion_id", "numero", "eleccion_claustro_departamento_id", "sede_id")
             ):
                 raise ValidationError("No se puede modificar una mesa con códigos QR emitidos.")
         super().save(*args, **kwargs)

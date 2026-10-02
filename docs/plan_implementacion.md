@@ -87,8 +87,9 @@ justificativos y errores de importacion.
 **Estado:** completada
 
 Incluye presentaciones propias de cada elección, puestos configurables por alcance,
-listas, candidatos vinculados opcionalmente con un elector e importación CSV con
-previsualización.
+listas, candidatos nuevos vinculados obligatoriamente a un elector del padrón e importación CSV con
+previsualización. La carga manual y CSV comparten búsqueda por DNI, CUIL o legajo,
+con consulta del nombre antes del guardado y revalidación del padrón al confirmar.
 
 ### Cierre de modularizacion
 **Estado:** completado

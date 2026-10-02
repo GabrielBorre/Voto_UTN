@@ -222,6 +222,8 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             valor = (fila_original.get(original_header) or "").strip() if original_header is not None else ""
             if campo in {"dni", "legajo"}:
                 valor = normalizar_identificador_numerico(valor)
+            if campo == "tipo_documento" and not valor:
+                valor = "DNI"
             fila[campo] = valor
         # Leer campos opcionales si están presentes
         for campo in OPTIONAL_FIELDS:
@@ -296,9 +298,6 @@ def generar_mesas_automaticas(eleccion_claustro):
     if not maximo:
         maximo = 1
     eleccion = eleccion_claustro.eleccion
-    turno_relacion = eleccion.elecciones_turno.select_related("turno").order_by("turno__hora_inicio", "turno__nombre").first()
-    if turno_relacion is None:
-        raise ValueError("La eleccion debe tener al menos un turno habilitado.")
 
     mesas_anteriores = Mesa.objects.filter(
         eleccion=eleccion,
@@ -329,7 +328,6 @@ def generar_mesas_automaticas(eleccion_claustro):
                 numero=ultimo_numero,
                 eleccion_claustro_departamento=configuracion,
                 sede=sede,
-                turno=turno_relacion.turno,
                 generada_automaticamente=True,
             ))
     Mesa.objects.bulk_create(mesas)

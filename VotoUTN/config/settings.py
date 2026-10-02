@@ -56,9 +56,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-LOGIN_URL = "login"
+LOGIN_URL = "keycloak_login"
 LOGIN_REDIRECT_URL = "inicio-autenticado"
-LOGOUT_REDIRECT_URL = "login"
+LOGOUT_REDIRECT_URL = "keycloak_login"
 
 # El proxy Caddy termina la conexion HTTPS y reenvia por HTTP interno; sin esto Django
 # construiria URLs (redirect_uri de Keycloak incluido) con el esquema http.

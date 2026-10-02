@@ -16,8 +16,8 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionClaustroSede,
+    EleccionClaustroTurno,
     EleccionSede,
-    EleccionTurno,
     FechaAdministrativaEleccion,
 )
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
@@ -167,7 +167,7 @@ class Command(BaseCommand):
         )
         eleccion_claustro = elecciones_claustro["Docentes"]
         configuracion_departamento = configuraciones_departamento["Docentes"]
-        mesas = self._seed_mesas(eleccion, configuracion_departamento, sede_central, turno_manana, turno_tarde, counters)
+        mesas = self._seed_mesas(eleccion, configuracion_departamento, sede_central, counters)
         usuarios = self._seed_usuarios_y_roles(eleccion, sede_central, mesas, counters)
         padrones = self._seed_electores_y_padron(eleccion, configuracion_departamento, sede_central, mesas, counters)
         puestos = self._seed_puestos(elecciones_claustro, configuraciones_departamento, counters)
@@ -220,7 +220,7 @@ class Command(BaseCommand):
 
     def _seed_eleccion(self, sede, turno_manana, turno_tarde, claustros, departamento, counters):
         now = timezone.now()
-        inicio = now + timedelta(days=3)
+        inicio = (now + timedelta(days=3)).date()
         fin = inicio + timedelta(days=1)
 
         eleccion = self._upsert(
@@ -230,12 +230,12 @@ class Command(BaseCommand):
             defaults={
                 "fecha_inicio": inicio,
                 "fecha_fin": fin,
-                "fecha_apertura_padron_provisorio": (inicio - timedelta(days=20)).date(),
-                "fecha_cierre_padron_provisorio": (inicio - timedelta(days=15)).date(),
-                "fecha_cierre_candidaturas": (inicio - timedelta(days=10)).date(),
-                "fecha_publicacion_padron_definitivo": (inicio - timedelta(days=7)).date(),
-                "fecha_limite_justificacion_autoridades": (fin + timedelta(days=3)).date(),
-                "fecha_limite_justificacion_electores": (fin + timedelta(days=5)).date(),
+                "fecha_apertura_padron_provisorio": inicio - timedelta(days=20),
+                "fecha_cierre_padron_provisorio": inicio - timedelta(days=15),
+                "fecha_cierre_candidaturas": inicio - timedelta(days=10),
+                "fecha_publicacion_padron_definitivo": inicio - timedelta(days=7),
+                "fecha_limite_justificacion_autoridades": fin + timedelta(days=3),
+                "fecha_limite_justificacion_electores": fin + timedelta(days=5),
                 "estado": Eleccion.Estado.PREPARADA,
                 "habilitada": True,
                 "maximo_autoridades_por_mesa": 2,
@@ -243,8 +243,6 @@ class Command(BaseCommand):
         )
 
         self._get_or_create(counters, EleccionSede.objects, eleccion=eleccion, sede=sede)
-        self._get_or_create(counters, EleccionTurno.objects, eleccion=eleccion, turno=turno_manana)
-        self._get_or_create(counters, EleccionTurno.objects, eleccion=eleccion, turno=turno_tarde)
         elecciones_claustro = {}
         configuraciones_departamento = {}
         for nombre, claustro in claustros.items():
@@ -253,22 +251,32 @@ class Command(BaseCommand):
                 EleccionClaustro.objects,
                 eleccion=eleccion,
                 claustro=claustro,
-                defaults={"fecha_votacion": inicio.date(), "maximo_votantes_por_mesa": 500},
+                defaults={"fecha_votacion": inicio, "maximo_votantes_por_mesa": 500},
             )
             elecciones_claustro[nombre] = eleccion_claustro
+            self._get_or_create(
+                counters,
+                EleccionClaustroTurno.objects,
+                eleccion_claustro=eleccion_claustro,
+                turno=turno_manana,
+            )
+            self._get_or_create(
+                counters,
+                EleccionClaustroTurno.objects,
+                eleccion_claustro=eleccion_claustro,
+                turno=turno_tarde,
+            )
             self._get_or_create(
                 counters,
                 EleccionClaustroSede.objects,
                 eleccion_claustro=eleccion_claustro,
                 sede=sede,
             )
-            if nombre == "No docentes":
-                continue
             configuracion_departamento = self._get_or_create(
                 counters,
                 EleccionClaustroDepartamento.objects,
                 eleccion_claustro=eleccion_claustro,
-                departamento=departamento,
+                departamento=None if nombre == "No docentes" else departamento,
             )
             configuraciones_departamento[nombre] = configuracion_departamento
             self._get_or_create(
@@ -331,6 +339,13 @@ class Command(BaseCommand):
         puestos,
         counters,
     ):
+        personas_demo = {}
+        for datos_demo in PRESENTACIONES_DEMO:
+            for _, candidatos_demo in datos_demo["listas"]:
+                for identificador_demo, _ in candidatos_demo:
+                    clave = (datos_demo["claustro"], identificador_demo)
+                    if clave not in personas_demo:
+                        personas_demo[clave] = len(personas_demo) + 1
         for datos in PRESENTACIONES_DEMO:
             claustro_nombre = datos["claustro"]
             eleccion_claustro = elecciones_claustro[claustro_nombre]
@@ -369,24 +384,46 @@ class Command(BaseCommand):
                     },
                 )
                 for orden, (identificador, nombre) in enumerate(candidatos, 1):
+                    apellido, _, nombres = nombre.partition(",")
+                    elector = self._upsert(
+                        counters,
+                        Elector.objects,
+                        legajo=f"DC-{claustro_nombre[:2].upper()}-{identificador}",
+                        defaults={
+                            "nombre": nombres.strip() or apellido.strip(),
+                            "apellido": apellido.strip() if nombres else "",
+                            "dni": f"8{personas_demo[(claustro_nombre, identificador)]:07d}",
+                        },
+                    )
                     self._upsert(
+                        counters,
+                        RegistroPadron.objects,
+                        elector=elector,
+                        eleccion=eleccion,
+                        defaults={
+                            "eleccion_claustro_departamento": configuraciones_departamento[claustro_nombre],
+                            "activo": True,
+                        },
+                    )
+                    candidato = self._upsert(
                         counters,
                         Candidato.objects,
                         lista=lista,
                         tipo=Candidato.Tipo.TITULAR,
                         orden=orden,
                         defaults={
-                            "elector": None,
-                            "nombre": nombre,
-                            "identificador_persona": identificador,
-                            "dni": "",
-                            "correo_electronico": "",
+                            "elector": elector,
+                            "nombre": elector.nombre_completo,
+                            "identificador_persona": "",
+                            "dni": elector.dni,
+                            "correo_electronico": elector.correo_electronico,
                             "cargo": puesto_eleccion.puesto.nombre,
                             "activo": True,
                         },
                     )
+                    candidato.full_clean()
 
-    def _seed_mesas(self, eleccion, configuracion_departamento, sede, turno_manana, turno_tarde, counters):
+    def _seed_mesas(self, eleccion, configuracion_departamento, sede, counters):
         mesa_1 = self._upsert(
             counters,
             Mesa.objects,
@@ -395,7 +432,6 @@ class Command(BaseCommand):
             defaults={
                 "eleccion_claustro_departamento": configuracion_departamento,
                 "sede": sede,
-                "turno": turno_manana,
                 "generada_automaticamente": False,
             },
         )
@@ -407,7 +443,6 @@ class Command(BaseCommand):
             defaults={
                 "eleccion_claustro_departamento": configuracion_departamento,
                 "sede": sede,
-                "turno": turno_tarde,
                 "generada_automaticamente": False,
             },
         )
@@ -664,6 +699,7 @@ class Command(BaseCommand):
             defaults={
                 "candidatura": candidatura,
                 "mesa": mesas["mesa_1"],
+                "turno": turno_manana,
                 "estado": AsignacionAutoridad.Estado.CONFIRMADA,
                 "asignada_por": usuarios["admin_junta"],
                 "respondida_en": timezone.now(),
@@ -751,7 +787,7 @@ class Command(BaseCommand):
             FechaAdministrativaEleccion.objects,
             eleccion=eleccion,
             fecha_administrativa=fecha_admin,
-            defaults={"fecha": eleccion.fecha_inicio.date()},
+            defaults={"fecha": eleccion.fecha_inicio},
         )
 
         self._upsert(

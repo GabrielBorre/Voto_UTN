@@ -12,7 +12,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionSede,
-    EleccionTurno,
+    EleccionClaustroTurno,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
@@ -64,6 +64,14 @@ class ReportesViewsTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "reportes/gestion.html")
+        self.assertContains(respuesta, 'class="toolbar reports-grid"')
+        self.assertContains(respuesta, 'class="option report-option"', count=3)
+        self.assertContains(respuesta, 'class="report-actions"', count=3)
+        self.assertContains(respuesta, "Padrón imprimible no disponible")
+        self.assertContains(respuesta, "Generar padrón imprimible")
+        self.assertContains(respuesta, "disabled")
+        self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
+        self.assertContains(respuesta, "Volver a configuración", count=1)
 
     def test_exportar_reporte_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
@@ -84,8 +92,8 @@ class PadronPDFTests(TestCase):
         self.claustro = Claustro.objects.create(nombre="Estudiantes")
         self.departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
         EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.turno)
         self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=self.claustro)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.turno)
         self.configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=self.eleccion_claustro, departamento=self.departamento)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=self.sede)
         self.mesa = Mesa.objects.create(
@@ -93,7 +101,6 @@ class PadronPDFTests(TestCase):
             numero=1,
             eleccion_claustro_departamento=self.configuracion,
             sede=self.sede,
-            turno=self.turno,
         )
         self.usuario = get_user_model().objects.create_user(username="admin-reportes", password="clave")
         AsignacionRol.objects.create(usuario=self.usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion)

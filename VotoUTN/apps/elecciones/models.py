@@ -12,8 +12,8 @@ class Eleccion(models.Model):
         CERRADA = "cerrada", "Cerrada"
 
     nombre = models.CharField("nombre", max_length=180)
-    fecha_inicio = models.DateTimeField("inicio")
-    fecha_fin = models.DateTimeField("fin")
+    fecha_inicio = models.DateField("fecha de inicio del proceso")
+    fecha_fin = models.DateField("fecha de fin del proceso")
     fecha_apertura_padron_provisorio = models.DateField(null=True, blank=True)
     fecha_cierre_padron_provisorio = models.DateField(null=True, blank=True)
     fecha_cierre_candidaturas = models.DateField(null=True, blank=True)
@@ -28,8 +28,8 @@ class Eleccion(models.Model):
         ordering = ["-fecha_inicio"]
 
     def clean(self):
-        if self.fecha_inicio >= self.fecha_fin:
-            raise ValidationError({"fecha_fin": "Debe ser posterior a la fecha de inicio."})
+        if self.fecha_inicio and self.fecha_fin and self.fecha_inicio > self.fecha_fin:
+            raise ValidationError({"fecha_fin": "Debe ser igual o posterior a la fecha de inicio."})
         fechas_ordenadas = (
             ("fecha_apertura_padron_provisorio", "fecha_cierre_padron_provisorio"),
             ("fecha_cierre_padron_provisorio", "fecha_publicacion_padron_definitivo"),
@@ -38,15 +38,15 @@ class Eleccion(models.Model):
         for inicial, final in fechas_ordenadas:
             valor_inicial = getattr(self, inicial)
             valor_final = getattr(self, final)
-            if inicial == "fecha_publicacion_padron_definitivo" and valor_final:
-                valor_final = valor_final.date()
             if valor_inicial and valor_final and valor_inicial > valor_final:
                 raise ValidationError({final: "Debe ser posterior o igual a la fecha administrativa anterior."})
 
     def validar_configuracion(self):
-        if not self.elecciones_sede.exists() or not self.elecciones_claustro.exists() or not self.elecciones_turno.exists():
-            raise ValidationError("La eleccion debe tener sedes, claustros y turnos configurados.")
+        if not self.elecciones_sede.exists() or not self.elecciones_claustro.exists():
+            raise ValidationError("La elección debe tener sedes y claustros configurados.")
         for eleccion_claustro in self.elecciones_claustro.all():
+            if not eleccion_claustro.turnos_autoridad.exists():
+                raise ValidationError("Cada claustro debe tener al menos un turno de autoridades configurado.")
             if not eleccion_claustro.sedes_habilitadas.exists():
                 raise ValidationError("Cada claustro debe tener al menos una sede habilitada.")
             for configuracion in eleccion_claustro.departamentos.all():
@@ -83,6 +83,11 @@ class EleccionSede(models.Model):
 class EleccionClaustro(models.Model):
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="elecciones_claustro")
     claustro = models.ForeignKey(Claustro, on_delete=models.PROTECT, related_name="elecciones_claustro")
+    organizacion_departamentos = models.CharField(
+        max_length=24,
+        choices=Claustro.OrganizacionDepartamentos.choices,
+        default=Claustro.OrganizacionDepartamentos.POR_DEPARTAMENTO,
+    )
     fecha_votacion = models.DateField(null=True, blank=True)
     maximo_votantes_por_mesa = models.PositiveIntegerField(null=True, blank=True)
 
@@ -90,16 +95,16 @@ class EleccionClaustro(models.Model):
         constraints = [models.UniqueConstraint(fields=("eleccion", "claustro"), name="claustro_unico_por_eleccion")]
 
     def clean(self):
-        if self.fecha_votacion and not self.eleccion.fecha_inicio.date() <= self.fecha_votacion <= self.eleccion.fecha_fin.date():
+        if self.fecha_votacion and not self.eleccion.fecha_inicio <= self.fecha_votacion <= self.eleccion.fecha_fin:
             raise ValidationError({"fecha_votacion": "Debe estar comprendida entre el inicio y el fin de la eleccion."})
 
 
-class EleccionTurno(models.Model):
-    eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="elecciones_turno")
+class EleccionClaustroTurno(models.Model):
+    eleccion_claustro = models.ForeignKey(EleccionClaustro, on_delete=models.PROTECT, related_name="turnos_autoridad")
     turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="elecciones_turno")
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=("eleccion", "turno"), name="turno_unico_por_eleccion")]
+        constraints = [models.UniqueConstraint(fields=("eleccion_claustro", "turno"), name="turno_unico_por_claustro")]
 
 
 class EleccionClaustroSede(models.Model):
@@ -116,10 +121,34 @@ class EleccionClaustroSede(models.Model):
 
 class EleccionClaustroDepartamento(models.Model):
     eleccion_claustro = models.ForeignKey(EleccionClaustro, on_delete=models.PROTECT, related_name="departamentos")
-    departamento = models.ForeignKey(Departamento, on_delete=models.PROTECT, related_name="elecciones_claustro_departamento")
+    departamento = models.ForeignKey(
+        Departamento,
+        on_delete=models.PROTECT,
+        related_name="elecciones_claustro_departamento",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=("eleccion_claustro", "departamento"), name="departamento_unico_por_claustro")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("eleccion_claustro", "departamento"),
+                condition=models.Q(departamento__isnull=False),
+                name="departamento_unico_por_claustro",
+            ),
+            models.UniqueConstraint(
+                fields=("eleccion_claustro",),
+                condition=models.Q(departamento__isnull=True),
+                name="alcance_sin_departamento_unico_por_claustro",
+            ),
+        ]
+
+    @property
+    def nombre_alcance(self):
+        return str(self.departamento) if self.departamento_id else "Sin distinción por departamento"
+
+    def __str__(self):
+        return f"{self.eleccion_claustro.claustro} / {self.nombre_alcance}"
 
 
 class EleccionClaustroDepartamentoSede(models.Model):
@@ -143,5 +172,5 @@ class FechaAdministrativaEleccion(models.Model):
         constraints = [models.UniqueConstraint(fields=("eleccion", "fecha_administrativa"), name="fecha_administrativa_unica_por_eleccion")]
 
     def clean(self):
-        if self.eleccion_id and self.fecha and not self.eleccion.fecha_inicio.date() <= self.fecha <= self.eleccion.fecha_fin.date():
+        if self.eleccion_id and self.fecha and not self.eleccion.fecha_inicio <= self.fecha <= self.eleccion.fecha_fin:
             raise ValidationError({"fecha": "Debe estar comprendida entre el inicio y el fin de la eleccion."})

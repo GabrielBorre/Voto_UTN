@@ -560,3 +560,140 @@ Fecha de implementación: 2026-09-20
 - `seed_demo_data` es el inicializador integral para el equipo: primero carga los parámetros estándar y luego crea una elección demo idempotente.
 - La elección de ejemplo incluye los cuatro claustros, el alcance departamental de Sistemas, nueve configuraciones de puestos y casos representativos de las listas 2026 entregadas por la Junta.
 - Los ejemplos conservan números repetidos cuando representan presentaciones diferentes y cubren cargos generales, departamentales y de DASUTeN.
+
+## Fechas del proceso y calendario administrativo
+
+Fecha de implementación: 2026-09-22
+
+- La creación de una elección solicita solamente el nombre, el rango general del proceso y sus parámetros iniciales.
+- Las fechas administrativas se cargan y modifican desde la configuración de la elección, dentro de su calendario administrativo.
+- El inicio y el fin del proceso se almacenan como días, sin componente horario. Se admite que ambos coincidan para procesos de un solo día.
+- La migración conserva el día calendario de los datos existentes según la zona `America/Argentina/Buenos_Aires` y descarta solamente la hora.
+- Los campos de inicio y fin incorporan ayuda contextual accesible para distinguir el proceso electoral del día de votación.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: se validó la operación segura de `elecciones.0021_fechas_de_eleccion_sin_hora`.
+- `python manage.py test`: 111 pruebas correctas.
+
+## Turnos de trabajo de autoridades
+
+Fecha de implementación: 2026-09-23
+
+- Los turnos representan exclusivamente rondas de trabajo de autoridades de mesa; no restringen el horario de votación de los electores.
+- La mesa dejó de tener turno y permanece operativa durante toda la jornada electoral.
+- La creación de elecciones solicita únicamente claustros y sedes como configuración inicial.
+- Los turnos habilitados se administran desde Autoridades de mesa y cada asignación vincula autoridad, mesa y turno de trabajo.
+- El máximo de autoridades se aplica por mesa y por turno, permitiendo varias autoridades simultáneas y el recambio entre rondas.
+- La migración copió los turnos históricos de las mesas a las autoridades antes de retirar el campo anterior.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate`: aplicó `autoridades.0003_turno_de_trabajo_en_autoridad` y `mesas.0002_remove_mesa_turno`.
+- `python manage.py test`: 114 pruebas correctas.
+
+## Ajustes visuales de creación y fechas administrativas
+
+Fecha de implementación: 2026-09-26
+
+- La selección de sedes y claustros en la creación de elecciones se presenta en una sola columna, sin recuadros individuales y con espacios uniformes.
+- La acción «Seleccionar todas» conserva su comportamiento, pero queda separada del estilo visual de las opciones.
+- Fechas administrativas se incorporó como una tarjeta del panel de configuración de la elección.
+- La edición del calendario administrativo se trasladó a una pantalla propia, con los mismos permisos, validaciones y datos existentes.
+- Se agregaron pruebas de regresión para la nueva estructura del selector y la navegación al panel independiente.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 115 pruebas correctas.
+
+## Navegación interna de la configuración electoral
+
+Fecha de implementación: 2026-09-26
+
+- Las secciones principales de una elección regresan de forma consistente a su panel de configuración, sin redirigir al listado general.
+- La acción «Volver a configuración» aparece una sola vez, fuera de las tarjetas, al final de la pantalla y alineada con el borde derecho del contenido.
+- Los formularios de Datos generales y Fechas administrativas ubican su acción de guardado a la izquierda del regreso y mantienen ambas acciones alineadas con el ancho de la tarjeta.
+- Se incorporó un componente reutilizable para el regreso y pruebas de regresión en elecciones, mesas, autoridades, candidaturas, justificativos y reportes.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 117 pruebas correctas.
+
+## Tarjetas uniformes del panel de configuración
+
+Fecha de implementación: 2026-09-26
+
+- Las ocho tarjetas principales del panel de configuración utilizan una grilla visual específica, sin alterar otros paneles del sistema.
+- En escritorio comparten altura y distribución interna entre ambas filas.
+- Las acciones tienen ancho uniforme y se alinean al borde inferior de cada tarjeta.
+- En pantallas móviles las tarjetas recuperan su altura natural para evitar espacios vacíos.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 117 pruebas correctas.
+
+## Unificación visual de puestos, listas y candidaturas
+
+Fecha de implementación: 2026-09-26
+
+- La gestión de candidaturas se reorganizó en cuatro tarjetas de ancho uniforme: puestos habilitados, importación CSV, presentación manual y presentaciones registradas.
+- Los encabezados, etiquetas, formularios, tablas y acciones siguen una jerarquía visual común y responsive.
+- Los selectores múltiples de claustros y departamentos utilizan el componente visual de listas de selección en lugar del estilo de campos de texto.
+- Se preservaron los formularios, rutas y reglas funcionales existentes.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 117 pruebas correctas.
+
+## Gestión de autoridades por claustro
+
+Fecha de implementación: 2026-09-27
+
+- Autoridades de mesa incorpora una pantalla previa con una tarjeta uniforme por claustro y un resumen de turnos, mesas, candidatos y asignaciones.
+- Cada claustro dispone de una pantalla independiente para configurar turnos, realizar asignaciones manuales, cargar candidatos por archivo y consultar asignaciones registradas.
+- Los bloques se presentan como opciones independientes, sin numeración ni una secuencia obligatoria.
+- Los formularios, listados e importaciones quedan limitados al claustro seleccionado y rechazan candidatos, mesas o turnos pertenecientes a otro claustro.
+- Los turnos de autoridades dejaron de configurarse globalmente y ahora pertenecen a cada claustro. La migración replica los turnos existentes en todos los claustros de su elección antes de retirar la relación anterior.
+- Los datos demo, el administrador y los comandos auxiliares fueron actualizados al nuevo alcance por claustro.
+- La futura asignación automática de candidatos a mesas no forma parte de este cambio; el archivo continúa cargando candidatos sin indicar mesas.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate`: aplicó `elecciones.0022_turnos_autoridades_por_claustro` y conservó los turnos existentes.
+- `python manage.py test`: 122 pruebas correctas.
+
+## Gestión integrada de padrones por claustro
+
+Fecha de implementación: 2026-09-27
+
+- La pantalla de Padrones presenta una tarjeta uniforme por claustro y una única acción «Gestionar padrón».
+- La gestión de cada claustro reúne la fecha de votación, el máximo de electores por mesa, la carga del archivo y su historial de importaciones.
+- Departamentos y sedes dejaron de editarse desde Padrones y permanecen centralizados en «Sedes y departamentos».
+- El historial integrado muestra exclusivamente las importaciones del claustro seleccionado.
+- La ruta anterior de configuración del claustro redirige a la nueva pantalla para conservar compatibilidad con enlaces existentes.
+- La validación, previsualización y confirmación de archivos mantienen su comportamiento funcional.
+
+### Verificaciones al cierre
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py migrate --plan`: sin operaciones pendientes.
+- `python manage.py test`: 125 pruebas correctas.

@@ -24,6 +24,9 @@ class SeedDemoDataTests(TestCase):
             self.assertEqual(eleccion.partidos_participantes.count(), 10)
             self.assertEqual(ListaCandidatos.objects.filter(participacion__eleccion=eleccion).count(), 19)
             self.assertEqual(Candidato.objects.filter(lista__participacion__eleccion=eleccion).count(), 38)
+            self.assertFalse(Candidato.objects.filter(lista__participacion__eleccion=eleccion, elector__isnull=True).exists())
+            for candidato in Candidato.objects.filter(lista__participacion__eleccion=eleccion).select_related("elector", "lista"):
+                candidato.full_clean()
             self.assertEqual(
                 eleccion.partidos_participantes.filter(
                     eleccion_claustro__claustro__nombre="Docentes",

@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="es">
 <head>
@@ -6,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Junta Electoral UTN{% endblock %}</title>
   {% load static %}
-  <link href="{% static 'css/gestion-electoral.css' %}" rel="stylesheet">
+  <link href="{% static 'css/gestion-electoral.css' %}?v=20260929.3" rel="stylesheet">
   <link href="{% static 'css/gestion-nav.css' %}" rel="stylesheet">
 </head>
 <body class="gestion-electoral">
@@ -16,18 +15,28 @@
       <span class="brand-title"><strong>UTN.<i>BA</i></strong><small>Sistema de Gestion Electoral</small></span>
     </a>
     {% if user.is_authenticated %}
-    <div class="userbox"><strong>{{ user.first_name|default:user.username }}{% if user.last_name %} {{ user.last_name }}{% endif %}</strong><span>{% if nav_es_administrador_junta %}Rol: <b>Administrador de Junta Electoral</b>{% elif nav_es_administrativo_junta %}Rol: <b>Administrativo de Junta Electoral</b>{% elif nav_es_autoridad %}Rol: <b>Autoridad de Mesa</b>{% elif nav_es_elector %}Rol: <b>Elector</b>{% else %}Proceso: <b>Junta Electoral</b>{% endif %}</span></div>
-        {% else %}
-                <div>
-        <a href="" class="btn primary">Iniciar Sesión</a>
-        </div>
-            {% endif %}
+      <div class="userbox">
+        <strong>{{ user.first_name|default:user.username }}{% if user.last_name %} {{ user.last_name }}{% endif %}</strong>
+        <span>
+          {% if nav_es_administrador_junta %}Rol: <b>Administrador de Junta Electoral</b>
+          {% elif nav_es_administrativo_junta %}Rol: <b>Administrativo de Junta Electoral</b>
+          {% elif nav_es_autoridad %}Rol: <b>Autoridad de Mesa</b>
+          {% elif nav_es_elector %}Rol: <b>Elector</b>
+          {% else %}Proceso: <b>Junta Electoral</b>{% endif %}
+        </span>
+      </div>
+    {% else %}
+      <div><a href="" class="btn primary">Iniciar Sesión</a></div>
+    {% endif %}
   </header>
   {% include "gestion/_nav.html" %}
   <main class="gestion-page">
-    {% if messages %}{% for message in messages %}<div class="notice {{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}{% endif %}
+    {% if messages %}
+      {% for message in messages %}<div class="notice {{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
+  <script src="{% static 'js/seleccion-multiple.js' %}?v=20260923.2" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -15,7 +15,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamentoSede,
     EleccionClaustroSede,
     EleccionSede,
-    EleccionTurno,
+    EleccionClaustroTurno,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
@@ -32,8 +32,8 @@ class BaseAuditoriaElectoralTests(TestCase):
         self.claustro = Claustro.objects.create(nombre="Estudiantes")
         self.departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
         EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.turno)
         self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=self.claustro)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.turno)
         EleccionClaustroSede.objects.create(eleccion_claustro=self.eleccion_claustro, sede=self.sede)
         self.configuracion = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=self.eleccion_claustro,
@@ -45,7 +45,6 @@ class BaseAuditoriaElectoralTests(TestCase):
             numero=1,
             eleccion_claustro_departamento=self.configuracion,
             sede=self.sede,
-            turno=self.turno,
         )
         self.usuario = get_user_model().objects.create_user(username="operador", password="clave")
 
