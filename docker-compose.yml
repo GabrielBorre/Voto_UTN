@@ -22,10 +22,9 @@ services:
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
       - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
-      # Fija el hostname/puerto publicos para que el claim "iss" del token sea siempre el mismo,
-      # sin importar si la llamada llega por la red interna (web->keycloak) o por el navegador.
-      - KC_HOSTNAME=localhost
-      - KC_HOSTNAME_PORT=8080
+      # Sin KC_HOSTNAME fijo, Keycloak deriva el host/iss del header Host de cada pedido.
+      # Django reenvia ese mismo Host en sus llamadas server-to-server (ver config/views.py),
+      # asi el "iss" siempre coincide con el host que uso el navegador (PC o celular).
       - KC_HOSTNAME_STRICT=false
       - KC_HTTP_ENABLED=true
     ports:
@@ -56,12 +55,16 @@ services:
       - POSTGRES_HOST=db
       - EMAIL_HOST=mailpit
       - KEYCLOAK_URL_INTERNO=http://keycloak:8080
-      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,web
-    ports:
-      - "8000:8000"
+      # El acceso real llega siempre a traves del proxy (localhost, 127.0.0.1 o la IP de la
+      # red Wi-Fi), por eso se permite cualquier host en este stack de desarrollo local.
+      - DJANGO_ALLOWED_HOSTS=*
+    expose:
+      - "8000"
     volumes:
       - ./VotoUTN:/app
-    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -70,5 +73,26 @@ services:
       mailpit:
         condition: service_started
 
+  proxy:
+    image: caddy:2.10.2
+    container_name: voto_utn_proxy
+    restart: unless-stopped
+    ports:
+      - "8000:8000" # HTTP, redirige a HTTPS
+      - "8443:8443" # HTTPS, accesible desde la PC y desde el celular en la misma red Wi-Fi
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - staticfiles:/srv/static:ro
+      - media:/srv/media:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_started
+
 volumes:
   pgdata:
+  staticfiles:
+  media:
+  caddy_data:
+  caddy_config:

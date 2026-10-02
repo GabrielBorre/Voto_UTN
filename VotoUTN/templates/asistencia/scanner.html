@@ -9,6 +9,28 @@
 {% block main_class %}scanner-page-wrapper{% endblock %}
 
 {% block content %}
+<section class="manual-desktop-page" aria-labelledby="manual-desktop-title">
+  <div class="manual-desktop-card">
+    <a href="{% url 'lista-elecciones' %}" class="manual-desktop-back">&larr; Volver a elecciones y asistencia</a>
+    <p class="manual-desktop-eyebrow">{{ eleccion.nombre }}</p>
+    <h1 id="manual-desktop-title">Carga manual de asistencia</h1>
+    <p>Registrá a la persona que no pudo procesarse mediante QR. La carga valida la mesa, el padrón y los permisos asignados.</p>
+
+    <form id="manual-desktop-form" data-api-url="{% url 'api-asistencia-lote' eleccion.pk %}">
+      <div class="manual-desktop-field">
+        <label for="manual-mesa-numero">Número de mesa</label>
+        <input id="manual-mesa-numero" name="mesa_numero" type="number" min="1" inputmode="numeric" required autofocus>
+      </div>
+      <div class="manual-desktop-field">
+        <label for="manual-dni">DNI</label>
+        <input id="manual-dni" name="dni" type="text" inputmode="numeric" maxlength="12" autocomplete="off" required>
+      </div>
+      <button class="btn scanner-btn-primary" type="submit">Registrar asistencia</button>
+      <p id="manual-desktop-status" class="manual-desktop-status" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+</section>
+
 <div id="scanner-app" class="scanner-page" data-api-url="{% url 'api-asistencia-lote' eleccion.pk %}" data-list-url="{% url 'lista-elecciones' %}">
 
   <header class="scanner-header">

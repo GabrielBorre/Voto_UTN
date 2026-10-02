@@ -60,6 +60,11 @@ LOGIN_URL = "keycloak_login"
 LOGIN_REDIRECT_URL = "inicio-autenticado"
 LOGOUT_REDIRECT_URL = "keycloak_login"
 
+# El proxy Caddy termina la conexion HTTPS y reenvia por HTTP interno; sin esto Django
+# construiria URLs (redirect_uri de Keycloak incluido) con el esquema http.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
@@ -70,11 +75,10 @@ AUTHENTICATION_BACKENDS = [
     "apps.usuarios.backend_auth.ElectorBackend",  # tu backend custom
 ]
 
-# KEYCLOAK_URL_PUBLICO: la que ve el navegador. KEYCLOAK_URL_INTERNO: usada por el propio
-# contenedor web para llamadas server-to-server (token/certs); en docker-compose apunta al
-# servicio "keycloak" en vez de "localhost".
-KEYCLOAK_URL_PUBLICO = os.getenv("KEYCLOAK_URL_PUBLICO", "http://localhost:8080")
+# KEYCLOAK_URL_INTERNO: usada por el propio contenedor web para llamadas server-to-server
+# (token/certs); en docker-compose apunta al servicio "keycloak" en vez de "localhost".
+# La URL publica de Keycloak y de VotoUTN se calculan dinamicamente por request (ver
+# config/views.py) para que funcionen tanto desde la PC como desde el celular en la misma red.
 KEYCLOAK_URL_INTERNO = os.getenv("KEYCLOAK_URL_INTERNO", "http://localhost:8080")
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "FRBA")
 KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "VOTOUTN")
-VOTOUTN_URL_PUBLICO = os.getenv("VOTOUTN_URL_PUBLICO", "http://localhost:8000")
