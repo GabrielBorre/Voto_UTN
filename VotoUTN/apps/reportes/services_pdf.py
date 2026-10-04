@@ -189,6 +189,12 @@ def _dibujar_encabezado(c, eleccion, mesa):
     return linea_y - 3 * mm
 
 
+def _formatear_apellido_y_nombre(elector):
+    if elector.apellido:
+        return f"{elector.apellido}, {elector.nombre}"
+    return elector.nombre
+
+
 def _construir_troquel(eleccion, mesa, registro, alto_fila):
     payload = ServicioRegistroParticipacion.generar_codigo_qr(
         eleccion_id=eleccion.id,
@@ -200,7 +206,7 @@ def _construir_troquel(eleccion, mesa, registro, alto_fila):
 
     texto = Table(
         [
-            [Paragraph(registro.elector.nombre, ESTILO_TROQUEL)],
+            [Paragraph(_formatear_apellido_y_nombre(registro.elector), ESTILO_TROQUEL)],
             [Paragraph(f"DNI: {registro.elector.dni}", ESTILO_TROQUEL)],
             [Paragraph(f"Fecha: {fecha_votacion.strftime('%d/%m/%Y')}", ESTILO_TROQUEL)],
             [_construir_espacio_firma("Autoridad de mesa", COL_TROQUEL - 20 * mm, alto_fila - 16 * mm)],
@@ -238,7 +244,7 @@ def _construir_tabla(eleccion, mesa, lote, numero_inicial, alto_fila):
         filas.append([
             str(numero_orden),
             registro.elector.dni,
-            Paragraph(registro.elector.nombre, ESTILO_CELDA),
+            Paragraph(_formatear_apellido_y_nombre(registro.elector), ESTILO_CELDA),
             _construir_espacio_firma("Firma del votante", COL_FIRMA - 12, alto_fila),
             _construir_troquel(eleccion, mesa, registro, alto_fila),
         ])
