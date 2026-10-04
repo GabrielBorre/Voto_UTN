@@ -139,7 +139,16 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
             archivo.name,
         )
         if errores:
-            formulario_csv.add_error("archivo", "El CSV contiene errores: " + " ".join(f"Fila {fila}: {mensaje}" for fila, mensaje in errores[:3]))
+            detalle_errores = [
+                f"Fila {fila}: {mensaje}" if fila is not None else mensaje
+                for fila, mensaje in errores[:3]
+            ]
+            if len(errores) > 3:
+                detalle_errores.append(f"Hay {len(errores) - 3} errores más.")
+            formulario_csv.add_error(
+                "archivo",
+                "No se cargó ningún candidato. " + " ".join(detalle_errores),
+            )
         else:
             messages.success(request, f"Se cargaron {cantidad} candidatos desde el CSV.")
             return redirect(

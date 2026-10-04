@@ -4,6 +4,7 @@ from datetime import datetime, time, timedelta
 from django.contrib.auth import get_user_model, login
 from django.core.exceptions import ValidationError
 from django.contrib.sessions.backends.db import SessionStore
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils.timezone import make_aware
@@ -72,6 +73,48 @@ class AutoridadesViewsTests(TestCase):
         self.assertContains(respuesta, 'class="card management-section"', count=4)
         self.assertContains(respuesta, reverse("gestionar-autoridades", args=(self.eleccion.id,)))
 
+    def test_carga_excel_invalido_muestra_error_y_no_carga_candidaturas(self):
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse(
+                "gestionar-autoridades-claustro",
+                args=(self.eleccion.id, self.eleccion_claustro.id),
+            ),
+            {
+                "cargar-candidatos": "",
+                "csv-archivo": SimpleUploadedFile("autoridades.xlsx", b"no es un Excel valido"),
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "No se cargó ningún candidato.")
+        self.assertContains(respuesta, "Verifique que sea un .xlsx válido.")
+        self.assertContains(respuesta, 'role="alert"')
+        self.assertFalse(CandidaturaAutoridad.objects.exists())
+
+    def test_asignacion_manual_con_datos_invalidos_muestra_errores_del_formulario(self):
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse(
+                "gestionar-autoridades-claustro",
+                args=(self.eleccion.id, self.eleccion_claustro.id),
+            ),
+            {
+                "asignar-autoridad": "",
+                "manual-candidatura": "no-es-un-id",
+                "manual-mesa": "",
+                "manual-turno": "",
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTrue(respuesta.context["formulario_manual"].errors)
+        self.assertContains(respuesta, "Este campo es requerido.")
+        self.assertContains(respuesta, 'role="alert"')
+        self.assertFalse(AsignacionAutoridad.objects.exists())
+
     def test_mis_asignaciones_autoridad_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
 
@@ -117,6 +160,26 @@ class AutoridadesImportTests(TestCase):
         self.assertEqual(errores, [])
         self.assertEqual(filas[0]["dni"], "40123456")
         self.assertEqual(filas[0]["legajo"], "2024001")
+
+    def test_validar_csv_autoridades_rechaza_fila_con_columnas_extras(self):
+        contenido = (
+            b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n"
+            b"40123456,2024001,Juan,Perez,K,juan@frba.utn.edu.ar,extra\n"
+        )
+
+        filas, errores = validar_csv_autoridades(contenido, self.eleccion_claustro, "autoridades.csv")
+
+        self.assertEqual(filas, [])
+        self.assertEqual(errores, [(None, "La fila 2 contiene más columnas que las cabeceras.")])
+
+    def test_validar_csv_autoridades_informa_formato_xls_no_compatible(self):
+        filas, errores = validar_csv_autoridades(b"datos", self.eleccion_claustro, "autoridades.xls")
+
+        self.assertEqual(filas, [])
+        self.assertEqual(
+            errores,
+            [(None, "El formato .xls no es compatible. Guardá la planilla como .xlsx o CSV.")],
+        )
 
     def test_validar_csv_autoridades_acepta_alias_mail_mayusculas(self):
         contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan,Perez,K,juan@frba.utn.edu.ar\n"

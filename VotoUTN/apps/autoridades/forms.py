@@ -98,7 +98,7 @@ class FormularioArchivoAutoridades(forms.Form):
         label="Archivo de candidatos",
         widget=forms.ClearableFileInput(
             attrs={
-                "accept": ".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "accept": ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "class": "input",
             }
         ),
