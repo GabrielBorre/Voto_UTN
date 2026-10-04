@@ -1,5 +1,6 @@
 import re
 from datetime import datetime, time, timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -21,6 +22,8 @@ from apps.reportes.services import valor_csv
 from apps.reportes.services_pdf import (
     ELECTORES_POR_PAGINA,
     _agrupar_padrones_por_mesa,
+    _construir_tabla,
+    _construir_troquel,
     generar_padron_pdf,
     validar_padron_para_pdf,
 )
@@ -133,6 +136,34 @@ class PadronPDFTests(TestCase):
 
         self.assertTrue(contenido.startswith(b"%PDF"))
         self.assertEqual(contar_paginas_pdf(contenido), 1)
+
+    def test_columna_apellido_y_nombre_usa_apellido_primero(self):
+        registro = self.crear_electores(1)[0]
+        registro.elector.apellido = "Gomez"
+        registro.elector.nombre = "Maria Elena"
+
+        with (
+            patch("apps.reportes.services_pdf._construir_espacio_firma", return_value="firma"),
+            patch("apps.reportes.services_pdf._construir_troquel", return_value="troquel"),
+        ):
+            tabla = _construir_tabla(self.eleccion, self.mesa, [registro], 1, 20)
+
+        self.assertEqual(tabla._cellvalues[1][2].text, "Gomez, Maria Elena")
+
+    def test_troquel_usa_apellido_y_nombre(self):
+        registro = self.crear_electores(1)[0]
+        registro.elector.apellido = "Gomez"
+        registro.elector.nombre = "Maria Elena"
+
+        with (
+            patch("apps.reportes.services_pdf._generar_imagen_qr", return_value=b"qr"),
+            patch("apps.reportes.services_pdf.ImagenPDF", return_value="qr-image"),
+            patch("apps.reportes.services_pdf._construir_espacio_firma", return_value="firma"),
+        ):
+            troquel = _construir_troquel(self.eleccion, self.mesa, registro, 20)
+
+        texto_troquel = troquel._cellvalues[0][1]
+        self.assertEqual(texto_troquel._cellvalues[0][0].text, "Gomez, Maria Elena")
 
     def test_genera_pdf_con_exactamente_15_electores(self):
         self.crear_electores(ELECTORES_POR_PAGINA)

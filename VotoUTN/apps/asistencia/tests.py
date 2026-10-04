@@ -209,6 +209,27 @@ class PermisosParticipacionTests(TestCase):
         self.assertFalse(puede_registrar_participacion(self.usuario, self.eleccion))
 
 
+class VistaCargaManualEscritorioTests(TestCase):
+    def setUp(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        fin = make_aware(datetime(2026, 8, 3, 18))
+        self.eleccion = Eleccion.objects.create(nombre="Elección", fecha_inicio=inicio, fecha_fin=fin)
+        self.usuario = get_user_model().objects.create_user(username="administrativo", password="clave")
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+            eleccion=self.eleccion,
+        )
+
+    def test_la_vista_incluye_formulario_manual_y_escanner_movil(self):
+        self.client.force_login(self.usuario)
+
+        response = self.client.get(reverse("escanear", args=[self.eleccion.id]))
+
+        self.assertContains(response, 'id="manual-desktop-form"')
+        self.assertContains(response, 'id="scanner-app"')
+
+
 class GestionEleccionesTests(TestCase):
     def setUp(self):
         self.sede = Sede.objects.create(nombre="Sede Central")

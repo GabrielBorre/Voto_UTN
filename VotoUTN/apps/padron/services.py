@@ -222,6 +222,8 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             valor = (fila_original.get(original_header) or "").strip() if original_header is not None else ""
             if campo in {"dni", "legajo"}:
                 valor = normalizar_identificador_numerico(valor)
+            if campo == "tipo_documento" and not valor:
+                valor = "DNI"
             fila[campo] = valor
         # Leer campos opcionales si están presentes
         for campo in OPTIONAL_FIELDS:

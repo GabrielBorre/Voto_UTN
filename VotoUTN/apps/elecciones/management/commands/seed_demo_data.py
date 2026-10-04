@@ -272,13 +272,11 @@ class Command(BaseCommand):
                 eleccion_claustro=eleccion_claustro,
                 sede=sede,
             )
-            if nombre == "No docentes":
-                continue
             configuracion_departamento = self._get_or_create(
                 counters,
                 EleccionClaustroDepartamento.objects,
                 eleccion_claustro=eleccion_claustro,
-                departamento=departamento,
+                departamento=None if nombre == "No docentes" else departamento,
             )
             configuraciones_departamento[nombre] = configuracion_departamento
             self._get_or_create(
@@ -341,6 +339,13 @@ class Command(BaseCommand):
         puestos,
         counters,
     ):
+        personas_demo = {}
+        for datos_demo in PRESENTACIONES_DEMO:
+            for _, candidatos_demo in datos_demo["listas"]:
+                for identificador_demo, _ in candidatos_demo:
+                    clave = (datos_demo["claustro"], identificador_demo)
+                    if clave not in personas_demo:
+                        personas_demo[clave] = len(personas_demo) + 1
         for datos in PRESENTACIONES_DEMO:
             claustro_nombre = datos["claustro"]
             eleccion_claustro = elecciones_claustro[claustro_nombre]
@@ -379,22 +384,44 @@ class Command(BaseCommand):
                     },
                 )
                 for orden, (identificador, nombre) in enumerate(candidatos, 1):
+                    apellido, _, nombres = nombre.partition(",")
+                    elector = self._upsert(
+                        counters,
+                        Elector.objects,
+                        legajo=f"DC-{claustro_nombre[:2].upper()}-{identificador}",
+                        defaults={
+                            "nombre": nombres.strip() or apellido.strip(),
+                            "apellido": apellido.strip() if nombres else "",
+                            "dni": f"8{personas_demo[(claustro_nombre, identificador)]:07d}",
+                        },
+                    )
                     self._upsert(
+                        counters,
+                        RegistroPadron.objects,
+                        elector=elector,
+                        eleccion=eleccion,
+                        defaults={
+                            "eleccion_claustro_departamento": configuraciones_departamento[claustro_nombre],
+                            "activo": True,
+                        },
+                    )
+                    candidato = self._upsert(
                         counters,
                         Candidato.objects,
                         lista=lista,
                         tipo=Candidato.Tipo.TITULAR,
                         orden=orden,
                         defaults={
-                            "elector": None,
-                            "nombre": nombre,
-                            "identificador_persona": identificador,
-                            "dni": "",
-                            "correo_electronico": "",
+                            "elector": elector,
+                            "nombre": elector.nombre_completo,
+                            "identificador_persona": "",
+                            "dni": elector.dni,
+                            "correo_electronico": elector.correo_electronico,
                             "cargo": puesto_eleccion.puesto.nombre,
                             "activo": True,
                         },
                     )
+                    candidato.full_clean()
 
     def _seed_mesas(self, eleccion, configuracion_departamento, sede, counters):
         mesa_1 = self._upsert(

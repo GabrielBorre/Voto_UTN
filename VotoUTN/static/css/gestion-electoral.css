@@ -274,6 +274,115 @@
     margin-top: 8px;
 }
 
+.candidaturas-panel .puesto-selector {
+    max-width: 580px;
+}
+
+.candidaturas-panel .puesto-filtro {
+    border-top: 1px solid var(--borde);
+    margin-top: 24px;
+    padding-top: 22px;
+}
+
+.candidaturas-panel .puesto-filtro-encabezado {
+    align-items: flex-start;
+    display: flex;
+    gap: 20px;
+    justify-content: space-between;
+}
+
+.candidaturas-panel .puesto-filtro-encabezado h3 {
+    font-size: 17px;
+    margin: 0 0 5px;
+}
+
+.candidaturas-panel .puesto-filtro-encabezado p {
+    margin: 0;
+}
+
+.candidaturas-panel .puesto-filtro-control {
+    flex: 0 0 auto;
+    margin-top: 0;
+}
+
+.candidaturas-panel .puesto-filtro-opciones {
+    margin-top: 18px;
+}
+
+.candidaturas-panel .puesto-filtro-opciones[hidden] {
+    display: none;
+}
+
+.candidaturas-panel .puesto-filtro-etiqueta {
+    color: #374151;
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.candidaturas-panel .puesto-filtro .checkbox-list {
+    gap: 2px 18px;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.candidaturas-panel .puesto-filtro .checkbox-list>div {
+    background: transparent;
+    border: 0;
+    padding: 7px 0;
+}
+
+.candidaturas-panel .puesto-cantidades {
+    border-top: 1px solid var(--borde);
+    margin-top: 24px;
+    max-width: 580px;
+    padding-top: 6px;
+}
+
+.candidaturas-panel .puesto-estado {
+    margin-top: 20px;
+}
+
+.candidaturas-panel .candidaturas-lista-actual {
+    border-left: 4px solid var(--azul-700);
+    color: var(--azul-900);
+    margin-top: 20px;
+    padding: 8px 12px;
+}
+
+.candidaturas-panel .candidaturas-puesto-seleccionado td {
+    background: var(--azul-100);
+}
+
+.candidaturas-panel .candidaturas-puesto-seleccionado td:first-child {
+    box-shadow: inset 4px 0 var(--azul-700);
+}
+
+.candidaturas-panel .candidaturas-subsection {
+    border-top: 1px solid var(--borde);
+    margin-top: 24px;
+    padding-top: 20px;
+}
+
+.candidaturas-panel .candidaturas-subsection>.section-title {
+    margin: 0 0 16px;
+}
+
+.candidaturas-panel .candidaturas-subsection>summary {
+    color: var(--azul-900);
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.candidaturas-panel details.candidaturas-subsection>.section-title {
+    margin-top: 16px;
+}
+
+.candidaturas-panel .candidaturas-subsection h3 {
+    font-size: 18px;
+    margin: 0 0 6px;
+}
+
 .scope-heading-actions {
     align-items: flex-end;
     display: flex;
@@ -841,6 +950,10 @@ th {
     margin: 14px 0;
 }
 
+.estado.is-error {
+    color: var(--rojo-utn);
+}
+
 fieldset.claustro {
     border: 0;
     display: flex;
@@ -996,6 +1109,13 @@ table td:last-child {
         align-items: stretch;
         flex-direction: column;
         gap: 16px;
+    }
+
+    .candidaturas-panel .section-title,
+    .candidaturas-panel .puesto-filtro-encabezado {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
     }
 
     .scope-heading-actions {

@@ -31,6 +31,7 @@ TEMPLATES = [{
         "django.template.context_processors.request", "django.contrib.auth.context_processors.auth",
         "django.contrib.messages.context_processors.messages",
         "apps.elecciones.context_processors.notificaciones_usuario",
+        "apps.usuarios.context_processors.navegacion_por_rol",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"
@@ -55,9 +56,14 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-LOGIN_URL = "login"
+LOGIN_URL = "keycloak_login"
 LOGIN_REDIRECT_URL = "inicio-autenticado"
-LOGOUT_REDIRECT_URL = "login"
+LOGOUT_REDIRECT_URL = "keycloak_login"
+
+# El proxy Caddy termina la conexion HTTPS y reenvia por HTTP interno; sin esto Django
+# construiria URLs (redirect_uri de Keycloak incluido) con el esquema http.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
@@ -68,3 +74,11 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",  # backend normal
     "apps.usuarios.backend_auth.ElectorBackend",  # tu backend custom
 ]
+
+# KEYCLOAK_URL_INTERNO: usada por el propio contenedor web para llamadas server-to-server
+# (token/certs); en docker-compose apunta al servicio "keycloak" en vez de "localhost".
+# La URL publica de Keycloak y de VotoUTN se calculan dinamicamente por request (ver
+# config/views.py) para que funcionen tanto desde la PC como desde el celular en la misma red.
+KEYCLOAK_URL_INTERNO = os.getenv("KEYCLOAK_URL_INTERNO", "http://localhost:8080")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "FRBA")
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "VOTOUTN")

@@ -293,12 +293,17 @@ class AutoridadesImportTests(TestCase):
         self.assertNotIn(mesa_ajena, formulario.fields["mesa"].queryset)
 
     def test_candidatura_muestra_nombre_dni_y_legajo(self):
+        usuario = get_user_model().objects.create_user(username="cargador-candidatura")
         candidatura = CandidaturaAutoridad.objects.create(
             registro_padron=self.registro,
-            cargada_por=get_user_model().objects.create_user(username="cargador-etiqueta"),
+            cargada_por=usuario,
         )
 
-        self.assertEqual(str(candidatura), "Juan · DNI 40123456 · Legajo 2024001")
+        elector = self.registro.elector
+        self.assertEqual(
+            str(candidatura),
+            f"{elector.nombre_completo} · DNI {elector.dni} · Legajo {elector.legajo}",
+        )
 
 
 class TurnosAutoridadesTests(TestCase):

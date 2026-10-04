@@ -1,0 +1,9 @@
+{% for field in formulario %}
+  <div class="field">
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {{ field }}
+    {% if field.help_text %}<small class="muted field-help">{{ field.help_text }}</small>{% endif %}
+    {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+    {% if field.name == 'nombre_padron' %}<small class="muted field-help" data-estado-busqueda role="status" aria-live="polite">El nombre se consulta antes de guardar y no se edita manualmente.</small>{% endif %}
+  </div>
+{% endfor %}
