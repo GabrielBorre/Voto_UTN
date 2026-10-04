@@ -20,7 +20,7 @@
       <div class="field choice-field">
         <label for="{{ formulario_turnos.turnos.id_for_label }}">{{ formulario_turnos.turnos.label }}</label>
         {{ formulario_turnos.turnos }}
-        {% for error in formulario_turnos.turnos.errors %}<div class="error">{{ error }}</div>{% endfor %}
+        {% for error in formulario_turnos.turnos.errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}
       </div>
       <div class="footer-actions">
         <button class="button primary" name="guardar-turnos">Guardar turnos</button>
@@ -38,13 +38,13 @@
     </div>
     <form method="post">
       {% csrf_token %}
-      {% for error in formulario_manual.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+      {% for error in formulario_manual.non_field_errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}
       <div class="gestion-form-grid">
         {% for field in formulario_manual %}
           <div class="field">
             <label for="{{ field.id_for_label }}">{{ field.label }}</label>
             {{ field }}
-            {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+            {% for error in field.errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}
           </div>
         {% endfor %}
       </div>
@@ -60,7 +60,7 @@
         <h2>Carga de candidatos por archivo</h2>
         <p>Incorporá la nómina de candidatos de {{ eleccion_claustro.claustro }} sin asignarles una mesa manualmente.</p>
       </div>
-      <span class="tag">CSV o Excel</span>
+      <span class="tag">CSV o Excel (.xlsx)</span>
     </div>
     <div class="notice">
       <strong>Formato esperado:</strong> DNI, Legajo, Nombre, Apellido, Depto/Carrera, Mail.
@@ -71,7 +71,7 @@
       <div class="field">
         <label for="{{ formulario_csv.archivo.id_for_label }}">{{ formulario_csv.archivo.label }}</label>
         {{ formulario_csv.archivo }}
-        {% for error in formulario_csv.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
+        {% for error in formulario_csv.archivo.errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}
       </div>
       <div class="footer-actions">
         <a class="button light" href="{% url 'descargar-plantilla-autoridades-claustro' eleccion.id eleccion_claustro.id %}">Descargar plantilla</a>
