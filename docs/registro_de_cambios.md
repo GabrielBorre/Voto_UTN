@@ -2,16 +2,6 @@
 
 Este documento registra cambios aplicados al proyecto. Describe los archivos y el efecto de cada cambio; no reemplaza el historial de Git ni las migraciones de Django.
 
-## Manejo de errores en la carga de autoridades
-
-| Ruta | Cambio aplicado |
-| --- | --- |
-| `VotoUTN/apps/autoridades/forms.py` | Se limita la selección a CSV y Excel moderno `.xlsx`, que son los formatos procesados por la carga. |
-| `VotoUTN/apps/autoridades/services.py` | Se propaga el nombre del archivo para leer Excel `.xlsx`, se informan formatos Excel no compatibles o dañados y filas CSV con columnas adicionales como errores de validación. |
-| `VotoUTN/apps/autoridades/views.py` | Los errores de importación indican que no se cargaron candidatos y muestran el detalle de las primeras filas con problemas. |
-| `VotoUTN/templates/autoridades/gestion_claustro.html` | Los errores de asignación manual y carga de archivos se anuncian como alertas accesibles. |
-| `VotoUTN/apps/autoridades/tests.py` | Se agregaron regresiones para datos manuales inválidos, Excel dañado y filas CSV malformadas. |
-
 ## Etapa 0 - Auditoria y estabilizacion
 
 Fecha de cierre: 2026-08-02
