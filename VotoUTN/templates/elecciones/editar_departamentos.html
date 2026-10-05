@@ -1,0 +1,30 @@
+{% extends "gestion/base.html" %}
+{% block title %}Departamentos de {{ eleccion_claustro.claustro }} | Junta Electoral UTN{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Departamentos de {{ eleccion_claustro.claustro }}</h1>
+  <p>Elegí los departamentos que participan en este claustro. Cada departamento nuevo heredará inicialmente las sedes habilitadas para el claustro.</p>
+</section>
+
+<section class="card form-card">
+  <form id="formulario-departamentos-claustro" method="post">
+    {% csrf_token %}
+    <div class="field checkbox-group" data-checkbox-group="departamentos-claustro">
+      <div class="field-label-row">
+        <label>{{ formulario.departamentos.label }}</label>
+        <label class="select-all">
+          <input type="checkbox" data-select-all="departamentos-claustro">
+          <span>Seleccionar todos</span>
+        </label>
+      </div>
+      {{ formulario.departamentos }}
+      {% for error in formulario.departamentos.errors %}<div class="error">{{ error }}</div>{% endfor %}
+    </div>
+  </form>
+</section>
+
+<div class="section-actions form-card-actions">
+  <button class="button primary" type="submit" form="formulario-departamentos-claustro">Guardar departamentos</button>
+  <a class="button light" href="{% url 'gestionar-alcances' eleccion.id %}">Volver a sedes y departamentos</a>
+</div>
+{% endblock %}

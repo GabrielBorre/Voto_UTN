@@ -1,33 +1,55 @@
-console.log("Sistema de Gestion Electoral UTN.BA - Pagina inicial");
+const formulario = document.getElementById("consulta-form");
+const estado = document.getElementById("consulta-estado");
+const botonConsulta = formulario.querySelector('button[type="submit"]');
 
-const datosConsulta = {
-  claustro: "Estudiantes",
-  nombre: "Juan",
-  apellido: "Perez",
-  dni: "12345678",
-  sede: "Medrano",
-  especialidad: "Ingenieria en Sistemas",
-  mesa: "Mesa 12"
-};
+function mostrarConsulta(datos) {
+  Object.entries(datos).forEach(([campo, valor]) => {
+    const destino = document.getElementById(`resp-${campo}`);
+    if (destino) destino.textContent = valor ?? "";
+  });
 
-function mostrarConsulta() {
   document.getElementById("card-request").hidden = true;
   document.getElementById("card-response").hidden = false;
-
-  Object.entries(datosConsulta).forEach(([campo, valor]) => {
-    document.getElementById(`resp-${campo}`).textContent = valor;
-  });
 }
 
 function ocultarConsulta() {
   document.getElementById("card-request").hidden = false;
   document.getElementById("card-response").hidden = true;
+  estado.textContent = "";
   document.getElementById("codigo").focus();
 }
 
-document.getElementById("consulta-form").addEventListener("submit", (evento) => {
+formulario.addEventListener("submit", async (evento) => {
   evento.preventDefault();
-  mostrarConsulta();
+
+  const codigo = document.getElementById("codigo").value.trim();
+  if (!codigo) return;
+
+  estado.textContent = "Consultando padrón...";
+  estado.classList.remove("is-error");
+  botonConsulta.disabled = true;
+
+  try {
+    const respuesta = await fetch(formulario.dataset.apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codigo })
+    });
+    const datos = await respuesta.json();
+
+    if (!respuesta.ok) {
+      const detalle = datos.detail || Object.values(datos).flat()[0];
+      throw new Error(detalle || "No se pudo realizar la consulta.");
+    }
+
+    mostrarConsulta(datos);
+    estado.textContent = "";
+  } catch (error) {
+    estado.textContent = error.message || "No se pudo conectar con el servicio. Intentá nuevamente.";
+    estado.classList.add("is-error");
+  } finally {
+    botonConsulta.disabled = false;
+  }
 });
 
 document.getElementById("volver-consulta").addEventListener("click", ocultarConsulta);

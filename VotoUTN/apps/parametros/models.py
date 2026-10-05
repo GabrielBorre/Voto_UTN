@@ -15,7 +15,17 @@ class Sede(models.Model):
 
 
 class Claustro(models.Model):
+    class OrganizacionDepartamentos(models.TextChoices):
+        POR_DEPARTAMENTO = "por_departamento", "Por departamentos"
+        SIN_DEPARTAMENTO = "sin_departamento", "Sin distinción por departamento"
+
     nombre = models.CharField(max_length=120, unique=True)
+    abreviatura = models.CharField(max_length=20, default="")
+    organizacion_departamentos = models.CharField(
+        max_length=24,
+        choices=OrganizacionDepartamentos.choices,
+        default=OrganizacionDepartamentos.POR_DEPARTAMENTO,
+    )
     activo = models.BooleanField(default=True)
 
     class Meta:

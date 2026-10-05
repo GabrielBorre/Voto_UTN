@@ -50,6 +50,8 @@ Ejemplo: `Sistemas de Información` / `K`.
 - Cada mesa pertenece a una elección.
 - Cada mesa pertenece a una combinación `EleccionClaustroDepartamento`.
 - Cada mesa se asigna a una sede habilitada.
+- La mesa funciona durante toda la jornada electoral y no tiene turno.
+- El elector puede votar en cualquier momento de la jornada y no recibe un turno.
 - `numero` es único dentro de toda la elección.
 - El prefijo del departamento no permite repetir números.
 - `K-001` y `E-001` no pueden coexistir dentro de la misma elección.
@@ -64,6 +66,10 @@ Ejemplo: `Sistemas de Información` / `K`.
 - No puede ser autoridad de otro claustro.
 - Puede incorporarse por CSV o selección manual.
 - Ambos mecanismos producen la misma asignación.
+- Cada asignación de autoridad tiene un único turno de trabajo.
+- Una mesa puede tener varias autoridades en el mismo turno y autoridades en turnos diferentes para cubrir los cambios de ronda.
+- Los turnos se habilitan por elección desde la gestión de autoridades y no desde la creación inicial de la elección.
+- El máximo de autoridades se aplica por mesa y por turno.
 - Conserva las funcionalidades de elector.
 - La autoridad de mesa no registra participación.
 
@@ -75,10 +81,11 @@ Ejemplo: `Sistemas de Información` / `K`.
 - En cada elección, un filtro de claustros desactivado incluye todos los claustros y uno activado permite elegir un subconjunto. El filtro de departamentos funciona del mismo modo y no exige activar el de claustros. Si ambos están activos se combinan; si ambos están inactivos se incluyen todos los alcances disponibles.
 - El código de presentación identifica una lista y su alcance dentro de la elección. El número de lista puede repetirse en presentaciones o alcances distintos.
 - Las listas y candidaturas pueden cargarse manualmente o mediante un CSV con previsualización y confirmación.
-- Un candidato puede vincularse opcionalmente con un elector existente.
-- No es obligatorio que el candidato pertenezca al padron.
-- Si el candidato esta en el padron de la eleccion, debe coincidir con el claustro y departamento de la lista.
-- Una misma persona puede integrar más de una candidatura. Si su identificador aparece en presentaciones competidoras, la importación lo permite pero genera una advertencia para revisión de la Junta.
+- Toda candidatura nueva debe vincularse con un elector del padrón activo de la elección. La carga manual y los CSV permiten buscar por tipo de documento y documento (DNI, CUIL o LEGAJO). DNI/CUIL exigen coincidencia de `Elector.tipo_documento` y del número almacenado actualmente en `Elector.dni`; LEGAJO consulta exclusivamente `Elector.legajo`. No se deriva un CUIL a partir de un DNI. Su claustro y, cuando el puesto lo exige, su departamento deben coincidir con los de la lista.
+- La carga manual muestra el nombre encontrado antes de guardar, sin permitir editarlo; esa consulta no crea candidaturas. Se revalida el padrón al guardar y al confirmar la importación. Los CSV anteriores con columna `dni` mantienen compatibilidad y se interpretan como tipo DNI.
+- El nombre y el correo de la candidatura se toman del elector; no se cargan como identidad independiente. El identificador de persona queda únicamente para preservar datos históricos.
+- Una misma persona puede integrar más de una candidatura. Si su DNI aparece en presentaciones competidoras, la importación lo permite pero genera una advertencia para revisión de la Junta.
+- Las candidaturas históricas que no tengan elector asociado se conservan sin borrado automático, pero no pueden volver a guardarse mediante los flujos de alta o edición sin vincularlas al padrón.
 
 ## QR
 

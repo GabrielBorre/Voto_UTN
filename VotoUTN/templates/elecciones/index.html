@@ -11,7 +11,7 @@
 
 <section class="grid-1">
     <div class="card card-request" id="card-request">
-        <form id="consulta-form">
+        <form id="consulta-form" data-api-url="{% url 'api-consulta-padron' %}">
             <div class="field">
                 <label for="codigo">DNI / Legajo</label>
                 <input class="input" type="text" id="codigo" name="codigo" autocomplete="off" required>

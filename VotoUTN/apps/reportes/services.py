@@ -48,10 +48,9 @@ def exportar_reporte_eleccion(eleccion, tipo):
                 ]
             )
     elif tipo == "mesas":
-        escritor.writerow(("numero", "claustro", "departamento", "sede", "turno", "origen"))
+        escritor.writerow(("numero", "claustro", "departamento", "sede", "origen"))
         for mesa in eleccion.mesas.select_related(
             "sede",
-            "turno",
             "eleccion_claustro_departamento__departamento",
             "eleccion_claustro_departamento__eleccion_claustro__claustro",
         ):
@@ -61,18 +60,18 @@ def exportar_reporte_eleccion(eleccion, tipo):
                     mesa.eleccion_claustro_departamento.eleccion_claustro.claustro,
                     mesa.eleccion_claustro_departamento.departamento,
                     mesa.sede,
-                    mesa.turno,
                     "padron" if mesa.generada_automaticamente else "manual",
                 )
             )
     elif tipo == "autoridades":
-        escritor.writerow(("nombre", "legajo", "mesa", "estado", "asignada_en"))
-        for item in AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).select_related("registro_padron__elector", "mesa"):
+        escritor.writerow(("nombre", "legajo", "mesa", "turno", "estado", "asignada_en"))
+        for item in AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).select_related("registro_padron__elector", "mesa", "turno"):
             escritor.writerow(
                 (
                     valor_csv(item.registro_padron.elector.nombre_completo),
                     valor_csv(item.registro_padron.elector.legajo),
                     item.mesa.numero,
+                    item.turno,
                     item.estado,
                     item.asignada_en.isoformat(),
                 )

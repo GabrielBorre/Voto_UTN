@@ -1,0 +1,98 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: voto_utn_db
+    restart: unless-stopped
+    env_file:
+      - ./VotoUTN/.env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.2
+    container_name: keycloak
+    command: start-dev --import-realm
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+      # Sin KC_HOSTNAME fijo, Keycloak deriva el host/iss del header Host de cada pedido.
+      # Django reenvia ese mismo Host en sus llamadas server-to-server (ver config/views.py),
+      # asi el "iss" siempre coincide con el host que uso el navegador (PC o celular).
+      - KC_HOSTNAME_STRICT=false
+      - KC_HTTP_ENABLED=true
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Keycloak/realm-export:/opt/keycloak/data/import
+      - ./Keycloak/themes/utn-login:/opt/keycloak/themes/utn-login
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    ports:
+      - "8025:8025" # interfaz web para revisar los correos recibidos
+      - "1025:1025" # puerto SMTP que usa Django para enviar los correos
+    environment:
+      - MP_MAX_MESSAGES=500
+      - MP_SMTP_AUTH_ACCEPT_ANY=1
+      - MP_SMTP_AUTH_ALLOW_INSECURE=1
+
+  web:
+    build:
+      context: ./VotoUTN
+    container_name: voto_utn_web
+    env_file:
+      - ./VotoUTN/.env
+    environment:
+      # Sobrescriben al .env local para resolver los demas servicios por su nombre en la red de Docker.
+      - POSTGRES_HOST=db
+      - EMAIL_HOST=mailpit
+      - KEYCLOAK_URL_INTERNO=http://keycloak:8080
+      # El acceso real llega siempre a traves del proxy (localhost, 127.0.0.1 o la IP de la
+      # red Wi-Fi), por eso se permite cualquier host en este stack de desarrollo local.
+      - DJANGO_ALLOWED_HOSTS=*
+    expose:
+      - "8000"
+    volumes:
+      - ./VotoUTN:/app
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      mailpit:
+        condition: service_started
+
+  proxy:
+    image: caddy:2.10.2
+    container_name: voto_utn_proxy
+    restart: unless-stopped
+    ports:
+      - "8000:8000" # HTTP, redirige a HTTPS
+      - "8443:8443" # HTTPS, accesible desde la PC y desde el celular en la misma red Wi-Fi
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - staticfiles:/srv/static:ro
+      - media:/srv/media:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_started
+
+volumes:
+  pgdata:
+  staticfiles:
+  media:
+  caddy_data:
+  caddy_config:

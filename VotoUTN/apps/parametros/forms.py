@@ -19,7 +19,16 @@ class FormularioSede(forms.ModelForm):
 class FormularioClaustro(forms.ModelForm):
     class Meta:
         model = Claustro
-        fields = ("nombre", "activo")
+        fields = ("nombre", "abreviatura", "organizacion_departamentos", "activo")
+        labels = {
+            "organizacion_departamentos": "Organización del claustro",
+        }
+        help_texts = {
+            "abreviatura": "Identificación breve que se mostrará en listados y reportes.",
+            "organizacion_departamentos": (
+                "Define el valor inicial para las nuevas elecciones. No modifica elecciones existentes."
+            ),
+        }
 
 
 class FormularioDepartamento(forms.ModelForm):

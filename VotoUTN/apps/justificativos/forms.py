@@ -33,5 +33,15 @@ class FormularioJustificativo(forms.ModelForm):
 
 
 class FormularioResolucionJustificativo(forms.Form):
-    estado = forms.ChoiceField(choices=((JustificativoAusencia.Estado.APROBADO, "Aprobar"), (JustificativoAusencia.Estado.RECHAZADO, "Rechazar")))
-    observacion_resolucion = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    estado = forms.ChoiceField(
+        label="Resolución",
+        choices=(
+            (JustificativoAusencia.Estado.APROBADO, "Aprobar"),
+            (JustificativoAusencia.Estado.RECHAZADO, "Rechazar"),
+        ),
+    )
+    observacion_resolucion = forms.CharField(
+        label="Observación de la resolución",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )

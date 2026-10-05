@@ -1,5 +1,6 @@
 import re
 from datetime import datetime, time, timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -12,7 +13,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionSede,
-    EleccionTurno,
+    EleccionClaustroTurno,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
@@ -21,6 +22,8 @@ from apps.reportes.services import valor_csv
 from apps.reportes.services_pdf import (
     ELECTORES_POR_PAGINA,
     _agrupar_padrones_por_mesa,
+    _construir_tabla,
+    _construir_troquel,
     generar_padron_pdf,
     validar_padron_para_pdf,
 )
@@ -64,6 +67,14 @@ class ReportesViewsTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "reportes/gestion.html")
+        self.assertContains(respuesta, 'class="toolbar reports-grid"')
+        self.assertContains(respuesta, 'class="option report-option"', count=3)
+        self.assertContains(respuesta, 'class="report-actions"', count=3)
+        self.assertContains(respuesta, "Padrón imprimible no disponible")
+        self.assertContains(respuesta, "Generar padrón imprimible")
+        self.assertContains(respuesta, "disabled")
+        self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
+        self.assertContains(respuesta, "Volver a configuración", count=1)
 
     def test_exportar_reporte_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
@@ -84,8 +95,8 @@ class PadronPDFTests(TestCase):
         self.claustro = Claustro.objects.create(nombre="Estudiantes")
         self.departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
         EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.turno)
         self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=self.claustro)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.turno)
         self.configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=self.eleccion_claustro, departamento=self.departamento)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=self.sede)
         self.mesa = Mesa.objects.create(
@@ -93,7 +104,6 @@ class PadronPDFTests(TestCase):
             numero=1,
             eleccion_claustro_departamento=self.configuracion,
             sede=self.sede,
-            turno=self.turno,
         )
         self.usuario = get_user_model().objects.create_user(username="admin-reportes", password="clave")
         AsignacionRol.objects.create(usuario=self.usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion)
@@ -126,6 +136,34 @@ class PadronPDFTests(TestCase):
 
         self.assertTrue(contenido.startswith(b"%PDF"))
         self.assertEqual(contar_paginas_pdf(contenido), 1)
+
+    def test_columna_apellido_y_nombre_usa_apellido_primero(self):
+        registro = self.crear_electores(1)[0]
+        registro.elector.apellido = "Gomez"
+        registro.elector.nombre = "Maria Elena"
+
+        with (
+            patch("apps.reportes.services_pdf._construir_espacio_firma", return_value="firma"),
+            patch("apps.reportes.services_pdf._construir_troquel", return_value="troquel"),
+        ):
+            tabla = _construir_tabla(self.eleccion, self.mesa, [registro], 1, 20)
+
+        self.assertEqual(tabla._cellvalues[1][2].text, "Gomez, Maria Elena")
+
+    def test_troquel_usa_apellido_y_nombre(self):
+        registro = self.crear_electores(1)[0]
+        registro.elector.apellido = "Gomez"
+        registro.elector.nombre = "Maria Elena"
+
+        with (
+            patch("apps.reportes.services_pdf._generar_imagen_qr", return_value=b"qr"),
+            patch("apps.reportes.services_pdf.ImagenPDF", return_value="qr-image"),
+            patch("apps.reportes.services_pdf._construir_espacio_firma", return_value="firma"),
+        ):
+            troquel = _construir_troquel(self.eleccion, self.mesa, registro, 20)
+
+        texto_troquel = troquel._cellvalues[0][1]
+        self.assertEqual(texto_troquel._cellvalues[0][0].text, "Gomez, Maria Elena")
 
     def test_genera_pdf_con_exactamente_15_electores(self):
         self.crear_electores(ELECTORES_POR_PAGINA)

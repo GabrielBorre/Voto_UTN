@@ -14,6 +14,10 @@ class CandidaturaAutoridad(models.Model):
     class Meta:
         db_table = "elecciones_candidaturaautoridad"
 
+    def __str__(self):
+        elector = self.registro_padron.elector
+        return f"{elector.nombre_completo} · DNI {elector.dni} · Legajo {elector.legajo}"
+
 
 class AsignacionAutoridad(models.Model):
     class Estado(models.TextChoices):
@@ -24,6 +28,7 @@ class AsignacionAutoridad(models.Model):
     registro_padron = models.OneToOneField(RegistroPadron, on_delete=models.PROTECT, related_name="asignacion_autoridad")
     candidatura = models.OneToOneField(CandidaturaAutoridad, on_delete=models.PROTECT, related_name="asignacion", null=True, blank=True)
     mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name="autoridades")
+    turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="asignaciones_autoridad")
     estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.PENDIENTE)
     asignada_por = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="autoridades_asignadas")
     asignada_en = models.DateTimeField(auto_now_add=True)
@@ -40,6 +45,10 @@ class AsignacionAutoridad(models.Model):
                 raise ValidationError({"mesa": "Debe pertenecer a la misma eleccion que el padron."})
             if self.registro_padron.eleccion_claustro_departamento.eleccion_claustro_id != self.mesa.eleccion_claustro_departamento.eleccion_claustro_id:
                 raise ValidationError({"mesa": "La autoridad debe pertenecer al mismo claustro que la mesa."})
+            if self.turno_id and not self.turno.elecciones_turno.filter(
+                eleccion_claustro_id=self.mesa.eleccion_claustro_departamento.eleccion_claustro_id,
+            ).exists():
+                raise ValidationError({"turno": "El turno de trabajo debe estar habilitado para el claustro."})
 
 
 class PreferenciaAutoridad(models.Model):

@@ -1,7 +1,6 @@
 from datetime import datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.timezone import make_aware
@@ -12,7 +11,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionSede,
-    EleccionTurno,
+    EleccionClaustroTurno,
 )
 from apps.mesas.forms import FormularioGenerarMesas
 from apps.mesas.models import Mesa
@@ -36,11 +35,11 @@ class MesasTests(TestCase):
             hora_fin=time(12),
         )
         EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.turno)
         eleccion_claustro = EleccionClaustro.objects.create(
             eleccion=self.eleccion,
             claustro=self.claustro,
         )
+        EleccionClaustroTurno.objects.create(eleccion_claustro=eleccion_claustro, turno=self.turno)
         self.configuracion = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=eleccion_claustro,
             departamento=Departamento.objects.create(nombre="Sistemas", codigo="SIS"),
@@ -50,13 +49,12 @@ class MesasTests(TestCase):
             sede=self.sede,
         )
 
-    def test_formulario_genera_mesas_numeradas_y_valida_turno_habilitado(self):
+    def test_formulario_genera_mesas_numeradas_sin_turno_de_elector(self):
         formulario = FormularioGenerarMesas(
             eleccion=self.eleccion,
             data={
                 "configuracion": self.configuracion.id,
                 "sede": self.sede.id,
-                "turno": self.turno.id,
                 "cantidad": 2,
             },
         )
@@ -67,21 +65,7 @@ class MesasTests(TestCase):
             list(self.eleccion.mesas.values_list("numero", flat=True)),
             [1, 2],
         )
-
-        turno_ajeno = Turno.objects.create(
-            nombre="Tarde",
-            hora_inicio=time(13),
-            hora_fin=time(18),
-        )
-        mesa = Mesa(
-            eleccion=self.eleccion,
-            numero=3,
-            eleccion_claustro_departamento=self.configuracion,
-            sede=self.sede,
-            turno=turno_ajeno,
-        )
-        with self.assertRaises(ValidationError):
-            mesa.full_clean()
+        self.assertFalse(hasattr(self.eleccion.mesas.first(), "turno_id"))
 
     def test_gestionar_mesas_conserva_la_ruta_y_requiere_permiso(self):
         usuario = get_user_model().objects.create_user(
@@ -94,11 +78,35 @@ class MesasTests(TestCase):
             eleccion=self.eleccion,
         )
         self.client.login(username="administrador", password="clave")
+        Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=1,
+            eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede,
+            generada_automaticamente=True,
+        )
+        Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=2,
+            eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede,
+            generada_automaticamente=False,
+        )
 
         respuesta = self.client.get(reverse("gestionar-mesas", args=(self.eleccion.id,)))
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "mesas/gestion.html")
+        self.assertContains(respuesta, 'class="management-panel tables-panel"')
+        self.assertContains(respuesta, "Total de mesas")
+        self.assertContains(respuesta, "Claustros con mesas")
+        self.assertContains(respuesta, "Sedes utilizadas")
+        self.assertNotContains(respuesta, "Manuales")
+        self.assertContains(respuesta, "Registrada previamente")
+        self.assertContains(respuesta, 'class="pill info"', count=1)
+        self.assertContains(respuesta, 'class="pill gray"', count=1)
+        self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
+        self.assertContains(respuesta, "Volver a configuración", count=1)
 
         sin_permiso = get_user_model().objects.create_user(
             username="sin_permiso",
@@ -109,3 +117,38 @@ class MesasTests(TestCase):
         respuesta = self.client.get(reverse("gestionar-mesas", args=(self.eleccion.id,)))
 
         self.assertEqual(respuesta.status_code, 403)
+
+    def test_muestra_el_alcance_interno_sin_departamento(self):
+        claustro = Claustro.objects.create(
+            nombre="No docentes",
+            organizacion_departamentos=Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO,
+        )
+        eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion,
+            claustro=claustro,
+            organizacion_departamentos=Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO,
+        )
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=eleccion_claustro,
+            departamento=None,
+        )
+        Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=1,
+            eleccion_claustro_departamento=alcance,
+            sede=self.sede,
+            generada_automaticamente=True,
+        )
+        usuario = get_user_model().objects.create_user(username="administrador_no_docente")
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(usuario)
+
+        respuesta = self.client.get(reverse("gestionar-mesas", args=(self.eleccion.id,)))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "No docentes")
+        self.assertContains(respuesta, "Sin distinción por departamento")

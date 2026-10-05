@@ -35,6 +35,17 @@ class ParametrosViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "parametros/lista.html")
 
+    def test_formulario_de_claustro_expone_abreviatura_y_organizacion(self):
+        self.client.login(username="admin", password="clave")
+
+        respuesta = self.client.get(reverse("crear-parametro", args=("claustros",)))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Abreviatura")
+        self.assertContains(respuesta, "Organización del claustro")
+        self.assertContains(respuesta, "Por departamentos")
+        self.assertContains(respuesta, "Sin distinción por departamento")
+
     def test_panel_incluye_los_siete_catalogos_y_puestos_a_elegir(self):
         self.client.login(username="admin", password="clave")
 
@@ -63,6 +74,16 @@ class CatalogosEstandarTests(TestCase):
 
         self.assertEqual(Sede.objects.filter(nombre__in=("Medrano", "Campus")).count(), 2)
         self.assertEqual(Claustro.objects.count(), 4)
+        no_docentes = Claustro.objects.get(nombre="No docentes")
+        self.assertEqual(no_docentes.abreviatura, "ND")
+        self.assertEqual(
+            no_docentes.organizacion_departamentos,
+            Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO,
+        )
+        self.assertEqual(
+            Claustro.objects.get(nombre="Docentes").organizacion_departamentos,
+            Claustro.OrganizacionDepartamentos.POR_DEPARTAMENTO,
+        )
         self.assertEqual(Turno.objects.count(), 3)
         self.assertEqual(Departamento.objects.count(), 10)
         self.assertEqual(FechaAdministrativa.objects.count(), 6)

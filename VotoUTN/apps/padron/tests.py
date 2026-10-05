@@ -21,12 +21,12 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede,
     EleccionSede,
-    EleccionTurno,
+    EleccionClaustroTurno,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.forms import FormularioArchivoPadron
 from apps.padron.management.commands.seed_voters import Command as ComandoGenerarQr
-from apps.padron.models import Elector, RegistroPadron
+from apps.padron.models import Elector, ImportacionPadron, RegistroPadron
 from apps.padron.services import generar_mesas_automaticas
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.usuarios.models import AsignacionRol
@@ -41,8 +41,8 @@ class PadronViewsTests(TestCase):
         self.claustro = Claustro.objects.create(nombre="Estudiantes")
         self.departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
         EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.turno)
         self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=self.claustro, maximo_votantes_por_mesa=20)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.turno)
         self.configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=self.eleccion_claustro, departamento=self.departamento)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=self.sede)
         self.usuario = get_user_model().objects.create_user(username="admin", password="clave")
@@ -55,6 +55,138 @@ class PadronViewsTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "padron/cargar.html")
+
+    def test_detalle_importacion_usa_presentacion_visual_unificada(self):
+        importacion = ImportacionPadron.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro=self.eleccion_claustro,
+            archivo=SimpleUploadedFile(
+                "estudiantes.csv",
+                b"DNI,Legajo,Nombre,Apellido\n40123456,2024001,Juan,Perez\n",
+            ),
+            nombre_archivo="estudiantes.csv",
+            huella_archivo="archivo-ejemplo",
+            cantidad_filas=1,
+            cantidad_validas=1,
+            usuario=self.usuario,
+        )
+        self.client.login(username="admin", password="clave")
+
+        respuesta = self.client.get(
+            reverse("detalle-importacion-padron", args=(self.eleccion.id, importacion.id))
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTemplateUsed(respuesta, "padron/detalle_importacion.html")
+        self.assertContains(respuesta, 'class="management-panel import-review-panel"')
+        self.assertContains(respuesta, 'class="card management-section"', count=2)
+        self.assertContains(respuesta, "Resultado de la validación")
+        self.assertContains(respuesta, "Columnas detectadas")
+        self.assertContains(respuesta, "Confirmar importación")
+        self.assertContains(respuesta, "Volver al padrón")
+
+    def test_gestion_de_padrones_presenta_tarjetas_por_claustro(self):
+        administrador = get_user_model().objects.create_user(username="admin-padrones")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(administrador)
+
+        respuesta = self.client.get(reverse("preparar-eleccion", args=(self.eleccion.id,)))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTemplateUsed(respuesta, "elecciones/preparar_eleccion.html")
+        self.assertContains(respuesta, 'class="toolbar configuration-grid padron-cloister-grid"')
+        self.assertContains(respuesta, 'class="option"', count=1)
+        self.assertContains(
+            respuesta,
+            reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id)),
+        )
+        self.assertContains(respuesta, "Gestionar padrón", count=1)
+
+    def test_gestion_de_padron_integra_configuracion_carga_e_historial_del_claustro(self):
+        administrador = get_user_model().objects.create_user(username="gestor-padron")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        otra_eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion,
+            claustro=Claustro.objects.create(nombre="Docentes padrón"),
+        )
+        ImportacionPadron.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro=self.eleccion_claustro,
+            archivo=SimpleUploadedFile("estudiantes.csv", b"contenido"),
+            nombre_archivo="estudiantes.csv",
+            huella_archivo="estudiantes",
+            usuario=administrador,
+        )
+        ImportacionPadron.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro=otra_eleccion_claustro,
+            archivo=SimpleUploadedFile("docentes.csv", b"contenido"),
+            nombre_archivo="docentes.csv",
+            huella_archivo="docentes",
+            usuario=administrador,
+        )
+        self.client.force_login(administrador)
+
+        respuesta = self.client.get(
+            reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id))
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'class="card management-section"', count=3)
+        self.assertContains(respuesta, "estudiantes.csv")
+        self.assertNotContains(respuesta, "docentes.csv")
+        self.assertContains(respuesta, 'name="configuracion-fecha_votacion"')
+        self.assertContains(respuesta, 'name="configuracion-maximo_votantes_por_mesa"')
+        self.assertNotContains(respuesta, 'name="configuracion-departamentos"')
+        self.assertNotContains(respuesta, 'name="configuracion-sedes"')
+
+    def test_gestion_de_padron_guarda_fecha_y_maximo_sin_modificar_alcances(self):
+        administrador = get_user_model().objects.create_user(username="configurador-padron")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(administrador)
+        departamentos_anteriores = set(
+            self.eleccion_claustro.departamentos.values_list("id", flat=True)
+        )
+        sedes_anteriores = set(
+            self.eleccion_claustro.sedes_habilitadas.values_list("id", flat=True)
+        )
+
+        respuesta = self.client.post(
+            reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            {
+                "configuracion-fecha_votacion": "2026-08-03",
+                "configuracion-maximo_votantes_por_mesa": 35,
+                "guardar-configuracion": "",
+            },
+        )
+
+        self.assertRedirects(
+            respuesta,
+            reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            fetch_redirect_response=False,
+        )
+        self.eleccion_claustro.refresh_from_db()
+        self.assertEqual(self.eleccion_claustro.maximo_votantes_por_mesa, 35)
+        self.assertSetEqual(
+            set(self.eleccion_claustro.departamentos.values_list("id", flat=True)),
+            departamentos_anteriores,
+        )
+        self.assertSetEqual(
+            set(self.eleccion_claustro.sedes_habilitadas.values_list("id", flat=True)),
+            sedes_anteriores,
+        )
 
     def test_descargar_plantilla_padron_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
@@ -73,13 +205,13 @@ class PadronViewsTests(TestCase):
         contenido = respuesta.content.decode("utf-8-sig")
         lineas = contenido.splitlines()
         self.assertGreaterEqual(len(lineas), 2)
-        self.assertEqual(lineas[0], "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel")
-        self.assertEqual(lineas[1], "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1")
+        self.assertEqual(lineas[0], "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel")
+        self.assertEqual(lineas[1], "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1")
 
     def test_validar_csv_padron_mapea_departamento_principal_correctamente(self):
         contenido = (
-            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
-            "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
         ).encode("utf-8")
 
         from apps.padron.models import ImportacionPadron
@@ -112,8 +244,8 @@ class PadronViewsTests(TestCase):
 
     def test_validar_csv_padron_acepta_dni_numerico_de_excel(self):
         contenido = (
-            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
-            "40123456.0,2024004,Lucia,Diaz,K,lucia.diaz@frba.utn.edu.ar,No,K,Campus,1\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
+            "40123456.0,DNI,2024004,Lucia,Diaz,K,lucia.diaz@frba.utn.edu.ar,No,K,Campus,1\n"
         ).encode("utf-8")
 
         from apps.padron.services import validar_csv_padron
@@ -129,8 +261,8 @@ class PadronViewsTests(TestCase):
 
         Elector.objects.create(dni="40123456", legajo="2024999", nombre="Juan", apellido="Perez")
         contenido = (
-            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
-            "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
         ).encode("utf-8")
 
         validacion = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
@@ -142,8 +274,8 @@ class PadronViewsTests(TestCase):
         self.eleccion_claustro.maximo_votantes_por_mesa = None
         self.eleccion_claustro.save(update_fields=("maximo_votantes_por_mesa",))
         contenido = (
-            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
-            "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
         ).encode("utf-8")
 
         from apps.padron.models import ImportacionPadron
@@ -180,8 +312,8 @@ class FormularioArchivoPadronTests(TestCase):
     def test_validar_archivo_xlsx_acepta_formato_excel(self):
         libro = Workbook()
         hoja = libro.active
-        hoja.append(["DNI", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail", "Sede", "TieneDiscapacidad", "Departamento Principal", "Nivel"])
-        hoja.append(["40123456", "2024001", "Juan", "Perez", "Sistemas", "juan.perez@frba.utn.edu.ar", "Campus", "Si", "Ingenieria", "1"])
+        hoja.append(["DNI", "Tipo Documento", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail", "Sede", "TieneDiscapacidad", "Departamento Principal", "Nivel"])
+        hoja.append(["40123456", "DNI", "2024001", "Juan", "Perez", "Sistemas", "juan.perez@frba.utn.edu.ar", "Campus", "Si", "Ingenieria", "1"])
 
         archivo = io.BytesIO()
         libro.save(archivo)
@@ -191,7 +323,7 @@ class FormularioArchivoPadronTests(TestCase):
         self.assertTrue(respuesta.is_valid())
 
     def test_confirmar_importacion_xlsx_conserva_el_archivo(self):
-        from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede, EleccionSede, EleccionTurno
+        from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede, EleccionClaustroTurno, EleccionSede
         from apps.padron.models import ImportacionPadron
         from apps.padron.services import confirmar_importacion
         from apps.parametros.models import Claustro, Departamento, Sede, Turno
@@ -205,15 +337,15 @@ class FormularioArchivoPadronTests(TestCase):
         claustro = Claustro.objects.create(nombre="Estudiantes XLSX")
         departamento = Departamento.objects.create(nombre="Sistemas XLSX", codigo="KX")
         EleccionSede.objects.create(eleccion=eleccion, sede=sede)
-        EleccionTurno.objects.create(eleccion=eleccion, turno=turno)
         eleccion_claustro = EleccionClaustro.objects.create(eleccion=eleccion, claustro=claustro, maximo_votantes_por_mesa=20)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=eleccion_claustro, turno=turno)
         configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=eleccion_claustro, departamento=departamento)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=configuracion, sede=sede)
 
         libro = Workbook()
         hoja = libro.active
-        hoja.append(["DNI", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail", "Sede"])
-        hoja.append(["40123457", "2024007", "Ana", "Perez", "KX", "ana.perez@frba.utn.edu.ar", "Campus XLSX"])
+        hoja.append(["DNI", "Tipo Documento", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail", "Sede"])
+        hoja.append(["40123457", "DNI", "2024007", "Ana", "Perez", "KX", "ana.perez@frba.utn.edu.ar", "Campus XLSX"])
         contenido = io.BytesIO()
         libro.save(contenido)
         contenido.seek(0)
@@ -236,12 +368,12 @@ class ProteccionEmisionQrTests(TestCase):
         self.eleccion = Eleccion.objects.create(nombre="Eleccion QR", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8))
         self.sede = Sede.objects.create(nombre="Campus")
         self.turno = Turno.objects.create(nombre="Mañana", hora_inicio=time(8), hora_fin=time(13))
-        EleccionTurno.objects.create(eleccion=self.eleccion, turno=self.turno)
         self.eleccion_claustro = EleccionClaustro.objects.create(
             eleccion=self.eleccion,
             claustro=Claustro.objects.create(nombre="Estudiantes"),
             maximo_votantes_por_mesa=100,
         )
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.turno)
         self.configuracion = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=self.eleccion_claustro,
             departamento=Departamento.objects.create(nombre="Sistemas", codigo="K"),
@@ -252,7 +384,7 @@ class ProteccionEmisionQrTests(TestCase):
         )
         self.mesa = Mesa.objects.create(
             eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion,
-            sede=self.sede, turno=self.turno, generada_automaticamente=True,
+            sede=self.sede, generada_automaticamente=True,
         )
         elector = Elector.objects.create(legajo="1001", dni="12345678", nombre="Ana Pérez")
         self.registro = RegistroPadron.objects.create(
@@ -294,7 +426,7 @@ class ProteccionEmisionQrTests(TestCase):
         self.registro.save(update_fields=("qr_generado_en", "numero_mesa_qr"))
         otra_mesa = Mesa.objects.create(
             eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=self.configuracion,
-            sede=self.sede, turno=self.turno,
+            sede=self.sede,
         )
         asignacion = self.registro.asignacion_mesa
         asignacion.mesa = otra_mesa
