@@ -2,7 +2,7 @@
 <nav class="gestion-nav" aria-label="Navegación de Junta Electoral">
   <a class="{% if request.resolver_match.url_name == 'inicio-autenticado' or request.resolver_match.url_name == 'inicio-administrador-junta' or request.resolver_match.url_name == 'inicio-administrativo-junta' or request.resolver_match.url_name == 'gestionar-elecciones' %}active{% endif %}" href="{% if nav_es_administrador_junta %}{% url 'inicio-administrador-junta' %}{% elif nav_es_administrativo_junta %}{% url 'inicio-administrativo-junta' %}{% else %}{% url 'inicio-autenticado' %}{% endif %}">Inicio</a>
   {% if nav_puede_ver_elecciones %}
-  <a class="{% if request.resolver_match.url_name == 'lista-elecciones' %}active{% endif %}" href="{% url 'lista-elecciones' %}">Elecciones y asistencia</a>
+  <a class="{% if request.resolver_match.url_name == 'lista-elecciones' %}active{% endif %}" href="{% url 'lista-elecciones' %}">Registro de participación</a>
   {% endif %}
   {% if nav_puede_crear_elecciones %}
   <a class="{% if request.resolver_match.url_name == 'crear-eleccion' %}active{% endif %}" href="{% url 'crear-eleccion' %}">Nueva elección</a>
