@@ -10,6 +10,16 @@ ROLES_CON_PARTICIPACION = {
 }
 
 
+def es_administrativo_junta(usuario):
+    if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
+        return False
+    return AsignacionRol.objects.filter(
+        usuario=usuario,
+        activo=True,
+        rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+    ).exists()
+
+
 def puede_administrar_elecciones(usuario, eleccion=None):
     if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
         return False
@@ -19,12 +29,9 @@ def puede_administrar_elecciones(usuario, eleccion=None):
     asignaciones = AsignacionRol.objects.filter(usuario=usuario, activo=True)
     if asignaciones.filter(rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():
         return True
-    if eleccion is None:
-        return asignaciones.filter(rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA).exists()
-    return asignaciones.filter(
-        rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
-        eleccion=eleccion,
-    ).exists()
+    # El rol de administrador de junta es transversal: no depende de quién
+    # creó la elección ni de la elección asociada al registro del rol.
+    return asignaciones.filter(rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA).exists()
 
 
 def puede_crear_elecciones(usuario):
@@ -62,8 +69,13 @@ def puede_registrar_participacion(usuario, eleccion, mesa=None):
     asignaciones = AsignacionRol.objects.filter(usuario=usuario, activo=True)
     if asignaciones.filter(rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():
         return True
+    if asignaciones.filter(rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA).exists():
+        return True
 
-    asignaciones = asignaciones.filter(rol__in=ROLES_CON_PARTICIPACION, eleccion=eleccion)
+    asignaciones = asignaciones.filter(
+        rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        eleccion=eleccion,
+    )
     if mesa is None:
         return asignaciones.exists()
     return asignaciones.filter(mesa__isnull=True, sede__isnull=True).exists() or asignaciones.filter(mesa=mesa).exists() or asignaciones.filter(sede=mesa.sede, mesa__isnull=True).exists()
@@ -80,7 +92,6 @@ def puede_importar_padron(usuario, eleccion):
         rol__in=(
             AsignacionRol.Rol.ADMINISTRADOR_SISTEMA,
             AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
-            AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
         ),
     ).filter(
         Q(rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA) | Q(eleccion=eleccion)
@@ -92,11 +103,13 @@ def puede_revisar_justificativo(usuario, eleccion):
         return False
     if usuario.is_superuser:
         return True
+    if es_administrativo_junta(usuario):
+        return True
     return AsignacionRol.objects.filter(
         usuario=usuario,
         activo=True,
         eleccion=eleccion,
-        rol__in=(AsignacionRol.Rol.ADMINISTRADOR_JUNTA, AsignacionRol.Rol.ADMINISTRATIVO_JUNTA),
+        rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
     ).exists() or AsignacionRol.objects.filter(usuario=usuario, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists()
 
 
@@ -105,6 +118,8 @@ def elecciones_con_participacion(usuario):
         return Eleccion.objects.none()
     elecciones = Eleccion.objects.filter(habilitada=True)
     if usuario.is_superuser or AsignacionRol.objects.filter(usuario=usuario, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():
+        return elecciones
+    if es_administrativo_junta(usuario):
         return elecciones
     return elecciones.filter(
         asignaciones_rol__usuario=usuario,

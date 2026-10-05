@@ -95,13 +95,11 @@ def inicio_administrativo_junta(request):
         usuario=request.user,
         activo=True,
         rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
-    ).exclude(eleccion__isnull=True).select_related("eleccion")
+    )
     if not roles.exists():
         return HttpResponseForbidden("No tiene permiso para acceder al panel administrativo de junta.")
-    elecciones = Eleccion.objects.filter(
-        asignaciones_rol__in=roles,
-    ).distinct()
-    eleccion_actual = elecciones.first()
+    elecciones = Eleccion.objects.all()
+    eleccion_actual = elecciones.order_by("fecha_inicio", "id").first()
     solicitudes_pendientes = JustificativoAusencia.objects.filter(
         registro_padron__eleccion__in=elecciones,
         estado=JustificativoAusencia.Estado.PENDIENTE,

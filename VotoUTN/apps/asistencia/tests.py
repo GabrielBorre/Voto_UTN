@@ -199,6 +199,17 @@ class PermisosParticipacionTests(TestCase):
 
         self.assertTrue(puede_registrar_participacion(self.usuario, self.eleccion))
 
+    def test_administrativo_global_puede_abrir_asistencia_de_cualquier_eleccion_activa(self):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("escanear", args=(self.eleccion.pk,)))
+
+        self.assertEqual(respuesta.status_code, 200)
+
     def test_autoridad_de_mesa_no_puede_registrar_participacion(self):
         AsignacionRol.objects.create(
             usuario=self.usuario,

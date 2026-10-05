@@ -10,6 +10,17 @@
 
 ## Elecciones, claustros, sedes y departamentos
 
+- Cualquier usuario con el rol activo de administrador de junta puede editar y
+	administrar cualquier elección, sin importar quién la creó o qué elección
+	figure en su asignación de rol.
+- Cualquier usuario con el rol activo de administrativo de junta puede realizar
+	en todas las elecciones las tareas que ya corresponden a su rol: registrar
+	participación y gestionar justificativos. Esto no le concede permisos para
+	importar padrones, crear o editar elecciones, cambiar su estado,
+	administrar parámetros ni configurar padrones, tareas reservadas al
+	administrador de junta o al administrador del sistema. La asignación de este
+	rol puede ser global, sin elección, sede ni mesa asociadas.
+
 La configuración de sedes se realiza en cascada:
 
 1. Se seleccionan las sedes habilitadas para toda la elección.

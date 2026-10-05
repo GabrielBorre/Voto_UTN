@@ -10,7 +10,7 @@ from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
 from apps.padron.models import Elector
 from apps.usuarios.models import AsignacionRol
-from apps.usuarios.permisos import puede_revisar_justificativo
+from apps.usuarios.permisos import es_administrativo_junta, puede_revisar_justificativo
 
 
 @login_required
@@ -56,7 +56,12 @@ def gestionar_justificativos(request, eleccion_id):
 
 @login_required
 def bandeja_justificativos(request):
-    if request.user.is_superuser or AsignacionRol.objects.filter(usuario=request.user, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():
+    es_administrador_sistema = request.user.is_superuser or AsignacionRol.objects.filter(
+        usuario=request.user,
+        activo=True,
+        rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA,
+    ).exists()
+    if es_administrador_sistema or es_administrativo_junta(request.user):
         justificativos = JustificativoAusencia.objects.all()
     else:
         elecciones = (
@@ -69,14 +74,13 @@ def bandeja_justificativos(request):
             .values_list("eleccion_id", flat=True)
         )
         justificativos = JustificativoAusencia.objects.filter(registro_padron__eleccion_id__in=elecciones)
-    if not justificativos.exists():
-        tiene_rol = AsignacionRol.objects.filter(
+    tiene_permiso = es_administrador_sistema or es_administrativo_junta(request.user) or AsignacionRol.objects.filter(
             usuario=request.user,
             activo=True,
-            rol__in=(AsignacionRol.Rol.ADMINISTRADOR_JUNTA, AsignacionRol.Rol.ADMINISTRATIVO_JUNTA),
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
         ).exists()
-        if not (request.user.is_superuser or tiene_rol):
-            return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
+    if not tiene_permiso:
+        return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
     justificativos = justificativos.select_related("registro_padron__eleccion", "registro_padron__elector", "tipo")
     return render(request, "justificativos/bandeja.html", {"justificativos": justificativos})
 

@@ -17,7 +17,7 @@ from apps.elecciones.models import (
 from apps.mesas.models import Mesa
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.usuarios.models import AsignacionRol
-from apps.usuarios.permisos import puede_crear_elecciones
+from apps.usuarios.permisos import puede_crear_elecciones, puede_importar_padron, puede_registrar_participacion, puede_revisar_justificativo
 
 
 class CreacionEleccionPorAdministradorJuntaTests(TestCase):
@@ -43,6 +43,83 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
             activo=True,
         )
         self.client.force_login(self.usuario)
+
+    def test_administrador_junta_puede_editar_eleccion_creada_por_otro(self):
+        otro_administrador = get_user_model().objects.create_user(username="otro-administrador")
+        eleccion_ajena = Eleccion.objects.create(
+            nombre="Eleccion de otro administrador",
+            fecha_inicio=timezone.localdate(),
+            fecha_fin=timezone.localdate() + timedelta(days=1),
+        )
+        AsignacionRol.objects.create(
+            usuario=otro_administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=eleccion_ajena,
+        )
+        url = reverse("editar-eleccion", args=(eleccion_ajena.pk,))
+
+        respuesta = self.client.get(url)
+
+        self.assertEqual(respuesta.status_code, 200)
+        nueva_fecha_inicio = timezone.localdate() + timedelta(days=10)
+        nueva_fecha_fin = nueva_fecha_inicio + timedelta(days=2)
+        respuesta = self.client.post(
+            url,
+            {
+                "nombre": "Eleccion actualizada por otro administrador",
+                "fecha_inicio": nueva_fecha_inicio.isoformat(),
+                "fecha_fin": nueva_fecha_fin.isoformat(),
+            },
+        )
+
+        self.assertRedirects(
+            respuesta,
+            reverse("gestionar-elecciones"),
+            fetch_redirect_response=False,
+        )
+        eleccion_ajena.refresh_from_db()
+        self.assertEqual(eleccion_ajena.nombre, "Eleccion actualizada por otro administrador")
+
+    def test_administrativo_junta_no_puede_editar_eleccion_ajena(self):
+        AsignacionRol.objects.filter(usuario=self.usuario).delete()
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+            eleccion=self.eleccion_asignada,
+        )
+        eleccion_ajena = Eleccion.objects.create(
+            nombre="Eleccion fuera de alcance",
+            fecha_inicio=timezone.localdate(),
+            fecha_fin=timezone.localdate() + timedelta(days=1),
+        )
+
+        respuesta = self.client.get(reverse("editar-eleccion", args=(eleccion_ajena.pk,)))
+
+        self.assertEqual(respuesta.status_code, 403)
+
+    def test_administrativo_sin_eleccion_asignada_puede_hacer_sus_tareas_en_todas(self):
+        AsignacionRol.objects.filter(usuario=self.usuario).delete()
+        asignacion = AsignacionRol(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+            eleccion=None,
+        )
+        asignacion.full_clean()
+        asignacion.save()
+        otra_eleccion = Eleccion.objects.create(
+            nombre="Eleccion para todas las tareas administrativas",
+            fecha_inicio=timezone.localdate(),
+            fecha_fin=timezone.localdate() + timedelta(days=1),
+        )
+
+        self.assertTrue(puede_registrar_participacion(self.usuario, otra_eleccion))
+        self.assertFalse(puede_importar_padron(self.usuario, otra_eleccion))
+        self.assertTrue(puede_revisar_justificativo(self.usuario, otra_eleccion))
+        self.assertFalse(puede_crear_elecciones(self.usuario))
+        self.assertEqual(
+            self.client.get(reverse("inicio-administrativo-junta")).status_code,
+            200,
+        )
 
     def test_puede_abrir_el_formulario_de_nueva_eleccion(self):
         respuesta = self.client.get(reverse("crear-eleccion"))
