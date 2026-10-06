@@ -46,14 +46,11 @@
 }
 
 .mark {
-    width: 48px;
-    height: 48px;
-    border: 3px solid #111;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    font-weight: 800;
-    font-size: 12px;
+    width: 42px;
+    height: 42px;
+    display: block;
+    flex: 0 0 auto;
+    object-fit: contain;
 }
 
 .brand-title strong {
