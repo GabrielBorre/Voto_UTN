@@ -152,14 +152,17 @@ def index(request):
 def gestionar_elecciones(request):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para gestionar elecciones.")
-    return render(request, "elecciones/gestion_lista.html", {"elecciones": Eleccion.objects.all()})
+    estados_gestionables = (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA)
+    elecciones = Eleccion.objects.filter(estado__in=estados_gestionables)
+    return render(request, "elecciones/gestion_lista.html", {"elecciones": elecciones})
 
 
 @login_required
 def historial_elecciones(request):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para consultar el historial.")
-    return render(request, "elecciones/historial_elecciones.html", {"elecciones": Eleccion.objects.all()})
+    elecciones = Eleccion.objects.filter(estado=Eleccion.Estado.CERRADA)
+    return render(request, "elecciones/historial_elecciones.html", {"elecciones": elecciones})
 
 
 @login_required

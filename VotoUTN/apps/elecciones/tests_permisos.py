@@ -44,6 +44,41 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         )
         self.client.force_login(self.usuario)
 
+    def test_listados_separan_elecciones_cerradas_de_las_gestionables(self):
+        fecha = timezone.localdate()
+        Eleccion.objects.create(
+            nombre="Eleccion preparada",
+            fecha_inicio=fecha,
+            fecha_fin=fecha + timedelta(days=1),
+            estado=Eleccion.Estado.PREPARADA,
+        )
+        Eleccion.objects.create(
+            nombre="Eleccion abierta",
+            fecha_inicio=fecha,
+            fecha_fin=fecha + timedelta(days=1),
+            estado=Eleccion.Estado.ABIERTA,
+        )
+        Eleccion.objects.create(
+            nombre="Eleccion cerrada",
+            fecha_inicio=fecha,
+            fecha_fin=fecha + timedelta(days=1),
+            estado=Eleccion.Estado.CERRADA,
+        )
+
+        respuesta_gestion = self.client.get(reverse("gestionar-elecciones"))
+        respuesta_historial = self.client.get(reverse("historial-elecciones"))
+
+        self.assertEqual(respuesta_gestion.status_code, 200)
+        self.assertEqual(respuesta_historial.status_code, 200)
+        self.assertSetEqual(
+            set(respuesta_gestion.context["elecciones"].values_list("nombre", flat=True)),
+            {"Eleccion asignada", "Eleccion preparada", "Eleccion abierta"},
+        )
+        self.assertSetEqual(
+            set(respuesta_historial.context["elecciones"].values_list("nombre", flat=True)),
+            {"Eleccion cerrada"},
+        )
+
     def test_administrador_junta_puede_editar_eleccion_creada_por_otro(self):
         otro_administrador = get_user_model().objects.create_user(username="otro-administrador")
         eleccion_ajena = Eleccion.objects.create(
