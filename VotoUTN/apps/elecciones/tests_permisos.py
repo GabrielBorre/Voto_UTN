@@ -44,6 +44,13 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         )
         self.client.force_login(self.usuario)
 
+    def test_nav_muestra_gestionar_elecciones_al_administrador_de_junta(self):
+        respuesta = self.client.get(reverse("gestionar-elecciones"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, f'href="{reverse("gestionar-elecciones")}"')
+        self.assertContains(respuesta, ">Gestionar elecciones</a>")
+
     def test_listados_separan_elecciones_cerradas_de_las_gestionables(self):
         fecha = timezone.localdate()
         Eleccion.objects.create(
@@ -151,10 +158,10 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         self.assertFalse(puede_importar_padron(self.usuario, otra_eleccion))
         self.assertTrue(puede_revisar_justificativo(self.usuario, otra_eleccion))
         self.assertFalse(puede_crear_elecciones(self.usuario))
-        self.assertEqual(
-            self.client.get(reverse("inicio-administrativo-junta")).status_code,
-            200,
-        )
+        respuesta = self.client.get(reverse("inicio-administrativo-junta"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertNotContains(respuesta, f'href="{reverse("gestionar-elecciones")}"')
 
     def test_puede_abrir_el_formulario_de_nueva_eleccion(self):
         respuesta = self.client.get(reverse("crear-eleccion"))

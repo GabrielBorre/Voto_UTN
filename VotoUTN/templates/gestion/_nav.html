@@ -7,6 +7,9 @@
   {% if nav_puede_crear_elecciones %}
   <a class="{% if request.resolver_match.url_name == 'crear-eleccion' %}active{% endif %}" href="{% url 'crear-eleccion' %}">Nueva elección</a>
   {% endif %}
+  {% if nav_es_administrador_junta %}
+  <a class="{% if request.resolver_match.url_name == 'gestionar-elecciones' %}active{% endif %}" href="{% url 'gestionar-elecciones' %}">Gestionar elecciones</a>
+  {% endif %}
   {% if nav_puede_gestionar_parametros %}
   <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parámetros de elección</a>
   {% endif %}
