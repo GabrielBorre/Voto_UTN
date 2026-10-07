@@ -82,6 +82,12 @@ def _registros_filtrados(eleccion, filtros, mesas_alcance, restringido):
     return registros
 
 
+def _electores_de_mesas_escaneadas(registros):
+    """Base del porcentaje: los electores de mesas sin ningún registro aún no cuentan como ausentes."""
+    escaneadas = RegistroParticipacion.objects.values("mesa_id")
+    return registros.filter(Q(asignacion_mesa__mesa_id__in=escaneadas) | Q(participaciones__isnull=False))
+
+
 def _mesas_filtradas(mesas, filtros):
     if filtros.claustro_id:
         mesas = mesas.filter(eleccion_claustro_departamento__eleccion_claustro__claustro_id=filtros.claustro_id)
@@ -116,7 +122,7 @@ def _historial_entre_elecciones(usuario, filtros):
     for eleccion in elecciones[-MAXIMO_ELECCIONES_HISTORIAL:]:
         mesas, restringido = _mesas_del_alcance(usuario, eleccion)
         registros = _registros_filtrados(eleccion, filtros, mesas, restringido)
-        total = registros.count()
+        total = _electores_de_mesas_escaneadas(registros).count()
         if not total:
             continue
         cantidad = registros.filter(participaciones__isnull=False).count()
@@ -143,6 +149,7 @@ def construir_dashboard(usuario, eleccion, filtros):
     mesas = _mesas_filtradas(mesas_alcance, filtros)
 
     total_electores = registros.count()
+    electores_base = _electores_de_mesas_escaneadas(registros).count()
     participaron = registros.filter(participaciones__isnull=False).count()
 
     con_registro = RegistroParticipacion.objects.filter(mesa=OuterRef("pk"))
@@ -168,7 +175,8 @@ def construir_dashboard(usuario, eleccion, filtros):
         "mesas_escaneadas_pct": _porcentaje(mesas_escaneadas, total_mesas),
         "mesas_pendientes": mesas_pendientes,
         "electores_total": total_electores,
+        "electores_en_mesas_escaneadas": electores_base,
         "electores_participaron": participaron,
-        "electores_participaron_pct": _porcentaje(participaron, total_electores),
+        "electores_participaron_pct": _porcentaje(participaron, electores_base),
         "historial": _historial_entre_elecciones(usuario, filtros),
     }

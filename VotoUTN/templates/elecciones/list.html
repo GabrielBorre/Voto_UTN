@@ -58,22 +58,21 @@
       </select>
     </div>
     <div class="filtros-acciones">
-      <button class="button primary" type="submit">Aplicar</button>
-      <a class="button light" href="{% url 'lista-elecciones' %}?eleccion={{ eleccion_actual.pk }}">Limpiar</a>
+      <a class="button light" href="{% url 'lista-elecciones' %}?eleccion={{ eleccion_actual.pk }}">Limpiar filtros</a>
     </div>
   </form>
 
   <section class="indicadores" aria-label="Indicadores de participación">
     <article class="card indicador">
-      <h2>Mesas escaneadas</h2>
+      <h3>Mesas escaneadas</h3>
       <p class="indicador-valor">{{ dashboard.mesas_escaneadas_pct }}%</p>
       <p class="muted">{{ dashboard.mesas_escaneadas }} de {{ dashboard.mesas_total }} mesas</p>
       <div class="barra-progreso" role="progressbar" aria-label="Mesas escaneadas" aria-valuenow="{{ dashboard.mesas_escaneadas_pct|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ dashboard.mesas_escaneadas_pct|stringformat:'.1f' }}%"></span></div>
     </article>
     <article class="card indicador">
-      <h2>Electores que participaron</h2>
+      <h3>Electores que participaron</h3>
       <p class="indicador-valor">{{ dashboard.electores_participaron_pct }}%</p>
-      <p class="muted">{{ dashboard.electores_participaron }} de {{ dashboard.electores_total }} electores en padrón</p>
+      <p class="muted">{{ dashboard.electores_participaron }} de {{ dashboard.electores_en_mesas_escaneadas }} electores de mesas escaneadas</p>
       <div class="barra-progreso" role="progressbar" aria-label="Electores que participaron" aria-valuenow="{{ dashboard.electores_participaron_pct|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ dashboard.electores_participaron_pct|stringformat:'.1f' }}%"></span></div>
     </article>
   </section>

@@ -7,6 +7,7 @@ from django.urls import reverse
 from apps.asistencia.dashboard import FiltrosDashboard, construir_dashboard
 from apps.asistencia.models import RegistroParticipacion
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EleccionSede
+from apps.elecciones.views import MESAS_POR_PAGINA
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede
@@ -66,9 +67,10 @@ class DashboardParticipacionTests(TestCase):
         self.assertEqual(datos["mesas_pendientes"][0].cantidad_electores, 2)
         self.assertEqual(
             (datos["electores_total"], datos["electores_participaron"], datos["electores_participaron_pct"]),
-            (4, 1, 25),
+            (4, 1, 50),
         )
-        self.assertEqual(datos["historial"]["porcentajes"], [25])
+        self.assertEqual(datos["electores_en_mesas_escaneadas"], 2)
+        self.assertEqual(datos["historial"]["porcentajes"], [50])
         self.assertEqual(datos["historial"]["etiquetas"], ["Eleccion Dashboard"])
 
     def test_filtra_por_sede_claustro_y_departamento(self):
@@ -129,19 +131,19 @@ class DashboardParticipacionTests(TestCase):
         historial = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard())["historial"]
 
         self.assertEqual(historial["etiquetas"], ["Eleccion Anterior", "Eleccion Dashboard"])
-        self.assertEqual(historial["porcentajes"], [100, 25])
+        self.assertEqual(historial["porcentajes"], [100, 50])
 
-    def test_vista_pagina_mesas_pendientes_de_a_15(self):
+    def test_vista_pagina_mesas_pendientes(self):
         for numero in range(3, 23):
             self.crear_mesa(numero, self.sede_a)
         self.client.force_login(self.administrativo)
 
         primera = self.client.get(reverse("lista-elecciones"))
-        segunda = self.client.get(reverse("lista-elecciones"), {"pagina": 2})
+        ultima = self.client.get(reverse("lista-elecciones"), {"pagina": 2})
 
-        self.assertEqual(len(primera.context["pagina_mesas"].object_list), 15)
-        self.assertEqual(len(segunda.context["pagina_mesas"].object_list), 7)
-        self.assertEqual(primera.context["pagina_mesas"].paginator.num_pages, 2)
+        self.assertEqual(len(primera.context["pagina_mesas"].object_list), MESAS_POR_PAGINA)
+        self.assertEqual(primera.context["pagina_mesas"].paginator.count, 22)
+        self.assertEqual(ultima.context["pagina_mesas"].number, 2)
 
     def test_vista_muestra_tablero_con_filtros_y_carga_manual(self):
         self.client.force_login(self.administrativo)
