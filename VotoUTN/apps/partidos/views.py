@@ -32,11 +32,11 @@ from apps.partidos.services import (
     previsualizar_importacion_candidaturas,
     buscar_elector_candidato,
 )
-from apps.usuarios.permisos import puede_administrar_elecciones
+from apps.usuarios.permisos import puede_configurar_eleccion
 
 
 def _tiene_permiso(request, eleccion):
-    return puede_administrar_elecciones(request.user, eleccion)
+    return puede_configurar_eleccion(request.user, eleccion)
 
 
 def _url_gestion(eleccion_id, participacion_id=None, lista_id=None):

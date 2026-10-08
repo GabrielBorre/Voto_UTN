@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from apps.elecciones.admin_permissions import EleccionCerradaAdminMixin
 from apps.partidos.models import (
     Candidato,
     CargoElectivo,
@@ -40,34 +41,34 @@ class CargoElectivoAdmin(admin.ModelAdmin):
 
 
 @admin.register(ParticipacionPartido)
-class ParticipacionPartidoAdmin(admin.ModelAdmin):
+class ParticipacionPartidoAdmin(EleccionCerradaAdminMixin):
     list_display = ("codigo_presentacion", "numero_lista", "nombre_lista", "eleccion", "eleccion_claustro", "activa")
     list_filter = ("eleccion", "activa")
     search_fields = ("codigo_presentacion", "partido__nombre", "numero_lista", "nombre_lista", "apoderado_nombre")
 
 
 @admin.register(PuestoEleccion)
-class PuestoEleccionAdmin(admin.ModelAdmin):
+class PuestoEleccionAdmin(EleccionCerradaAdminMixin):
     list_display = ("puesto", "eleccion_claustro", "eleccion_claustro_departamento", "cantidad_titulares", "cantidad_suplentes", "activo")
     list_filter = ("activo", "puesto__organo")
 
 
 @admin.register(ImportacionCandidaturas)
-class ImportacionCandidaturasAdmin(admin.ModelAdmin):
+class ImportacionCandidaturasAdmin(EleccionCerradaAdminMixin):
     list_display = ("nombre_archivo", "eleccion", "estado", "cantidad_total", "cantidad_valida", "creada_en")
     list_filter = ("estado", "eleccion")
     readonly_fields = ("filas", "errores", "advertencias", "creada_en", "confirmada_en")
 
 
 @admin.register(ListaCandidatos)
-class ListaCandidatosAdmin(admin.ModelAdmin):
+class ListaCandidatosAdmin(EleccionCerradaAdminMixin):
     list_display = ("nombre", "participacion", "eleccion_claustro", "activa")
     list_filter = ("activa", "participacion__eleccion")
     search_fields = ("nombre", "participacion__partido__nombre")
 
 
 @admin.register(Candidato)
-class CandidatoAdmin(admin.ModelAdmin):
+class CandidatoAdmin(EleccionCerradaAdminMixin):
     list_display = ("nombre", "dni", "lista", "cargo", "tipo", "orden", "activo")
     list_filter = ("activo", "tipo", "lista__participacion__eleccion")
     search_fields = ("nombre", "dni", "lista__participacion__partido__nombre")

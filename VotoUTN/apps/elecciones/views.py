@@ -27,8 +27,12 @@ from apps.padron.models import RegistroPadron
 from apps.parametros.models import Claustro
 from apps.justificativos.models import JustificativoAusencia
 from apps.usuarios.services import elector_de_identidad
-from apps.usuarios.permisos import elecciones_con_participacion
-from apps.usuarios.permisos import puede_administrar_elecciones, puede_crear_elecciones
+from apps.usuarios.permisos import (
+    elecciones_con_participacion,
+    puede_administrar_elecciones,
+    puede_configurar_eleccion,
+    puede_crear_elecciones,
+)
 from apps.usuarios.models import AsignacionRol
 
 
@@ -177,7 +181,7 @@ def historial_elecciones(request):
 @login_required
 def configurar_eleccion(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
     return render(
         request,
@@ -196,7 +200,7 @@ def configurar_eleccion(request, eleccion_id):
 @login_required
 def gestionar_fechas_administrativas(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
     formulario_fechas = FormularioFechasAdministrativasEleccion(
         request.POST or None,
@@ -253,7 +257,7 @@ def crear_eleccion(request):
 @login_required
 def preparar_eleccion(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para preparar esta eleccion.")
     claustros = eleccion.elecciones_claustro.select_related("claustro").prefetch_related("departamentos__departamento", "sedes_habilitadas__sede")
     return render(request, "elecciones/preparar_eleccion.html", {"eleccion": eleccion, "claustros": claustros})
@@ -262,7 +266,7 @@ def preparar_eleccion(request, eleccion_id):
 @login_required
 def preparar_claustro(request, eleccion_id, claustro_id):
     eleccion_claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion_claustro.eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion_claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para preparar este claustro.")
     return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
 
@@ -271,7 +275,7 @@ def preparar_claustro(request, eleccion_id, claustro_id):
 @login_required
 def editar_eleccion(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para editar esta eleccion.")
     if eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
         return HttpResponseForbidden("No se puede editar una eleccion abierta o cerrada.")
@@ -288,7 +292,7 @@ def cambiar_estado_eleccion(request, eleccion_id):
     if request.method != "POST":
         raise Http404()
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para cambiar esta eleccion.")
     nuevo_estado = request.POST.get("estado")
     estado_anterior = eleccion.estado
@@ -314,7 +318,7 @@ def cambiar_estado_eleccion(request, eleccion_id):
 @login_required
 def gestionar_alcances(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
     return render(
         request,
@@ -333,7 +337,7 @@ def gestionar_alcances(request, eleccion_id):
 @login_required
 def gestionar_departamentos_claustro(request, eleccion_id, claustro_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
     if eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
         return HttpResponseForbidden("No se pueden modificar alcances en una eleccion abierta o cerrada.")
@@ -370,7 +374,7 @@ def gestionar_departamentos_claustro(request, eleccion_id, claustro_id):
 @login_required
 def editar_alcance_sedes(request, eleccion_id, tipo, objeto_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
     if eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
         return HttpResponseForbidden("No se pueden modificar alcances en una eleccion abierta o cerrada.")

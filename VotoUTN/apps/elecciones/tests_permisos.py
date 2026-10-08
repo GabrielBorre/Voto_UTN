@@ -570,3 +570,69 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
         self.assertFalse(puede_crear_elecciones(self.usuario))
         self.assertEqual(self.client.get(reverse("crear-eleccion")).status_code, 403)
+
+
+class EleccionCerradaSoloConsultaTests(TestCase):
+    def setUp(self):
+        fecha = timezone.localdate()
+        self.eleccion = Eleccion.objects.create(
+            nombre="Eleccion cerrada de prueba",
+            fecha_inicio=fecha - timedelta(days=2),
+            fecha_fin=fecha - timedelta(days=1),
+            estado=Eleccion.Estado.CERRADA,
+            habilitada=False,
+        )
+        self.eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion,
+            claustro=Claustro.objects.create(nombre="Claustro cerrado de prueba"),
+        )
+        self.usuario = get_user_model().objects.create_user(username="admin-eleccion-cerrada")
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(self.usuario)
+
+    def test_pantallas_de_configuracion_de_eleccion_cerrada_estan_bloqueadas(self):
+        rutas = (
+            reverse("configurar-eleccion", args=(self.eleccion.pk,)),
+            reverse("editar-eleccion", args=(self.eleccion.pk,)),
+            reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,)),
+            reverse("preparar-eleccion", args=(self.eleccion.pk,)),
+            reverse("preparar-claustro", args=(self.eleccion.pk, self.eleccion_claustro.pk)),
+            reverse("gestionar-alcances", args=(self.eleccion.pk,)),
+            reverse("gestionar-departamentos-claustro", args=(self.eleccion.pk, self.eleccion_claustro.pk)),
+            reverse("editar-alcance-sedes", args=(self.eleccion.pk, "claustro", self.eleccion_claustro.pk)),
+        )
+
+        for ruta in rutas:
+            with self.subTest(ruta=ruta):
+                self.assertEqual(self.client.get(ruta).status_code, 403)
+
+    def test_eleccion_cerrada_rechaza_edicion_y_cambio_de_estado_por_post(self):
+        respuesta_edicion = self.client.post(
+            reverse("editar-eleccion", args=(self.eleccion.pk,)),
+            {
+                "nombre": "Nombre alterado",
+                "fecha_inicio": self.eleccion.fecha_inicio.isoformat(),
+                "fecha_fin": self.eleccion.fecha_fin.isoformat(),
+            },
+        )
+        respuesta_estado = self.client.post(
+            reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)),
+            {"estado": Eleccion.Estado.ABIERTA},
+        )
+
+        self.assertEqual(respuesta_edicion.status_code, 403)
+        self.assertEqual(respuesta_estado.status_code, 403)
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.nombre, "Eleccion cerrada de prueba")
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.CERRADA)
+
+    def test_historial_sigue_consultable_y_dashboard_permanece_pendiente(self):
+        respuesta = self.client.get(reverse("historial-elecciones"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'href="#">Ver Dashboard</a>')
+        self.assertNotContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.pk,)))

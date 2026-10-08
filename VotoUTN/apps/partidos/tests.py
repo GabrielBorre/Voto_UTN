@@ -572,6 +572,32 @@ class PartidosViewsTests(PartidosBaseTests):
         self.assertEqual(importacion.estado, ImportacionCandidaturas.Estado.PREVISUALIZADA)
         self.assertFalse(Candidato.objects.filter(elector=elector).exists())
 
+
+class PartidosEleccionCerradaTests(PartidosBaseTests):
+    def setUp(self):
+        super().setUp()
+        self.usuario = get_user_model().objects.create_superuser(
+            username="admin-partidos-cerrada",
+            email="admin-partidos-cerrada@example.invalid",
+        )
+        self.client.force_login(self.usuario)
+
+    def test_eleccion_cerrada_bloquea_las_pantallas_de_configuracion_de_candidaturas(self):
+        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.save(update_fields=("estado",))
+
+        rutas = (
+            reverse("gestionar-partidos", args=(self.eleccion.pk,)),
+            reverse("detalle-participacion-partido", args=(self.eleccion.pk, self.participacion.pk)),
+            reverse("editar-participacion-partido", args=(self.eleccion.pk, self.participacion.pk)),
+            reverse("editar-puesto-eleccion", args=(self.eleccion.pk, self.puesto_eleccion.pk)),
+            reverse("importar-candidaturas", args=(self.eleccion.pk,)),
+        )
+
+        for ruta in rutas:
+            with self.subTest(ruta=ruta):
+                self.assertEqual(self.client.get(ruta).status_code, 403)
+
     def test_csv_de_lista_no_reemplaza_un_candidato_cargado_despues_de_previsualizar(self):
         self.crear_elector_padron(dni="30777999")
         contenido = "\n".join((

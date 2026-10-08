@@ -11,7 +11,11 @@ from apps.elecciones.models import Eleccion, EleccionClaustro
 from apps.padron.models import ImportacionPadron
 from apps.padron.forms import FormularioArchivoPadron
 from apps.padron.services import PLANTILLA_PADRON_EJEMPLO, PLANTILLA_PADRON_HEADERS, confirmar_importacion, detectar_columnas_archivo, registrar_errores, validar_csv_padron
-from apps.usuarios.permisos import puede_administrar_elecciones, puede_importar_padron
+from apps.usuarios.permisos import (
+    puede_administrar_elecciones,
+    puede_configurar_eleccion,
+    puede_importar_padron,
+)
 
 
 @login_required
@@ -38,6 +42,8 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
     )
     if not puede_importar_padron(request.user, eleccion_claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para importar el padron.")
+    if not puede_configurar_eleccion(request.user, eleccion_claustro.eleccion):
+        return HttpResponseForbidden("No se puede configurar el padron de una eleccion cerrada.")
     configura_padron = request.method == "POST" and "guardar-configuracion" in request.POST
     carga_archivo = request.method == "POST" and not configura_padron
     puede_configurar = puede_administrar_elecciones(request.user, eleccion_claustro.eleccion)
@@ -117,6 +123,8 @@ def confirmar_importacion_padron(request, eleccion_id, importacion_id):
     importacion = get_object_or_404(ImportacionPadron, pk=importacion_id, eleccion_id=eleccion_id)
     if not puede_importar_padron(request.user, importacion.eleccion):
         return HttpResponseForbidden("No tiene permiso para confirmar esta importacion.")
+    if not puede_configurar_eleccion(request.user, importacion.eleccion):
+        return HttpResponseForbidden("No se puede confirmar una importacion para una eleccion cerrada.")
     if importacion.estado != ImportacionPadron.Estado.PREVISUALIZADA:
         messages.error(request, "Solo se pueden confirmar importaciones sin errores.")
         return redirect("detalle-importacion-padron", eleccion_id=eleccion_id, importacion_id=importacion.id)

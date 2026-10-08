@@ -34,6 +34,13 @@ def puede_administrar_elecciones(usuario, eleccion=None):
     return asignaciones.filter(rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA).exists()
 
 
+def puede_configurar_eleccion(usuario, eleccion):
+    return (
+        eleccion.estado != Eleccion.Estado.CERRADA
+        and puede_administrar_elecciones(usuario, eleccion)
+    )
+
+
 def puede_crear_elecciones(usuario):
     if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
         return False

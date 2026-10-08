@@ -24,7 +24,7 @@
                 <td>{{ eleccion.fecha_inicio|date:"d/m/Y" }}</td>
                 <td>{{ eleccion.fecha_fin|date:"d/m/Y" }}</td>
                 <td>{{ eleccion.mesas.count }}</td>
-                <td><a class="button light small" href="{% url 'configurar-eleccion' eleccion.id %}">Ver Dashboard</a></td> <!-- TO_DO: Reemplazar el enlace por el enlace del dashboard correspondiente a la eleccion -->
+                <td><a class="button light small" href="#">Dashboard</a></td> <!-- TO_DO: Reemplazar el enlace por el enlace del dashboard correspondiente a la eleccion -->
             </tr>
             {% empty %}
             <tr>

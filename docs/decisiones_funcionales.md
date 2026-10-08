@@ -13,6 +13,10 @@
 - Puede existir como máximo una elección en estado borrador, preparada o abierta
 	en conjunto. Las elecciones cerradas pueden ser múltiples; mientras exista
 	una elección no cerrada no se permite crear otra.
+- Una elección cerrada queda en modo de consulta: no se pueden editar sus datos
+  ni modificar sus alcances, fechas administrativas, padrón, mesas, autoridades,
+  listas o candidaturas. El historial conserva el acceso de consulta; el
+  dashboard por elección cerrada queda pendiente y no forma parte de esta entrega.
 - Cualquier usuario con el rol activo de administrador de junta puede editar y
 	administrar cualquier elección, sin importar quién la creó o qué elección
 	figure en su asignación de rol.
