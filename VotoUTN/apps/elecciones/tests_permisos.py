@@ -53,17 +53,13 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
     def test_listados_separan_elecciones_cerradas_de_las_gestionables(self):
         fecha = timezone.localdate()
+        self.eleccion_asignada.estado = Eleccion.Estado.CERRADA
+        self.eleccion_asignada.save(update_fields=("estado",))
         Eleccion.objects.create(
             nombre="Eleccion preparada",
             fecha_inicio=fecha,
             fecha_fin=fecha + timedelta(days=1),
             estado=Eleccion.Estado.PREPARADA,
-        )
-        Eleccion.objects.create(
-            nombre="Eleccion abierta",
-            fecha_inicio=fecha,
-            fecha_fin=fecha + timedelta(days=1),
-            estado=Eleccion.Estado.ABIERTA,
         )
         Eleccion.objects.create(
             nombre="Eleccion cerrada",
@@ -79,14 +75,16 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         self.assertEqual(respuesta_historial.status_code, 200)
         self.assertSetEqual(
             set(respuesta_gestion.context["elecciones"].values_list("nombre", flat=True)),
-            {"Eleccion asignada", "Eleccion preparada", "Eleccion abierta"},
+            {"Eleccion preparada"},
         )
         self.assertSetEqual(
             set(respuesta_historial.context["elecciones"].values_list("nombre", flat=True)),
-            {"Eleccion cerrada"},
+            {"Eleccion asignada", "Eleccion cerrada"},
         )
 
     def test_administrador_junta_puede_editar_eleccion_creada_por_otro(self):
+        self.eleccion_asignada.estado = Eleccion.Estado.CERRADA
+        self.eleccion_asignada.save(update_fields=("estado",))
         otro_administrador = get_user_model().objects.create_user(username="otro-administrador")
         eleccion_ajena = Eleccion.objects.create(
             nombre="Eleccion de otro administrador",
@@ -124,6 +122,8 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
     def test_administrativo_junta_no_puede_editar_eleccion_ajena(self):
         AsignacionRol.objects.filter(usuario=self.usuario).delete()
+        self.eleccion_asignada.estado = Eleccion.Estado.CERRADA
+        self.eleccion_asignada.save(update_fields=("estado",))
         AsignacionRol.objects.create(
             usuario=self.usuario,
             rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
@@ -141,6 +141,8 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
     def test_administrativo_sin_eleccion_asignada_puede_hacer_sus_tareas_en_todas(self):
         AsignacionRol.objects.filter(usuario=self.usuario).delete()
+        self.eleccion_asignada.estado = Eleccion.Estado.CERRADA
+        self.eleccion_asignada.save(update_fields=("estado",))
         asignacion = AsignacionRol(
             usuario=self.usuario,
             rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
@@ -164,6 +166,8 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         self.assertNotContains(respuesta, f'href="{reverse("gestionar-elecciones")}"')
 
     def test_puede_abrir_el_formulario_de_nueva_eleccion(self):
+        self.eleccion_asignada.estado = Eleccion.Estado.CERRADA
+        self.eleccion_asignada.save(update_fields=("estado",))
         respuesta = self.client.get(reverse("crear-eleccion"))
 
         self.assertEqual(respuesta.status_code, 200)
@@ -179,7 +183,25 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         self.assertContains(respuesta, 'class="select-all"', count=2)
         self.assertContains(respuesta, 'class="field checkbox-group"', count=2)
 
+    def test_no_muestra_formulario_si_ya_hay_eleccion_borrador_o_preparada(self):
+        url = reverse("crear-eleccion")
+
+        for estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA):
+            with self.subTest(estado=estado):
+                self.eleccion_asignada.estado = estado
+                self.eleccion_asignada.save(update_fields=("estado",))
+
+                respuesta = self.client.get(url)
+
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertContains(respuesta, "Ya existe una elección creada")
+                self.assertContains(respuesta, self.eleccion_asignada.nombre)
+                self.assertContains(respuesta, "Ir a la elección existente")
+                self.assertNotContains(respuesta, 'name="fecha_inicio"')
+
     def test_al_crear_eleccion_queda_asignado_como_administrador(self):
+        self.eleccion_asignada.estado = Eleccion.Estado.CERRADA
+        self.eleccion_asignada.save(update_fields=("estado",))
         inicio = timezone.localdate() + timedelta(days=30)
         fin = inicio + timedelta(days=1)
 
@@ -299,6 +321,8 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
                 )
 
     def test_nueva_eleccion_copia_la_organizacion_del_claustro(self):
+        self.eleccion_asignada.estado = Eleccion.Estado.CERRADA
+        self.eleccion_asignada.save(update_fields=("estado",))
         claustro_sin_departamentos = Claustro.objects.create(
             nombre="No docentes",
             abreviatura="ND",
@@ -492,6 +516,7 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
             nombre="Proceso de un dia",
             fecha_inicio=timezone.localdate(),
             fecha_fin=timezone.localdate(),
+            estado=Eleccion.Estado.CERRADA,
         )
 
         eleccion.full_clean()

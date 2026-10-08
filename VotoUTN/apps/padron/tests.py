@@ -46,7 +46,7 @@ class PadronViewsTests(TestCase):
         self.configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=self.eleccion_claustro, departamento=self.departamento)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=self.sede)
         self.usuario = get_user_model().objects.create_user(username="admin", password="clave")
-        AsignacionRol.objects.create(usuario=self.usuario, rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA, eleccion=self.eleccion)
+        AsignacionRol.objects.create(usuario=self.usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion)
 
     def test_previsualizar_padron_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")

@@ -87,6 +87,7 @@ class CandidatoTests(PartidosBaseTests):
             nombre="Otra eleccion",
             fecha_inicio=inicio,
             fecha_fin=inicio + timedelta(hours=8),
+            estado=Eleccion.Estado.CERRADA,
         )
         otro_alcance = EleccionClaustro.objects.create(
             eleccion=otra_eleccion,

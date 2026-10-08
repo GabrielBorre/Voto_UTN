@@ -7,27 +7,60 @@
   <h1>Nueva elección</h1>
   <p>Define el período completo del proceso y los parámetros electorales iniciales. El calendario administrativo se configura en el paso siguiente.</p>
 </section>
+{% if eleccion_existente %}
+<section class="card form-card" aria-labelledby="eleccion-existente-titulo">
+  <div class="section-title">
+    <div>
+      <h2 id="eleccion-existente-titulo">Ya existe una elección creada</h2>
+      <p>No se puede crear una nueva elección mientras exista una elección sin cerrar. <br>
+        La elección actual es <strong>{{ eleccion_existente.nombre }}
+          </strong> (en estado: <strong>{{eleccion_existente.get_estado_display|lower }}</strong>).</p>
+    </div>
+    <span class="tag" style="display: inline-block;">
+      Elección en curso <br>
+      Estado: <strong>{{ eleccion_existente.get_estado_display|lower }}</strong>
+    </span>
+  </div>
+  <div class="footer-actions">
+    <a class="button primary" href="{% url 'configurar-eleccion' eleccion_existente.id %}">Ir a la elección
+      existente</a>
+    <a class="button light" href="{% url 'gestionar-elecciones' %}">Volver a elecciones</a>
+  </div>
+</section>
+{% else %}
 <section class="card form-card">
   <div class="section-title">
-    <div><h2>Crear nueva elección</h2><p>Completá los datos básicos. Después podrás configurar el resto de la elección.</p></div>
+    <div>
+      <h2>Crear nueva elección</h2>
+      <p>Completá los datos básicos. Después podrás configurar el resto de la elección.</p>
+    </div>
     <span class="tag">Preparación</span>
   </div>
   <form method="post">
     {% csrf_token %}
     {% for field in campos_generales %}{% include "elecciones/_campo_general.html" with field=field %}{% endfor %}
-    <div class="section-title"><div><h2>Configuración inicial</h2><p>Elegí qué claustros participan y qué sedes estarán habilitadas. Después podrás ajustar las sedes para cada claustro y departamento.</p></div></div>
-    {% for field in campos_parametros %}
-      <div class="field checkbox-group" data-checkbox-group="eleccion-{{ field.name }}">
-        <div class="field-label-row">
-          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-          <span class="select-all"><input type="checkbox" data-select-all aria-label="Seleccionar todas las opciones de {{ field.label|lower }}"><span>Seleccionar todas</span></span>
-        </div>
-        {{ field }}
-        {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+    <div class="section-title">
+      <div>
+        <h2>Configuración inicial</h2>
+        <p>Elegí qué claustros participan y qué sedes estarán habilitadas. Después podrás ajustar las sedes para cada
+          claustro y departamento.</p>
       </div>
+    </div>
+    {% for field in campos_parametros %}
+    <div class="field checkbox-group" data-checkbox-group="eleccion-{{ field.name }}">
+      <div class="field-label-row">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        <span class="select-all"><input type="checkbox" data-select-all
+            aria-label="Seleccionar todas las opciones de {{ field.label|lower }}"><span>Seleccionar todas</span></span>
+      </div>
+      {{ field }}
+      {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+    </div>
     {% endfor %}
     {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
-    <div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Cancelar</a><button class="button primary">Crear y configurar</button></div>
+    <div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Cancelar</a><button
+        class="button primary">Crear y configurar</button></div>
   </form>
 </section>
+{% endif %}
 {% endblock %}

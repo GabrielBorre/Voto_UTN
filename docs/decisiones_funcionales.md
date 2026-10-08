@@ -10,6 +10,9 @@
 
 ## Elecciones, claustros, sedes y departamentos
 
+- Puede existir como máximo una elección en estado borrador, preparada o abierta
+	en conjunto. Las elecciones cerradas pueden ser múltiples; mientras exista
+	una elección no cerrada no se permite crear otra.
 - Cualquier usuario con el rol activo de administrador de junta puede editar y
 	administrar cualquier elección, sin importar quién la creó o qué elección
 	figure en su asignación de rol.

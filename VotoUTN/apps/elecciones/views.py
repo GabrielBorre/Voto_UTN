@@ -14,7 +14,12 @@ from .forms import (
     FormularioEditarEleccion,
     FormularioFechasAdministrativasEleccion,
 )
-from .models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
+from .models import (
+    ESTADOS_ELECCION_NO_CERRADOS,
+    Eleccion,
+    EleccionClaustro,
+    EleccionClaustroDepartamento,
+)
 from apps.autoridades.models import AsignacionAutoridad
 from apps.auditoria.services import registrar_evento
 from apps.partidos.models import ParticipacionPartido
@@ -212,6 +217,14 @@ def gestionar_fechas_administrativas(request, eleccion_id):
 def crear_eleccion(request):
     if not puede_crear_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para crear elecciones.")
+
+    eleccion_existente = Eleccion.objects.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS).first()
+    if eleccion_existente:
+        return render(
+            request,
+            "elecciones/formulario_eleccion.html",
+            {"eleccion_existente": eleccion_existente},
+        )
 
     formulario = FormularioEleccion(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
