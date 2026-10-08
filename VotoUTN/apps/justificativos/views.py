@@ -8,7 +8,7 @@ from django.utils import timezone
 from apps.elecciones.models import Eleccion
 from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
-from apps.padron.models import Elector
+from apps.padron.models import Elector, RegistroPadron
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import puede_revisar_justificativo
 
@@ -23,14 +23,32 @@ def mis_justificativos(request):
             elector = Elector.objects.filter(dni=dni).first()
     if elector is None:
         return HttpResponseForbidden("No existe un elector asociado a esta identidad.")
-    formulario = FormularioJustificativo(request.POST or None, request.FILES or None, elector=elector)
+    registro_padron = (
+        RegistroPadron.objects.filter(elector=elector, activo=True)
+        .select_related("eleccion")
+        .order_by("-eleccion__fecha_inicio", "-eleccion_id")
+        .first()
+    )
+    formulario = FormularioJustificativo(
+        request.POST or None,
+        request.FILES or None,
+        registro_padron=registro_padron,
+    )
     if request.method == "POST" and formulario.is_valid():
         formulario.save()
         messages.success(request, "El justificativo fue presentado para revision.")
         return redirect("mis-justificativos")
     justificativos = JustificativoAusencia.objects.select_related("registro_padron__eleccion", "tipo")
     justificativos = justificativos.filter(registro_padron__elector=elector)
-    return render(request, "justificativos/mis_justificativos.html", {"formulario": formulario, "justificativos": justificativos})
+    return render(
+        request,
+        "justificativos/mis_justificativos.html",
+        {
+            "eleccion": registro_padron.eleccion if registro_padron else None,
+            "formulario": formulario,
+            "justificativos": justificativos,
+        },
+    )
 
 
 @login_required

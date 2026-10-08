@@ -9,7 +9,7 @@ from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroD
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento
-from apps.usuarios.models import AsignacionRol
+from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
 class JustificativosViewsTests(TestCase):
@@ -43,6 +43,63 @@ class JustificativosViewsTests(TestCase):
             tipo=TipoJustificativo.objects.create(nombre="Motivo laboral"),
             detalle="Detalle presentado por el elector.",
         )
+
+    def crear_registro_padron(self, elector, eleccion):
+        claustro = EleccionClaustro.objects.create(
+            eleccion=eleccion,
+            claustro=Claustro.objects.create(nombre=f"Estudiantes {eleccion.id}"),
+        )
+        configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=claustro,
+            departamento=Departamento.objects.create(nombre=f"Sistemas {eleccion.id}", codigo=f"D{eleccion.id}"),
+        )
+        return RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=eleccion,
+            eleccion_claustro_departamento=configuracion,
+        )
+
+    def crear_elector_con_padrones(self):
+        elector = Elector.objects.create(legajo="3001", nombre="Ana", apellido="Pérez", dni="32345678")
+        registro_anterior = self.crear_registro_padron(elector, self.eleccion)
+        eleccion_reciente = Eleccion.objects.create(
+            nombre="Elección reciente",
+            fecha_inicio=make_aware(datetime(2026, 9, 3, 8)),
+            fecha_fin=make_aware(datetime(2026, 9, 3, 16)),
+        )
+        registro_reciente = self.crear_registro_padron(elector, eleccion_reciente)
+        usuario = get_user_model().objects.create_user(username="elector", password="clave")
+        PerfilUsuario.objects.create(usuario=usuario, elector=elector)
+        return usuario, registro_anterior, registro_reciente
+
+    def test_mis_justificativos_muestra_la_eleccion_mas_reciente_sin_selector(self):
+        usuario, _, registro_reciente = self.crear_elector_con_padrones()
+        self.client.login(username=usuario.username, password="clave")
+
+        respuesta = self.client.get(reverse("mis-justificativos"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.context["eleccion"], registro_reciente.eleccion)
+        self.assertContains(respuesta, registro_reciente.eleccion.nombre)
+        self.assertNotContains(respuesta, 'name="registro_padron"')
+
+    def test_mis_justificativos_ignora_un_registro_padron_alterado_en_post(self):
+        usuario, registro_anterior, registro_reciente = self.crear_elector_con_padrones()
+        tipo = TipoJustificativo.objects.create(nombre="Enfermedad")
+        self.client.login(username=usuario.username, password="clave")
+
+        respuesta = self.client.post(
+            reverse("mis-justificativos"),
+            {
+                "registro_padron": registro_anterior.id,
+                "tipo": tipo.id,
+                "detalle": "Ausencia por enfermedad.",
+            },
+        )
+
+        self.assertRedirects(respuesta, reverse("mis-justificativos"))
+        justificativo = JustificativoAusencia.objects.get(registro_padron__elector=registro_reciente.elector)
+        self.assertEqual(justificativo.registro_padron, registro_reciente)
 
     def test_bandeja_justificativos_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
