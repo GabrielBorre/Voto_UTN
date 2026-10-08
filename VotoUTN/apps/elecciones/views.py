@@ -159,7 +159,11 @@ def gestionar_elecciones(request):
         return HttpResponseForbidden("No tiene permiso para gestionar elecciones.")
     estados_gestionables = (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA)
     elecciones = Eleccion.objects.filter(estado__in=estados_gestionables)
-    return render(request, "elecciones/gestion_lista.html", {"elecciones": elecciones})
+    return render(
+        request,
+        "elecciones/gestion_lista.html",
+        {"elecciones": elecciones, "eleccion_en_curso": elecciones.first()},
+    )
 
 
 @login_required

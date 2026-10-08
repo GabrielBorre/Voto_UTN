@@ -6,10 +6,17 @@
     <p>Panel de trabajo de la Junta Electoral para preparar elección, sus parametros y mesas.</p>
 </section>
 <section class="toolbar">
-    <article class="option">
+    <article class="option{% if eleccion_en_curso %} option-disabled{% endif %}"{% if eleccion_en_curso %} aria-disabled="true"{% endif %}>
         <h2>Nueva elección</h2>
         <p>Definí el nombre, las fechas, los claustros y las sedes habilitadas.</p>
-        <a class="button primary" href="{% url 'crear-eleccion' %}">Crear elección</a>
+        {% if eleccion_en_curso %}
+            <span class="button-tooltip" tabindex="0" aria-describedby="tooltip-nueva-eleccion">
+                <button class="button primary" type="button" disabled>Crear elección</button>
+                <span class="button-tooltip__message" id="tooltip-nueva-eleccion" role="tooltip">Ya hay una elección en curso en estado: {{ eleccion_en_curso.get_estado_display }}</span>
+            </span>
+        {% else %}
+            <a class="button primary" href="{% url 'crear-eleccion' %}">Crear elección</a>
+        {% endif %}
     </article>
 </section>
 <div class="section-title" id="elecciones">

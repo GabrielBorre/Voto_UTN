@@ -51,6 +51,37 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         self.assertContains(respuesta, f'href="{reverse("gestionar-elecciones")}"')
         self.assertContains(respuesta, ">Gestionar elecciones</a>")
 
+    def test_deshabilita_nueva_eleccion_y_muestra_el_estado_en_curso(self):
+        for estado, etiqueta in (
+            (Eleccion.Estado.BORRADOR, "Borrador"),
+            (Eleccion.Estado.PREPARADA, "Preparada"),
+            (Eleccion.Estado.ABIERTA, "Abierta"),
+        ):
+            with self.subTest(estado=estado):
+                self.eleccion_asignada.estado = estado
+                self.eleccion_asignada.save(update_fields=("estado",))
+
+                respuesta = self.client.get(reverse("gestionar-elecciones"))
+
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertContains(respuesta, "option-disabled")
+                self.assertContains(
+                    respuesta,
+                    f'<span class="button-tooltip__message" id="tooltip-nueva-eleccion" role="tooltip">Ya hay una elección en curso en estado: {etiqueta}</span>',
+                )
+                self.assertContains(respuesta, 'tabindex="0" aria-describedby="tooltip-nueva-eleccion"')
+                self.assertNotContains(respuesta, f'href="{reverse("crear-eleccion")}"')
+
+    def test_habilita_nueva_eleccion_si_no_hay_eleccion_en_curso(self):
+        self.eleccion_asignada.estado = Eleccion.Estado.CERRADA
+        self.eleccion_asignada.save(update_fields=("estado",))
+
+        respuesta = self.client.get(reverse("gestionar-elecciones"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, f'href="{reverse("crear-eleccion")}"')
+        self.assertNotContains(respuesta, "option-disabled")
+
     def test_listados_separan_elecciones_cerradas_de_las_gestionables(self):
         fecha = timezone.localdate()
         self.eleccion_asignada.estado = Eleccion.Estado.CERRADA
