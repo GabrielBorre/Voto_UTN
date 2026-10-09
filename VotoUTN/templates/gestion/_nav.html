@@ -2,7 +2,11 @@
 <nav class="gestion-nav" aria-label="Navegación de Junta Electoral">
   <a class="{% if request.resolver_match.url_name == 'inicio-autenticado' or request.resolver_match.url_name == 'inicio-administrador-junta' or request.resolver_match.url_name == 'inicio-administrativo-junta' %}active{% endif %}" href="{% if nav_es_administrador_junta %}{% url 'inicio-administrador-junta' %}{% elif nav_es_administrativo_junta %}{% url 'inicio-administrativo-junta' %}{% else %}{% url 'inicio-autenticado' %}{% endif %}">Inicio</a>
   {% if nav_puede_ver_elecciones %}
+    {% if nav_hay_eleccion_en_curso %}
   <a class="{% if request.resolver_match.url_name == 'lista-elecciones' %}active{% endif %}" href="{% url 'lista-elecciones' %}">Elecciones y asistencia</a>
+    {% else %}
+  <span class="gestion-nav__disabled" role="link" aria-disabled="true" tabindex="0" title="Debe haber una elección en curso para poder registrar participación.">Elecciones y asistencia</span>
+    {% endif %}
   {% endif %}
   {% if nav_es_administrador_junta %}
   <a class="{% if request.resolver_match.url_name == 'gestionar-elecciones' %}active{% endif %}" href="{% url 'gestionar-elecciones' %}">Gestionar elecciones</a>

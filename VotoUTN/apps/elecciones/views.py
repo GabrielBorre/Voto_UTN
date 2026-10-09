@@ -151,7 +151,16 @@ def inicio_administrador_junta(request):
 
 @login_required
 def listar_elecciones(request):
-    return render(request, "elecciones/list.html", {"elecciones": elecciones_con_participacion(request.user)})
+    return render(
+        request,
+        "elecciones/list.html",
+        {
+            "elecciones": elecciones_con_participacion(request.user),
+            "hay_eleccion_en_curso": Eleccion.objects.filter(
+                estado__in=ESTADOS_ELECCION_NO_CERRADOS,
+            ).exists(),
+        },
+    )
 
 def index(request):
     return render(request, "elecciones/index.html")
