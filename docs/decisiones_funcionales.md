@@ -56,11 +56,6 @@ Ejemplo: `Sistemas de Información` / `K`.
 - El prefijo del departamento no permite repetir números.
 - `K-001` y `E-001` no pueden coexistir dentro de la misma elección.
 
-## Importación del padrón
-
-- Cada DNI y cada legajo deben ser únicos frente a toda la base de electores. Si alguno ya existe, la fila se rechaza, incluso si ambos identificadores corresponden a la misma persona; una reimportación no actualiza electores existentes.
-- La validación se realiza tanto al previsualizar como al confirmar la importación.
-
 ## Autoridades
 
 - Una autoridad de mesa es también un elector.

@@ -255,7 +255,7 @@ class PadronViewsTests(TestCase):
         self.assertFalse(validacion.errores)
         self.assertEqual(validacion.filas[0]["dni"], "40123456")
 
-    def test_validar_csv_padron_rechaza_dni_ya_existente_aunque_legajo_sea_nuevo(self):
+    def test_validar_csv_padron_indica_solo_el_legajo_incorrecto(self):
         from apps.padron.models import Elector
         from apps.padron.services import validar_csv_padron
 
@@ -267,61 +267,8 @@ class PadronViewsTests(TestCase):
 
         validacion = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
 
-        self.assertIn(
-            (2, "dni", "El DNI ya existe en la base de datos y no se puede volver a importar."),
-            validacion.errores,
-        )
-
-    def test_validar_csv_padron_rechaza_legajo_ya_existente_aunque_dni_sea_nuevo(self):
-        from apps.padron.models import Elector
-        from apps.padron.services import validar_csv_padron
-
-        Elector.objects.create(dni="40999999", legajo="2024001", nombre="Juan", apellido="Perez")
-        contenido = (
-            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
-            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
-        ).encode("utf-8")
-
-        validacion = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
-
-        self.assertIn(
-            (2, "legajo", "El legajo ya existe en la base de datos y no se puede volver a importar."),
-            validacion.errores,
-        )
-
-    def test_segunda_importacion_rechaza_dni_y_legajo_ya_importados(self):
-        import hashlib
-
-        from apps.padron.models import ImportacionPadron
-        from apps.padron.services import confirmar_importacion, validar_csv_padron
-
-        contenido = (
-            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,"
-            "TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
-            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
-        ).encode("utf-8")
-        previsualizacion = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
-        self.assertFalse(previsualizacion.errores)
-        importacion = ImportacionPadron.objects.create(
-            eleccion=self.eleccion,
-            eleccion_claustro=self.eleccion_claustro,
-            archivo=SimpleUploadedFile("padron.csv", contenido, content_type="text/csv"),
-            nombre_archivo="padron.csv",
-            huella_archivo=hashlib.sha256(contenido).hexdigest(),
-            usuario=self.usuario,
-        )
-        confirmar_importacion(importacion)
-
-        validacion_segunda_carga = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
-
-        self.assertIn(
-            (2, "dni", "El DNI ya existe en la base de datos y no se puede volver a importar."),
-            validacion_segunda_carga.errores,
-        )
-        self.assertIn(
-            (2, "legajo", "El legajo ya existe en la base de datos y no se puede volver a importar."),
-            validacion_segunda_carga.errores,
-        )
+        self.assertIn((2, "legajo", "El legajo no coincide con el elector existente."), validacion.errores)
+        self.assertNotIn((2, "dni", "El DNI no coincide con el elector existente."), validacion.errores)
 
     def test_confirmar_importacion_no_requiere_maximo_por_mesa(self):
         self.eleccion_claustro.maximo_votantes_por_mesa = None
