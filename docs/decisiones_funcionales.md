@@ -56,10 +56,6 @@ Ejemplo: `Sistemas de Información` / `K`.
 - El prefijo del departamento no permite repetir números.
 - `K-001` y `E-001` no pueden coexistir dentro de la misma elección.
 
-## Importación del padrón
-
-- La previsualización muestra por separado los registros válidos, los errores y cuántos registros del archivo ya existen en el padrón de esa elección. Los registros existentes se identifican por la coincidencia de DNI y legajo con el mismo elector.
-
 ## Autoridades
 
 - Una autoridad de mesa es también un elector.

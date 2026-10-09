@@ -127,7 +127,6 @@ def normalizar_identificador_numerico(valor: str) -> str:
 class ResultadoValidacion:
     filas: list[dict[str, str]]
     errores: list[tuple[int | None, str, str]]
-    cantidad_existentes: int = 0
 
 
 def leer_filas_padron(contenido: bytes, nombre_archivo: str = "") -> list[dict[str, str]]:
@@ -215,7 +214,6 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
     }
     errores = []
     vistos = defaultdict(set)
-    electores_existentes = set()
     for numero_fila, fila_original in enumerate(filas, start=2):
         # Normalizar la fila a los campos canónicos esperados
         fila = {}
@@ -268,16 +266,6 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
         else:
             elector_existente = elector_dni or elector_legajo
             if elector_existente:
-                identificadores_coinciden = (
-                    elector_dni is not None
-                    and elector_legajo is not None
-                    and elector_dni.pk == elector_legajo.pk
-                )
-                if identificadores_coinciden and RegistroPadron.objects.filter(
-                    elector=elector_existente,
-                    eleccion=eleccion_claustro.eleccion,
-                ).exists():
-                    electores_existentes.add(elector_existente.pk)
                 if elector_existente.dni != fila["dni"]:
                     errores.append((numero_fila, "dni", "El DNI no coincide con el elector existente."))
                 if elector_existente.legajo != fila["legajo"]:
@@ -288,7 +276,7 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
                     errores.append((numero_fila, "departamento", "El elector ya pertenece a otro claustro o departamento en esta elección."))
     if not filas and not errores:
         errores.append((None, "archivo", "El archivo no contiene filas de padron."))
-    return ResultadoValidacion(filas, errores, len(electores_existentes))
+    return ResultadoValidacion(filas, errores)
 
 
 def registrar_errores(importacion, errores):
@@ -376,18 +364,9 @@ def confirmar_importacion(importacion):
         registrar_errores(importacion, resultado.errores)
         importacion.cantidad_filas = len(resultado.filas)
         importacion.cantidad_validas = 0
-        importacion.cantidad_existentes = resultado.cantidad_existentes
         importacion.cantidad_errores = len(resultado.errores)
         importacion.estado = ImportacionPadron.Estado.RECHAZADA
-        importacion.save(
-            update_fields=(
-                "cantidad_filas",
-                "cantidad_validas",
-                "cantidad_existentes",
-                "cantidad_errores",
-                "estado",
-            )
-        )
+        importacion.save(update_fields=("cantidad_filas", "cantidad_validas", "cantidad_errores", "estado"))
         detalle = "; ".join(
             f"fila {fila}: {mensaje}" if fila else mensaje
             for fila, _campo, mensaje in resultado.errores[:3]
@@ -476,16 +455,6 @@ def confirmar_importacion(importacion):
     importacion.confirmada_en = timezone.now()
     importacion.cantidad_filas = len(resultado.filas)
     importacion.cantidad_validas = len(resultado.filas)
-    importacion.cantidad_existentes = resultado.cantidad_existentes
     importacion.cantidad_errores = 0
-    importacion.save(
-        update_fields=(
-            "estado",
-            "confirmada_en",
-            "cantidad_filas",
-            "cantidad_validas",
-            "cantidad_existentes",
-            "cantidad_errores",
-        )
-    )
+    importacion.save(update_fields=("estado", "confirmada_en", "cantidad_filas", "cantidad_validas", "cantidad_errores"))
     return cantidad_creada

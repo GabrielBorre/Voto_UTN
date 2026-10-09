@@ -99,7 +99,6 @@ class ImportacionPadron(models.Model):
     estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.PREVISUALIZADA)
     cantidad_filas = models.PositiveIntegerField(default=0)
     cantidad_validas = models.PositiveIntegerField(default=0)
-    cantidad_existentes = models.PositiveIntegerField(default=0)
     cantidad_errores = models.PositiveIntegerField(default=0)
     creada_en = models.DateTimeField(auto_now_add=True)
     confirmada_en = models.DateTimeField(null=True, blank=True)
