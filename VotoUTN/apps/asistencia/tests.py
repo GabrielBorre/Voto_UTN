@@ -477,7 +477,7 @@ class ImportacionPadronTests(TestCase):
         self.assertEqual(respuesta.status_code, 302)
         self.assertEqual(ImportacionPadron.objects.get().estado, ImportacionPadron.Estado.PREVISUALIZADA)
 
-    def test_divide_padron_alfabeticamente_segun_maximo_por_mesa(self):
+    def test_confirmar_importacion_no_genera_mesas_hasta_la_confirmacion_posterior(self):
         contenido = (
             b"dni,legajo,nombres,apellidos,mail,departamento,sede\n"
             b"12345678,1003,Zoe,Alvarez,zoe@frba.utn.edu.ar,K,Campus Medrano\n"
@@ -487,29 +487,7 @@ class ImportacionPadronTests(TestCase):
 
         confirmar_importacion(self.crear_importacion(contenido))
 
-        mesas = list(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).order_by("numero"))
-        self.assertEqual(len(mesas), 2)
-        self.assertEqual(
-            list(
-                mesas[0].asignaciones_padron.order_by(
-                    "registro_padron__elector__apellido",
-                    "registro_padron__elector__nombre",
-                ).values_list(
-                    "registro_padron__elector__apellido",
-                    "registro_padron__elector__nombre",
-                )
-            ),
-            [("Alvarez", "Zoe"), ("Gomez", "Bruno")],
-        )
-        self.assertEqual(
-            list(
-                mesas[1].asignaciones_padron.values_list(
-                    "registro_padron__elector__apellido",
-                    "registro_padron__elector__nombre",
-                )
-            ),
-            [("Perez", "Ana")],
-        )
+        self.assertFalse(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).exists())
 
 
 class AutoridadesMesaTests(TestCase):

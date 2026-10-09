@@ -274,6 +274,34 @@
     margin-top: 8px;
 }
 
+[data-regla-sede-form] .rule-departments-field {
+    grid-column: 1 / -1;
+}
+
+[data-regla-sede-form] .rule-condition-grid {
+    grid-template-columns: repeat(2, minmax(0, 360px));
+    justify-content: center;
+}
+
+[data-regla-sede-form] .rule-department-picker label {
+    width: 100%;
+}
+
+[data-regla-sede-form] .rule-department-picker input {
+    accent-color: var(--azul-900);
+    flex: 0 0 18px;
+    height: 18px;
+    margin: 0;
+    width: 18px;
+}
+
+.rule-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
 .candidaturas-panel .puesto-selector {
     max-width: 580px;
 }
@@ -528,6 +556,12 @@
     color: var(--rojo-utn);
 }
 
+.pill.warn {
+    background: #fff8e6;
+    border: 1px solid #f3d48a;
+    color: #6f5313;
+}
+
 .button,
 .btn {
     border: 1px solid transparent;
@@ -559,6 +593,86 @@
     background: #fff;
     border-color: var(--borde);
     color: var(--azul-900);
+}
+
+.button.danger {
+    background: var(--rojo-utn);
+    border-color: #8f0d2d;
+    color: #fff;
+}
+
+[data-regla-sede-form] .rule-department-picker>div {
+    border-radius: 8px;
+}
+
+a.button.danger,
+a.button.danger:visited {
+    background: var(--rojo-utn);
+    border-color: #8f0d2d;
+    color: #fff;
+}
+
+a.button.danger:hover {
+    background: #a30f35;
+}
+
+.pagination-navigation {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.pagination-pages {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.pagination-ellipsis {
+    color: var(--muted);
+    padding: 0 4px;
+}
+
+.page-jump {
+    align-items: center;
+    display: flex;
+    gap: 7px;
+}
+
+.page-jump label {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.page-jump input {
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    min-height: 34px;
+    padding: 5px 8px;
+    width: 72px;
+}
+
+.padron-delete-card {
+    border-color: #f0c3cc;
+}
+
+.padron-delete-confirmation {
+    max-width: 780px;
+}
+
+.padron-delete-confirmation h2 {
+    margin-top: 14px;
+}
+
+.padron-delete-blocked {
+    background: #fde8ed;
+    border-color: #f0c3cc;
+    color: #7b2638;
 }
 
 .button.small,
@@ -597,6 +711,24 @@ th {
     font-size: 12px;
     text-transform: uppercase;
 }
+
+th a.table-sort-link,
+th a.table-sort-link:link,
+th a.table-sort-link:visited,
+th a.table-sort-link:hover,
+th a.table-sort-link:active {
+    display: block;
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+th a.table-sort-link:focus-visible {
+    outline: 2px solid var(--azul-utn);
+    outline-offset: 3px;
+}
+
 
 .actions {
     text-align: right;
@@ -1086,6 +1218,10 @@ table td:last-child {
     .row,
     .checkbox-grid,
     .gestion-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    [data-regla-sede-form] .rule-condition-grid {
         grid-template-columns: 1fr;
     }
 

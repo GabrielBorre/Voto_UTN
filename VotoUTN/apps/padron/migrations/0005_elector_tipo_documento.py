@@ -9,10 +9,23 @@ class Migration(migrations.Migration):
         ('padron', '0004_merge_0002_emision_qr_0003_separar_apellido'),
     ]
 
+    # Una copia local de desarrollo pudo haber creado antes la columna al
+    # aplicar 0005_padrones_votacion. Hacer la migración tolerante a esa
+    # columna preexistente mantiene los datos y permite actualizarla después.
     operations = [
-        migrations.AddField(
-            model_name='elector',
-            name='tipo_documento',
-            field=models.CharField(default='DNI', max_length=30, verbose_name='tipo documento'),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    "ALTER TABLE elecciones_elector ADD COLUMN IF NOT EXISTS tipo_documento varchar(30) NOT NULL DEFAULT 'DNI'",
+                    migrations.RunSQL.noop,
+                ),
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name='elector',
+                    name='tipo_documento',
+                    field=models.CharField(default='DNI', max_length=30, verbose_name='tipo documento'),
+                ),
+            ],
         ),
     ]

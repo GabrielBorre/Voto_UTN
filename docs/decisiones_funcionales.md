@@ -132,8 +132,21 @@ Reglas:
 - Las plantillas usan texto plano y un conjunto controlado de variables; no incluyen DNI, legajo ni adjuntos.
 - Las plantillas automáticas o transaccionales no pueden seleccionarse en la pantalla de envío manual.
 - El calendario por elección y el motor de envíos automáticos quedan fuera de esta entrega. Se conserva temporalmente el calendario electoral existente.
-- Las mesas se generan automáticamente desde el padrón y continúan siendo de consulta; no se incorpora un ABM manual de mesas.
-- Las mesas y el padrón pueden ajustarse hasta la primera emisión de QR del claustro.
+- Las mesas automáticas se calculan para toda la elección usando la sede electoral asignada, agrupando por claustro, departamento cuando corresponda y sede. «Sede donde cursa» no determina la mesa.
+- El cálculo automático se dispara al cambiar el máximo de electores por mesa o al recalcular las sedes electorales. Solo se aplica cuando todos los claustros tienen máximo configurado y sus electores activos tienen una sede electoral asignada; si no, conserva la distribución anterior e informa lo pendiente.
+- El recálculo reemplaza únicamente mesas automáticas y asignaciones de padrón; conserva las mesas manuales. Se realiza como operación atómica para todos los claustros y no asigna autoridades.
+- Los futuros flujos de solicitud de cambio de sede y asignación de autoridades deberán actualizar el destino del mismo elector y disparar el recálculo; no crearán un segundo registro de elector.
+- Las mesas y el padrón pueden ajustarse hasta la primera emisión de QR de la elección.
 - Cada `RegistroPadron` conserva la fecha de emisión y el número de mesa incluido en su QR.
-- Después de emitir un QR no se permite reimportar el padrón ni regenerar automáticamente las mesas del claustro.
+- Después de emitir un QR no se permite reimportar el padrón ni regenerar automáticamente las mesas de la elección.
 - Volver a producir el mismo QR para la misma mesa no cambia su primera marca de emisión; producirlo para otra mesa se rechaza.
+
+## Asignación de sede electoral desde el padrón
+
+- Cada elector tiene un único `RegistroPadron` por elección; no se define prioridad entre claustros para una misma persona.
+- La sede electoral se configura por claustro y sus alcances departamentales, sin depender de los cargos o listas que se votarán.
+- Si un alcance tiene una sola sede activa habilitada, se le asigna automáticamente. Si tiene varias, se evalúan reglas ordenadas; cada regla define una única sede destino y puede aplicarse a todos los alcances con varias sedes o a varios alcances seleccionados.
+- Para un elector cuyo departamento no tenga habilitada la sede destino de una regla, esa regla se omite y se evalúa la siguiente. No se reemplaza por una sede distinta.
+- Si ninguna regla aplicable coincide en un alcance con varias sedes, la asignación queda pendiente para revisión; no se elige una sede arbitrariamente.
+- El cálculo produce una asignación provisional por elector y no modifica «Sede donde cursa», ni genera listas o QR. Cambiar reglas o sedes invalida el cálculo previo; al volver a calcular las sedes, se recalculan automáticamente las mesas si todos los claustros están listos.
+- El padrón completo de un claustro puede vaciarse mediante confirmación explícita mientras la elección esté en borrador o preparada. Se eliminan sus registros y asignaciones calculadas, además de mesas automáticas que queden vacías. Las identidades de electores sin registros en otros padrones, candidaturas históricas ni perfiles de usuario también se eliminan, liberando sus DNI y legajos; se conservan las que siguen vinculadas a esos datos. Se mantienen el historial/archivos de importación y las mesas manuales. Las importaciones confirmadas de ese ciclo pasan a mostrarse como «Padrón eliminado»; las previsualizaciones y rechazos no cambian. La operación se bloquea ante emisiones QR o datos dependientes (participaciones, justificativos, autoridades o candidaturas) y queda auditada.

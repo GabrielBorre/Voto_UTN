@@ -16,7 +16,8 @@ from apps.elecciones.models import (
     EleccionClaustroTurno,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
-from apps.padron.models import Elector, RegistroPadron
+from apps.padron.models import EmisionPadronImprimible, Elector, RegistroPadron
+from apps.padron.services import rehabilitar_cambios_padron
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.reportes.services import valor_csv
 from apps.reportes.services_pdf import (
@@ -202,33 +203,47 @@ class PadronPDFTests(TestCase):
         with self.assertRaises(ValueError):
             generar_padron_pdf(self.eleccion)
 
-    def test_bloquea_generacion_sin_sede_asignada(self):
+    def test_permite_generacion_sin_sede_donde_cursa(self):
         self.crear_electores(3)
         self.crear_electores(1, sede=None, numero_inicial=200)
 
         validacion = validar_padron_para_pdf(self.eleccion)
 
-        self.assertFalse(validacion.apto)
-        self.assertTrue(any("sede" in motivo for motivo in validacion.motivos))
-        with self.assertRaises(ValueError):
-            generar_padron_pdf(self.eleccion)
+        self.assertTrue(validacion.apto)
+        self.assertTrue(generar_padron_pdf(self.eleccion).startswith(b"%PDF"))
 
     def test_vista_genera_pdf_descargable(self):
         self.crear_electores(3)
         self.client.login(username="admin-reportes", password="clave")
 
-        respuesta = self.client.get(reverse("generar-padron-pdf", args=(self.eleccion.id,)))
+        respuesta = self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.id,)))
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta["Content-Type"], "application/pdf")
         self.assertIn('filename="padron_', respuesta["Content-Disposition"])
+        self.assertTrue(EmisionPadronImprimible.objects.filter(eleccion_claustro=self.eleccion_claustro, estado="vigente").exists())
+        self.assertTrue(RegistroPadron.objects.filter(eleccion=self.eleccion, qr_generado_en__isnull=False).exists())
 
     def test_vista_bloquea_y_redirige_cuando_falta_informacion(self):
         self.crear_electores(1, mesa=None)
         self.client.login(username="admin-reportes", password="clave")
 
-        respuesta = self.client.get(reverse("generar-padron-pdf", args=(self.eleccion.id,)), follow=True)
+        respuesta = self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.id,)), follow=True)
 
         self.assertRedirects(respuesta, reverse("gestionar-reportes", args=(self.eleccion.id,)))
         mensajes = [str(mensaje) for mensaje in respuesta.context["messages"]]
         self.assertTrue(any("mesa" in mensaje for mensaje in mensajes))
+
+    def test_rehabilitar_invalida_la_emision_y_los_qr_anteriores(self):
+        registros = self.crear_electores(1)
+        identificador_anterior = registros[0].identificador_qr
+        self.client.login(username="admin-reportes", password="clave")
+        self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.id,)))
+
+        rehabilitar_cambios_padron(self.eleccion_claustro, self.usuario)
+
+        registros[0].refresh_from_db()
+        self.assertEqual(EmisionPadronImprimible.objects.get().estado, "invalidada")
+        self.assertIsNone(registros[0].qr_generado_en)
+        self.assertIsNone(registros[0].numero_mesa_qr)
+        self.assertNotEqual(registros[0].identificador_qr, identificador_anterior)

@@ -15,12 +15,14 @@
         <h2>Resultado de la validación</h2>
         <p>{{ importacion.eleccion_claustro.claustro }} · {{ importacion.nombre_archivo }}</p>
       </div>
-      {% if importacion.estado == "confirmada" %}
+      {% if importacion.estado == "padron_eliminado" %}
+        <span class="pill danger">Padrón eliminado</span>
+      {% elif importacion.estado == "confirmada" %}
         <span class="pill ok">Confirmada</span>
       {% elif importacion.estado == "rechazada" %}
-        <span class="pill danger">Rechazada</span>
+        <span class="pill gray">Rechazada</span>
       {% else %}
-        <span class="pill info">Previsualizada</span>
+        <span class="pill warn">Previsualizada</span>
       {% endif %}
     </div>
 

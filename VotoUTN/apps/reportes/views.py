@@ -1,9 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.elecciones.models import Eleccion
+from apps.padron.services import registrar_emision_padron_imprimible
 from apps.reportes.services import exportar_reporte_eleccion
 from apps.reportes.services_pdf import (
     generar_nombre_archivo_padron,
@@ -35,6 +36,8 @@ def exportar_reporte(request, eleccion_id, tipo):
 
 @login_required
 def generar_padron_pdf_view(request, eleccion_id):
+    if request.method != "POST":
+        raise Http404()
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para generar el padron imprimible.")
@@ -44,6 +47,8 @@ def generar_padron_pdf_view(request, eleccion_id):
             messages.error(request, motivo)
         return redirect("gestionar-reportes", eleccion_id=eleccion.id)
     contenido = generar_padron_pdf(eleccion)
+    registrar_emision_padron_imprimible(eleccion, request.user)
+    messages.success(request, "Padrón imprimible emitido. Los cambios que afecten mesas y QR quedan bloqueados hasta rehabilitarlos explícitamente.")
     respuesta = HttpResponse(contenido, content_type="application/pdf")
     respuesta["Content-Disposition"] = f'attachment; filename="{generar_nombre_archivo_padron(eleccion)}"'
     return respuesta

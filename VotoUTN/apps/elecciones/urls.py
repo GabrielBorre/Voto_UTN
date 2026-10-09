@@ -10,6 +10,7 @@ from .views import (
     gestionar_alcances,
     gestionar_departamentos_claustro,
     preparar_claustro,
+    rehabilitar_cambios_padron,
     preparar_eleccion,
     historial_elecciones,
     inicio_administrador_junta,
@@ -30,6 +31,7 @@ urlpatterns = [
     path("gestion/elecciones/nueva/", crear_eleccion, name="crear-eleccion"),
     path("gestion/elecciones/<int:eleccion_id>/preparar/", preparar_eleccion, name="preparar-eleccion"),
     path("gestion/elecciones/<int:eleccion_id>/preparar/<int:claustro_id>/", preparar_claustro, name="preparar-claustro"),
+    path("gestion/elecciones/<int:eleccion_id>/preparar/<int:claustro_id>/rehabilitar-cambios/", rehabilitar_cambios_padron, name="rehabilitar-cambios-padron"),
     path("gestion/elecciones/<int:eleccion_id>/editar/", editar_eleccion, name="editar-eleccion"),
     path("gestion/elecciones/<int:eleccion_id>/configuracion/", configurar_eleccion, name="configurar-eleccion"),
     path(

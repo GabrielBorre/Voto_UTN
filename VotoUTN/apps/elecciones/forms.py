@@ -12,6 +12,7 @@ from .models import (
     FechaAdministrativaEleccion,
 )
 from apps.mesas.models import Mesa
+from apps.padron.services import claustro_tiene_emision_vigente
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede
 
 
@@ -210,6 +211,10 @@ class FormularioAlcanceSedes(forms.Form):
             for sede_id in nuevas:
                 EleccionClaustroDepartamentoSede.objects.get_or_create(eleccion_claustro_departamento=self.objeto, sede_id=sede_id)
             EleccionClaustroDepartamentoSede.objects.filter(eleccion_claustro_departamento=self.objeto, sede_id__in=removidas).delete()
+        from apps.padron.services import invalidar_asignaciones_sede_claustro
+
+        eleccion_claustro = self.objeto if self.tipo == "claustro" else self.objeto.eleccion_claustro
+        invalidar_asignaciones_sede_claustro(eleccion_claustro)
 
 
 class FormularioDepartamentosClaustro(forms.Form):
@@ -286,6 +291,9 @@ class FormularioDepartamentosClaustro(forms.Form):
             eleccion_claustro_departamento__in=removidas,
         ).delete()
         removidas.delete()
+        from apps.padron.services import invalidar_asignaciones_sede_claustro
+
+        invalidar_asignaciones_sede_claustro(self.eleccion_claustro)
 
 
 class FormularioPrepararClaustro(forms.ModelForm):
@@ -297,7 +305,10 @@ class FormularioPrepararClaustro(forms.ModelForm):
             "maximo_votantes_por_mesa": "Máximo de electores por mesa",
         }
         widgets = {
-            "fecha_votacion": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "fecha_votacion": forms.DateInput(
+                format="%Y-%m-%d",
+                attrs={"type": "date", "class": "form-control"},
+            ),
             "maximo_votantes_por_mesa": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
         }
 
@@ -305,3 +316,11 @@ class FormularioPrepararClaustro(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for campo in self.fields.values():
             campo.required = True
+
+    def clean(self):
+        datos = super().clean()
+        if self.instance.pk and self.changed_data and claustro_tiene_emision_vigente(self.instance):
+            raise forms.ValidationError(
+                "Existe un padrón imprimible emitido. Rehabilitá los cambios para invalidar esa emisión antes de modificar esta configuración."
+            )
+        return datos

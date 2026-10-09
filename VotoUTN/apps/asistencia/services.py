@@ -123,9 +123,9 @@ class ServicioRegistroParticipacion:
             for padron in RegistroPadron.objects.select_related(
                 "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento"
             ).filter(
-                eleccion=eleccion,
-                activo=True,
-                identificador_qr__in=identificadores,
+            eleccion=eleccion,
+            activo=True,
+            identificador_qr__in=identificadores,
             )
         }
         validos = []
