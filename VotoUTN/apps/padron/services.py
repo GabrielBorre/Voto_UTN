@@ -261,19 +261,30 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             errores.append((numero_fila, "sede", "La sede no esta habilitada para este departamento."))
         elector_dni = Elector.objects.filter(dni=fila["dni"]).first()
         elector_legajo = Elector.objects.filter(legajo=fila["legajo"]).first()
+        if elector_dni:
+            errores.append(
+                (
+                    numero_fila,
+                    "dni",
+                    "El DNI ya existe en la base de datos y no se puede volver a importar.",
+                )
+            )
+        if elector_legajo:
+            errores.append(
+                (
+                    numero_fila,
+                    "legajo",
+                    "El legajo ya existe en la base de datos y no se puede volver a importar.",
+                )
+            )
         if elector_dni and elector_legajo and elector_dni.pk != elector_legajo.pk:
-            errores.append((numero_fila, "dni", "El DNI y el legajo ya pertenecen a electores distintos."))
-        else:
-            elector_existente = elector_dni or elector_legajo
-            if elector_existente:
-                if elector_existente.dni != fila["dni"]:
-                    errores.append((numero_fila, "dni", "El DNI no coincide con el elector existente."))
-                if elector_existente.legajo != fila["legajo"]:
-                    errores.append((numero_fila, "legajo", "El legajo no coincide con el elector existente."))
-            if elector_existente and configuracion:
-                registro = RegistroPadron.objects.filter(elector=elector_existente, eleccion=eleccion_claustro.eleccion).first()
-                if registro and registro.eleccion_claustro_departamento_id != configuracion.id:
-                    errores.append((numero_fila, "departamento", "El elector ya pertenece a otro claustro o departamento en esta elección."))
+            errores.append(
+                (
+                    numero_fila,
+                    "dni",
+                    "El DNI y el legajo corresponden a electores distintos en la base de datos.",
+                )
+            )
     if not filas and not errores:
         errores.append((None, "archivo", "El archivo no contiene filas de padron."))
     return ResultadoValidacion(filas, errores)
