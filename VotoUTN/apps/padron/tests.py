@@ -68,6 +68,7 @@ class PadronViewsTests(TestCase):
             huella_archivo="archivo-ejemplo",
             cantidad_filas=1,
             cantidad_validas=1,
+            cantidad_existentes=1,
             usuario=self.usuario,
         )
         self.client.login(username="admin", password="clave")
@@ -81,9 +82,51 @@ class PadronViewsTests(TestCase):
         self.assertContains(respuesta, 'class="management-panel import-review-panel"')
         self.assertContains(respuesta, 'class="card management-section"', count=2)
         self.assertContains(respuesta, "Resultado de la validación")
+        self.assertContains(respuesta, "Registros existentes")
+        self.assertContains(respuesta, "<span>1</span>")
         self.assertContains(respuesta, "Columnas detectadas")
         self.assertContains(respuesta, "Confirmar importación")
         self.assertContains(respuesta, "Volver al padrón")
+
+    def test_previsualizacion_guarda_y_muestra_registros_ya_existentes(self):
+        elector = Elector.objects.create(
+            dni="40123456",
+            legajo="2024001",
+            nombre="Juan",
+            apellido="Perez",
+            correo_electronico="juan.perez@frba.utn.edu.ar",
+        )
+        RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede,
+        )
+        contenido = (
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
+        ).encode("utf-8")
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            {
+                "archivo": SimpleUploadedFile(
+                    "padron-repetido.csv",
+                    contenido,
+                    content_type="text/csv",
+                )
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        importacion = ImportacionPadron.objects.get(nombre_archivo="padron-repetido.csv")
+        self.assertEqual(importacion.cantidad_existentes, 1)
+        respuesta_detalle = self.client.get(
+            reverse("detalle-importacion-padron", args=(self.eleccion.id, importacion.id))
+        )
+        self.assertContains(respuesta_detalle, "Registros existentes")
+        self.assertContains(respuesta_detalle, "<span>1</span>")
 
     def test_gestion_de_padrones_presenta_tarjetas_por_claustro(self):
         administrador = get_user_model().objects.create_user(username="admin-padrones")
@@ -241,6 +284,9 @@ class PadronViewsTests(TestCase):
         self.assertEqual(elector.elector.nombre, "Juan")
         self.assertEqual(elector.elector.apellido, "Perez")
         self.assertEqual(elector.elector.departamento_principal, self.departamento)
+        validacion_repeticion = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
+        self.assertFalse(validacion_repeticion.errores)
+        self.assertEqual(validacion_repeticion.cantidad_existentes, 1)
 
     def test_validar_csv_padron_acepta_dni_numerico_de_excel(self):
         contenido = (

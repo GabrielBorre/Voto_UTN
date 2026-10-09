@@ -614,6 +614,10 @@ th {
     grid-template-columns: repeat(4, 1fr);
 }
 
+.summary-grid.management-summary-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .summary-grid>div,
 .metric {
     background: #fff;
@@ -1065,6 +1069,7 @@ table td:last-child {
         font-size: 27px;
     }
 
+    .summary-grid.management-summary-grid,
     .toolbar,
     .summary-grid,
     .summary {

@@ -88,9 +88,59 @@ class AutoridadesViewsTests(TestCase):
         )
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, "No se cargó ningún candidato.")
+        self.assertContains(respuesta, "No se cargó ningún candidato")
+        self.assertContains(respuesta, "1 error")
         self.assertContains(respuesta, "Verifique que sea un .xlsx válido.")
         self.assertContains(respuesta, 'role="alert"')
+        self.assertFalse(CandidaturaAutoridad.objects.exists())
+
+    def test_error_de_importacion_se_muestra_en_resumen_descriptivo_por_fila(self):
+        self.client.force_login(self.usuario)
+        sede = Sede.objects.create(nombre="Campus autoridades")
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
+        configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=self.eleccion_claustro,
+            departamento=departamento,
+        )
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=configuracion,
+            sede=sede,
+        )
+        elector = Elector.objects.create(
+            legajo="2024001",
+            nombre="Juan",
+            apellido="Perez",
+            dni="40123456",
+            correo_electronico="juan@frba.utn.edu.ar",
+        )
+        RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=configuracion,
+            sede=sede,
+        )
+        archivo = SimpleUploadedFile(
+            "autoridades.csv",
+            (
+                "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n"
+                "40123456,2024001,Juan Carlos,Perez,K,juan@frba.utn.edu.ar\n"
+            ).encode(),
+            content_type="text/csv",
+        )
+
+        respuesta = self.client.post(
+            reverse(
+                "gestionar-autoridades-claustro",
+                args=(self.eleccion.id, self.eleccion_claustro.id),
+            ),
+            {"cargar-candidatos": "", "csv-archivo": archivo},
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'class="import-error-summary"')
+        self.assertContains(respuesta, "No se cargó ningún candidato")
+        self.assertContains(respuesta, "Fila 2:")
+        self.assertContains(respuesta, "El nombre informado «Juan Carlos»")
         self.assertFalse(CandidaturaAutoridad.objects.exists())
 
     def test_asignacion_manual_con_datos_invalidos_muestra_errores_del_formulario(self):
@@ -172,21 +222,21 @@ class AutoridadesImportTests(TestCase):
 
         _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
 
-        self.assertIn("El nombre no coincide con el padrón del elector en esta elección.", [error for _, error in errores])
+        self.assertIn("El nombre informado «Juan Carlos» no coincide con el nombre del padrón «Juan».", [error for _, error in errores])
 
     def test_validar_csv_autoridades_rechaza_apellido_que_no_coincide_con_el_padron(self):
         contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan,Gomez,K,juan@frba.utn.edu.ar\n"
 
         _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
 
-        self.assertIn("El apellido no coincide con el padrón del elector en esta elección.", [error for _, error in errores])
+        self.assertIn("El apellido informado «Gomez» no coincide con el apellido del padrón «Perez».", [error for _, error in errores])
 
     def test_validar_csv_autoridades_rechaza_correo_que_no_coincide_con_el_padron(self):
         contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan,Perez,K,otro@frba.utn.edu.ar\n"
 
         _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
 
-        self.assertIn("El correo electrónico no coincide con el padrón del elector en esta elección.", [error for _, error in errores])
+        self.assertIn("El correo informado «otro@frba.utn.edu.ar» no coincide con el correo del padrón «juan@frba.utn.edu.ar».", [error for _, error in errores])
 
     def test_importar_autoridades_no_crea_candidatura_si_el_nombre_no_coincide(self):
         contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan Carlos,Perez,K,juan@frba.utn.edu.ar\n"
@@ -279,7 +329,7 @@ class AutoridadesImportTests(TestCase):
         _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
 
         self.assertTrue(errores)
-        self.assertIn("no pertenece al padron activo", errores[0][1])
+        self.assertIn("No se encontró un elector con ese DNI y legajo en el padrón activo", errores[0][1])
 
     def test_formulario_manual_solo_ofrece_candidatos_y_mesas_del_claustro(self):
         usuario = get_user_model().objects.create_user(username="cargador-autoridades")

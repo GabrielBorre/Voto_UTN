@@ -223,20 +223,45 @@ def validar_csv_autoridades(contenido, eleccion_claustro, nombre_archivo=""):
         ).select_related("elector", "eleccion_claustro_departamento__departamento").first()
 
         if padron is None:
-            errores.append((numero, "El elector no pertenece al padron activo de este claustro."))
+            errores.append(
+                (
+                    numero,
+                    "No se encontró un elector con ese DNI y legajo en el padrón activo del claustro seleccionado.",
+                )
+            )
             continue
 
         elector = padron.elector
         if _normalizar_nombre(fila["nombre"]) != _normalizar_nombre(elector.nombre):
-            errores.append((numero, "El nombre no coincide con el padrón del elector en esta elección."))
+            errores.append(
+                (
+                    numero,
+                    f"El nombre informado «{fila['nombre']}» no coincide con el nombre del padrón «{elector.nombre}».",
+                )
+            )
         if _normalizar_nombre(fila["apellido"]) != _normalizar_nombre(elector.apellido):
-            errores.append((numero, "El apellido no coincide con el padrón del elector en esta elección."))
+            errores.append(
+                (
+                    numero,
+                    f"El apellido informado «{fila['apellido']}» no coincide con el apellido del padrón «{elector.apellido}».",
+                )
+            )
         if fila["mail"].strip().casefold() != elector.correo_electronico.strip().casefold():
-            errores.append((numero, "El correo electrónico no coincide con el padrón del elector en esta elección."))
+            errores.append(
+                (
+                    numero,
+                    f"El correo informado «{fila['mail']}» no coincide con el correo del padrón «{elector.correo_electronico}».",
+                )
+            )
 
         departamento = padron.eleccion_claustro_departamento.departamento
         if fila["departamento"].casefold() not in {departamento.codigo.casefold(), departamento.nombre.casefold()}:
-            errores.append((numero, "El departamento no coincide con el padrón del elector en esta eleccion."))
+            errores.append(
+                (
+                    numero,
+                    f"El departamento informado «{fila['departamento']}» no coincide con el departamento del padrón «{departamento.nombre}».",
+                )
+            )
 
     return filas_normales, errores
 

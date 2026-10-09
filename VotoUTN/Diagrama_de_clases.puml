@@ -1,0 +1,193 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+class Sede {
+  -nombre: CharField
+  -activa: BooleanField
+  +__str__()
+}
+
+class Claustro {
+  -nombre: CharField
+  -activo: BooleanField
+  +__str__()
+}
+
+class Turno {
+  -nombre: CharField
+  -hora_inicio: TimeField
+  -hora_fin: TimeField
+  -activo: BooleanField
+  +clean()
+  +__str__()
+}
+
+class Departamento {
+  -nombre: CharField
+  -codigo: CharField
+  -activo: BooleanField
+  +__str__()
+}
+
+class FechaAdministrativa {
+  -nombre: CharField
+  -roles_destinatarios: JSONField
+  -claustros: ManyToManyField
+  -asunto_notificacion: CharField
+  -mensaje_notificacion: TextField
+  -activa: BooleanField
+  +clean()
+  +roles_destinatarios_display()
+  +__str__()
+}
+
+class Eleccion {
+  -nombre: CharField
+  -fecha_inicio: DateTimeField
+  -fecha_fin: DateTimeField
+  -fecha_apertura_padron_provisorio: DateField
+  -fecha_cierre_padron_provisorio: DateField
+  -fecha_cierre_candidaturas: DateField
+  -fecha_publicacion_padron_definitivo: DateField
+  -fecha_limite_justificacion_autoridades: DateField
+  -fecha_limite_justificacion_electores: DateField
+  -habilitada: BooleanField
+  -estado: CharField
+  -maximo_autoridades_por_mesa: PositiveSmallIntegerField
+  +clean()
+  +validar_configuracion()
+  +cambiar_estado(nuevo_estado)
+  +__str__()
+}
+
+class EleccionSede {
+}
+
+class EleccionClaustro {
+  -fecha_votacion: DateField
+  -maximo_votantes_por_mesa: PositiveIntegerField
+  +clean()
+}
+
+class EleccionTurno {
+}
+
+class EleccionClaustroSede {
+  +clean()
+}
+
+class EleccionClaustroDepartamento {
+}
+
+class EleccionClaustroDepartamentoSede {
+  +clean()
+}
+
+class Mesa {
+  -numero: PositiveIntegerField
+  -generada_automaticamente: BooleanField
+  +clean()
+  +__str__()
+}
+
+class Elector {
+  -legajo: CharField
+  -nombre: CharField
+  -dni: CharField
+  -correo_electronico: EmailField
+  +__str__()
+}
+
+class RegistroPadron {
+  -activo: BooleanField
+  -identificador_qr: UUIDField
+  +clean()
+  +validar_sede()
+}
+
+class ImportacionPadron {
+  -archivo: FileField
+  -nombre_archivo: CharField
+  -huella_archivo: CharField
+  -estado: CharField
+  -cantidad_filas: PositiveIntegerField
+  -cantidad_validas: PositiveIntegerField
+  -cantidad_errores: PositiveIntegerField
+  -creada_en: DateTimeField
+  -confirmada_en: DateTimeField
+  +clean()
+}
+
+class ErrorImportacionPadron {
+  -fila: PositiveIntegerField
+  -campo: CharField
+  -mensaje: CharField
+}
+
+class FechaAdministrativaEleccion {
+  -fecha: DateField
+  +clean()
+}
+
+class CandidaturaAutoridad {
+  -cargada_en: DateTimeField
+}
+
+class AsignacionAutoridad {
+  -estado: CharField
+  -asignada_en: DateTimeField
+  -respondida_en: DateTimeField
+  +clean()
+}
+
+class PreferenciaAutoridad {
+  -disponible: BooleanField
+  -actualizada_en: DateTimeField
+  +clean()
+}
+
+class AsignacionMesa {
+  +clean()
+}
+
+FechaAdministrativa "1" -- "*" Claustro
+EleccionSede "*" --> "1" Eleccion
+EleccionSede "*" --> "1" Sede
+EleccionClaustro "*" --> "1" Eleccion
+EleccionClaustro "*" --> "1" Claustro
+EleccionTurno "*" --> "1" Eleccion
+EleccionTurno "*" --> "1" Turno
+EleccionClaustroSede "*" --> "1" EleccionClaustro
+EleccionClaustroSede "*" --> "1" Sede
+EleccionClaustroDepartamento "*" --> "1" EleccionClaustro
+EleccionClaustroDepartamento "*" --> "1" Departamento
+EleccionClaustroDepartamentoSede "*" --> "1" EleccionClaustroDepartamento
+EleccionClaustroDepartamentoSede "*" --> "1" Sede
+Mesa "*" --> "1" Eleccion
+Mesa "*" --> "0..1" EleccionClaustroDepartamento
+Mesa "*" --> "0..1" Sede
+Mesa "*" --> "0..1" Turno
+Elector "1" --> "0..1" Mesa
+RegistroPadron "*" --> "1" Elector
+RegistroPadron "*" --> "1" Eleccion
+RegistroPadron "*" --> "1" EleccionClaustroDepartamento
+RegistroPadron "*" --> "0..1" Sede
+ImportacionPadron "*" --> "1" Eleccion
+ImportacionPadron "*" --> "1" EleccionClaustro
+ImportacionPadron "*" --> "1" User
+ErrorImportacionPadron "*" --> "1" ImportacionPadron
+FechaAdministrativaEleccion "*" --> "1" Eleccion
+FechaAdministrativaEleccion "*" --> "1" FechaAdministrativa
+CandidaturaAutoridad "1" --> "1" RegistroPadron
+CandidaturaAutoridad "*" --> "1" User
+AsignacionAutoridad "1" --> "1" RegistroPadron
+AsignacionAutoridad "0..1" --> "0..1" CandidaturaAutoridad
+AsignacionAutoridad "*" --> "1" Mesa
+AsignacionAutoridad "*" --> "1" User
+PreferenciaAutoridad "1" --> "1" RegistroPadron
+PreferenciaAutoridad "*" --> "0..1" Sede
+PreferenciaAutoridad "*" --> "0..1" Turno
+AsignacionMesa "1" --> "1" RegistroPadron
+AsignacionMesa "*" --> "1" Mesa
+
+@enduml
