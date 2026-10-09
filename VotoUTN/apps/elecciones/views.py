@@ -133,7 +133,9 @@ def inicio_administrador_junta(request):
     if not roles.exists():
         return HttpResponseForbidden("No tiene permiso para acceder al panel de administrador de junta.")
     elecciones = Eleccion.objects.filter(asignaciones_rol__in=roles).distinct()
-    eleccion_actual = elecciones.first()
+    eleccion_actual = elecciones.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS).order_by("-fecha_inicio", "-id").first()
+    if eleccion_actual is None:
+        eleccion_actual = elecciones.filter(estado=Eleccion.Estado.CERRADA).order_by("-fecha_inicio", "-id").first()
     solicitudes_pendientes = JustificativoAusencia.objects.filter(
         registro_padron__eleccion__in=elecciones,
         estado=JustificativoAusencia.Estado.PENDIENTE,
