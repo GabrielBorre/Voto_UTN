@@ -233,6 +233,68 @@
     min-height: 160px;
 }
 
+.option-disabled {
+    background: #e5e7eb;
+    border-color: #c5c9d0;
+    border-left-color: #9ca3af;
+    box-shadow: none;
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+
+.option-disabled button:disabled {
+    background: #9ca3af;
+    border-color: #9ca3af;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.button-tooltip {
+    display: inline-flex;
+    position: relative;
+}
+
+.button-tooltip__message {
+    background: #202833;
+    border-radius: 5px;
+    bottom: calc(100% + 9px);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 20%);
+    color: #fff;
+    font-size: 13px;
+    left: 50%;
+    line-height: 1.4;
+    max-width: min(260px, calc(100vw - 32px));
+    opacity: 0;
+    padding: 8px 11px;
+    pointer-events: none;
+    position: absolute;
+    text-align: center;
+    transform: translate(-50%, 4px);
+    transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease;
+    visibility: hidden;
+    white-space: normal;
+    width: max-content;
+    z-index: 10;
+}
+
+.button-tooltip__message::after {
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid #202833;
+    content: "";
+    left: 50%;
+    position: absolute;
+    top: 100%;
+    transform: translateX(-50%);
+}
+
+.button-tooltip:hover .button-tooltip__message,
+.button-tooltip:focus .button-tooltip__message {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    visibility: visible;
+}
+
 .option h2,
 .card h2,
 .card h3 {

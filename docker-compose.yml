@@ -34,7 +34,7 @@ services:
       - ./Keycloak/themes/utn-login:/opt/keycloak/themes/utn-login
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.31.2
     container_name: mailpit
     ports:
       - "8025:8025" # interfaz web para revisar los correos recibidos
