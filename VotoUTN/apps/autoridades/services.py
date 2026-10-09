@@ -1,5 +1,6 @@
 import csv
 import io
+import unicodedata
 from zipfile import BadZipFile
 from xml.etree.ElementTree import ParseError
 
@@ -49,6 +50,12 @@ HEADER_VARIANTS_TO_CANONICAL = {
 }
 CARACTERES_FORMULA = ("=", "+", "-", "@")
 DOMINIO_EMAIL_INSTITUCIONAL = "frba.utn.edu.ar"
+
+
+def _normalizar_nombre(valor):
+    texto = unicodedata.normalize("NFKD", str(valor or "").strip())
+    sin_tildes = "".join(caracter for caracter in texto if not unicodedata.combining(caracter))
+    return " ".join(sin_tildes.casefold().split())
 
 
 def leer_filas_autoridades(contenido: bytes, nombre_archivo: str = "") -> list[dict[str, str]]:
@@ -218,6 +225,14 @@ def validar_csv_autoridades(contenido, eleccion_claustro, nombre_archivo=""):
         if padron is None:
             errores.append((numero, "El elector no pertenece al padron activo de este claustro."))
             continue
+
+        elector = padron.elector
+        if _normalizar_nombre(fila["nombre"]) != _normalizar_nombre(elector.nombre):
+            errores.append((numero, "El nombre no coincide con el padrón del elector en esta elección."))
+        if _normalizar_nombre(fila["apellido"]) != _normalizar_nombre(elector.apellido):
+            errores.append((numero, "El apellido no coincide con el padrón del elector en esta elección."))
+        if fila["mail"].strip().casefold() != elector.correo_electronico.strip().casefold():
+            errores.append((numero, "El correo electrónico no coincide con el padrón del elector en esta elección."))
 
         departamento = padron.eleccion_claustro_departamento.departamento
         if fila["departamento"].casefold() not in {departamento.codigo.casefold(), departamento.nombre.casefold()}:

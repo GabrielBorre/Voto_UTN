@@ -12,7 +12,7 @@ from openpyxl import Workbook
 
 from apps.autoridades.forms import FormularioAsignacionAutoridad
 from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
-from apps.autoridades.services import asignar_autoridad, validar_csv_autoridades
+from apps.autoridades.services import asignar_autoridad, importar_autoridades, validar_csv_autoridades
 from apps.elecciones.models import (
     Eleccion,
     EleccionClaustro,
@@ -144,7 +144,13 @@ class AutoridadesImportTests(TestCase):
         self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=self.claustro)
         self.configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=self.eleccion_claustro, departamento=self.departamento)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=self.sede)
-        self.elector = Elector.objects.create(legajo="2024001", nombre="Juan", dni="40123456", correo_electronico="juan@frba.utn.edu.ar")
+        self.elector = Elector.objects.create(
+            legajo="2024001",
+            nombre="Juan",
+            apellido="Perez",
+            dni="40123456",
+            correo_electronico="juan@frba.utn.edu.ar",
+        )
         self.registro = RegistroPadron.objects.create(
             elector=self.elector,
             eleccion=self.eleccion,
@@ -160,6 +166,45 @@ class AutoridadesImportTests(TestCase):
         self.assertEqual(errores, [])
         self.assertEqual(filas[0]["dni"], "40123456")
         self.assertEqual(filas[0]["legajo"], "2024001")
+
+    def test_validar_csv_autoridades_rechaza_nombre_que_no_coincide_con_el_padron(self):
+        contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan Carlos,Perez,K,juan@frba.utn.edu.ar\n"
+
+        _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
+
+        self.assertIn("El nombre no coincide con el padrón del elector en esta elección.", [error for _, error in errores])
+
+    def test_validar_csv_autoridades_rechaza_apellido_que_no_coincide_con_el_padron(self):
+        contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan,Gomez,K,juan@frba.utn.edu.ar\n"
+
+        _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
+
+        self.assertIn("El apellido no coincide con el padrón del elector en esta elección.", [error for _, error in errores])
+
+    def test_validar_csv_autoridades_rechaza_correo_que_no_coincide_con_el_padron(self):
+        contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan,Perez,K,otro@frba.utn.edu.ar\n"
+
+        _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
+
+        self.assertIn("El correo electrónico no coincide con el padrón del elector en esta elección.", [error for _, error in errores])
+
+    def test_importar_autoridades_no_crea_candidatura_si_el_nombre_no_coincide(self):
+        contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan Carlos,Perez,K,juan@frba.utn.edu.ar\n"
+        usuario = get_user_model().objects.create_user(username="cargador-autoridades-import")
+
+        creadas, errores = importar_autoridades(contenido, self.eleccion_claustro, usuario)
+
+        self.assertEqual(creadas, 0)
+        self.assertTrue(errores)
+        self.assertFalse(CandidaturaAutoridad.objects.exists())
+
+    def test_validar_csv_autoridades_acepta_variantes_de_mayusculas_espacios_y_tildes(self):
+        Elector.objects.filter(pk=self.elector.pk).update(nombre="José", apellido="Pérez")
+        contenido = "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,  JOSE  ,perez,K,JUAN@FRBA.UTN.EDU.AR\n".encode()
+
+        _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
+
+        self.assertEqual(errores, [])
 
     def test_validar_csv_autoridades_rechaza_fila_con_columnas_extras(self):
         contenido = (
