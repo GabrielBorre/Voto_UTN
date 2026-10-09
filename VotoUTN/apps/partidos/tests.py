@@ -21,6 +21,7 @@ from apps.partidos.models import (
     PuestoEleccion,
 )
 from apps.partidos.forms import FormularioPuestoEleccion
+from apps.usuarios.models import AsignacionRol
 
 
 class PartidosBaseTests(TestCase):
@@ -219,10 +220,21 @@ class PartidosViewsTests(PartidosBaseTests):
         self.client.login(username="admin-partidos", password="clave")
 
     def test_panel_requiere_permiso_y_usa_template_propietario(self):
+        administrador = get_user_model().objects.create_user(username="admin-junta-partidos")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            eleccion=self.eleccion,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        )
+        self.client.force_login(administrador)
         respuesta = self.client.get(reverse("gestionar-partidos", args=(self.eleccion.id,)))
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "partidos/gestion.html")
+        self.assertContains(
+            respuesta,
+            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+        )
         self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
         self.assertContains(respuesta, "Volver a configuración", count=1)
         self.assertContains(respuesta, 'class="card management-section"', count=3)

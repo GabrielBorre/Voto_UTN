@@ -55,6 +55,10 @@ class PadronViewsTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "padron/cargar.html")
+        self.assertContains(
+            respuesta,
+            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+        )
 
     def test_eleccion_cerrada_bloquea_pantalla_y_configuracion_del_padron(self):
         self.eleccion.estado = Eleccion.Estado.CERRADA

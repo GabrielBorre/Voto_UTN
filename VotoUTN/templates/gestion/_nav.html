@@ -9,10 +9,10 @@
     {% endif %}
   {% endif %}
   {% if nav_es_administrador_junta %}
-  <a class="{% if request.resolver_match.url_name == 'gestionar-elecciones' %}active{% endif %}" href="{% url 'gestionar-elecciones' %}">Gestionar elecciones</a>
+  <a class="{% if request.resolver_match.url_name in 'gestionar-elecciones,crear-eleccion,preparar-eleccion,preparar-claustro,editar-eleccion,configurar-eleccion,gestionar-fechas-administrativas,cambiar-estado-eleccion,gestionar-alcances,gestionar-departamentos-claustro,editar-alcance-sedes,gestionar-mesas,gestionar-autoridades,gestionar-autoridades-claustro,previsualizar-padron,gestionar-reportes,gestionar-partidos,importar-candidaturas,plantilla-candidaturas,plantilla-candidatos-lista,editar-puesto-eleccion,cambiar-estado-puesto-eleccion,confirmar-importacion-candidaturas,detalle-participacion-partido,editar-participacion-partido,cambiar-estado-participacion-partido,detalle-lista-candidatos,cambiar-estado-lista-candidatos,editar-candidato,cambiar-estado-candidato,buscar-elector-candidato' %}active{% endif %}" href="{% url 'gestionar-elecciones' %}">Gestionar elecciones</a>
   {% endif %}
   {% if nav_puede_gestionar_parametros %}
-  <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parámetros de elección</a>
+  <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' or request.resolver_match.url_name == 'catalogos-candidaturas' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parámetros de elección</a>
   {% endif %}
   {% if nav_puede_gestionar_elecciones %}
   <a class="{% if request.resolver_match.url_name == 'historial-elecciones' %}active{% endif %}" href="{% url 'historial-elecciones' %}">Historial de elecciones</a>
