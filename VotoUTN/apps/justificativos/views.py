@@ -8,9 +8,9 @@ from django.utils import timezone
 from apps.elecciones.models import Eleccion
 from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
-from apps.padron.models import Elector
+from apps.padron.models import Elector, RegistroPadron
 from apps.usuarios.models import AsignacionRol
-from apps.usuarios.permisos import puede_revisar_justificativo
+from apps.usuarios.permisos import es_administrativo_junta, puede_revisar_justificativo
 
 
 @login_required
@@ -23,14 +23,32 @@ def mis_justificativos(request):
             elector = Elector.objects.filter(dni=dni).first()
     if elector is None:
         return HttpResponseForbidden("No existe un elector asociado a esta identidad.")
-    formulario = FormularioJustificativo(request.POST or None, request.FILES or None, elector=elector)
+    registro_padron = (
+        RegistroPadron.objects.filter(elector=elector, activo=True)
+        .select_related("eleccion")
+        .order_by("-eleccion__fecha_inicio", "-eleccion_id")
+        .first()
+    )
+    formulario = FormularioJustificativo(
+        request.POST or None,
+        request.FILES or None,
+        registro_padron=registro_padron,
+    )
     if request.method == "POST" and formulario.is_valid():
         formulario.save()
         messages.success(request, "El justificativo fue presentado para revision.")
         return redirect("mis-justificativos")
     justificativos = JustificativoAusencia.objects.select_related("registro_padron__eleccion", "tipo")
     justificativos = justificativos.filter(registro_padron__elector=elector)
-    return render(request, "justificativos/mis_justificativos.html", {"formulario": formulario, "justificativos": justificativos})
+    return render(
+        request,
+        "justificativos/mis_justificativos.html",
+        {
+            "eleccion": registro_padron.eleccion if registro_padron else None,
+            "formulario": formulario,
+            "justificativos": justificativos,
+        },
+    )
 
 
 @login_required
@@ -56,7 +74,12 @@ def gestionar_justificativos(request, eleccion_id):
 
 @login_required
 def bandeja_justificativos(request):
-    if request.user.is_superuser or AsignacionRol.objects.filter(usuario=request.user, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():
+    es_administrador_sistema = request.user.is_superuser or AsignacionRol.objects.filter(
+        usuario=request.user,
+        activo=True,
+        rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA,
+    ).exists()
+    if es_administrador_sistema or es_administrativo_junta(request.user):
         justificativos = JustificativoAusencia.objects.all()
     else:
         elecciones = (
@@ -69,14 +92,13 @@ def bandeja_justificativos(request):
             .values_list("eleccion_id", flat=True)
         )
         justificativos = JustificativoAusencia.objects.filter(registro_padron__eleccion_id__in=elecciones)
-    if not justificativos.exists():
-        tiene_rol = AsignacionRol.objects.filter(
+    tiene_permiso = es_administrador_sistema or es_administrativo_junta(request.user) or AsignacionRol.objects.filter(
             usuario=request.user,
             activo=True,
-            rol__in=(AsignacionRol.Rol.ADMINISTRADOR_JUNTA, AsignacionRol.Rol.ADMINISTRATIVO_JUNTA),
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
         ).exists()
-        if not (request.user.is_superuser or tiene_rol):
-            return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
+    if not tiene_permiso:
+        return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
     justificativos = justificativos.select_related("registro_padron__eleccion", "registro_padron__elector", "tipo")
     return render(request, "justificativos/bandeja.html", {"justificativos": justificativos})
 

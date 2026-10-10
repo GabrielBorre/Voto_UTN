@@ -31,7 +31,7 @@ from apps.padron.services import (
     registrar_errores,
     validar_csv_padron,
 )
-from apps.usuarios.permisos import puede_administrar_elecciones, puede_importar_padron
+from apps.usuarios.permisos import puede_administrar_elecciones, puede_importar_padron, puede_configurar_eleccion
 from apps.padron.models import RegistroPadron
 from apps.padron.services import calcular_mesas_automaticas_eleccion, claustro_tiene_emision_vigente
 
@@ -60,11 +60,13 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
     )
     if not puede_importar_padron(request.user, eleccion_claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para importar el padrón.")
+    if not puede_configurar_eleccion(request.user, eleccion_claustro.eleccion):
+        return HttpResponseForbidden("No se puede modificar el padrón de una elección cerrada.")
     configura_padron = request.method == "POST" and "guardar-configuracion" in request.POST
     carga_archivo = request.method == "POST" and not configura_padron
     autoguardado = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.POST.get("autoguardado") == "1"
-    puede_configurar = puede_administrar_elecciones(request.user, eleccion_claustro.eleccion)
-    puede_cargar = eleccion_claustro.eleccion.estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA)
+    puede_configurar = puede_configurar_eleccion(request.user, eleccion_claustro.eleccion)
+    puede_cargar = puede_configurar and eleccion_claustro.eleccion.estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA)
 
     if configura_padron and not puede_configurar:
         return HttpResponseForbidden("No tiene permiso para configurar este padrón.")
@@ -163,7 +165,7 @@ def eliminar_padron_claustro(request, eleccion_id, claustro_id):
         pk=claustro_id,
         eleccion_id=eleccion_id,
     )
-    if not puede_administrar_elecciones(request.user, claustro.eleccion):
+    if not puede_configurar_eleccion(request.user, claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para eliminar el padrón del claustro.")
 
     resumen = estado_eliminacion_padron_claustro(claustro)
@@ -210,6 +212,8 @@ def confirmar_importacion_padron(request, eleccion_id, importacion_id):
     importacion = get_object_or_404(ImportacionPadron, pk=importacion_id, eleccion_id=eleccion_id)
     if not puede_importar_padron(request.user, importacion.eleccion):
         return HttpResponseForbidden("No tiene permiso para confirmar esta importación.")
+    if not puede_configurar_eleccion(request.user, importacion.eleccion):
+        return HttpResponseForbidden("No se puede confirmar una importación para una elección cerrada.")
     if importacion.estado != ImportacionPadron.Estado.PREVISUALIZADA:
         messages.error(request, "Solo se pueden confirmar importaciones sin errores.")
         return redirect("detalle-importacion-padron", eleccion_id=eleccion_id, importacion_id=importacion.id)
@@ -277,7 +281,7 @@ def calcular_mesas_eleccion(request, eleccion_id):
 @login_required
 def configurar_sedes_claustro(request, eleccion_id, claustro_id):
     claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
-    if not puede_importar_padron(request.user, claustro.eleccion):
+    if not puede_configurar_eleccion(request.user, claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para configurar las sedes del padrón.")
     configuracion, _ = ConfiguracionSedesClaustro.objects.get_or_create(eleccion_claustro=claustro)
 

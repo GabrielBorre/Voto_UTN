@@ -86,7 +86,12 @@ class ServicioRegistroParticipacionEleccionTests(TestCase):
         inicio = make_aware(datetime(2026, 8, 3, 8))
         fin = make_aware(datetime(2026, 8, 3, 18))
         self.eleccion_activa = Eleccion.objects.create(nombre="Elección activa", fecha_inicio=inicio, fecha_fin=fin)
-        self.eleccion_ajena = Eleccion.objects.create(nombre="Elección ajena", fecha_inicio=inicio, fecha_fin=fin)
+        self.eleccion_ajena = Eleccion.objects.create(
+            nombre="Elección ajena",
+            fecha_inicio=inicio,
+            fecha_fin=fin,
+            estado=Eleccion.Estado.CERRADA,
+        )
 
         claustro = Claustro.objects.create(nombre="Docentes")
         departamento = Departamento.objects.create(nombre="Sistemas", codigo="DSI")
@@ -169,7 +174,12 @@ class ModeloElectoralTests(TestCase):
         inicio = make_aware(datetime(2026, 8, 3, 8))
         fin = make_aware(datetime(2026, 8, 3, 18))
         eleccion = Eleccion.objects.create(nombre="Elección 1", fecha_inicio=inicio, fecha_fin=fin)
-        otra_eleccion = Eleccion.objects.create(nombre="Elección 2", fecha_inicio=inicio, fecha_fin=fin)
+        otra_eleccion = Eleccion.objects.create(
+            nombre="Elección 2",
+            fecha_inicio=inicio,
+            fecha_fin=fin,
+            estado=Eleccion.Estado.CERRADA,
+        )
         claustro = Claustro.objects.create(nombre="Estudiantes")
         departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
         configuracion = EleccionClaustroDepartamento.objects.create(
@@ -198,6 +208,17 @@ class PermisosParticipacionTests(TestCase):
         )
 
         self.assertTrue(puede_registrar_participacion(self.usuario, self.eleccion))
+
+    def test_administrativo_global_puede_abrir_asistencia_de_cualquier_eleccion_activa(self):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("escanear", args=(self.eleccion.pk,)))
+
+        self.assertEqual(respuesta.status_code, 200)
 
     def test_autoridad_de_mesa_no_puede_registrar_participacion(self):
         AsignacionRol.objects.create(

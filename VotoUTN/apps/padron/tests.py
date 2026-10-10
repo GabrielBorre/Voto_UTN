@@ -65,7 +65,7 @@ class PadronViewsTests(TestCase):
         self.configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=self.eleccion_claustro, departamento=self.departamento)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=self.sede)
         self.usuario = get_user_model().objects.create_user(username="admin", password="clave")
-        AsignacionRol.objects.create(usuario=self.usuario, rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA, eleccion=self.eleccion)
+        AsignacionRol.objects.create(usuario=self.usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion)
 
     def test_previsualizar_padron_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
@@ -74,6 +74,31 @@ class PadronViewsTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "padron/cargar.html")
+        self.assertContains(
+            respuesta,
+            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+        )
+
+    def test_eleccion_cerrada_bloquea_pantalla_y_configuracion_del_padron(self):
+        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.save(update_fields=("estado",))
+        self.client.force_login(self.usuario)
+        ruta = reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id))
+
+        respuesta_consulta = self.client.get(ruta)
+        respuesta_guardado = self.client.post(
+            ruta,
+            {
+                "guardar-configuracion": "1",
+                "configuracion-fecha_votacion": self.eleccion.fecha_inicio.isoformat(),
+                "configuracion-maximo_votantes_por_mesa": "20",
+            },
+        )
+
+        self.assertEqual(respuesta_consulta.status_code, 403)
+        self.assertEqual(respuesta_guardado.status_code, 403)
+        self.eleccion_claustro.refresh_from_db()
+        self.assertIsNone(self.eleccion_claustro.fecha_votacion)
 
     def test_detalle_importacion_usa_presentacion_visual_unificada(self):
         importacion = ImportacionPadron.objects.create(
@@ -873,7 +898,7 @@ class AsignacionSedesClaustroTests(TestCase):
         usuario = get_user_model().objects.create_user(username="junta", password="clave")
         AsignacionRol.objects.create(
             usuario=usuario,
-            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
             eleccion=self.eleccion,
         )
         self.client.login(username="junta", password="clave")
@@ -902,7 +927,7 @@ class AsignacionSedesClaustroTests(TestCase):
         usuario = get_user_model().objects.create_user(username="junta-reorden-reglas", password="clave")
         AsignacionRol.objects.create(
             usuario=usuario,
-            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
             eleccion=self.eleccion,
         )
         regla_primera = self.crear_regla(1, "nivel", "1", self.medrano)
@@ -940,7 +965,7 @@ class AsignacionSedesClaustroTests(TestCase):
         usuario = get_user_model().objects.create_user(username="junta-paginacion", password="clave")
         AsignacionRol.objects.create(
             usuario=usuario,
-            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
             eleccion=self.eleccion,
         )
         for indice in range(30):
