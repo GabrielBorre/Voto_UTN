@@ -46,14 +46,11 @@
 }
 
 .mark {
-    width: 48px;
-    height: 48px;
-    border: 3px solid #111;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    font-weight: 800;
-    font-size: 12px;
+    width: 42px;
+    height: 42px;
+    display: block;
+    flex: 0 0 auto;
+    object-fit: contain;
 }
 
 .brand-title strong {
@@ -1081,6 +1078,173 @@ a.btn.active {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+.visually-hidden {
+    border: 0;
+    clip: rect(0, 0, 0, 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+}
+
+/* Tablero de registro de participación: solo escritorio */
+.solo-escritorio {
+    display: none;
+}
+
+.mb-card {
+    margin-bottom: 16px;
+}
+
+@media (min-width: 768px) {
+    .solo-escritorio {
+        display: block;
+    }
+
+    .solo-movil {
+        display: none;
+    }
+}
+
+.hero-acciones {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: space-between;
+}
+
+.hero-botones {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.hero-boton {
+    background: #fff;
+    color: var(--azul-900);
+}
+
+.hero-boton-secundario {
+    background: transparent;
+    border-color: rgba(255, 255, 255, .75);
+    color: #fff;
+}
+
+.hero-boton-secundario:hover {
+    background: rgba(255, 255, 255, .16);
+}
+
+.hero-selector {
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    color: var(--texto);
+    font: inherit;
+    min-height: 42px;
+    padding: 0 10px;
+}
+
+.dashboard-participacion .card {
+    margin-bottom: 22px;
+}
+
+.filtros-tablero {
+    align-items: end;
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+}
+
+.filtros-tablero .field {
+    margin-top: 0;
+}
+
+.filtros-acciones {
+    display: flex;
+    gap: 10px;
+}
+
+.indicadores {
+    align-items: stretch;
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.indicador {
+    display: flex;
+    flex-direction: column;
+    min-height: 210px;
+}
+
+.indicador h2 {
+    color: var(--muted);
+    font-size: 12px;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.indicador-valor {
+    color: var(--azul-900);
+    font-size: 38px;
+    font-weight: 800;
+    margin: 8px 0 2px;
+}
+
+.barra-progreso {
+    background: var(--gris);
+    border-radius: 999px;
+    height: 12px;
+    margin-top: auto;
+    overflow: hidden;
+}
+
+.barra-progreso span {
+    background: var(--azul-700);
+    border-radius: 999px;
+    display: block;
+    height: 100%;
+}
+
+.seccion-sin-margen {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 0;
+}
+
+th.celda-mesa {
+    background: transparent;
+    color: var(--azul-900);
+    font-size: 14px;
+    text-transform: none;
+}
+
+.paginacion {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: space-between;
+    margin-top: 14px;
+}
+
+.paginacion-botones {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+}
+
+.grafico-historial {
+    height: 320px;
+    position: relative;
 }
 
 table .btn {

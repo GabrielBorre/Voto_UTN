@@ -1,33 +1,147 @@
-{% extends 'base.html' %}
-{% block title %}Elecciones · Voto UTN{% endblock %}
+{% extends 'gestion/base.html' %}{% load static %}{% block title %}Registro de participación | Junta Electoral UTN{% endblock %}
 {% block content %}
-{% if hay_eleccion_en_curso and elecciones %}
-<header class="mb-4">
-  <h1 class="h3 mb-1">Seleccioná una elección</h1>
-  <p class="text-muted mb-0"><span class="texto-movil">Elegí la mesa antes de comenzar a escanear.</span><span class="texto-escritorio">Elegí la elección para realizar una carga manual de asistencia.</span></p>
-</header>
-<div class="row g-3">
+<section class="solo-movil">
+  <div class="hero"><h1>Registro de participación</h1></div>
+  {% if hay_eleccion_en_curso %}
   {% for eleccion in elecciones %}
-  <div class="col-12 col-md-6">
-    <article class="card eleccion-card h-100 border-0 shadow-sm">
-      <div class="card-body p-4">
-        <h2 class="h5">{{ eleccion.nombre }}</h2>
-        <p class="small text-muted">{{ eleccion.fecha_inicio|date:'d/m/Y' }} — {{ eleccion.fecha_fin|date:'d/m/Y' }}</p>
-        <a class="btn btn-primary btn-lg w-100" href="{% url 'escanear' eleccion.pk %}"><span class="texto-movil">Comenzar escaneo</span><span class="texto-escritorio">Carga manual de asistencia</span></a>
-      </div>
-    </article>
-  </div>
+  <article class="option mb-card">
+    <h2>{{ eleccion.nombre }}</h2>
+    <p class="muted">{{ eleccion.fecha_inicio|date:'d/m/Y' }} — {{ eleccion.fecha_fin|date:'d/m/Y' }}</p>
+    <a class="button primary" href="{% url 'escanear' eleccion.pk %}">Comenzar escaneo</a>
+  </article>
+  {% empty %}
+  <p class="muted">La elección todavía no está abierta para poder registrar participación.</p>
   {% endfor %}
-</div>
-{% elif hay_eleccion_en_curso %}
-<section class="alert alert-info" role="status">
-  <h1 class="h4 alert-heading">La elección todavía no está abierta</h1>
-  <p class="mb-0">La elección todavía no está abierta para poder registrar participación.</p>
+  {% else %}
+  <p class="muted">Debe haber una elección en curso para poder registrar participación.</p>
+  {% endif %}
 </section>
+
+<div class="solo-escritorio dashboard-participacion">
+{% if hay_eleccion_en_curso and eleccion_actual %}
+  <section class="hero hero-acciones">
+    <div>
+      <h1>Registro de participación</h1>
+      <p>{{ eleccion_actual.nombre }} · {{ eleccion_actual.fecha_inicio|date:'d/m/Y' }} — {{ eleccion_actual.fecha_fin|date:'d/m/Y' }}</p>
+    </div>
+    <div class="hero-botones">
+      {% if elecciones.count > 1 %}
+      <form method="get" class="inline-form">
+        <label class="visually-hidden" for="filtro-eleccion">Elección</label>
+        <select id="filtro-eleccion" name="eleccion" class="hero-selector" data-autoenviar>
+          {% for eleccion in elecciones %}<option value="{{ eleccion.pk }}"{% if eleccion.pk == eleccion_actual.pk %} selected{% endif %}>{{ eleccion.nombre }}</option>{% endfor %}
+        </select>
+      </form>
+      {% endif %}
+      <a class="button hero-boton" href="{% url 'escanear' eleccion_actual.pk %}">Carga manual de asistencia</a>
+      <a class="button hero-boton-secundario" href="#historial-participacion">Historial de participación</a>
+    </div>
+  </section>
+
+  <form method="get" class="card filtros-tablero" aria-label="Filtros del tablero">
+    <input type="hidden" name="eleccion" value="{{ eleccion_actual.pk }}">
+    <div class="field">
+      <label for="filtro-claustro">Claustro</label>
+      <select id="filtro-claustro" name="claustro" data-autoenviar>
+        <option value="">Todos</option>
+        {% for claustro in opciones_filtros.claustros %}<option value="{{ claustro.pk }}"{% if filtros.claustro_id == claustro.pk %} selected{% endif %}>{{ claustro.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="filtro-sede">Sede</label>
+      <select id="filtro-sede" name="sede" data-autoenviar>
+        <option value="">Todas</option>
+        {% for sede in opciones_filtros.sedes %}<option value="{{ sede.pk }}"{% if filtros.sede_id == sede.pk %} selected{% endif %}>{{ sede.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="filtro-departamento">Departamento</label>
+      <select id="filtro-departamento" name="departamento" data-autoenviar>
+        <option value="">Todos</option>
+        {% for departamento in opciones_filtros.departamentos %}<option value="{{ departamento.pk }}"{% if filtros.departamento_id == departamento.pk %} selected{% endif %}>{{ departamento.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filtros-acciones">
+      <a class="button light" href="{% url 'lista-elecciones' %}?eleccion={{ eleccion_actual.pk }}">Limpiar filtros</a>
+    </div>
+  </form>
+
+  <section class="indicadores" aria-label="Indicadores de participación">
+    <article class="card indicador">
+      <h3>Mesas escaneadas</h3>
+      <p class="indicador-valor">{{ dashboard.mesas_escaneadas_pct }}%</p>
+      <p class="muted">{{ dashboard.mesas_escaneadas }} de {{ dashboard.mesas_total }} mesas</p>
+      <div class="barra-progreso" role="progressbar" aria-label="Mesas escaneadas" aria-valuenow="{{ dashboard.mesas_escaneadas_pct|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ dashboard.mesas_escaneadas_pct|stringformat:'.1f' }}%"></span></div>
+    </article>
+    <article class="card indicador">
+      <h3>Electores que participaron</h3>
+      <p class="indicador-valor">{{ dashboard.electores_participaron_pct }}%</p>
+      <p class="muted">{{ dashboard.electores_participaron }} de {{ dashboard.electores_en_mesas_escaneadas }} electores de mesas escaneadas</p>
+      <div class="barra-progreso" role="progressbar" aria-label="Electores que participaron" aria-valuenow="{{ dashboard.electores_participaron_pct|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ dashboard.electores_participaron_pct|stringformat:'.1f' }}%"></span></div>
+    </article>
+  </section>
+
+  <section id="mesas-pendientes" class="card" aria-labelledby="titulo-mesas-pendientes">
+    <div class="section-title seccion-sin-margen">
+      <h2 id="titulo-mesas-pendientes">Mesas que faltan escanear</h2>
+      <p class="muted">Una mesa se considera escaneada cuando tiene al menos un registro de participación.</p>
+    </div>
+    {% if pagina_mesas.object_list %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Mesa</th><th scope="col">Sede</th><th scope="col">Claustro</th><th scope="col">Departamento</th><th scope="col">Electores</th></tr></thead>
+        <tbody>
+          {% for mesa in pagina_mesas %}
+          <tr>
+            <th scope="row" class="celda-mesa">Mesa {{ mesa.numero }}</th>
+            <td>{{ mesa.sede.nombre|default:"—" }}</td>
+            <td>{{ mesa.eleccion_claustro_departamento.eleccion_claustro.claustro.nombre|default:"—" }}</td>
+            <td>{{ mesa.eleccion_claustro_departamento.departamento.nombre|default:"—" }}</td>
+            <td>{{ mesa.cantidad_electores }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <nav class="paginacion" aria-label="Paginación de mesas pendientes">
+      <span class="muted">Mostrando {{ pagina_mesas.start_index }}–{{ pagina_mesas.end_index }} de {{ pagina_mesas.paginator.count }} mesas</span>
+      <div class="paginacion-botones">
+        {% if pagina_mesas.has_previous %}<a class="button light small" href="?{{ querystring_paginacion }}{% if querystring_paginacion %}&amp;{% endif %}pagina={{ pagina_mesas.previous_page_number }}#mesas-pendientes">Anterior</a>{% endif %}
+        <span class="pill info">Página {{ pagina_mesas.number }} de {{ pagina_mesas.paginator.num_pages }}</span>
+        {% if pagina_mesas.has_next %}<a class="button light small" href="?{{ querystring_paginacion }}{% if querystring_paginacion %}&amp;{% endif %}pagina={{ pagina_mesas.next_page_number }}#mesas-pendientes">Siguiente</a>{% endif %}
+      </div>
+    </nav>
+    {% elif dashboard.mesas_total %}
+    <p class="muted">Todas las mesas de este filtro ya registraron participación.</p>
+    {% else %}
+    <p class="muted">No hay mesas para los filtros seleccionados.</p>
+    {% endif %}
+  </section>
+
+  <section id="historial-participacion" class="card" aria-labelledby="titulo-historial">
+    <h2 id="titulo-historial">Historial de participación</h2>
+    <p class="muted">Porcentaje de electores que participaron en cada elección, con los filtros seleccionados.</p>
+    {% if dashboard.historial.etiquetas %}
+    <div class="grafico-historial"><canvas id="grafico-historial" role="img" aria-label="Evolución de la participación entre elecciones"></canvas></div>
+    <p id="grafico-historial-aviso" class="muted" hidden></p>
+    {{ dashboard.historial|json_script:"historial-datos" }}
+    {% else %}
+    <p class="muted">Todavía no hay elecciones con padrón para comparar.</p>
+    {% endif %}
+  </section>
 {% else %}
-<section class="alert alert-info" role="status">
-  <h1 class="h4 alert-heading">No hay una elección en curso</h1>
-  <p class="mb-0">Debe haber una elección en curso para poder registrar participación.</p>
-</section>
+  {% if hay_eleccion_en_curso %}
+  <p class="muted">La elección todavía no está abierta para poder registrar participación.</p>
+  {% else %}
+  <p class="muted">Debe haber una elección en curso para poder registrar participación.</p>
+  {% endif %}
+{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if hay_eleccion_en_curso and eleccion_actual %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+<script type="module" src="{% static 'js/dashboard-participacion.js' %}"></script>
 {% endif %}
 {% endblock %}

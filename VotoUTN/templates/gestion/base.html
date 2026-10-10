@@ -11,7 +11,7 @@
 <body class="gestion-electoral">
   <header class="topbar">
     <a class="brand" href="{% url 'inicio-autenticado' %}" aria-label="Junta Electoral UTN">
-      <span class="mark">UTN</span>
+      <img class="mark" src="{% static 'img/logo-utn-2.png' %}" alt="">
       <span class="brand-title"><strong>UTN.<i>BA</i></strong><small>Sistema de Gestion Electoral</small></span>
     </a>
     {% if user.is_authenticated %}

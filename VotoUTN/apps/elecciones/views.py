@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.http import Http404
@@ -20,6 +21,12 @@ from .models import (
     EleccionClaustro,
     EleccionClaustroDepartamento,
 )
+from apps.asistencia.dashboard import (
+    FiltrosDashboard,
+    construir_dashboard,
+    opciones_filtros,
+    seleccionar_eleccion_actual,
+)
 from apps.autoridades.models import AsignacionAutoridad
 from apps.auditoria.services import registrar_evento
 from apps.partidos.models import ParticipacionPartido
@@ -34,6 +41,8 @@ from apps.usuarios.permisos import (
     puede_crear_elecciones,
 )
 from apps.usuarios.models import AsignacionRol
+
+MESAS_POR_PAGINA = 10
 
 
 def contexto_formulario_eleccion(formulario, incluir_parametros=False):
@@ -153,16 +162,29 @@ def inicio_administrador_junta(request):
 
 @login_required
 def listar_elecciones(request):
-    return render(
-        request,
-        "elecciones/list.html",
-        {
-            "elecciones": elecciones_con_participacion(request.user),
-            "hay_eleccion_en_curso": Eleccion.objects.filter(
-                estado__in=ESTADOS_ELECCION_NO_CERRADOS,
-            ).exists(),
-        },
-    )
+    elecciones = elecciones_con_participacion(request.user)
+    hay_eleccion_en_curso = Eleccion.objects.filter(
+        estado__in=ESTADOS_ELECCION_NO_CERRADOS,
+    ).exists()
+    contexto = {
+        "elecciones": elecciones,
+        "hay_eleccion_en_curso": hay_eleccion_en_curso,
+    }
+    eleccion_actual = seleccionar_eleccion_actual(elecciones, request.GET.get("eleccion"))
+    if hay_eleccion_en_curso and eleccion_actual is not None:
+        filtros = FiltrosDashboard.desde_parametros(request.GET)
+        dashboard = construir_dashboard(request.user, eleccion_actual, filtros)
+        parametros = request.GET.copy()
+        parametros.pop("pagina", None)
+        contexto.update(
+            eleccion_actual=eleccion_actual,
+            filtros=filtros,
+            opciones_filtros=opciones_filtros(eleccion_actual),
+            dashboard=dashboard,
+            pagina_mesas=Paginator(dashboard["mesas_pendientes"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
+            querystring_paginacion=parametros.urlencode(),
+        )
+    return render(request, "elecciones/list.html", contexto)
 
 def index(request):
     return render(request, "elecciones/index.html")
