@@ -16,14 +16,14 @@ from apps.autoridades.services import PLANTILLA_AUTORIDADES_EJEMPLO, PLANTILLA_A
 from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad, PreferenciaAutoridad
 from apps.elecciones.models import Eleccion, EleccionClaustro
 from apps.mesas.models import Mesa
-from apps.usuarios.permisos import puede_administrar_elecciones
+from apps.usuarios.permisos import puede_configurar_eleccion
 from apps.usuarios.services import elector_de_identidad
 
 
 @login_required
 def descargar_plantilla_autoridades(request, eleccion_id, claustro_id=None):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para descargar la plantilla.")
     eleccion_claustro = None
     if claustro_id is not None:
@@ -46,7 +46,7 @@ def descargar_plantilla_autoridades(request, eleccion_id, claustro_id=None):
 @login_required
 def gestionar_autoridades(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para gestionar autoridades.")
     resumen_claustros = []
     for eleccion_claustro in eleccion.elecciones_claustro.select_related("claustro").order_by("claustro__nombre"):
@@ -84,7 +84,7 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
         eleccion_id=eleccion_id,
     )
     eleccion = eleccion_claustro.eleccion
-    if not puede_administrar_elecciones(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para gestionar autoridades.")
 
     configura_turnos = request.method == "POST" and "guardar-turnos" in request.POST

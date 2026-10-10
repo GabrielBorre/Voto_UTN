@@ -73,6 +73,10 @@ class ReportesViewsTests(TestCase):
         self.assertContains(respuesta, "Padrón imprimible no disponible")
         self.assertContains(respuesta, "Generar padrón imprimible")
         self.assertContains(respuesta, "disabled")
+        self.assertContains(
+            respuesta,
+            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+        )
         self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
         self.assertContains(respuesta, "Volver a configuración", count=1)
 

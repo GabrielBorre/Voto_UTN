@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from apps.elecciones.admin_permissions import EleccionCerradaAdminMixin
 from apps.padron.models import Elector, ErrorImportacionPadron, ImportacionPadron, RegistroPadron
 
 
@@ -9,4 +10,5 @@ class ElectorAdmin(admin.ModelAdmin):
     search_fields = ("legajo", "nombre", "apellido", "dni")
 
 
-admin.site.register((RegistroPadron, ImportacionPadron, ErrorImportacionPadron))
+for modelo in (RegistroPadron, ImportacionPadron, ErrorImportacionPadron):
+    admin.site.register(modelo, EleccionCerradaAdminMixin)

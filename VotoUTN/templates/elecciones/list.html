@@ -2,6 +2,7 @@
 {% block content %}
 <section class="solo-movil">
   <div class="hero"><h1>Registro de participación</h1></div>
+  {% if hay_eleccion_en_curso %}
   {% for eleccion in elecciones %}
   <article class="option mb-card">
     <h2>{{ eleccion.nombre }}</h2>
@@ -9,12 +10,15 @@
     <a class="button primary" href="{% url 'escanear' eleccion.pk %}">Comenzar escaneo</a>
   </article>
   {% empty %}
-  <p class="muted">No hay elecciones habilitadas para registrar participación.</p>
+  <p class="muted">La elección todavía no está abierta para poder registrar participación.</p>
   {% endfor %}
+  {% else %}
+  <p class="muted">Debe haber una elección en curso para poder registrar participación.</p>
+  {% endif %}
 </section>
 
 <div class="solo-escritorio dashboard-participacion">
-{% if eleccion_actual %}
+{% if hay_eleccion_en_curso and eleccion_actual %}
   <section class="hero hero-acciones">
     <div>
       <h1>Registro de participación</h1>
@@ -126,13 +130,17 @@
     {% endif %}
   </section>
 {% else %}
-  <p class="muted">No hay elecciones habilitadas para registrar participación.</p>
+  {% if hay_eleccion_en_curso %}
+  <p class="muted">La elección todavía no está abierta para poder registrar participación.</p>
+  {% else %}
+  <p class="muted">Debe haber una elección en curso para poder registrar participación.</p>
+  {% endif %}
 {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts %}
-{% if eleccion_actual %}
+{% if hay_eleccion_en_curso and eleccion_actual %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
 <script type="module" src="{% static 'js/dashboard-participacion.js' %}"></script>
 {% endif %}
