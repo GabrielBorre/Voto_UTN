@@ -1159,7 +1159,7 @@ a.btn.active {
     align-items: end;
     display: grid;
     gap: 16px;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
 }
 
 .filtros-tablero .field {
@@ -1175,16 +1175,20 @@ a.btn.active {
     align-items: stretch;
     display: grid;
     gap: 18px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .indicador {
     display: flex;
     flex-direction: column;
-    min-height: 210px;
 }
 
-.indicador h2 {
+.indicadores .indicador {
+    margin-top: 0;
+}
+
+.indicador h2,
+.indicador h3 {
     color: var(--muted);
     font-size: 12px;
     margin: 0;
@@ -1202,7 +1206,7 @@ a.btn.active {
     background: var(--gris);
     border-radius: 999px;
     height: 12px;
-    margin-top: auto;
+    margin-top: 12px;
     overflow: hidden;
 }
 

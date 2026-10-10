@@ -1,0 +1,133 @@
+  <section class="hero hero-acciones">
+    <div>
+      <h1>{% if modo_historial %}Dashboard de {{ eleccion_actual.nombre }}{% else %}Registro de participación{% endif %}</h1>
+      <p>{% if not modo_historial %}{{ eleccion_actual.nombre }} · {% endif %}{{ eleccion_actual.fecha_inicio|date:'d/m/Y' }} — {{ eleccion_actual.fecha_fin|date:'d/m/Y' }}</p>
+    </div>
+    <div class="hero-botones">
+      {% if modo_historial %}
+      <a class="button hero-boton" href="{% url 'historial-elecciones' %}">Volver al listado de elecciones</a>
+      {% else %}
+      {% if elecciones.count > 1 %}
+      <form method="get" class="inline-form">
+        <label class="visually-hidden" for="filtro-eleccion">Elección</label>
+        <select id="filtro-eleccion" name="eleccion" class="hero-selector" data-autoenviar>
+          {% for eleccion in elecciones %}<option value="{{ eleccion.pk }}"{% if eleccion.pk == eleccion_actual.pk %} selected{% endif %}>{{ eleccion.nombre }}</option>{% endfor %}
+        </select>
+      </form>
+      {% endif %}
+      <a class="button hero-boton" href="{% url 'escanear' eleccion_actual.pk %}">Carga manual de asistencia</a>
+      {% endif %}
+      <a class="button hero-boton-secundario" href="#historial-participacion">Historial de participación</a>
+    </div>
+  </section>
+
+  <form method="get" class="card filtros-tablero" aria-label="Filtros del tablero">
+    <input type="hidden" name="eleccion" value="{{ eleccion_actual.pk }}">
+    <div class="field">
+      <label for="filtro-claustro">Claustro</label>
+      <select id="filtro-claustro" name="claustro" data-autoenviar>
+        <option value="">Todos</option>
+        {% for claustro in opciones_filtros.claustros %}<option value="{{ claustro.pk }}"{% if filtros.claustro_id == claustro.pk %} selected{% endif %}>{{ claustro.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="filtro-sede">Sede</label>
+      <select id="filtro-sede" name="sede" data-autoenviar>
+        <option value="">Todas</option>
+        {% for sede in opciones_filtros.sedes %}<option value="{{ sede.pk }}"{% if filtros.sede_id == sede.pk %} selected{% endif %}>{{ sede.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="filtro-departamento">Departamento</label>
+      <select id="filtro-departamento" name="departamento" data-autoenviar>
+        <option value="">Todos</option>
+        {% for departamento in opciones_filtros.departamentos %}<option value="{{ departamento.pk }}"{% if filtros.departamento_id == departamento.pk %} selected{% endif %}>{{ departamento.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="filtro-escaneo">Estado de la mesa</label>
+      <select id="filtro-escaneo" name="escaneo" data-autoenviar>
+        <option value="">Todas</option>
+        <option value="escaneadas"{% if filtros.escaneo == 'escaneadas' %} selected{% endif %}>Escaneadas</option>
+        <option value="pendientes"{% if filtros.escaneo == 'pendientes' %} selected{% endif %}>Sin escanear</option>
+      </select>
+    </div>
+    <div class="filtros-acciones">
+      <a class="button light" href="{% if modo_historial %}{% url 'historial-elecciones' %}{% else %}{% url 'lista-elecciones' %}{% endif %}?eleccion={{ eleccion_actual.pk }}">Limpiar filtros</a>
+    </div>
+  </form>
+
+  <section class="indicadores" aria-label="Indicadores de participación">
+    <article class="card indicador">
+      <h2>Mesas escaneadas</h2>
+      <p class="indicador-valor">{{ dashboard.mesas_escaneadas_pct }}%</p>
+      <p class="muted">{{ dashboard.mesas_escaneadas }} de {{ dashboard.mesas_total }} mesas</p>
+      <div class="barra-progreso" role="progressbar" aria-label="Mesas escaneadas" aria-valuenow="{{ dashboard.mesas_escaneadas_pct|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ dashboard.mesas_escaneadas_pct|stringformat:'.1f' }}%"></span></div>
+    </article>
+    <article class="card indicador">
+      <h2>Participación</h2>
+      <p class="indicador-valor">{{ dashboard.electores_participaron_pct }}%</p>
+      <p class="muted">{{ dashboard.electores_participaron }} de {{ dashboard.electores_en_mesas_escaneadas }} electores procesados</p>
+      <div class="barra-progreso" role="progressbar" aria-label="Participación" aria-valuenow="{{ dashboard.electores_participaron_pct|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ dashboard.electores_participaron_pct|stringformat:'.1f' }}%"></span></div>
+    </article>
+    <article class="card indicador">
+      <h2>Justificativos recibidos</h2>
+      <p class="indicador-valor">{{ dashboard.justificativos_recibidos_pct }}%</p>
+      <p class="muted">{{ dashboard.justificativos_recibidos }} de {{ dashboard.electores_ausentes }} electores que no votaron</p>
+      <div class="barra-progreso" role="progressbar" aria-label="Justificativos recibidos" aria-valuenow="{{ dashboard.justificativos_recibidos_pct|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ dashboard.justificativos_recibidos_pct|stringformat:'.1f' }}%"></span></div>
+    </article>
+    <article class="card indicador">
+      <h2>Justificativos aceptados</h2>
+      <p class="indicador-valor">{{ dashboard.justificativos_confirmados_pct }}%</p>
+      <p class="muted">{{ dashboard.justificativos_confirmados }} de {{ dashboard.justificativos_recibidos }} justificativos recibidos</p>
+      <div class="barra-progreso" role="progressbar" aria-label="Justificativos aceptados" aria-valuenow="{{ dashboard.justificativos_confirmados_pct|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ dashboard.justificativos_confirmados_pct|stringformat:'.1f' }}%"></span></div>
+    </article>
+  </section>
+
+  <section id="mesas-pendientes" class="card" aria-labelledby="titulo-mesas-pendientes">
+    <div class="section-title seccion-sin-margen">
+      <h2 id="titulo-mesas-pendientes">Mesas</h2>
+      <p class="muted">Una mesa se considera escaneada cuando tiene al menos un registro de participación.</p>
+    </div>
+    {% if pagina_mesas.object_list %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Mesa</th><th scope="col">Sede</th><th scope="col">Claustro</th><th scope="col">Departamento</th><th scope="col">Electores</th><th scope="col">Votaron</th></tr></thead>
+        <tbody>
+          {% for mesa in pagina_mesas %}
+          <tr>
+            <th scope="row" class="celda-mesa">Mesa {{ mesa.numero }}</th>
+            <td>{{ mesa.sede.nombre|default:"—" }}</td>
+            <td>{{ mesa.eleccion_claustro_departamento.eleccion_claustro.claustro.nombre|default:"—" }}</td>
+            <td>{{ mesa.eleccion_claustro_departamento.departamento.nombre|default:"—" }}</td>
+            <td>{{ mesa.cantidad_electores }}</td>
+            <td>{% if mesa.escaneada %}{{ mesa.cantidad_participaron }}{% else %}-{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <nav class="paginacion" aria-label="Paginación de mesas">
+      <span class="muted">Mostrando {{ pagina_mesas.start_index }}–{{ pagina_mesas.end_index }} de {{ pagina_mesas.paginator.count }} mesas</span>
+      <div class="paginacion-botones">
+        {% if pagina_mesas.has_previous %}<a class="button light small" href="?{{ querystring_paginacion }}{% if querystring_paginacion %}&amp;{% endif %}pagina={{ pagina_mesas.previous_page_number }}#mesas-pendientes">Anterior</a>{% endif %}
+        <span class="pill info">Página {{ pagina_mesas.number }} de {{ pagina_mesas.paginator.num_pages }}</span>
+        {% if pagina_mesas.has_next %}<a class="button light small" href="?{{ querystring_paginacion }}{% if querystring_paginacion %}&amp;{% endif %}pagina={{ pagina_mesas.next_page_number }}#mesas-pendientes">Siguiente</a>{% endif %}
+      </div>
+    </nav>
+    {% else %}
+    <p class="muted">No hay mesas para los filtros seleccionados.</p>
+    {% endif %}
+  </section>
+
+  <section id="historial-participacion" class="card" aria-labelledby="titulo-historial">
+    <h2 id="titulo-historial">Historial de participación</h2>
+    <p class="muted">Porcentaje de electores que participaron en cada elección, con los filtros seleccionados.</p>
+    {% if dashboard.historial.etiquetas %}
+    <div class="grafico-historial"><canvas id="grafico-historial" role="img" aria-label="Evolución de la participación entre elecciones"></canvas></div>
+    <p id="grafico-historial-aviso" class="muted" hidden></p>
+    {{ dashboard.historial|json_script:"historial-datos" }}
+    {% else %}
+    <p class="muted">Todavía no hay elecciones con padrón para comparar.</p>
+    {% endif %}
+  </section>

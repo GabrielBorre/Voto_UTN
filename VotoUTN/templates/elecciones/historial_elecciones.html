@@ -1,6 +1,10 @@
-{% extends "gestion/base.html" %}
+{% extends "gestion/base.html" %}{% load static %}
 {% block title %}Historial de elecciones | Junta Electoral UTN{% endblock %}
-{% block content %}<section class="hero">
+{% block content %}{% if modo_historial %}
+<div class="dashboard-participacion">
+{% include 'elecciones/_dashboard_participacion.html' %}
+</div>
+{% else %}<section class="hero">
     <h1>Historial de elecciones</h1>
     <p>Consulta únicamente los procesos electorales cerrados.</p>
 </section>
@@ -24,7 +28,7 @@
                 <td>{{ eleccion.fecha_inicio|date:"d/m/Y" }}</td>
                 <td>{{ eleccion.fecha_fin|date:"d/m/Y" }}</td>
                 <td>{{ eleccion.mesas.count }}</td>
-                <td><a class="button light small" href="#">Dashboard</a></td> <!-- TO_DO: Reemplazar el enlace por el enlace del dashboard correspondiente a la eleccion -->
+                <td><a class="button light small" href="{% url 'historial-elecciones' %}?eleccion={{ eleccion.pk }}">Dashboard</a></td>
             </tr>
             {% empty %}
             <tr>
@@ -33,4 +37,11 @@
             {% endfor %}
         </tbody>
     </table>
-</div>{% endblock %}
+</div>{% endif %}{% endblock %}
+
+{% block scripts %}
+{% if modo_historial %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+<script type="module" src="{% static 'js/dashboard-participacion.js' %}"></script>
+{% endif %}
+{% endblock %}

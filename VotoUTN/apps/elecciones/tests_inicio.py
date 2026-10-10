@@ -97,7 +97,7 @@ class InicioAutenticadoTests(TestCase):
             respuesta,
             "Debe haber una elección en curso para poder registrar participación.",
         )
-        self.assertContains(respuesta, "Elecciones y asistencia")
+        self.assertContains(respuesta, "Registro de participación")
         self.assertContains(
             respuesta,
             'class="gestion-nav__disabled" role="link" aria-disabled="true" tabindex="0" title="Debe haber una elección en curso para poder registrar participación."',
