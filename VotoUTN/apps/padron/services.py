@@ -399,9 +399,12 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None)
     mesas_nuevas = []
     asignaciones_nuevas = []
     resumen = defaultdict(lambda: {"electores": 0, "mesas": 0})
+    distribuciones = {
+        grupo: _distribucion_electores_por_mesa(len(electores), maximo_por_claustro[grupo[0].id])
+        for grupo, electores in grupos.items()
+    }
     for (claustro, alcance, sede), electores in grupos.items():
-        maximo = maximo_por_claustro[claustro.id]
-        for inicio in range(0, len(electores), maximo):
+        for cantidad in distribuciones[(claustro, alcance, sede)]:
             ultimo_numero += 1
             mesa = Mesa(
                 eleccion=eleccion,
@@ -413,7 +416,7 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None)
             mesa.clean()
             mesas_nuevas.append(mesa)
             resumen[claustro.claustro.nombre]["mesas"] += 1
-            resumen[claustro.claustro.nombre]["electores"] += min(maximo, len(electores) - inicio)
+            resumen[claustro.claustro.nombre]["electores"] += cantidad
 
     cantidad_mesas_anteriores = mesas_anteriores.count()
     AsignacionMesa.objects.filter(mesa__in=mesas_anteriores).delete()
@@ -422,14 +425,15 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None)
 
     indice_mesa = 0
     for (claustro, _alcance, _sede), electores in grupos.items():
-        maximo = maximo_por_claustro[claustro.id]
-        for inicio in range(0, len(electores), maximo):
+        inicio = 0
+        for cantidad in distribuciones[(claustro, _alcance, _sede)]:
             mesa = mesas_nuevas[indice_mesa]
             indice_mesa += 1
             asignaciones_nuevas.extend(
                 AsignacionMesa(registro_padron=registro, mesa=mesa)
-                for registro in electores[inicio:inicio + maximo]
+                for registro in electores[inicio:inicio + cantidad]
             )
+            inicio += cantidad
     AsignacionMesa.objects.bulk_create(asignaciones_nuevas)
 
     registrar_evento(
@@ -447,6 +451,20 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None)
         },
     )
     return {"mesas": len(mesas_nuevas), "electores": len(asignaciones_nuevas), "claustros": dict(resumen)}
+
+
+def _distribucion_electores_por_mesa(cantidad_electores, maximo_por_mesa):
+    """Mantiene llenas las mesas previas y reparte el remanente entre las dos últimas."""
+    cantidad_mesas = (cantidad_electores + maximo_por_mesa - 1) // maximo_por_mesa
+    if cantidad_mesas <= 1:
+        return [cantidad_electores]
+
+    cantidad_mesas_llenas = max(0, cantidad_mesas - 2)
+    distribucion = [maximo_por_mesa] * cantidad_mesas_llenas
+    remanente = cantidad_electores - (cantidad_mesas_llenas * maximo_por_mesa)
+    mitad_superior = (remanente + 1) // 2
+    mitad_inferior = remanente // 2
+    return distribucion + [mitad_superior, mitad_inferior]
 
 
 @transaction.atomic

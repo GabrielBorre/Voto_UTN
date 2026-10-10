@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db.models import Count
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.timezone import make_aware
@@ -566,6 +567,22 @@ class CalculoMesasAutomaticasEleccionTests(TestCase):
             max(mesa.asignaciones_padron.count() for mesa in Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True)),
             2,
         )
+
+    def test_reparte_el_remanente_entre_las_dos_ultimas_mesas(self):
+        self.claustro_a.maximo_votantes_por_mesa = 50
+        self.claustro_a.save(update_fields=("maximo_votantes_por_mesa",))
+        registros = [self.crear_elector(str(numero), self.alcance_a) for numero in range(100, 201)]
+
+        calcular_mesas_automaticas_eleccion(self.eleccion)
+
+        cantidades = list(
+            AsignacionMesa.objects.filter(registro_padron__in=registros)
+            .values("mesa__numero")
+            .annotate(total=Count("id"))
+            .order_by("mesa__numero")
+            .values_list("total", flat=True)
+        )
+        self.assertEqual(cantidades, [50, 26, 25])
 
     def test_recalculo_reemplaza_solo_mesas_automaticas(self):
         registros = [self.crear_elector(str(numero), self.alcance_a) for numero in range(20, 23)]
