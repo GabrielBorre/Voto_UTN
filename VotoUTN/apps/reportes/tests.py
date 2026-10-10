@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.timezone import make_aware
+from reportlab.lib.styles import getSampleStyleSheet
 
 from apps.elecciones.models import (
     Eleccion,
@@ -18,7 +19,23 @@ from apps.elecciones.models import (
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
+from apps.partidos.models import (
+    Candidato,
+    CargoElectivo,
+    ListaCandidatos,
+    OrganoElectivo,
+    ParticipacionPartido,
+    PuestoEleccion,
+)
 from apps.reportes.services import valor_csv
+from apps.reportes.services_boletas_pdf import (
+    MARGEN_SUPERIOR_CONTENIDO,
+    POSICION_LINEA_ENCABEZADO,
+    _construir_contenido_boleta,
+    _obtener_boletas,
+    generar_boletas_pdf,
+    validar_boletas_pdf,
+)
 from apps.reportes.services_pdf import (
     ELECTORES_POR_PAGINA,
     _agrupar_padrones_por_mesa,
@@ -68,9 +85,10 @@ class ReportesViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "reportes/gestion.html")
         self.assertContains(respuesta, 'class="toolbar reports-grid"')
-        self.assertContains(respuesta, 'class="option report-option"', count=3)
-        self.assertContains(respuesta, 'class="report-actions"', count=3)
+        self.assertContains(respuesta, 'class="option report-option"', count=4)
+        self.assertContains(respuesta, 'class="report-actions"', count=4)
         self.assertContains(respuesta, "Padrón imprimible no disponible")
+        self.assertContains(respuesta, "Boletas no disponibles")
         self.assertContains(respuesta, "Generar padrón imprimible")
         self.assertContains(respuesta, "disabled")
         self.assertContains(
@@ -88,6 +106,21 @@ class ReportesViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta["Content-Type"], "text/csv; charset=utf-8")
         self.assertIn('filename="padron_', respuesta["Content-Disposition"])
+
+    def test_generar_boletas_pdf_sin_candidatos_redirige_con_mensaje(self):
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(
+            reverse("generar-boletas-pdf", args=(self.eleccion.id,)),
+            follow=True,
+        )
+
+        self.assertRedirects(
+            respuesta,
+            reverse("gestionar-reportes", args=(self.eleccion.id,)),
+        )
+        mensajes = [str(mensaje) for mensaje in respuesta.context["messages"]]
+        self.assertTrue(any("no tiene listas activas con candidatos" in mensaje for mensaje in mensajes))
 
 
 class PadronPDFTests(TestCase):
@@ -236,3 +269,194 @@ class PadronPDFTests(TestCase):
         self.assertRedirects(respuesta, reverse("gestionar-reportes", args=(self.eleccion.id,)))
         mensajes = [str(mensaje) for mensaje in respuesta.context["messages"]]
         self.assertTrue(any("mesa" in mensaje for mensaje in mensajes))
+
+
+class BoletasPDFTests(TestCase):
+    def setUp(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        self.eleccion = Eleccion.objects.create(
+            nombre="Elección de boletas",
+            fecha_inicio=inicio,
+            fecha_fin=inicio + timedelta(hours=8),
+        )
+        self.claustro = Claustro.objects.create(nombre="Estudiantes boletas")
+        self.eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion,
+            claustro=self.claustro,
+        )
+        self.departamento = Departamento.objects.create(
+            nombre="Sistemas boletas",
+            codigo="SB",
+        )
+        self.configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=self.eleccion_claustro,
+            departamento=self.departamento,
+        )
+        self.organo = OrganoElectivo.objects.create(nombre="Consejo de boletas")
+        self.cargo = CargoElectivo.objects.create(
+            organo=self.organo,
+            nombre="Consejero/a",
+            permite_filtrar_departamentos=True,
+        )
+        self.puesto = PuestoEleccion.objects.create(
+            puesto=self.cargo,
+            eleccion_claustro=self.eleccion_claustro,
+            eleccion_claustro_departamento=self.configuracion,
+            cantidad_titulares=2,
+            cantidad_suplentes=1,
+        )
+        self.usuario = get_user_model().objects.create_user(username="admin-boletas")
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+
+    def crear_presentacion(self, *, codigo, numero, nombre, elector, activa=True):
+        participacion = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion,
+            codigo_presentacion=codigo,
+            eleccion_claustro=self.eleccion_claustro,
+            numero_lista=numero,
+            nombre_lista=nombre,
+        )
+        lista = ListaCandidatos.objects.create(
+            participacion=participacion,
+            eleccion_claustro=self.eleccion_claustro,
+            eleccion_claustro_departamento=self.configuracion,
+            nombre="Consejo Departamental",
+            puesto_eleccion=self.puesto,
+            activa=activa,
+        )
+        Candidato.objects.create(
+            lista=lista,
+            elector=elector,
+            cargo=self.cargo.nombre,
+            tipo=Candidato.Tipo.TITULAR,
+            orden=1,
+            activo=True,
+        )
+        return participacion
+
+    def crear_elector(self, indice, nombre):
+        elector = Elector.objects.create(
+            legajo=f"B{indice:05d}",
+            nombre=nombre,
+            apellido="Candidata",
+            dni=f"4{indice:07d}",
+        )
+        RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+        )
+        return elector
+
+    def test_validacion_indica_cuando_no_hay_candidaturas_activas(self):
+        validacion = validar_boletas_pdf(self.eleccion)
+
+        self.assertFalse(validacion.apto)
+        self.assertEqual(validacion.cantidad_boletas, 0)
+        self.assertTrue(validacion.motivos)
+
+    def test_titulo_comienza_debajo_de_la_linea_del_encabezado(self):
+        self.assertGreater(
+            MARGEN_SUPERIOR_CONTENIDO,
+            POSICION_LINEA_ENCABEZADO,
+        )
+
+    def test_genera_una_boleta_por_presentacion_y_alcance(self):
+        self.crear_presentacion(
+            codigo="A",
+            numero="10",
+            nombre="Lista Azul",
+            elector=self.crear_elector(1, "Ana"),
+        )
+        self.crear_presentacion(
+            codigo="B",
+            numero="20",
+            nombre="Lista Verde",
+            elector=self.crear_elector(2, "Bruno"),
+        )
+
+        validacion = validar_boletas_pdf(self.eleccion)
+        contenido = generar_boletas_pdf(self.eleccion)
+
+        self.assertTrue(validacion.apto)
+        self.assertEqual(validacion.cantidad_boletas, 2)
+        self.assertTrue(contenido.startswith(b"%PDF"))
+        self.assertEqual(contar_paginas_pdf(contenido), 2)
+
+    def test_boleta_imprime_departamento_configurado_en_el_puesto(self):
+        participacion = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion,
+            codigo_presentacion="DEPARTAMENTO",
+            eleccion_claustro=self.eleccion_claustro,
+            numero_lista="30",
+            nombre_lista="Lista Departamental",
+        )
+        lista = ListaCandidatos.objects.create(
+            participacion=participacion,
+            eleccion_claustro=self.eleccion_claustro,
+            nombre="Consejo Departamental",
+            puesto_eleccion=self.puesto,
+        )
+        Candidato.objects.create(
+            lista=lista,
+            elector=self.crear_elector(3, "Carla"),
+            cargo=self.cargo.nombre,
+            tipo=Candidato.Tipo.TITULAR,
+            orden=1,
+        )
+
+        boleta = _obtener_boletas(self.eleccion)[0]
+        contenido = _construir_contenido_boleta(
+            boleta,
+            {
+                "boleta_titulo": getSampleStyleSheet()["Title"],
+                "presentacion": getSampleStyleSheet()["Normal"],
+                "puesto": getSampleStyleSheet()["Heading2"],
+                "candidato": getSampleStyleSheet()["Normal"],
+            },
+            500,
+        )
+
+        self.assertEqual(str(boleta["departamento"]), "Sistemas boletas")
+        self.assertIn(
+            "Departamento: Sistemas boletas",
+            contenido[2]._cellvalues[0][0].text,
+        )
+
+    def test_vista_genera_pdf_descargable_con_permiso_de_eleccion(self):
+        self.crear_presentacion(
+            codigo="A",
+            numero="10",
+            nombre="Lista Azul",
+            elector=self.crear_elector(1, "Ana"),
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(
+            reverse("generar-boletas-pdf", args=(self.eleccion.id,)),
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta["Content-Type"], "application/pdf")
+        self.assertIn('filename="boletas_', respuesta["Content-Disposition"])
+        self.assertTrue(respuesta.content.startswith(b"%PDF"))
+
+    def test_vista_bloquea_generacion_sin_permiso_sobre_la_eleccion(self):
+        self.crear_presentacion(
+            codigo="A",
+            numero="10",
+            nombre="Lista Azul",
+            elector=self.crear_elector(1, "Ana"),
+        )
+        usuario = get_user_model().objects.create_user(username="sin-permiso-boletas")
+        self.client.force_login(usuario)
+
+        respuesta = self.client.get(
+            reverse("generar-boletas-pdf", args=(self.eleccion.id,)),
+        )
+
+        self.assertEqual(respuesta.status_code, 403)
