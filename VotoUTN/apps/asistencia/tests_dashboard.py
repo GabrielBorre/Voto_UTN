@@ -8,6 +8,7 @@ from apps.asistencia.dashboard import FiltrosDashboard, construir_dashboard
 from apps.asistencia.models import RegistroParticipacion
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EleccionSede
 from apps.elecciones.views import MESAS_POR_PAGINA
+from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede
@@ -57,14 +58,17 @@ class DashboardParticipacionTests(TestCase):
             registro_padron=registro, mesa=mesa, registrada_por=self.administrativo, metodo="qr"
         )
 
+    def pendientes(self, datos):
+        return [mesa.numero for mesa in datos["mesas"] if not mesa.escaneada]
+
     def test_calcula_porcentajes_y_mesas_pendientes(self):
         self.registrar_participacion(self.registros_a[0], self.mesa_a)
 
         datos = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard())
 
         self.assertEqual((datos["mesas_total"], datos["mesas_escaneadas"], datos["mesas_escaneadas_pct"]), (2, 1, 50))
-        self.assertEqual([mesa.numero for mesa in datos["mesas_pendientes"]], [2])
-        self.assertEqual(datos["mesas_pendientes"][0].cantidad_electores, 2)
+        self.assertEqual(self.pendientes(datos), [2])
+        self.assertEqual([(m.cantidad_electores, m.cantidad_participaron) for m in datos["mesas"]], [(2, 1), (2, 0)])
         self.assertEqual(
             (datos["electores_total"], datos["electores_participaron"], datos["electores_participaron_pct"]),
             (4, 1, 50),
@@ -78,7 +82,7 @@ class DashboardParticipacionTests(TestCase):
 
         por_sede = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard(sede_id=self.sede_b.id))
         self.assertEqual((por_sede["electores_total"], por_sede["electores_participaron"]), (2, 0))
-        self.assertEqual([mesa.numero for mesa in por_sede["mesas_pendientes"]], [2])
+        self.assertEqual(self.pendientes(por_sede), [2])
 
         coincide = FiltrosDashboard(claustro_id=self.claustro.id, departamento_id=self.departamento.id)
         self.assertEqual(construir_dashboard(self.administrativo, self.eleccion, coincide)["electores_total"], 4)
@@ -103,13 +107,42 @@ class DashboardParticipacionTests(TestCase):
         datos = construir_dashboard(limitado, self.eleccion, FiltrosDashboard())
 
         self.assertEqual(datos["mesas_total"], 1)
-        self.assertEqual([mesa.numero for mesa in datos["mesas_pendientes"]], [1])
+        self.assertEqual(self.pendientes(datos), [1])
         self.assertEqual(datos["electores_total"], 2)
+
+    def test_filtro_de_estado_solo_acota_la_tabla_de_mesas(self):
+        self.registrar_participacion(self.registros_a[0], self.mesa_a)
+
+        escaneadas = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard(escaneo="escaneadas"))
+        sin_escanear = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard(escaneo="pendientes"))
+
+        self.assertEqual([mesa.numero for mesa in escaneadas["mesas"]], [1])
+        self.assertEqual([mesa.numero for mesa in sin_escanear["mesas"]], [2])
+        self.assertEqual((escaneadas["mesas_total"], sin_escanear["mesas_escaneadas"]), (2, 1))
+        self.assertEqual(FiltrosDashboard.desde_parametros({"escaneo": "cualquiera"}).escaneo, "")
+
+    def test_metricas_de_justificativos_sobre_ausentes_de_mesas_escaneadas(self):
+        tipo = TipoJustificativo.objects.create(nombre="Salud")
+        self.registrar_participacion(self.registros_a[0], self.mesa_a)
+        self.crear_registro(5, self.mesa_a, self.sede_a)
+        # El elector de una mesa sin escanear todavía puede votar: no cuenta como ausente.
+        JustificativoAusencia.objects.create(registro_padron=self.registros_b[0], tipo=tipo, detalle="x")
+        justificativo = JustificativoAusencia.objects.create(registro_padron=self.registros_a[1], tipo=tipo, detalle="x")
+
+        pendiente = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard())
+        self.assertEqual((pendiente["electores_ausentes"], pendiente["justificativos_recibidos"]), (2, 1))
+        self.assertEqual((pendiente["justificativos_recibidos_pct"], pendiente["justificativos_confirmados_pct"]), (50, 0))
+
+        justificativo.estado = JustificativoAusencia.Estado.APROBADO
+        justificativo.save()
+        aprobado = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard())
+        self.assertEqual((aprobado["justificativos_confirmados"], aprobado["justificativos_confirmados_pct"]), (1, 100))
 
     def test_historial_compara_participacion_entre_elecciones(self):
         self.registrar_participacion(self.registros_a[0], self.mesa_a)
         anterior = Eleccion.objects.create(
-            nombre="Eleccion Anterior", fecha_inicio=date(2025, 8, 3), fecha_fin=date(2025, 8, 3)
+            nombre="Eleccion Anterior", fecha_inicio=date(2025, 8, 3), fecha_fin=date(2025, 8, 3),
+            estado=Eleccion.Estado.CERRADA,
         )
         eleccion_claustro = EleccionClaustro.objects.create(eleccion=anterior, claustro=self.claustro)
         configuracion = EleccionClaustroDepartamento.objects.create(
@@ -151,14 +184,21 @@ class DashboardParticipacionTests(TestCase):
         respuesta = self.client.get(reverse("lista-elecciones"), {"sede": self.sede_b.id})
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, "Mesas que faltan escanear")
+        self.assertContains(respuesta, "Estado de la mesa")
+        self.assertContains(respuesta, "Justificativos recibidos")
         self.assertContains(respuesta, "Historial de participación")
         self.assertContains(respuesta, reverse("escanear", args=(self.eleccion.pk,)))
         self.assertEqual(respuesta.context["dashboard"]["electores_total"], 2)
 
     def test_vista_ignora_parametros_invalidos_y_elecciones_ajenas(self):
-        ajena = Eleccion.objects.create(nombre="Ajena", fecha_inicio=date(2026, 9, 1), fecha_fin=date(2026, 9, 1))
-        self.client.force_login(self.administrativo)
+        ajena = Eleccion.objects.create(
+            nombre="Ajena", fecha_inicio=date(2026, 9, 1), fecha_fin=date(2026, 9, 1), estado=Eleccion.Estado.CERRADA
+        )
+        administrador = get_user_model().objects.create_user(username="administrador", password="clave")
+        AsignacionRol.objects.create(
+            usuario=administrador, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion
+        )
+        self.client.force_login(administrador)
 
         respuesta = self.client.get(reverse("lista-elecciones"), {"eleccion": ajena.id, "sede": "abc"})
 

@@ -181,7 +181,7 @@ def listar_elecciones(request):
             filtros=filtros,
             opciones_filtros=opciones_filtros(eleccion_actual),
             dashboard=dashboard,
-            pagina_mesas=Paginator(dashboard["mesas_pendientes"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
+            pagina_mesas=Paginator(dashboard["mesas"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
             querystring_paginacion=parametros.urlencode(),
         )
     return render(request, "elecciones/list.html", contexto)
@@ -208,7 +208,32 @@ def historial_elecciones(request):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para consultar el historial.")
     elecciones = Eleccion.objects.filter(estado=Eleccion.Estado.CERRADA)
-    return render(request, "elecciones/historial_elecciones.html", {"elecciones": elecciones})
+    contexto = {"elecciones": elecciones}
+    if request.GET.get("eleccion"):
+        eleccion = elecciones.filter(pk=_entero_o_cero(request.GET["eleccion"])).first()
+        if eleccion is None:
+            raise Http404("La elección no existe en el historial.")
+        filtros = FiltrosDashboard.desde_parametros(request.GET)
+        dashboard = construir_dashboard(request.user, eleccion, filtros)
+        parametros = request.GET.copy()
+        parametros.pop("pagina", None)
+        contexto.update(
+            modo_historial=True,
+            eleccion_actual=eleccion,
+            filtros=filtros,
+            opciones_filtros=opciones_filtros(eleccion),
+            dashboard=dashboard,
+            pagina_mesas=Paginator(dashboard["mesas"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
+            querystring_paginacion=parametros.urlencode(),
+        )
+    return render(request, "elecciones/historial_elecciones.html", contexto)
+
+
+def _entero_o_cero(valor):
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return 0
 
 
 @login_required

@@ -634,5 +634,5 @@ class EleccionCerradaSoloConsultaTests(TestCase):
         respuesta = self.client.get(reverse("historial-elecciones"))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'href="#">Ver Dashboard</a>')
+        self.assertContains(respuesta, f'href="{reverse("historial-elecciones")}?eleccion={self.eleccion.pk}">Dashboard</a>')
         self.assertNotContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.pk,)))

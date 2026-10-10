@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from apps.asistencia.models import RegistroParticipacion
 from apps.elecciones.models import Eleccion
+from apps.justificativos.models import JustificativoAusencia
 from apps.mesas.models import Mesa
 from apps.padron.models import RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede
@@ -13,18 +14,24 @@ from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import ROLES_CON_PARTICIPACION
 
 
+ESTADOS_ESCANEO = ("escaneadas", "pendientes")
+
+
 @dataclass(frozen=True)
 class FiltrosDashboard:
     claustro_id: int | None = None
     sede_id: int | None = None
     departamento_id: int | None = None
+    escaneo: str = ""
 
     @classmethod
     def desde_parametros(cls, parametros):
+        escaneo = parametros.get("escaneo", "")
         return cls(
             claustro_id=_entero(parametros.get("claustro")),
             sede_id=_entero(parametros.get("sede")),
             departamento_id=_entero(parametros.get("departamento")),
+            escaneo=escaneo if escaneo in ESTADOS_ESCANEO else "",
         )
 
 
@@ -153,30 +160,52 @@ def construir_dashboard(usuario, eleccion, filtros):
     participaron = registros.filter(participaciones__isnull=False).count()
 
     con_registro = RegistroParticipacion.objects.filter(mesa=OuterRef("pk"))
-    pendientes = (
+    mesas_anotadas = (
         mesas.annotate(escaneada=Exists(con_registro))
-        .filter(escaneada=False)
         .select_related("sede", "eleccion_claustro_departamento__eleccion_claustro__claustro", "eleccion_claustro_departamento__departamento")
         .annotate(
             cantidad_electores=Count(
                 "asignaciones_padron",
                 filter=Q(asignaciones_padron__registro_padron__activo=True),
-            )
+                distinct=True,
+            ),
+            cantidad_participaron=Count(
+                "participaciones",
+                filter=Q(participaciones__registro_padron__activo=True),
+                distinct=True,
+            ),
         )
         .order_by("sede__nombre", "numero")
     )
-    mesas_pendientes = list(pendientes)
     total_mesas = mesas.count()
-    mesas_escaneadas = total_mesas - len(mesas_pendientes)
+    mesas_escaneadas = mesas_anotadas.filter(escaneada=True).count()
+    if filtros.escaneo == "escaneadas":
+        mesas_anotadas = mesas_anotadas.filter(escaneada=True)
+    elif filtros.escaneo == "pendientes":
+        mesas_anotadas = mesas_anotadas.filter(escaneada=False)
+
+    # Los ausentes se miden solo en mesas escaneadas: en las demás todavía pueden votar.
+    ausentes = _electores_de_mesas_escaneadas(registros).exclude(participaciones__isnull=False)
+    justificativos = JustificativoAusencia.objects.filter(registro_padron=OuterRef("pk"))
+    total_ausentes = ausentes.count()
+    justificativos_recibidos = ausentes.filter(Exists(justificativos)).count()
+    justificativos_confirmados = ausentes.filter(
+        Exists(justificativos.filter(estado=JustificativoAusencia.Estado.APROBADO))
+    ).count()
 
     return {
         "mesas_total": total_mesas,
         "mesas_escaneadas": mesas_escaneadas,
         "mesas_escaneadas_pct": _porcentaje(mesas_escaneadas, total_mesas),
-        "mesas_pendientes": mesas_pendientes,
+        "mesas": list(mesas_anotadas),
         "electores_total": total_electores,
         "electores_en_mesas_escaneadas": electores_base,
         "electores_participaron": participaron,
         "electores_participaron_pct": _porcentaje(participaron, electores_base),
+        "electores_ausentes": total_ausentes,
+        "justificativos_recibidos": justificativos_recibidos,
+        "justificativos_recibidos_pct": _porcentaje(justificativos_recibidos, total_ausentes),
+        "justificativos_confirmados": justificativos_confirmados,
+        "justificativos_confirmados_pct": _porcentaje(justificativos_confirmados, justificativos_recibidos),
         "historial": _historial_entre_elecciones(usuario, filtros),
     }
