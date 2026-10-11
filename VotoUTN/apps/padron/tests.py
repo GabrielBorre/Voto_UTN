@@ -163,7 +163,7 @@ class PadronViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(
             respuesta,
-            "Padrón confirmado: 0 nuevos, 500 ya existentes.",
+            "Padrón confirmado: 0 electores nuevos, 500 electores ya existentes.",
         )
         confirmar_importacion.assert_called_once_with(importacion)
 

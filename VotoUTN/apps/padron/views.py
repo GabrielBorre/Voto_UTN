@@ -129,8 +129,8 @@ def confirmar_importacion_padron(request, eleccion_id, importacion_id):
         cantidad_existente = max(importacion.cantidad_validas - cantidad, 0)
         messages.success(
             request,
-            f"Padrón confirmado: {cantidad}  electores nuevos, "
-            f"{cantidad_existente} electoress ya existentes.",
+            f"Padrón confirmado: {cantidad} electores nuevos, "
+            f"{cantidad_existente} electores ya existentes.",
         )
     return redirect("detalle-importacion-padron", eleccion_id=eleccion_id, importacion_id=importacion.id)
 
