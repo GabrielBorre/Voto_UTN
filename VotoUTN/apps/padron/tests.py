@@ -26,7 +26,7 @@ from apps.elecciones.models import (
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.forms import FormularioArchivoPadron
 from apps.padron.management.commands.seed_voters import Command as ComandoGenerarQr
-from apps.padron.models import Elector, ImportacionPadron, RegistroPadron
+from apps.padron.models import Elector, ErrorImportacionPadron, ImportacionPadron, RegistroPadron
 from apps.padron.services import generar_mesas_automaticas
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.usuarios.models import AsignacionRol
@@ -62,14 +62,27 @@ class PadronViewsTests(TestCase):
             eleccion_claustro=self.eleccion_claustro,
             archivo=SimpleUploadedFile(
                 "estudiantes.csv",
-                b"DNI,Legajo,Nombre,Apellido\n40123456,2024001,Juan,Perez\n",
+                (
+                    "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
+                    "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
+                    "40123457,DNI,2024002,Ana,Gomez,K,ana.gomez@frba.utn.edu.ar,Campus\n"
+                    "40123458,DNI,2024003,Carlos,,K,carlos.lopez@frba.utn.edu.ar,Campus\n"
+                ).encode(),
             ),
             nombre_archivo="estudiantes.csv",
             huella_archivo="archivo-ejemplo",
-            cantidad_filas=1,
-            cantidad_validas=1,
+            cantidad_filas=3,
+            cantidad_validas=2,
             cantidad_existentes=1,
+            cantidad_errores=1,
+            estado=ImportacionPadron.Estado.RECHAZADA,
             usuario=self.usuario,
+        )
+        ErrorImportacionPadron.objects.create(
+            importacion=importacion,
+            fila=4,
+            campo="mail",
+            mensaje="Correo electrónico inválido.",
         )
         self.client.login(username="admin", password="clave")
 
@@ -80,16 +93,21 @@ class PadronViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "padron/detalle_importacion.html")
         self.assertContains(respuesta, 'class="management-panel import-review-panel"')
-        self.assertContains(respuesta, 'class="card management-section"', count=2)
+        self.assertContains(respuesta, 'class="card management-section"', count=3)
         self.assertContains(respuesta, "Resultado de la validación")
-        self.assertContains(respuesta, "Electores:")
-        self.assertContains(respuesta, "Electores válidos")
-        self.assertContains(respuesta, "Electores ya existentes")
-        self.assertContains(respuesta, "Errores")
-        self.assertContains(respuesta, "<span>1</span>")
+        self.assertContains(respuesta, "Registros en el archivo")
+        self.assertContains(respuesta, "Nuevos para incorporar")
+        self.assertContains(respuesta, "Ya incluidos en este padrón")
+        self.assertContains(respuesta, "Errores detectados")
+        self.assertContains(respuesta, "si hay errores, no se incorpora ningún registro")
+        self.assertEqual(respuesta.context["importacion"].cantidad_filas, 3)
+        self.assertEqual(respuesta.context["importacion"].cantidad_validas, 2)
+        self.assertEqual(respuesta.context["importacion"].cantidad_existentes, 1)
+        self.assertEqual(respuesta.context["importacion"].cantidad_nuevos, 1)
+        self.assertEqual(respuesta.context["importacion"].cantidad_errores, 1)
         self.assertNotContains(respuesta, "Cargada")
         self.assertContains(respuesta, "Columnas detectadas")
-        self.assertContains(respuesta, "Confirmar importación")
+        self.assertNotContains(respuesta, "Confirmar importación")
         self.assertContains(respuesta, "Volver al padrón")
 
     def test_previsualizacion_guarda_y_muestra_registros_ya_existentes(self):
@@ -126,11 +144,62 @@ class PadronViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 302)
         importacion = ImportacionPadron.objects.get(nombre_archivo="padron-repetido.csv")
         self.assertEqual(importacion.cantidad_existentes, 1)
+        self.assertEqual(importacion.cantidad_validas, 1)
+        self.assertEqual(importacion.cantidad_nuevos, 0)
         respuesta_detalle = self.client.get(
             reverse("detalle-importacion-padron", args=(self.eleccion.id, importacion.id))
         )
-        self.assertContains(respuesta_detalle, "Electores ya existentes")
+        self.assertContains(respuesta_detalle, "Ya incluidos en este padrón")
         self.assertContains(respuesta_detalle, "<span>1</span>")
+
+    def test_previsualizacion_calcula_nuevos_y_existentes_aunque_haya_errores(self):
+        elector_existente = Elector.objects.create(
+            dni="40123456",
+            legajo="2024001",
+            nombre="Juan",
+            apellido="Perez",
+            correo_electronico="juan.perez@frba.utn.edu.ar",
+        )
+        RegistroPadron.objects.create(
+            elector=elector_existente,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede,
+        )
+        contenido = (
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
+            "40123457,DNI,2024002,Ana,Gomez,K,ana.gomez@frba.utn.edu.ar,Campus\n"
+            "40123458,DNI,2024003,Carlos,,K,carlos.lopez@frba.utn.edu.ar,Campus\n"
+        ).encode("utf-8")
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            {
+                "archivo": SimpleUploadedFile(
+                    "padron-con-errores.csv",
+                    contenido,
+                    content_type="text/csv",
+                )
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        importacion = ImportacionPadron.objects.get(nombre_archivo="padron-con-errores.csv")
+        self.assertEqual(importacion.estado, ImportacionPadron.Estado.RECHAZADA)
+        self.assertEqual(importacion.cantidad_filas, 3)
+        self.assertEqual(importacion.cantidad_validas, 2)
+        self.assertEqual(importacion.cantidad_existentes, 1)
+        self.assertEqual(importacion.cantidad_nuevos, 1)
+        self.assertEqual(importacion.cantidad_errores, 1)
+        respuesta_detalle = self.client.get(
+            reverse("detalle-importacion-padron", args=(self.eleccion.id, importacion.id))
+        )
+        self.assertContains(respuesta_detalle, "Nuevos para incorporar")
+        self.assertContains(respuesta_detalle, "Ya incluidos en este padrón")
+        self.assertContains(respuesta_detalle, "si hay errores, no se incorpora ningún registro")
+        self.assertNotContains(respuesta_detalle, "Confirmar importación")
 
     @patch("apps.padron.views.confirmar_importacion", return_value=0)
     def test_confirmacion_explicita_que_los_electores_ya_estaban_en_el_padron(

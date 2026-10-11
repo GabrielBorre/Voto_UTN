@@ -73,7 +73,7 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
             nombre_archivo=archivo.name,
             huella_archivo=hashlib.sha256(contenido).hexdigest(),
             cantidad_filas=len(resultado.filas),
-            cantidad_validas=len(resultado.filas) if not resultado.errores else 0,
+            cantidad_validas=resultado.cantidad_validas,
             cantidad_existentes=resultado.cantidad_existentes,
             cantidad_errores=len(resultado.errores),
             estado=ImportacionPadron.Estado.PREVISUALIZADA if not resultado.errores else ImportacionPadron.Estado.RECHAZADA,

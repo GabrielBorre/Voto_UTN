@@ -109,6 +109,10 @@ class ImportacionPadron(models.Model):
         db_table = "elecciones_importacionpadron"
         ordering = ("-creada_en",)
 
+    @property
+    def cantidad_nuevos(self):
+        return max(self.cantidad_validas - self.cantidad_existentes, 0)
+
     def clean(self):
         if self.eleccion_claustro_id and self.eleccion_id != self.eleccion_claustro.eleccion_id:
             raise ValidationError({"eleccion_claustro": "Debe pertenecer a la misma eleccion."})

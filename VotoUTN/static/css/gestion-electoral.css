@@ -618,6 +618,12 @@ th {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.import-review-help {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 14px 0 0;
+}
+
 .summary-grid>div,
 .metric {
     background: #fff;
