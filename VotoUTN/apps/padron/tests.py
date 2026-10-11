@@ -82,8 +82,12 @@ class PadronViewsTests(TestCase):
         self.assertContains(respuesta, 'class="management-panel import-review-panel"')
         self.assertContains(respuesta, 'class="card management-section"', count=2)
         self.assertContains(respuesta, "Resultado de la validación")
-        self.assertContains(respuesta, "Registros existentes")
+        self.assertContains(respuesta, "Electores:")
+        self.assertContains(respuesta, "Electores válidos")
+        self.assertContains(respuesta, "Electores ya existentes")
+        self.assertContains(respuesta, "Errores")
         self.assertContains(respuesta, "<span>1</span>")
+        self.assertNotContains(respuesta, "Cargada")
         self.assertContains(respuesta, "Columnas detectadas")
         self.assertContains(respuesta, "Confirmar importación")
         self.assertContains(respuesta, "Volver al padrón")
@@ -125,8 +129,43 @@ class PadronViewsTests(TestCase):
         respuesta_detalle = self.client.get(
             reverse("detalle-importacion-padron", args=(self.eleccion.id, importacion.id))
         )
-        self.assertContains(respuesta_detalle, "Registros existentes")
+        self.assertContains(respuesta_detalle, "Electores ya existentes")
         self.assertContains(respuesta_detalle, "<span>1</span>")
+
+    @patch("apps.padron.views.confirmar_importacion", return_value=0)
+    def test_confirmacion_explicita_que_los_electores_ya_estaban_en_el_padron(
+        self, confirmar_importacion
+    ):
+        importacion = ImportacionPadron.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro=self.eleccion_claustro,
+            archivo=SimpleUploadedFile(
+                "padron-repetido.csv",
+                b"DNI,Legajo,Nombre,Apellido\n",
+            ),
+            nombre_archivo="padron-repetido.csv",
+            huella_archivo="archivo-ejemplo",
+            cantidad_filas=500,
+            cantidad_validas=500,
+            cantidad_existentes=500,
+            usuario=self.usuario,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse(
+                "confirmar-importacion-padron",
+                args=(self.eleccion.id, importacion.id),
+            ),
+            follow=True,
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(
+            respuesta,
+            "Padrón confirmado: 0 nuevos, 500 ya existentes.",
+        )
+        confirmar_importacion.assert_called_once_with(importacion)
 
     def test_gestion_de_padrones_presenta_tarjetas_por_claustro(self):
         administrador = get_user_model().objects.create_user(username="admin-padrones")

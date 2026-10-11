@@ -615,7 +615,7 @@ th {
 }
 
 .summary-grid.management-summary-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .summary-grid>div,
