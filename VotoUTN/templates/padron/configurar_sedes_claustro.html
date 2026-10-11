@@ -1,0 +1,191 @@
+{% extends "gestion/base.html" %}
+{% load static %}
+{% block title %}Asignación de sedes | {{ claustro.claustro }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Asignación de sedes</h1>
+  <p>{{ eleccion.nombre }} · {{ claustro.claustro }}. Se asigna una sede electoral a cada elector del padrón.</p>
+</section>
+
+<div class="management-panel padron-panel">
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Cómo funciona</h2>
+        <p>Las sedes disponibles se definen en la configuración de la elección. Acá solo establecés reglas para elegir entre ellas.</p>
+      </div>
+      <span class="tag">Una sede por elector</span>
+    </div>
+    <div class="notice">
+      Los departamentos con una sola sede habilitada reciben esa sede automáticamente. En los que tienen varias, se evalúan las reglas en orden. Si una regla apunta a una sede que ese departamento no tiene habilitada, se omite para sus electores y se continúa con la siguiente. Si ninguna coincide, la asignación queda pendiente.
+      Esta etapa no genera listas, mesas ni QR; tampoco modifica «Sede donde cursa» en el padrón.
+    </div>
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title">
+      <div><h2>Alcances con varias sedes</h2><p>Las reglas se aplican únicamente donde hay más de una sede activa habilitada. Un alcance con sede única no necesita reglas.</p></div>
+      <span class="tag">{{ alcances|length }} alcances</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Departamento</th><th>Sedes habilitadas</th></tr></thead>
+        <tbody>
+          {% for alcance in alcances %}
+            <tr>
+              <td>{{ alcance.nombre_alcance }}</td>
+              <td>{% for habilitacion in alcance.sedes_habilitadas.all %}{% if habilitacion.sede.activa %}<span class="pill info">{{ habilitacion.sede.nombre }}</span> {% endif %}{% endfor %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="2" class="muted">No hay departamentos con varias sedes. Las asignaciones se resolverán automáticamente cuando haya una única sede habilitada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title">
+      <div><h2>Reglas ordenadas</h2><p>Cada regla tiene un único destino. Por defecto se aplica a todos los departamentos con varias sedes; podés limitarla a varios departamentos a la vez.</p></div>
+      <span class="tag">{{ reglas|length }} reglas</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Prioridad</th><th>Condición</th><th>Sede destino</th><th>Alcance</th><th>Acciones</th></tr></thead>
+        <tbody>
+          {% for regla in reglas %}
+            <tr>
+              <td>{{ regla.orden }}</td>
+              <td>{{ regla.get_campo_display }} {{ regla.get_operador_display }} {{ regla.valor }}</td>
+              <td>{{ regla.sede_destino.nombre }}</td>
+              <td>{% if regla.aplicar_a_todos %}Todos los departamentos disponibles{% else %}{% for alcance in regla.alcances_especificos.all %}{{ alcance.nombre_alcance }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
+              <td>
+                <form method="post" class="rule-actions">
+                  {% csrf_token %}<input type="hidden" name="regla_id" value="{{ regla.id }}">
+                  <button class="button light small" name="accion" value="mover-regla-subir" type="submit" {% if forloop.first %}disabled title="Ya es la primera regla"{% endif %}>↑ Subir</button>
+                  <button class="button light small" name="accion" value="mover-regla-bajar" type="submit" {% if forloop.last %}disabled title="Ya es la última regla"{% endif %}>↓ Bajar</button>
+                  <button class="button danger small" name="accion" value="eliminar-regla" type="submit" onclick="return confirm('¿Eliminar esta regla? El cálculo actual de sedes se invalidará.');">Eliminar</button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5" class="muted">Todavía no hay reglas. Agregá una para resolver los alcances con varias sedes.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title"><div><h2>Agregar una regla</h2><p>Elegí si aplica a todos los departamentos disponibles o marcá los departamentos específicos; la sede destino será la misma para todos.</p></div></div>
+    <form method="post" data-regla-sede-form>
+      {% csrf_token %}
+      {{ formulario.non_field_errors }}
+      {{ formulario.orden }}
+      {% for error in formulario.orden.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      <div class="gestion-form-grid rule-condition-grid">
+        {% for field in formulario %}
+          {% if field.name != 'orden' and field.name != 'alcances_especificos' and field.name != 'aplicar_a_todos' %}
+          <div class="field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+            {% if field.help_text %}<small class="muted field-help">{{ field.help_text }}</small>{% endif %}
+            {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="field rule-departments-field">
+        <label>Departamentos incluidos en esta regla</label>
+        <div class="checkbox-list rule-department-picker">
+          <div class="rule-master-option"><label for="{{ formulario.aplicar_a_todos.id_for_label }}">{{ formulario.aplicar_a_todos }}<span>Todos los departamentos disponibles</span></label></div>
+          {% for checkbox in formulario.alcances_especificos %}
+            <div class="rule-department-option"><label for="{{ checkbox.id_for_label }}">{{ checkbox.tag }}<span>{{ checkbox.choice_label }}</span></label></div>
+          {% endfor %}
+        </div>
+        {% if formulario.aplicar_a_todos.help_text %}<small class="muted field-help">{{ formulario.aplicar_a_todos.help_text }}</small>{% endif %}
+        {% for error in formulario.alcances_especificos.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+      <small class="muted field-help">Para valores de texto, podés separar alternativas con comas. Las reglas se prueban de menor a mayor prioridad.</small>
+      <div class="footer-actions"><button class="button primary" type="submit">Agregar regla</button></div>
+    </form>
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title">
+      <div><h2>Resultado del cálculo</h2><p>El resultado corresponde al padrón activo actual. Al cambiar reglas o sedes, se invalida y debe calcularse nuevamente.</p></div>
+      <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="calcular"><button class="button primary" type="submit">Calcular asignaciones</button></form>
+    </div>
+    {% if cantidad_total %}
+      <div class="summary-grid compact-summary">
+        <div>
+          <strong>Con sede asignada</strong><span>{{ cantidad_asignadas }}</span>
+          <a class="button {% if estado_filtro == 'asignada' %}primary{% else %}light{% endif %} small" href="?estado=asignada" {% if estado_filtro == 'asignada' %}aria-current="page"{% endif %}>Ver asignadas</a>
+        </div>
+        <div>
+          <strong>Pendientes</strong><span>{{ cantidad_pendientes }}</span>
+          <a class="button {% if estado_filtro == 'pendiente' %}primary{% else %}light{% endif %} small" href="?estado=pendiente" {% if estado_filtro == 'pendiente' %}aria-current="page"{% endif %}>Ver pendientes</a>
+        </div>
+        <div>
+          <strong>Total</strong><span>{{ cantidad_total }}</span>
+          <a class="button {% if not estado_filtro %}primary{% else %}light{% endif %} small" href="?" {% if not estado_filtro %}aria-current="page"{% endif %}>Ver todas</a>
+        </div>
+      </div>
+      {% if asignaciones %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Elector</th><th>Departamento</th><th>Sede asignada</th><th>Estado</th><th>Regla</th></tr></thead>
+          <tbody>
+            {% for asignacion in asignaciones %}
+              <tr>
+                <td>{{ asignacion.registro_padron.elector.nombre_completo }}</td>
+                <td>{{ asignacion.registro_padron.eleccion_claustro_departamento.nombre_alcance }}</td>
+                <td>{{ asignacion.sede|default:"—" }}</td>
+                <td><span class="pill {% if asignacion.estado == 'asignada' %}ok{% else %}warn{% endif %}">{{ asignacion.get_estado_display }}</span></td>
+                <td>{% if asignacion.regla_aplicada %}Regla {{ asignacion.regla_aplicada.orden }}{% else %}Automática{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+        <nav class="pagination-navigation" aria-label="Paginación de resultados">
+          <span class="muted">{{ asignaciones.paginator.count }} registros · Página {{ asignaciones.number }} de {{ asignaciones.paginator.num_pages }}</span>
+          <div class="pagination-pages">
+          {% if asignaciones.has_previous %}
+            <a class="button light small" href="?{% if estado_filtro %}estado={{ estado_filtro }}&amp;{% endif %}pagina={{ asignaciones.previous_page_number }}" aria-label="Página anterior">Anterior</a>
+          {% endif %}
+          {% for item in rango_paginas %}
+            {% if item.elipsis %}
+              <span class="pagination-ellipsis" aria-hidden="true">…</span>
+            {% elif item.actual %}
+              <span class="button primary small" aria-current="page">{{ item.numero }}</span>
+            {% else %}
+              <a class="button light small" href="?{% if estado_filtro %}estado={{ estado_filtro }}&amp;{% endif %}pagina={{ item.numero }}" aria-label="Ir a la página {{ item.numero }}">{{ item.numero }}</a>
+            {% endif %}
+          {% endfor %}
+          {% if asignaciones.has_next %}
+            <a class="button light small" href="?{% if estado_filtro %}estado={{ estado_filtro }}&amp;{% endif %}pagina={{ asignaciones.next_page_number }}" aria-label="Página siguiente">Siguiente</a>
+          {% endif %}
+          </div>
+          <form method="get" class="page-jump">
+            {% if estado_filtro %}<input type="hidden" name="estado" value="{{ estado_filtro }}">{% endif %}
+            <label for="id_pagina">Ir a página</label>
+            <input id="id_pagina" type="number" name="pagina" min="1" max="{{ asignaciones.paginator.num_pages }}" value="{{ asignaciones.number }}">
+            <button class="button light small" type="submit">Ir</button>
+          </form>
+        </nav>
+      {% else %}
+        <p class="muted">No hay asignaciones que coincidan con este filtro.</p>
+      {% endif %}
+    {% else %}
+      <p class="muted">Todavía no hay un cálculo vigente para este claustro.</p>
+    {% endif %}
+  </section>
+</div>
+
+<div class="section-actions"><a class="button light" href="{% url 'previsualizar-padron' eleccion.id claustro.id %}">Volver al padrón</a></div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script src="{% static 'js/reglas-sede-padron.js' %}?v=20261008.3" defer></script>
+{% endblock %}

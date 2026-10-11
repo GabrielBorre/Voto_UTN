@@ -1,11 +1,22 @@
 {% extends "gestion/base.html" %}
 
-{% block title %}Mesas automáticas | {{ eleccion.nombre }}{% endblock %}
+{% block title %}Mesas | {{ eleccion.nombre }}{% endblock %}
 
 {% block content %}
+<style>
+  .tables-panel th a.table-sort-link,
+  .tables-panel th a.table-sort-link:link,
+  .tables-panel th a.table-sort-link:visited,
+  .tables-panel th a.table-sort-link:hover,
+  .tables-panel th a.table-sort-link:active {
+    color: inherit !important;
+    font: inherit !important;
+    text-decoration: none !important;
+  }
+</style>
 <section class="hero">
-  <h1>Mesas automáticas</h1>
-  <p>{{ eleccion.nombre }}. Consultá la distribución operativa de las mesas de la elección.</p>
+  <h1>Mesas</h1>
+  <p>{{ eleccion.nombre }}. Consultá la distribución de las mesas de la elección.</p>
 </section>
 
 <div class="management-panel tables-panel">
@@ -13,7 +24,7 @@
     <div class="section-title">
       <div>
         <h2>Mesas creadas</h2>
-        <p>Los electores se agrupan por alcance y sede, se ordenan alfabéticamente y se distribuyen según el máximo configurado.</p>
+        <p>Seleccioná el encabezado de una columna para ordenar la lista.</p>
       </div>
       <span class="tag">{{ eleccion.get_estado_display }}</span>
     </div>
@@ -29,17 +40,17 @@
       <table>
         <thead>
           <tr>
-            <th>Número</th>
-            <th>Claustro</th>
-            <th>Departamento o alcance</th>
-            <th>Sede</th>
-            <th>Origen</th>
+            <th><a class="table-sort-link" href="?ordenar=claustro&direccion={% if ordenar == 'claustro' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Claustro{% if ordenar == 'claustro' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?ordenar=numero&direccion={% if ordenar == 'numero' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Número{% if ordenar == 'numero' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?ordenar=departamento&direccion={% if ordenar == 'departamento' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Departamento o alcance{% if ordenar == 'departamento' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?ordenar=sede&direccion={% if ordenar == 'sede' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Sede{% if ordenar == 'sede' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?ordenar=electores&direccion={% if ordenar == 'electores' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Cantidad de electores{% if ordenar == 'electores' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?ordenar=origen&direccion={% if ordenar == 'origen' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Origen{% if ordenar == 'origen' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
           </tr>
         </thead>
         <tbody>
           {% for mesa in mesas %}
             <tr>
-              <td><strong>{{ mesa.numero }}</strong></td>
               <td>
                 {% if mesa.eleccion_claustro_departamento %}
                   {{ mesa.eleccion_claustro_departamento.eleccion_claustro.claustro }}
@@ -47,6 +58,7 @@
                   <span class="muted">Sin claustro</span>
                 {% endif %}
               </td>
+              <td><strong>{{ mesa.codigo_visible }}</strong></td>
               <td>
                 {% if mesa.eleccion_claustro_departamento %}
                   {{ mesa.eleccion_claustro_departamento.nombre_alcance }}
@@ -55,6 +67,7 @@
                 {% endif %}
               </td>
               <td>{{ mesa.sede|default:"Sin sede" }}</td>
+              <td>{{ mesa.cantidad_electores }}</td>
               <td>
                 {% if mesa.generada_automaticamente %}
                   <span class="pill info">Automática</span>
@@ -65,7 +78,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="5" class="muted">Todavía no hay mesas creadas para esta elección.</td>
+              <td colspan="6" class="muted">Todavía no hay mesas creadas para esta elección.</td>
             </tr>
           {% endfor %}
         </tbody>

@@ -66,6 +66,8 @@ class JustificativosViewsTests(TestCase):
             nombre="Elección reciente",
             fecha_inicio=make_aware(datetime(2026, 9, 3, 8)),
             fecha_fin=make_aware(datetime(2026, 9, 3, 16)),
+            estado=Eleccion.Estado.CERRADA,
+            habilitada=False,
         )
         registro_reciente = self.crear_registro_padron(elector, eleccion_reciente)
         usuario = get_user_model().objects.create_user(username="elector", password="clave")

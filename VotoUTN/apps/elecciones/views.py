@@ -32,6 +32,7 @@ from apps.auditoria.services import registrar_evento
 from apps.partidos.models import ParticipacionPartido
 from apps.padron.models import RegistroPadron
 from apps.parametros.models import Claustro
+from apps.padron.services import rehabilitar_cambios_padron as servicio_rehabilitar_cambios_padron
 from apps.justificativos.models import JustificativoAusencia
 from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import (
@@ -302,6 +303,18 @@ def preparar_claustro(request, eleccion_id, claustro_id):
     if not puede_configurar_eleccion(request.user, eleccion_claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para preparar este claustro.")
     return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
+
+
+@login_required
+def rehabilitar_cambios_padron(request, eleccion_id, claustro_id):
+    eleccion_claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion_claustro.eleccion):
+        return HttpResponseForbidden("No tiene permiso para rehabilitar cambios de padrón.")
+    if request.method == "POST":
+        servicio_rehabilitar_cambios_padron(eleccion_claustro, request.user)
+        messages.success(request, "La emisión anterior fue invalidada. Podés modificar la configuración, recalcular mesas y emitir un padrón imprimible nuevo.")
+        return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
+    return render(request, "elecciones/rehabilitar_cambios_padron.html", {"eleccion": eleccion_claustro.eleccion, "claustro": eleccion_claustro})
 
 
 

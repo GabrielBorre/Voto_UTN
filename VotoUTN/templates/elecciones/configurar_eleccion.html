@@ -12,6 +12,6 @@
   <article class="option"><h2>Reportes</h2><p>Exporte información operativa de la elección.</p><a class="button secondary" href="{% url 'gestionar-reportes' eleccion.id %}">Ver reportes</a></article>
   <article class="option"><h2>Fechas administrativas</h2><p>{{ cantidad_fechas_administrativas }} hitos configurados dentro del período electoral.</p><a class="button secondary" href="{% url 'gestionar-fechas-administrativas' eleccion.id %}">Configurar fechas</a></article>
 </section>
-<section class="card"><div class="section-title"><div><h2>Mesas automaticas</h2><p>{{ cantidad_mesas }} mesas. Se generan al confirmar cada padrón, ordenando electores alfabéticamente y aplicando el máximo del claustro.</p></div><a class="button primary" href="{% url 'gestionar-mesas' eleccion.id %}">Ver mesas</a></div></section>
+<section class="card"><div class="section-title"><div><h2>Mesas</h2><p>{{ cantidad_mesas }} mesas generadas para la elección.</p></div><a class="button primary" href="{% url 'gestionar-mesas' eleccion.id %}">Ver mesas</a></div></section>
 <div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Volver a elecciones</a></div>
 {% endblock %}
