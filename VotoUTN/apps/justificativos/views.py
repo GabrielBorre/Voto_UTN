@@ -40,7 +40,7 @@ def mis_justificativos(request):
         messages.success(request, "El justificativo fue presentado para revision.")
         return redirect("mis-justificativos")
     justificativos = JustificativoAusencia.objects.select_related("registro_padron__eleccion", "tipo")
-    justificativos = justificativos.filter(registro_padron__elector=elector)
+    justificativos = justificativos.filter(registro_padron__elector=elector).order_by("-presentada_en", "-pk")
     return render(
         request,
         "justificativos/mis_justificativos.html",
