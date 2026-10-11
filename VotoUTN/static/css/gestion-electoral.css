@@ -944,6 +944,38 @@ th {
     color: var(--verde);
 }
 
+.import-error-summary {
+    background: #fff0f2;
+    border: 1px solid #e7aab4;
+    border-left: 5px solid var(--rojo-utn);
+    border-radius: 10px;
+    color: #57202a;
+    margin: 0 0 18px;
+    padding: 16px 18px;
+}
+
+.import-error-summary h3 {
+    color: var(--rojo-utn);
+    margin: 0 0 8px;
+}
+
+.import-error-summary p {
+    color: inherit;
+}
+
+.import-error-summary ul {
+    margin: 10px 0;
+    padding-left: 22px;
+}
+
+.import-error-summary li+li {
+    margin-top: 6px;
+}
+
+.import-error-summary__more {
+    font-weight: 700;
+}
+
 .request-status {
     text-align: center;
 }
