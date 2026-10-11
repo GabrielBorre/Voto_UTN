@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.elecciones.models import Eleccion
 from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
+from apps.notificaciones.services import enviar_resultado_justificativo
 from apps.padron.models import Elector, RegistroPadron
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import es_administrativo_junta, puede_revisar_justificativo
@@ -46,6 +47,7 @@ def mis_justificativos(request):
         {
             "eleccion": registro_padron.eleccion if registro_padron else None,
             "formulario": formulario,
+            "puede_presentar": bool(formulario.fields["ausencia"].choices),
             "justificativos": justificativos,
         },
     )
@@ -118,11 +120,22 @@ def resolver_justificativo(request, justificativo_id):
         return HttpResponseForbidden("No tiene permiso para resolver este justificativo.")
     formulario = FormularioResolucionJustificativo(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
+        estaba_pendiente = justificativo.estado == JustificativoAusencia.Estado.PENDIENTE
         justificativo.estado = formulario.cleaned_data["estado"]
         justificativo.observacion_resolucion = formulario.cleaned_data["observacion_resolucion"]
         justificativo.resuelta_por = request.user
         justificativo.resuelta_en = timezone.now()
         justificativo.save(update_fields=("estado", "observacion_resolucion", "resuelta_por", "resuelta_en"))
-        messages.success(request, "El justificativo fue resuelto.")
+        if estaba_pendiente:
+            try:
+                correo_enviado = enviar_resultado_justificativo(justificativo)
+            except Exception:
+                correo_enviado = False
+            if correo_enviado:
+                messages.success(request, "El justificativo fue resuelto y se notificó al elector por correo.")
+            else:
+                messages.warning(request, "El justificativo fue resuelto, pero no se pudo enviar el correo al elector.")
+        else:
+            messages.success(request, "El justificativo fue actualizado.")
         return redirect("gestionar-justificativos", eleccion_id=justificativo.registro_padron.eleccion_id)
     return render(request, "justificativos/resolver.html", {"justificativo": justificativo, "formulario": formulario})

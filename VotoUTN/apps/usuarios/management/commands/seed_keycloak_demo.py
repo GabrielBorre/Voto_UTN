@@ -36,6 +36,14 @@ USUARIOS = {
         "dni": "28111333",
         "legajo": "3333332",
     },
+    "autoridad_mesa_2": {
+        "username": "autmesa2",
+        "first_name": "Jorgito",
+        "last_name": "Valdano",
+        "email": "autmesa2@frba.utn.edu.ar",
+        "dni": "28111334",
+        "legajo": "3333333",
+    },
     "elector": {
         "username": "alumnocg",
         "first_name": "Carlos",
@@ -43,6 +51,14 @@ USUARIOS = {
         "email": "alumnocg@frba.utn.edu.ar",
         "dni": "38999222",
         "legajo": "4444443",
+    },
+    "elector_2": {
+        "username": "alumnocg2",
+        "first_name": "Cachito",
+        "last_name": "Galan",
+        "email": "alumnocg2@frba.utn.edu.ar",
+        "dni": "38999223",
+        "legajo": "4444444",
     },
 }
 
@@ -59,9 +75,9 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
-        eleccion = Eleccion.objects.filter(nombre="Eleccion Demo 2026").first()
+        eleccion = Eleccion.objects.filter(nombre="2030").first()
         if eleccion is None:
-            raise CommandError("No existe Eleccion Demo 2026. Ejecuta antes seed_demo_data.")
+            raise CommandError("No existe Eleccion 2030. Ejecuta antes seed_demo_data.")
 
         configuracion = EleccionClaustroDepartamento.objects.filter(
             eleccion_claustro__eleccion=eleccion,
@@ -75,9 +91,11 @@ class Command(BaseCommand):
         administrativo = self._crear_usuario_interno(USUARIOS["administrativo_junta"], eleccion, sede.sede)
 
         autoridad = self._crear_elector(USUARIOS["autoridad_mesa"], eleccion, configuracion, sede.sede)
+        autoridad_2 = self._crear_elector(USUARIOS["autoridad_mesa_2"], eleccion, configuracion, sede.sede)
         elector = self._crear_elector(USUARIOS["elector"], eleccion, configuracion, sede.sede)
+        elector_2 = self._crear_elector(USUARIOS["elector_2"], eleccion, configuracion, sede.sede)  
         candidatura, _ = CandidaturaAutoridad.objects.get_or_create(
-            registro_padron=autoridad[1],
+            registro_padron=autoridad_2[1],
             defaults={"cargada_por": admin_junta},
         )
 
@@ -91,7 +109,7 @@ class Command(BaseCommand):
             if turno is None:
                 raise CommandError("La Eleccion Demo 2026 no tiene turnos de autoridades configurados.")
             AsignacionAutoridad.objects.update_or_create(
-                registro_padron=autoridad[1],
+                registro_padron=autoridad_2[1],
                 defaults={
                     "candidatura": candidatura,
                     "mesa": mesa,

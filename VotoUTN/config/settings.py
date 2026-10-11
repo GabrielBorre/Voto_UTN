@@ -59,6 +59,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "keycloak_login"
 LOGIN_REDIRECT_URL = "inicio-autenticado"
 LOGOUT_REDIRECT_URL = "keycloak_login"
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "1025"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() == "true"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() == "true"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Voto UTN <no-reply@votoutn.local>")
 
 # El proxy Caddy termina la conexion HTTPS y reenvia por HTTP interno; sin esto Django
 # construiria URLs (redirect_uri de Keycloak incluido) con el esquema http.

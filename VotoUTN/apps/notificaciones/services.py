@@ -6,6 +6,24 @@ from apps.notificaciones.models import EnvioNotificacion
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
+def enviar_resultado_justificativo(justificativo):
+    elector = justificativo.registro_padron.elector
+    if not elector.correo_electronico:
+        return False
+
+    eleccion = justificativo.registro_padron.eleccion
+    asunto = f"Resolución de justificativo: {eleccion.nombre}"
+    contenido = (
+        f"Hola {elector.nombre_completo},\n\n"
+        f"Tu justificativo de {justificativo.get_ausencia_display().lower()} "
+        f"para la elección {eleccion.nombre} fue {justificativo.get_estado_display().lower()}.\n"
+    )
+    if justificativo.observacion_resolucion:
+        contenido += f"\nObservación: {justificativo.observacion_resolucion}\n"
+    contenido += "\nVoto UTN"
+    return send_mail(asunto, contenido, None, [elector.correo_electronico], fail_silently=False) == 1
+
+
 @transaction.atomic
 def crear_envios(plantilla, eleccion=None):
     if not plantilla.activa or not plantilla.permite_envio_manual:
