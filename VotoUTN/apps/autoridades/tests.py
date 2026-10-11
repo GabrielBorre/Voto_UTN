@@ -70,6 +70,24 @@ class AutoridadesViewsTests(TestCase):
         self.assertContains(respuesta, 'class="card management-section"', count=4)
         self.assertContains(respuesta, reverse("gestionar-autoridades", args=(self.eleccion.id,)))
 
+    def test_eleccion_cerrada_bloquea_la_configuracion_de_autoridades(self):
+        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.save(update_fields=("estado",))
+        self.client.force_login(self.usuario)
+
+        rutas = (
+            reverse("gestionar-autoridades", args=(self.eleccion.id,)),
+            reverse(
+                "gestionar-autoridades-claustro",
+                args=(self.eleccion.id, self.eleccion_claustro.id),
+            ),
+            reverse("descargar-plantilla-autoridades", args=(self.eleccion.id,)),
+        )
+
+        for ruta in rutas:
+            with self.subTest(ruta=ruta):
+                self.assertEqual(self.client.get(ruta).status_code, 403)
+
     def test_mis_asignaciones_autoridad_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
 

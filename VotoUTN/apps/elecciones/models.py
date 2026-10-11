@@ -4,6 +4,9 @@ from django.db import models
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 
 
+ESTADOS_ELECCION_NO_CERRADOS = ("borrador", "preparada", "abierta")
+
+
 class Eleccion(models.Model):
     class Estado(models.TextChoices):
         BORRADOR = "borrador", "Borrador"
@@ -26,8 +29,25 @@ class Eleccion(models.Model):
 
     class Meta:
         ordering = ["-fecha_inicio"]
+        constraints = [
+            models.UniqueConstraint(
+                models.Value(1),
+                condition=models.Q(estado__in=ESTADOS_ELECCION_NO_CERRADOS),
+                name="una_eleccion_no_cerrada",
+            ),
+        ]
+
+    def _validar_estado_unico(self, estado=None):
+        estado_a_validar = estado or self.estado
+        if estado_a_validar in ESTADOS_ELECCION_NO_CERRADOS:
+            elecciones_existentes = type(self).objects.filter(
+                estado__in=ESTADOS_ELECCION_NO_CERRADOS,
+            ).exclude(pk=self.pk)
+            if elecciones_existentes.exists():
+                raise ValidationError("Ya existe una elección que no está cerrada.")
 
     def clean(self):
+        self._validar_estado_unico()
         if self.fecha_inicio and self.fecha_fin and self.fecha_inicio > self.fecha_fin:
             raise ValidationError({"fecha_fin": "Debe ser igual o posterior a la fecha de inicio."})
         fechas_ordenadas = (
@@ -61,6 +81,7 @@ class Eleccion(models.Model):
         }
         if transiciones.get(self.estado) != nuevo_estado:
             raise ValidationError("La transicion de estado solicitada no esta permitida.")
+        self._validar_estado_unico(nuevo_estado)
         self.validar_configuracion()
         if nuevo_estado == self.Estado.ABIERTA and not self.mesas.exists():
             raise ValidationError("La eleccion debe tener al menos una mesa antes de abrirse.")

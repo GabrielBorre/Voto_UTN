@@ -1,0 +1,6 @@
+{% extends "gestion/base.html" %}
+{% block title %}Rehabilitar cambios | Junta Electoral UTN{% endblock %}
+{% block content %}
+<section class="hero"><h1>Rehabilitar cambios</h1><p>{{ eleccion.nombre }} · {{ claustro.claustro }}</p></section>
+<section class="card"><h2>Vas a invalidar el padrón imprimible anterior</h2><p>Los QR y las mesas impresas de esta emisión dejarán de ser válidos. Se conservará el historial de la emisión invalidada, pero deberás recalcular las mesas necesarias y generar un nuevo padrón imprimible antes de votar.</p><p>La configuración y los datos del padrón no se eliminan.</p><div class="footer-actions"><a class="button light" href="{% url 'preparar-claustro' eleccion.id claustro.id %}">Cancelar</a><form method="post">{% csrf_token %}<button class="button primary">Continuar e invalidar emisión</button></form></div></section>
+{% endblock %}

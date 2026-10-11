@@ -21,6 +21,7 @@ from apps.partidos.models import (
     PuestoEleccion,
 )
 from apps.partidos.forms import FormularioPuestoEleccion
+from apps.usuarios.models import AsignacionRol
 
 
 class PartidosBaseTests(TestCase):
@@ -87,6 +88,7 @@ class CandidatoTests(PartidosBaseTests):
             nombre="Otra eleccion",
             fecha_inicio=inicio,
             fecha_fin=inicio + timedelta(hours=8),
+            estado=Eleccion.Estado.CERRADA,
         )
         otro_alcance = EleccionClaustro.objects.create(
             eleccion=otra_eleccion,
@@ -218,10 +220,21 @@ class PartidosViewsTests(PartidosBaseTests):
         self.client.login(username="admin-partidos", password="clave")
 
     def test_panel_requiere_permiso_y_usa_template_propietario(self):
+        administrador = get_user_model().objects.create_user(username="admin-junta-partidos")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            eleccion=self.eleccion,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        )
+        self.client.force_login(administrador)
         respuesta = self.client.get(reverse("gestionar-partidos", args=(self.eleccion.id,)))
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "partidos/gestion.html")
+        self.assertContains(
+            respuesta,
+            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+        )
         self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
         self.assertContains(respuesta, "Volver a configuración", count=1)
         self.assertContains(respuesta, 'class="card management-section"', count=3)
@@ -570,6 +583,32 @@ class PartidosViewsTests(PartidosBaseTests):
         importacion.refresh_from_db()
         self.assertEqual(importacion.estado, ImportacionCandidaturas.Estado.PREVISUALIZADA)
         self.assertFalse(Candidato.objects.filter(elector=elector).exists())
+
+
+class PartidosEleccionCerradaTests(PartidosBaseTests):
+    def setUp(self):
+        super().setUp()
+        self.usuario = get_user_model().objects.create_superuser(
+            username="admin-partidos-cerrada",
+            email="admin-partidos-cerrada@example.invalid",
+        )
+        self.client.force_login(self.usuario)
+
+    def test_eleccion_cerrada_bloquea_las_pantallas_de_configuracion_de_candidaturas(self):
+        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.save(update_fields=("estado",))
+
+        rutas = (
+            reverse("gestionar-partidos", args=(self.eleccion.pk,)),
+            reverse("detalle-participacion-partido", args=(self.eleccion.pk, self.participacion.pk)),
+            reverse("editar-participacion-partido", args=(self.eleccion.pk, self.participacion.pk)),
+            reverse("editar-puesto-eleccion", args=(self.eleccion.pk, self.puesto_eleccion.pk)),
+            reverse("importar-candidaturas", args=(self.eleccion.pk,)),
+        )
+
+        for ruta in rutas:
+            with self.subTest(ruta=ruta):
+                self.assertEqual(self.client.get(ruta).status_code, 403)
 
     def test_csv_de_lista_no_reemplaza_un_candidato_cargado_despues_de_previsualizar(self):
         self.crear_elector_padron(dni="30777999")

@@ -145,6 +145,10 @@ class CatalogosCandidaturasTests(TestCase):
         respuesta = self.client.get(reverse("catalogos-candidaturas"))
 
         self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(
+            respuesta,
+            '<a class="active" href="/gestion/parametros/">Parámetros de elección</a>',
+        )
         self.assertNotContains(respuesta, "Agrupaciones")
         self.assertContains(respuesta, "Órganos o cuerpos")
         self.assertContains(respuesta, "Puestos a elegir")

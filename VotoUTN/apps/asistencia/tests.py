@@ -86,7 +86,12 @@ class ServicioRegistroParticipacionEleccionTests(TestCase):
         inicio = make_aware(datetime(2026, 8, 3, 8))
         fin = make_aware(datetime(2026, 8, 3, 18))
         self.eleccion_activa = Eleccion.objects.create(nombre="Elección activa", fecha_inicio=inicio, fecha_fin=fin)
-        self.eleccion_ajena = Eleccion.objects.create(nombre="Elección ajena", fecha_inicio=inicio, fecha_fin=fin)
+        self.eleccion_ajena = Eleccion.objects.create(
+            nombre="Elección ajena",
+            fecha_inicio=inicio,
+            fecha_fin=fin,
+            estado=Eleccion.Estado.CERRADA,
+        )
 
         claustro = Claustro.objects.create(nombre="Docentes")
         departamento = Departamento.objects.create(nombre="Sistemas", codigo="DSI")
@@ -169,7 +174,12 @@ class ModeloElectoralTests(TestCase):
         inicio = make_aware(datetime(2026, 8, 3, 8))
         fin = make_aware(datetime(2026, 8, 3, 18))
         eleccion = Eleccion.objects.create(nombre="Elección 1", fecha_inicio=inicio, fecha_fin=fin)
-        otra_eleccion = Eleccion.objects.create(nombre="Elección 2", fecha_inicio=inicio, fecha_fin=fin)
+        otra_eleccion = Eleccion.objects.create(
+            nombre="Elección 2",
+            fecha_inicio=inicio,
+            fecha_fin=fin,
+            estado=Eleccion.Estado.CERRADA,
+        )
         claustro = Claustro.objects.create(nombre="Estudiantes")
         departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
         configuracion = EleccionClaustroDepartamento.objects.create(
@@ -198,6 +208,17 @@ class PermisosParticipacionTests(TestCase):
         )
 
         self.assertTrue(puede_registrar_participacion(self.usuario, self.eleccion))
+
+    def test_administrativo_global_puede_abrir_asistencia_de_cualquier_eleccion_activa(self):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("escanear", args=(self.eleccion.pk,)))
+
+        self.assertEqual(respuesta.status_code, 200)
 
     def test_autoridad_de_mesa_no_puede_registrar_participacion(self):
         AsignacionRol.objects.create(
@@ -477,7 +498,7 @@ class ImportacionPadronTests(TestCase):
         self.assertEqual(respuesta.status_code, 302)
         self.assertEqual(ImportacionPadron.objects.get().estado, ImportacionPadron.Estado.PREVISUALIZADA)
 
-    def test_divide_padron_alfabeticamente_segun_maximo_por_mesa(self):
+    def test_confirmar_importacion_no_genera_mesas_hasta_la_confirmacion_posterior(self):
         contenido = (
             b"dni,legajo,nombres,apellidos,mail,departamento,sede\n"
             b"12345678,1003,Zoe,Alvarez,zoe@frba.utn.edu.ar,K,Campus Medrano\n"
@@ -487,29 +508,7 @@ class ImportacionPadronTests(TestCase):
 
         confirmar_importacion(self.crear_importacion(contenido))
 
-        mesas = list(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).order_by("numero"))
-        self.assertEqual(len(mesas), 2)
-        self.assertEqual(
-            list(
-                mesas[0].asignaciones_padron.order_by(
-                    "registro_padron__elector__apellido",
-                    "registro_padron__elector__nombre",
-                ).values_list(
-                    "registro_padron__elector__apellido",
-                    "registro_padron__elector__nombre",
-                )
-            ),
-            [("Alvarez", "Zoe"), ("Gomez", "Bruno")],
-        )
-        self.assertEqual(
-            list(
-                mesas[1].asignaciones_padron.values_list(
-                    "registro_padron__elector__apellido",
-                    "registro_padron__elector__nombre",
-                )
-            ),
-            [("Perez", "Ana")],
-        )
+        self.assertFalse(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).exists())
 
 
 class AutoridadesMesaTests(TestCase):
