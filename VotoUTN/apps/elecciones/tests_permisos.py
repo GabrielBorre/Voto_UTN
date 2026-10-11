@@ -227,7 +227,8 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
                 self.assertEqual(respuesta.status_code, 200)
                 self.assertContains(respuesta, "Ya existe una elección creada")
                 self.assertContains(respuesta, self.eleccion_asignada.nombre)
-                self.assertContains(respuesta, "Ir a la elección existente")
+                self.assertContains(respuesta, "Ir a la elección")
+                self.assertContains(respuesta, "existente</a>")
                 self.assertNotContains(respuesta, 'name="fecha_inicio"')
 
     def test_al_crear_eleccion_queda_asignado_como_administrador(self):
@@ -634,5 +635,5 @@ class EleccionCerradaSoloConsultaTests(TestCase):
         respuesta = self.client.get(reverse("historial-elecciones"))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'href="#">Ver Dashboard</a>')
+        self.assertContains(respuesta, 'href="#">Dashboard</a>')
         self.assertNotContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.pk,)))

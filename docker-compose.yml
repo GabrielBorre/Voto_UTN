@@ -53,6 +53,7 @@ services:
     environment:
       # Sobrescriben al .env local para resolver los demas servicios por su nombre en la red de Docker.
       - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
       - EMAIL_HOST=mailpit
       - KEYCLOAK_URL_INTERNO=http://keycloak:8080
       # El acceso real llega siempre a traves del proxy (localhost, 127.0.0.1 o la IP de la

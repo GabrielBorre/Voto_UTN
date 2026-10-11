@@ -1,5 +1,3 @@
-from django.db.models import Q
-
 from apps.usuarios.models import AsignacionRol
 from apps.elecciones.models import Eleccion
 
@@ -89,20 +87,7 @@ def puede_registrar_participacion(usuario, eleccion, mesa=None):
 
 
 def puede_importar_padron(usuario, eleccion):
-    if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
-        return False
-    if usuario.is_superuser:
-        return True
-    return AsignacionRol.objects.filter(
-        usuario=usuario,
-        activo=True,
-        rol__in=(
-            AsignacionRol.Rol.ADMINISTRADOR_SISTEMA,
-            AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
-        ),
-    ).filter(
-        Q(rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA) | Q(eleccion=eleccion)
-    ).exists()
+    return puede_configurar_eleccion(usuario, eleccion)
 
 
 def puede_revisar_justificativo(usuario, eleccion):

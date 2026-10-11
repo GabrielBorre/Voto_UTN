@@ -1,0 +1,46 @@
+{% extends "gestion/base.html" %}
+{% block title %}Eliminar padrón | {{ claustro.claustro }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Eliminar padrón completo</h1>
+  <p>{{ eleccion.nombre }} · {{ claustro.claustro }}</p>
+</section>
+
+<section class="card padron-delete-confirmation">
+  <span class="pill danger">Acción irreversible</span>
+  <h2>¿Querés vaciar el padrón de este claustro?</h2>
+  <p>Se eliminarán {{ resumen.cantidad_registros }} registros de padrón correspondientes a {{ resumen.cantidad_electores }} electores.</p>
+
+  <div class="summary-grid compact-summary">
+    <div><strong>Identidades que se liberarán</strong><span>{{ resumen.cantidad_electores_a_eliminar }}</span></div>
+    <div><strong>Identidades que se conservarán</strong><span>{{ resumen.cantidad_electores_a_conservar }}</span></div>
+  </div>
+  <div class="notice">
+    Se eliminan las identidades sin registros en otros padrones ni vínculos históricos, liberando su DNI y legajo. Se conservan las asociadas a otros padrones, candidaturas históricas o perfiles de usuario. Los archivos y el historial de importaciones, así como las mesas manuales, se mantienen. Se quitan las asignaciones de los registros y las mesas automáticas que queden vacías.
+  </div>
+
+  {% if resumen.bloqueos %}
+    <div class="notice padron-delete-blocked">
+      <strong>No se puede eliminar todavía:</strong>
+      <ul>{% for bloqueo in resumen.bloqueos %}<li>{{ bloqueo }}</li>{% endfor %}</ul>
+    </div>
+    {% if resumen.emision_vigente %}
+      <div class="footer-actions"><a class="button secondary" href="{% url 'rehabilitar-cambios-padron' eleccion.id claustro.id %}">Rehabilitar cambios del padrón</a></div>
+    {% endif %}
+  {% elif not resumen.cantidad_registros %}
+    <div class="notice">Este claustro no tiene registros de padrón para eliminar.</div>
+  {% else %}
+    <p>Al continuar, las asignaciones de sede y de mesa se descartarán. Si se emitió un padrón imprimible anteriormente, asegurate de que esa emisión ya haya sido invalidada y que sus hojas impresas no se utilicen.</p>
+  {% endif %}
+
+  <div class="footer-actions">
+    <a class="button light" href="{% url 'previsualizar-padron' eleccion.id claustro.id %}">Cancelar</a>
+    {% if not resumen.bloqueos and resumen.cantidad_registros %}
+      <form method="post">
+        {% csrf_token %}
+        <button class="button danger" type="submit">Sí, eliminar el padrón completo</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "gestion/base.html" %}
+{% block title %}Resultados provisionales | Junta Electoral UTN{% endblock %}
+{% block content %}
+<section class="hero"><h1>Resultados provisionales</h1><p>{{ eleccion.nombre }} · {{ claustro.claustro }}. Este cálculo no genera mesas ni QR.</p></section>
+<section class="table-wrap"><h2>Resumen</h2><table><thead><tr><th>Padrón de votación</th><th>Departamento</th><th>Sede asignada</th><th>Electores</th></tr></thead><tbody>{% for clave, cantidad in resumen.items %}<tr><td>{{ clave.0 }}</td><td>{{ clave.1 }}</td><td>{{ clave.2 }}</td><td>{{ cantidad }}</td></tr>{% empty %}<tr><td colspan="4" class="muted">Aún no hay resultados. Configurá los padrones y ejecutá el cálculo.</td></tr>{% endfor %}</tbody></table></section>
+<section class="table-wrap"><h2>Detalle</h2><table><thead><tr><th>Elector</th><th>Padrón de votación</th><th>Departamento</th><th>Sede</th></tr></thead><tbody>{% for asignacion in asignaciones %}<tr><td>{{ asignacion.registro_padron.elector.nombre_completo }}</td><td>{{ asignacion.padron_votacion.nombre }}</td><td>{{ asignacion.registro_padron.eleccion_claustro_departamento.departamento }}</td><td>{{ asignacion.sede_asignada.sede }}</td></tr>{% empty %}<tr><td colspan="4" class="muted">Sin asignaciones provisionales.</td></tr>{% endfor %}</tbody></table></section>
+<div class="footer-actions"><a class="button light" href="{% url 'gestionar-padrones-votacion' eleccion.id claustro.id %}">Volver a padrones de votación</a></div>
+{% endblock %}
