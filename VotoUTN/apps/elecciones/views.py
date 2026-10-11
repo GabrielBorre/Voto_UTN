@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count, Q
 from django.http import HttpResponseForbidden
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -237,7 +238,16 @@ def preparar_eleccion(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para preparar esta eleccion.")
-    claustros = eleccion.elecciones_claustro.select_related("claustro").prefetch_related("departamentos__departamento", "sedes_habilitadas__sede")
+    claustros = eleccion.elecciones_claustro.select_related("claustro").prefetch_related(
+        "departamentos__departamento",
+        "sedes_habilitadas__sede",
+    ).annotate(
+        cantidad_electores=Count(
+            "departamentos__registros_padron",
+            filter=Q(departamentos__registros_padron__activo=True),
+            distinct=True,
+        )
+    )
     return render(request, "elecciones/preparar_eleccion.html", {"eleccion": eleccion, "claustros": claustros})
 
 

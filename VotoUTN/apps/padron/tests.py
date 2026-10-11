@@ -168,6 +168,30 @@ class PadronViewsTests(TestCase):
         confirmar_importacion.assert_called_once_with(importacion)
 
     def test_gestion_de_padrones_presenta_tarjetas_por_claustro(self):
+        elector_activo = Elector.objects.create(
+            dni="40123456",
+            legajo="2024001",
+            nombre="Juan",
+        )
+        elector_inactivo = Elector.objects.create(
+            dni="40123457",
+            legajo="2024002",
+            nombre="Ana",
+        )
+        RegistroPadron.objects.create(
+            elector=elector_activo,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede,
+            activo=True,
+        )
+        RegistroPadron.objects.create(
+            elector=elector_inactivo,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede,
+            activo=False,
+        )
         administrador = get_user_model().objects.create_user(username="admin-padrones")
         AsignacionRol.objects.create(
             usuario=administrador,
@@ -186,6 +210,7 @@ class PadronViewsTests(TestCase):
             respuesta,
             reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id)),
         )
+        self.assertContains(respuesta, "1</strong> electores en padrón")
         self.assertContains(respuesta, "Gestionar padrón", count=1)
 
     def test_gestion_de_padron_integra_configuracion_carga_e_historial_del_claustro(self):

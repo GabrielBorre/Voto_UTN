@@ -24,6 +24,7 @@
         {% else %}
           <p><strong>{{ item.departamentos.count }}</strong> departamentos</p>
         {% endif %}
+        <p><strong>{{ item.cantidad_electores }}</strong> electores en padrón</p>
         <p><strong>{{ item.importaciones_padron.count }}</strong> importaciones</p>
       </div>
       <a class="button primary" href="{% url 'previsualizar-padron' eleccion.id item.id %}">Gestionar padrón</a>

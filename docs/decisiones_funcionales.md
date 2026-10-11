@@ -59,6 +59,7 @@ Ejemplo: `Sistemas de Información` / `K`.
 ## Importación del padrón
 
 - La previsualización muestra por separado los registros válidos, los errores y cuántos registros del archivo ya existen en el padrón de esa elección. Los registros existentes se identifican por la coincidencia de DNI y legajo con el mismo elector.
+- La pantalla de gestión de padrones muestra por claustro la cantidad de electores con registro activo en esa elección.
 
 ## Autoridades
 
