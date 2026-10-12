@@ -74,6 +74,11 @@ Ejemplo: `Sistemas de Información` / `K`.
 - El prefijo del departamento no permite repetir números.
 - `K-001` y `E-001` no pueden coexistir dentro de la misma elección.
 
+## Importación del padrón
+
+- La previsualización muestra electores en el archivo, electores nuevos para incorporar, electores ya incluidos en el padrón y errores. Los existentes se identifican por la coincidencia de DNI y legajo con el mismo elector. Las cantidades de nuevos y existentes cuentan solo filas válidas; si hay errores, la importación completa queda bloqueada hasta corregirlos.
+- La pantalla de gestión de padrones muestra por claustro la cantidad de electores con registro activo en esa elección.
+
 ## Autoridades
 
 - Una autoridad de mesa es también un elector.
@@ -81,6 +86,7 @@ Ejemplo: `Sistemas de Información` / `K`.
 - Debe existir previamente como elector.
 - Debe pertenecer al padrón de la elección.
 - Debe pertenecer al mismo claustro.
+- La importación CSV solo acepta una fila si coinciden DNI, legajo, nombre, apellido, correo electrónico y departamento con los datos del elector y su registro activo de padrón. Los nombres se comparan sin distinguir mayúsculas, espacios repetidos ni tildes; el correo se compara sin distinguir mayúsculas.
 - No puede ser autoridad de otro claustro.
 - Puede incorporarse por CSV o selección manual.
 - Ambos mecanismos producen la misma asignación.

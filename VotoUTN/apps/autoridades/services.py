@@ -1,5 +1,8 @@
 import csv
 import io
+import unicodedata
+from zipfile import BadZipFile
+from xml.etree.ElementTree import ParseError
 
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -7,6 +10,7 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.utils import timezone
 from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
 
 from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
 from apps.mesas.models import Mesa
@@ -48,25 +52,45 @@ CARACTERES_FORMULA = ("=", "+", "-", "@")
 DOMINIO_EMAIL_INSTITUCIONAL = "frba.utn.edu.ar"
 
 
+def _normalizar_nombre(valor):
+    texto = unicodedata.normalize("NFKD", str(valor or "").strip())
+    sin_tildes = "".join(caracter for caracter in texto if not unicodedata.combining(caracter))
+    return " ".join(sin_tildes.casefold().split())
+
+
 def leer_filas_autoridades(contenido: bytes, nombre_archivo: str = "") -> list[dict[str, str]]:
     nombre_archivo = (nombre_archivo or "").lower()
-    if nombre_archivo.endswith((".xlsx", ".xls")):
-        libro = load_workbook(filename=io.BytesIO(contenido), read_only=True, data_only=True)
-        hoja = libro.active
-        filas = list(hoja.iter_rows(values_only=True))
-        if not filas:
-            return []
-        encabezados = [(valor or "").strip() for valor in filas[0]]
-        registros = []
-        for fila in filas[1:]:
-            if not any((valor is not None and str(valor).strip()) for valor in fila):
-                continue
-            registro = {}
-            for indice, nombre_columna in enumerate(encabezados):
-                valor = fila[indice] if indice < len(fila) else ""
-                registro[nombre_columna] = "" if valor is None else str(valor).strip()
-            registros.append(registro)
-        return registros
+    if nombre_archivo.endswith(".xls"):
+        raise ValueError("El formato .xls no es compatible. Guardá la planilla como .xlsx o CSV.")
+    if nombre_archivo.endswith(".xlsx"):
+        try:
+            libro = load_workbook(filename=io.BytesIO(contenido), read_only=True, data_only=True)
+        except (BadZipFile, InvalidFileException, OSError, ParseError, ValueError) as exc:
+            raise ValueError("No se pudo leer el archivo Excel. Verifique que sea un .xlsx válido.") from exc
+        try:
+            filas = list(libro.active.iter_rows(values_only=True))
+            if not filas:
+                return []
+            encabezados = [str(valor).strip() if valor is not None else "" for valor in filas[0]]
+            registros = []
+            for numero, fila in enumerate(filas[1:], start=2):
+                if not any(valor is not None and str(valor).strip() for valor in fila):
+                    continue
+                if any(
+                    valor is not None
+                    and str(valor).strip()
+                    and (indice >= len(encabezados) or not encabezados[indice])
+                    for indice, valor in enumerate(fila)
+                ):
+                    raise ValueError(f"La fila {numero} contiene datos sin una cabecera.")
+                registro = {}
+                for indice, nombre_columna in enumerate(encabezados):
+                    valor = fila[indice] if indice < len(fila) else ""
+                    registro[nombre_columna] = "" if valor is None else str(valor).strip()
+                registros.append(registro)
+            return registros
+        finally:
+            libro.close()
 
     try:
         texto = contenido.decode("utf-8-sig")
@@ -75,10 +99,17 @@ def leer_filas_autoridades(contenido: bytes, nombre_archivo: str = "") -> list[d
 
     lector = csv.DictReader(io.StringIO(texto, newline=""))
     filas = []
-    for fila in lector:
+    for numero, fila in enumerate(lector, start=2):
         if not fila:
             continue
-        filas.append({(clave or "").strip(): (valor or "").strip() for clave, valor in fila.items()})
+        if None in fila:
+            raise ValueError(f"La fila {numero} contiene más columnas que las cabeceras.")
+        filas.append(
+            {
+                (clave or "").strip(): (valor or "").strip()
+                for clave, valor in fila.items()
+            }
+        )
     return filas
 
 
@@ -126,9 +157,9 @@ def asignar_autoridad(registro_padron, mesa, turno, usuario):
     return asignacion, creada
 
 
-def validar_csv_autoridades(contenido, eleccion_claustro):
+def validar_csv_autoridades(contenido, eleccion_claustro, nombre_archivo=""):
     try:
-        filas = leer_filas_autoridades(contenido)
+        filas = leer_filas_autoridades(contenido, nombre_archivo)
     except ValueError as error:
         return [], [(None, str(error))]
 
@@ -174,7 +205,7 @@ def validar_csv_autoridades(contenido, eleccion_claustro):
             errores.append((numero, "Nombre y apellido son obligatorios."))
         try:
             validate_email(fila["mail"])
-        except Exception:
+        except ValidationError:
             errores.append((numero, "El correo electronico no tiene un formato valido."))
         else:
             if fila["mail"].rsplit("@", 1)[-1].casefold() != DOMINIO_EMAIL_INSTITUCIONAL:
@@ -192,19 +223,52 @@ def validar_csv_autoridades(contenido, eleccion_claustro):
         ).select_related("elector", "eleccion_claustro_departamento__departamento").first()
 
         if padron is None:
-            errores.append((numero, "El elector no pertenece al padron activo de este claustro."))
+            errores.append(
+                (
+                    numero,
+                    "No se encontró un elector con ese DNI y legajo en el padrón activo del claustro seleccionado.",
+                )
+            )
             continue
+
+        elector = padron.elector
+        if _normalizar_nombre(fila["nombre"]) != _normalizar_nombre(elector.nombre):
+            errores.append(
+                (
+                    numero,
+                    f"El nombre informado «{fila['nombre']}» no coincide con el nombre del padrón «{elector.nombre}».",
+                )
+            )
+        if _normalizar_nombre(fila["apellido"]) != _normalizar_nombre(elector.apellido):
+            errores.append(
+                (
+                    numero,
+                    f"El apellido informado «{fila['apellido']}» no coincide con el apellido del padrón «{elector.apellido}».",
+                )
+            )
+        if fila["mail"].strip().casefold() != elector.correo_electronico.strip().casefold():
+            errores.append(
+                (
+                    numero,
+                    f"El correo informado «{fila['mail']}» no coincide con el correo del padrón «{elector.correo_electronico}».",
+                )
+            )
 
         departamento = padron.eleccion_claustro_departamento.departamento
         if fila["departamento"].casefold() not in {departamento.codigo.casefold(), departamento.nombre.casefold()}:
-            errores.append((numero, "El departamento no coincide con el padrón del elector en esta eleccion."))
+            errores.append(
+                (
+                    numero,
+                    f"El departamento informado «{fila['departamento']}» no coincide con el departamento del padrón «{departamento.nombre}».",
+                )
+            )
 
     return filas_normales, errores
 
 
 @transaction.atomic
-def importar_autoridades(contenido, eleccion_claustro, usuario):
-    filas, errores = validar_csv_autoridades(contenido, eleccion_claustro)
+def importar_autoridades(contenido, eleccion_claustro, usuario, nombre_archivo=""):
+    filas, errores = validar_csv_autoridades(contenido, eleccion_claustro, nombre_archivo)
     if errores:
         return 0, errores
     creadas = 0
