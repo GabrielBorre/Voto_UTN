@@ -32,6 +32,7 @@ from apps.auditoria.services import registrar_evento
 from apps.partidos.models import ParticipacionPartido
 from apps.padron.models import RegistroPadron
 from apps.parametros.models import Claustro
+from apps.padron.services import rehabilitar_cambios_padron as servicio_rehabilitar_cambios_padron
 from apps.justificativos.models import JustificativoAusencia
 from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import (
@@ -208,32 +209,7 @@ def historial_elecciones(request):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para consultar el historial.")
     elecciones = Eleccion.objects.filter(estado=Eleccion.Estado.CERRADA)
-    contexto = {"elecciones": elecciones}
-    if request.GET.get("eleccion"):
-        eleccion = elecciones.filter(pk=_entero_o_cero(request.GET["eleccion"])).first()
-        if eleccion is None:
-            raise Http404("La elección no existe en el historial.")
-        filtros = FiltrosDashboard.desde_parametros(request.GET)
-        dashboard = construir_dashboard(request.user, eleccion, filtros)
-        parametros = request.GET.copy()
-        parametros.pop("pagina", None)
-        contexto.update(
-            modo_historial=True,
-            eleccion_actual=eleccion,
-            filtros=filtros,
-            opciones_filtros=opciones_filtros(eleccion),
-            dashboard=dashboard,
-            pagina_mesas=Paginator(dashboard["mesas"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
-            querystring_paginacion=parametros.urlencode(),
-        )
-    return render(request, "elecciones/historial_elecciones.html", contexto)
-
-
-def _entero_o_cero(valor):
-    try:
-        return int(valor)
-    except (TypeError, ValueError):
-        return 0
+    return render(request, "elecciones/historial_elecciones.html", {"elecciones": elecciones})
 
 
 @login_required
@@ -327,6 +303,18 @@ def preparar_claustro(request, eleccion_id, claustro_id):
     if not puede_configurar_eleccion(request.user, eleccion_claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para preparar este claustro.")
     return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
+
+
+@login_required
+def rehabilitar_cambios_padron(request, eleccion_id, claustro_id):
+    eleccion_claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion_claustro.eleccion):
+        return HttpResponseForbidden("No tiene permiso para rehabilitar cambios de padrón.")
+    if request.method == "POST":
+        servicio_rehabilitar_cambios_padron(eleccion_claustro, request.user)
+        messages.success(request, "La emisión anterior fue invalidada. Podés modificar la configuración, recalcular mesas y emitir un padrón imprimible nuevo.")
+        return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
+    return render(request, "elecciones/rehabilitar_cambios_padron.html", {"eleccion": eleccion_claustro.eleccion, "claustro": eleccion_claustro})
 
 
 

@@ -14,7 +14,8 @@ from apps.elecciones.models import (
     EleccionClaustroTurno,
 )
 from apps.mesas.forms import FormularioGenerarMesas
-from apps.mesas.models import Mesa
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.usuarios.models import AsignacionRol
 
@@ -78,7 +79,7 @@ class MesasTests(TestCase):
             eleccion=self.eleccion,
         )
         self.client.login(username="administrador", password="clave")
-        Mesa.objects.create(
+        primera_mesa = Mesa.objects.create(
             eleccion=self.eleccion,
             numero=1,
             eleccion_claustro_departamento=self.configuracion,
@@ -92,8 +93,23 @@ class MesasTests(TestCase):
             sede=self.sede,
             generada_automaticamente=False,
         )
+        for numero in range(3, 21):
+            Mesa.objects.create(
+                eleccion=self.eleccion,
+                numero=numero,
+                eleccion_claustro_departamento=self.configuracion,
+                sede=self.sede,
+                generada_automaticamente=True,
+            )
+        registro = RegistroPadron.objects.create(
+            elector=Elector.objects.create(legajo="1001", dni="40100100", nombre="Ana"),
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+        )
+        AsignacionMesa.objects.create(registro_padron=registro, mesa=primera_mesa)
 
-        respuesta = self.client.get(reverse("gestionar-mesas", args=(self.eleccion.id,)))
+        url = reverse("gestionar-mesas", args=(self.eleccion.id,))
+        respuesta = self.client.get(url)
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "mesas/gestion.html")
@@ -101,12 +117,22 @@ class MesasTests(TestCase):
         self.assertContains(respuesta, "Total de mesas")
         self.assertContains(respuesta, "Claustros con mesas")
         self.assertContains(respuesta, "Sedes utilizadas")
+        self.assertContains(respuesta, "Cantidad de electores")
+        self.assertContains(respuesta, "SIS-01")
+        self.assertContains(respuesta, "SIS-20")
+        self.assertContains(respuesta, ">1</td>")
+        contenido = respuesta.content.decode()
+        self.assertLess(contenido.index("ordenar=claustro"), contenido.index("ordenar=numero"))
         self.assertNotContains(respuesta, "Manuales")
         self.assertContains(respuesta, "Registrada previamente")
-        self.assertContains(respuesta, 'class="pill info"', count=1)
+        self.assertContains(respuesta, 'class="pill info"', count=19)
         self.assertContains(respuesta, 'class="pill gray"', count=1)
         self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
         self.assertContains(respuesta, "Volver a configuración", count=1)
+
+        respuesta_ordenada = self.client.get(url, {"ordenar": "numero", "direccion": "desc"})
+        contenido_ordenado = respuesta_ordenada.content.decode()
+        self.assertLess(contenido_ordenado.index("SIS-20"), contenido_ordenado.index("SIS-01"))
 
         sin_permiso = get_user_model().objects.create_user(
             username="sin_permiso",
@@ -114,7 +140,7 @@ class MesasTests(TestCase):
         )
         self.client.force_login(sin_permiso)
 
-        respuesta = self.client.get(reverse("gestionar-mesas", args=(self.eleccion.id,)))
+        respuesta = self.client.get(url)
 
         self.assertEqual(respuesta.status_code, 403)
 

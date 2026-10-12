@@ -1,4 +1,5 @@
 {% extends "gestion/base.html" %}
+{% load static %}
 {% block title %}Padrón de {{ claustro.claustro }} | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
 <section class="hero">
@@ -16,8 +17,14 @@
       <span class="tag">{{ claustro.claustro }}</span>
     </div>
     {% if puede_configurar %}
-      <form method="post">
+      {% if emision_vigente %}
+        <div class="notice">Hay un padrón imprimible vigente. Para cambiar la configuración, primero debés invalidar la emisión anterior.</div>
+        <div class="footer-actions"><a class="button light" href="{% url 'rehabilitar-cambios-padron' eleccion.id claustro.id %}">Rehabilitar cambios del padrón</a></div>
+      {% endif %}
+      <form method="post" data-autoguardar-configuracion>
         {% csrf_token %}
+        {{ formulario_configuracion.non_field_errors }}
+        <fieldset {% if emision_vigente %}disabled{% endif %} style="border:0;padding:0;margin:0;min-width:0">
         <div class="gestion-form-grid">
           {% for field in formulario_configuracion %}
             <div class="field">
@@ -31,6 +38,8 @@
         <div class="footer-actions">
           <button class="button primary" name="guardar-configuracion">Guardar configuración</button>
         </div>
+        <p class="muted field-help autosave-status" role="status" aria-live="polite" data-autosave-status>Los cambios se guardan automáticamente al editar estos valores.</p>
+        </fieldset>
       </form>
     {% else %}
       <div class="summary-grid compact-summary">
@@ -44,7 +53,7 @@
     <div class="section-title">
       <div>
         <h2>Cargar archivo</h2>
-        <p>El archivo se valida y se previsualiza antes de incorporar cualquier elector.</p>
+        <p>El archivo se valida y se previsualiza antes de incorporar cualquier elector. “Sede donde cursa” es opcional y no determina la sede electoral. Importar no genera mesas ni QR.</p>
       </div>
       <span class="tag">CSV o Excel</span>
     </div>
@@ -87,7 +96,7 @@
               <td>{{ item.cantidad_filas }}</td>
               <td>{{ item.cantidad_validas }}</td>
               <td>{{ item.cantidad_errores }}</td>
-              <td><span class="pill info">{{ item.get_estado_display }}</span></td>
+              <td><span class="pill {% if item.estado == 'padron_eliminado' %}danger{% elif item.estado == 'rechazada' %}gray{% elif item.estado == 'confirmada' %}ok{% else %}warn{% endif %}">{{ item.get_estado_display }}</span></td>
               <td>{{ item.usuario }}</td>
               <td><a class="button light small" href="{% url 'detalle-importacion-padron' eleccion.id item.id %}">Ver</a></td>
             </tr>
@@ -98,9 +107,29 @@
       </table>
     </div>
   </section>
+
+  <section class="card management-section padron-management-card">
+    <div class="section-title">
+      <div><h2>Gestión del padrón</h2><p>Administrá la asignación de sedes o restablecé los registros de este claustro.</p></div>
+      <span class="tag">{{ cantidad_electores_padron }} electores</span>
+    </div>
+    <div class="summary-grid compact-summary">
+      <div><strong>Electores totales</strong><span>{{ cantidad_electores_padron }}</span></div>
+    </div>
+    <div class="footer-actions">
+      <a class="button secondary" href="{% url 'configurar-sedes-claustro' eleccion.id claustro.id %}">Configurar asignación de sedes</a>
+      {% if puede_eliminar_padron %}<a class="button danger" href="{% url 'eliminar-padron-claustro' eleccion.id claustro.id %}">Vaciar padrón del claustro</a>{% endif %}
+    </div>
+    {% if cantidad_electores_padron and emision_vigente %}<small class="muted field-help">Para vaciar el padrón primero deberás invalidar la emisión imprimible.</small>{% endif %}
+  </section>
 </div>
 
 <div class="section-actions">
   <a class="button light" href="{% url 'preparar-eleccion' eleccion.id %}">Volver a padrones</a>
 </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script src="{% static 'js/configuracion-padron-autoguardado.js' %}?v=20261009.1" defer></script>
 {% endblock %}

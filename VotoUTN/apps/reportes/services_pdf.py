@@ -54,7 +54,7 @@ def validar_padron_para_pdf(eleccion) -> ValidacionPadronPDF:
     if total == 0:
         return ValidacionPadronPDF(False, ["La elección no tiene electores cargados en el padrón."])
 
-    sin_sede = padrones.filter(sede__isnull=True).count()
+    sin_sede = padrones.filter(asignacion_mesa__mesa__sede__isnull=True).count()
     if sin_sede:
         motivos.append(f"Hay {sin_sede} elector(es) sin sede asignada.")
 

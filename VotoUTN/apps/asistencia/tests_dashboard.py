@@ -141,8 +141,11 @@ class DashboardParticipacionTests(TestCase):
     def test_historial_compara_participacion_entre_elecciones(self):
         self.registrar_participacion(self.registros_a[0], self.mesa_a)
         anterior = Eleccion.objects.create(
-            nombre="Eleccion Anterior", fecha_inicio=date(2025, 8, 3), fecha_fin=date(2025, 8, 3),
+            nombre="Eleccion Anterior",
+            fecha_inicio=date(2025, 8, 3),
+            fecha_fin=date(2025, 8, 3),
             estado=Eleccion.Estado.CERRADA,
+            habilitada=False,
         )
         eleccion_claustro = EleccionClaustro.objects.create(eleccion=anterior, claustro=self.claustro)
         configuracion = EleccionClaustroDepartamento.objects.create(
@@ -192,7 +195,11 @@ class DashboardParticipacionTests(TestCase):
 
     def test_vista_ignora_parametros_invalidos_y_elecciones_ajenas(self):
         ajena = Eleccion.objects.create(
-            nombre="Ajena", fecha_inicio=date(2026, 9, 1), fecha_fin=date(2026, 9, 1), estado=Eleccion.Estado.CERRADA
+            nombre="Ajena",
+            fecha_inicio=date(2026, 9, 1),
+            fecha_fin=date(2026, 9, 1),
+            estado=Eleccion.Estado.CERRADA,
+            habilitada=False,
         )
         administrador = get_user_model().objects.create_user(username="administrador", password="clave")
         AsignacionRol.objects.create(

@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Junta Electoral UTN{% endblock %}</title>
   {% load static %}
-  <link href="{% static 'css/gestion-electoral.css' %}?v=20261008.1" rel="stylesheet">
+  <link href="{% static 'css/gestion-electoral.css' %}?v=20261010.1" rel="stylesheet">
   <link href="{% static 'css/gestion-nav.css' %}" rel="stylesheet">
 </head>
 <body class="gestion-electoral">
   <header class="topbar">
     <a class="brand" href="{% url 'inicio-autenticado' %}" aria-label="Junta Electoral UTN">
       <img class="mark" src="{% static 'img/logo-utn-2.png' %}" alt="">
-      <span class="brand-title"><strong>UTN.<i>BA</i></strong><small>Sistema de Gestion Electoral</small></span>
+      <span class="brand-title"><strong>UTN.<i>BA</i></strong><small>Sistema de Gestión Electoral</small></span>
     </a>
     {% if user.is_authenticated %}
       <div class="userbox">
