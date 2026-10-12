@@ -53,7 +53,7 @@
       </select>
     </div>
     <div class="filtros-acciones">
-      <a class="button light" href="{% if modo_historial %}{% url 'historial-elecciones' %}{% else %}{% url 'lista-elecciones' %}{% endif %}?eleccion={{ eleccion_actual.pk }}">Limpiar filtros</a>
+      <a class="button light" href="{% if modo_historial %}{% url 'dashboard-historial-eleccion' eleccion_actual.pk %}{% else %}{% url 'lista-elecciones' %}?eleccion={{ eleccion_actual.pk }}{% endif %}">Limpiar filtros</a>
     </div>
   </form>
 

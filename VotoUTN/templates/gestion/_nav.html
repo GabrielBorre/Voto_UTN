@@ -15,7 +15,7 @@
   <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' or request.resolver_match.url_name == 'catalogos-candidaturas' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parámetros de elección</a>
   {% endif %}
   {% if nav_puede_gestionar_elecciones %}
-  <a class="{% if request.resolver_match.url_name == 'historial-elecciones' %}active{% endif %}" href="{% url 'historial-elecciones' %}">Historial de elecciones</a>
+  <a class="{% if request.resolver_match.url_name == 'historial-elecciones' or request.resolver_match.url_name == 'dashboard-historial-eleccion' %}active{% endif %}" href="{% url 'historial-elecciones' %}">Historial de elecciones</a>
   {% endif %}
   {% if nav_puede_revisar_justificativos %}
   <a class="{% if request.resolver_match.url_name == 'bandeja-justificativos' %}active{% endif %}" href="{% url 'bandeja-justificativos' %}">Justificativos</a>

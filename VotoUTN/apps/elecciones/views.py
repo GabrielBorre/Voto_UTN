@@ -214,6 +214,30 @@ def historial_elecciones(request):
 
 
 @login_required
+def dashboard_historial_eleccion(request, eleccion_id):
+    if not puede_administrar_elecciones(request.user):
+        return HttpResponseForbidden("No tiene permiso para consultar el historial.")
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id, estado=Eleccion.Estado.CERRADA)
+    filtros = FiltrosDashboard.desde_parametros(request.GET)
+    dashboard = construir_dashboard(request.user, eleccion, filtros)
+    parametros = request.GET.copy()
+    parametros.pop("pagina", None)
+    return render(
+        request,
+        "elecciones/dashboard_historial.html",
+        {
+            "modo_historial": True,
+            "eleccion_actual": eleccion,
+            "filtros": filtros,
+            "opciones_filtros": opciones_filtros(eleccion),
+            "dashboard": dashboard,
+            "pagina_mesas": Paginator(dashboard["mesas"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
+            "querystring_paginacion": parametros.urlencode(),
+        },
+    )
+
+
+@login_required
 def configurar_eleccion(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_configurar_eleccion(request.user, eleccion):
