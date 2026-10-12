@@ -1,26 +1,32 @@
 from django import forms
 
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
-from apps.padron.models import RegistroPadron
-
-
 class FormularioJustificativo(forms.ModelForm):
-    registro_padron = forms.ModelChoiceField(queryset=RegistroPadron.objects.none(), label="Eleccion")
-
     class Meta:
         model = JustificativoAusencia
-        fields = ("registro_padron", "tipo", "detalle", "documento")
+        fields = ("tipo", "detalle", "documento")
         widgets = {"detalle": forms.Textarea(attrs={"rows": 4})}
 
-    def __init__(self, *args, elector=None, **kwargs):
+    def __init__(self, *args, registro_padron=None, **kwargs):
         super().__init__(*args, **kwargs)
-        consulta_padron = RegistroPadron.objects.filter(activo=True).select_related("eleccion")
-        if elector is not None:
-            consulta_padron = consulta_padron.filter(elector=elector)
-        self.fields["registro_padron"].queryset = consulta_padron
+        self.registro_padron = registro_padron
         self.fields["tipo"].queryset = TipoJustificativo.objects.filter(activo=True)
         for campo in self.fields.values():
             campo.widget.attrs.setdefault("class", "form-control")
+
+    def clean(self):
+        datos = super().clean()
+        if self.registro_padron is None:
+            raise forms.ValidationError("No existe un padrón activo para presentar el justificativo.")
+        return datos
+
+    def save(self, commit=True):
+        justificativo = super().save(commit=False)
+        justificativo.registro_padron = self.registro_padron
+        if commit:
+            justificativo.save()
+            self.save_m2m()
+        return justificativo
 
     def clean_documento(self):
         documento = self.cleaned_data.get("documento")

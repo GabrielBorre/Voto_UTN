@@ -13,11 +13,6 @@
     {% if eleccion_actual %}<p class="muted">{{ eleccion_actual.nombre }}</p>{% endif %}
   </article>
   <article class="option">
-    <h2>Elecciones asignadas</h2>
-    <p><strong>{{ cantidad_elecciones }}</strong></p>
-    <a class="button primary" href="{% url 'gestionar-elecciones' %}">Gestionar elecciones</a>
-  </article>
-  <article class="option">
     <h2>Justificativos pendientes</h2>
     <p><strong>{{ solicitudes_pendientes }}</strong></p>
     <a class="button secondary" href="{% url 'bandeja-justificativos' %}">Revisar solicitudes</a>

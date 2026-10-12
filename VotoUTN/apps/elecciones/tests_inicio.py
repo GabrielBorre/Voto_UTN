@@ -1,10 +1,13 @@
+from datetime import date
 from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.elecciones.models import Eleccion
 from apps.usuarios.backend_auth import ElectorUser
+from apps.usuarios.models import AsignacionRol
 
 
 class InicioAutenticadoTests(TestCase):
@@ -71,6 +74,163 @@ class InicioAutenticadoTests(TestCase):
 
         self.assertContains(respuesta, 'aria-label="Navegación de Junta Electoral"')
         self.assertContains(respuesta, f'href="{reverse("inicio-autenticado")}"')
+
+    def test_lista_muestra_aviso_si_no_hay_eleccion_en_curso(self):
+        usuario = get_user_model().objects.create_user(
+            username="operador-sin-eleccion",
+        )
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+        )
+        Eleccion.objects.create(
+            nombre="Elección cerrada",
+            fecha_inicio=date(2026, 10, 1),
+            fecha_fin=date(2026, 10, 2),
+            estado=Eleccion.Estado.CERRADA,
+        )
+        self.client.force_login(usuario)
+
+        respuesta = self.client.get(reverse("lista-elecciones"))
+
+        self.assertContains(
+            respuesta,
+            "Debe haber una elección en curso para poder registrar participación.",
+        )
+        self.assertContains(respuesta, "Elecciones y asistencia")
+        self.assertContains(
+            respuesta,
+            'class="gestion-nav__disabled" role="link" aria-disabled="true" tabindex="0" title="Debe haber una elección en curso para poder registrar participación."',
+        )
+        self.assertNotContains(
+            respuesta,
+            f'href="{reverse("lista-elecciones")}"',
+        )
+
+    def test_lista_muestra_aviso_sin_titulo_seleccion_si_hay_eleccion_en_curso_pero_no_hay_opciones(self):
+        usuario = get_user_model().objects.create_user(
+            username="operador-sin-opciones",
+        )
+        self.client.force_login(usuario)
+        Eleccion.objects.create(
+            nombre="Elección abierta",
+            fecha_inicio=date(2026, 10, 1),
+            fecha_fin=date(2026, 10, 2),
+            estado=Eleccion.Estado.ABIERTA,
+        )
+
+        respuesta = self.client.get(reverse("lista-elecciones"))
+
+        self.assertContains(
+            respuesta,
+            "La elección todavía no está abierta para poder registrar participación.",
+        )
+        self.assertNotContains(respuesta, "Seleccioná una elección")
+        self.assertNotContains(respuesta, 'href="/escanear/')
+
+    def test_inicio_administrador_junta_muestra_eleccion_en_curso_y_su_estado(self):
+        usuario = get_user_model().objects.create_user(
+            username="admin-junta-curso",
+        )
+        eleccion_en_curso = Eleccion.objects.create(
+            nombre="Elección preparatoria",
+            fecha_inicio=date(2026, 9, 1),
+            fecha_fin=date(2026, 9, 10),
+            estado=Eleccion.Estado.PREPARADA,
+        )
+        eleccion_cerrada = Eleccion.objects.create(
+            nombre="Elección cerrada anterior",
+            fecha_inicio=date(2026, 7, 1),
+            fecha_fin=date(2026, 7, 5),
+            estado=Eleccion.Estado.CERRADA,
+        )
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            eleccion=eleccion_en_curso,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        )
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            eleccion=eleccion_cerrada,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        )
+        self.client.force_login(usuario)
+
+        respuesta = self.client.get(reverse("inicio-administrador-junta"))
+
+        self.assertContains(respuesta, eleccion_en_curso.nombre)
+        self.assertContains(respuesta, "Preparada")
+        self.assertNotContains(respuesta, eleccion_cerrada.nombre)
+
+    def test_inicio_administrador_junta_muestra_ultima_eleccion_cerrada_si_no_hay_una_en_curso(self):
+        usuario = get_user_model().objects.create_user(
+            username="admin-junta-cerrada",
+        )
+        eleccion_cerrada = Eleccion.objects.create(
+            nombre="Elección cerrada más reciente",
+            fecha_inicio=date(2026, 8, 1),
+            fecha_fin=date(2026, 8, 10),
+            estado=Eleccion.Estado.CERRADA,
+        )
+        otra_eleccion_cerrada = Eleccion.objects.create(
+            nombre="Elección cerrada anterior",
+            fecha_inicio=date(2026, 7, 1),
+            fecha_fin=date(2026, 7, 5),
+            estado=Eleccion.Estado.CERRADA,
+        )
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            eleccion=eleccion_cerrada,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        )
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            eleccion=otra_eleccion_cerrada,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        )
+        self.client.force_login(usuario)
+
+        respuesta = self.client.get(reverse("inicio-administrador-junta"))
+
+        self.assertContains(respuesta, eleccion_cerrada.nombre)
+        self.assertContains(respuesta, "Cerrada")
+        self.assertNotContains(respuesta, otra_eleccion_cerrada.nombre)
+
+    def test_lista_considera_en_curso_borrador_preparada_y_abierta(self):
+        usuario = get_user_model().objects.create_user(
+            username="operador-con-eleccion",
+        )
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+        )
+        self.client.force_login(usuario)
+
+        for estado in (
+            Eleccion.Estado.BORRADOR,
+            Eleccion.Estado.PREPARADA,
+            Eleccion.Estado.ABIERTA,
+        ):
+            with self.subTest(estado=estado):
+                eleccion = Eleccion.objects.create(
+                    nombre=f"Elección {estado}",
+                    fecha_inicio=date(2026, 10, 1),
+                    fecha_fin=date(2026, 10, 2),
+                    estado=estado,
+                )
+
+                respuesta = self.client.get(reverse("lista-elecciones"))
+
+                self.assertNotContains(
+                    respuesta,
+                    "Debe haber una elección en curso para poder registrar participación.",
+                )
+                self.assertContains(
+                    respuesta,
+                    f'href="{reverse("lista-elecciones")}"',
+                )
+                self.assertNotContains(respuesta, 'class="gestion-nav__disabled"')
+                eleccion.delete()
 
     def test_elector_keycloak_puede_abrir_su_inicio(self):
         elector = ElectorUser("9876543210")

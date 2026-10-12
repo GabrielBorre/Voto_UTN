@@ -1,7 +1,7 @@
 from apps.autoridades.models import AsignacionAutoridad
+from apps.elecciones.models import ESTADOS_ELECCION_NO_CERRADOS, Eleccion
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import (
-    elecciones_con_participacion,
     puede_administrar_elecciones,
     puede_administrar_parametros,
     puede_crear_elecciones,
@@ -29,13 +29,33 @@ def navegacion_por_rol(request):
             registro_padron__elector=elector
         ).exists()
 
+    puede_ver_elecciones = not es_elector and (
+        usuario.is_superuser
+        or bool(
+            roles
+            & {
+                AsignacionRol.Rol.ADMINISTRADOR_SISTEMA,
+                AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
+            }
+        )
+        or AsignacionRol.objects.filter(
+            usuario=usuario,
+            activo=True,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        )
+        .exclude(eleccion__isnull=True)
+        .exists()
+    )
+
     return {
         "nav_es_elector": es_elector,
         "nav_es_autoridad": es_autoridad,
         "nav_es_administrador_junta": AsignacionRol.Rol.ADMINISTRADOR_JUNTA in roles,
         "nav_es_administrativo_junta": AsignacionRol.Rol.ADMINISTRATIVO_JUNTA in roles,
         "nav_tiene_datos_elector": elector is not None,
-        "nav_puede_ver_elecciones": not es_elector and elecciones_con_participacion(usuario).exists(),
+        "nav_puede_ver_elecciones": puede_ver_elecciones,
+        "nav_hay_eleccion_en_curso": puede_ver_elecciones
+        and Eleccion.objects.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS).exists(),
         "nav_puede_gestionar_elecciones": puede_administrar_elecciones(usuario),
         "nav_puede_crear_elecciones": puede_crear_elecciones(usuario),
         "nav_puede_gestionar_parametros": puede_administrar_parametros(usuario),

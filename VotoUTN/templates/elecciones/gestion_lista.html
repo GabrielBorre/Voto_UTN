@@ -1,10 +1,57 @@
 {% extends "gestion/base.html" %}
 {% block title %}Pre-votacion | Junta Electoral UTN{% endblock %}
 {% block content %}
-<section class="hero"><h1>PRE-VOTACION</h1><p>Panel de trabajo de la Junta Electoral para preparar elecciones, sus parametros y mesas.</p></section>
-<section class="toolbar"><article class="option"><h2>Nueva elección</h2><p>Definí el nombre, las fechas, los claustros y las sedes habilitadas.</p><a class="button primary" href="{% url 'crear-eleccion' %}">Crear elección</a></article><article class="option"><h2>Parámetros de elección</h2><p>Administrá claustros, sedes, departamentos y turnos reutilizables.</p><a class="button secondary" href="{% url 'gestionar-parametros' %}">Ver parámetros</a></article><article class="option"><h2>Historial de elecciones</h2><p>Consultá procesos en borrador, preparados, en curso y cerrados.</p><a class="button secondary" href="{% url 'historial-elecciones' %}">Ver historial</a></article></section>
-<div class="section-title" id="elecciones"><div><h2>Elecciones disponibles</h2><p>Procesos electorales de todas las etapas para la Junta.</p></div><span class="tag">Junta Electoral</span></div>
-<div class="table-wrap"><table><thead><tr><th>Eleccion</th><th>Estado</th><th>Inicio</th><th>Fin</th><th></th></tr></thead><tbody>
-{% for eleccion in elecciones %}<tr><td>{{ eleccion.nombre }}</td><td><span class="pill info">{{ eleccion.get_estado_display }}</span></td><td>{{ eleccion.fecha_inicio|date:"d/m/Y" }}</td><td>{{ eleccion.fecha_fin|date:"d/m/Y" }}</td><td class="actions"><a class="button light small" href="{% url 'configurar-eleccion' eleccion.id %}">Configuracion</a>{% if eleccion.estado == 'borrador' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="preparada"><button class="button secondary small">Preparar</button></form>{% elif eleccion.estado == 'preparada' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="abierta"><button class="button primary small">Abrir</button></form>{% elif eleccion.estado == 'abierta' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="cerrada"><button class="button secondary small">Cerrar</button></form>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="muted">No hay elecciones configuradas.</td></tr>{% endfor %}
-</tbody></table></div>
+<section class="hero">
+    <h1>PRE-VOTACION</h1>
+    <p>Panel de trabajo de la Junta Electoral para preparar elección, sus parametros y mesas.</p>
+</section>
+<section class="toolbar">
+    <article class="option{% if eleccion_en_curso %} option-disabled{% endif %}"{% if eleccion_en_curso %} aria-disabled="true"{% endif %}>
+        <h2>Nueva elección</h2>
+        <p>Definí el nombre, las fechas, los claustros y las sedes habilitadas.</p>
+        {% if eleccion_en_curso %}
+            <span class="button-tooltip" tabindex="0" aria-describedby="tooltip-nueva-eleccion">
+                <button class="button primary" type="button" disabled>Crear elección</button>
+                <span class="button-tooltip__message" id="tooltip-nueva-eleccion" role="tooltip">Ya hay una elección en curso en estado: {{ eleccion_en_curso.get_estado_display }}</span>
+            </span>
+        {% else %}
+            <a class="button primary" href="{% url 'crear-eleccion' %}">Crear elección</a>
+        {% endif %}
+    </article>
+</section>
+<div class="section-title" id="elecciones">
+    <div>
+        <h2>Elección gestionable</h2>
+        <p>Proceso en borrador, preparado o abierto para la Junta.</p>
+    </div>
+    <span class="tag">Junta Electoral</span>
+</div>
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Eleccion</th>
+                <th>Estado</th>
+                <th>Inicio</th>
+                <th>Fin</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for eleccion in elecciones %}
+                <tr>
+                    <td>{{ eleccion.nombre }}</td>
+                    <td><span class="pill info">{{ eleccion.get_estado_display }}</span></td>
+                    <td>{{ eleccion.fecha_inicio|date:"d/m/Y" }}</td>
+                    <td>{{ eleccion.fecha_fin|date:"d/m/Y" }}</td>
+                    <td class="actions"><a class="button light small" href="{% url 'configurar-eleccion' eleccion.id %}">Configuracion</a>{% if eleccion.estado == 'borrador' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="preparada"><button class="button secondary small">Preparar</button></form>{% elif eleccion.estado == 'preparada' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="abierta"><button class="button primary small">Abrir</button></form>{% elif eleccion.estado == 'abierta' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="cerrada"><button class="button secondary small">Cerrar</button></form>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="muted">No hay elecciones configuradas.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}
