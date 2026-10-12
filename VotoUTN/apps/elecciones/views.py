@@ -183,7 +183,7 @@ def listar_elecciones(request):
             filtros=filtros,
             opciones_filtros=opciones_filtros(eleccion_actual),
             dashboard=dashboard,
-            pagina_mesas=Paginator(dashboard["mesas_pendientes"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
+            pagina_mesas=Paginator(dashboard["mesas"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
             querystring_paginacion=parametros.urlencode(),
         )
     return render(request, "elecciones/list.html", contexto)

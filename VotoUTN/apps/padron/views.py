@@ -94,14 +94,12 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
                     request=request,
                 )
             except ValueError:
+                mensaje_error_mesas = "Configuración guardada; las mesas no se pudieron recalcular."
                 if autoguardado:
                     return JsonResponse(
-                        {"mensaje": "Configuración guardada; las mesas no se pudieron recalcular."}
+                        {"mensaje": mensaje_error_mesas}
                     )
-                messages.warning(
-                    request,
-                    "Configuración guardada; las mesas no se pudieron recalcular.",
-                )
+                messages.warning(request, mensaje_error_mesas)
                 return redirect(
                     "previsualizar-padron",
                     eleccion_id=eleccion_id,
