@@ -58,8 +58,13 @@ def gestionar_justificativos(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_revisar_justificativo(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
+    pestana = request.GET.get("pestana")
+    if pestana not in ("electores", "autoridades"):
+        pestana = "electores"
+    ausencia = JustificativoAusencia.Ausencia.AUTORIDAD if pestana == "autoridades" else JustificativoAusencia.Ausencia.VOTAR
     justificativos = JustificativoAusencia.objects.filter(
         registro_padron__eleccion=eleccion,
+        ausencia=ausencia,
     ).select_related("registro_padron__elector", "tipo", "resuelta_por").order_by("-presentada_en")
     resumen = justificativos.aggregate(
         total=Count("id"),
@@ -67,10 +72,23 @@ def gestionar_justificativos(request, eleccion_id):
         aprobados=Count("id", filter=Q(estado=JustificativoAusencia.Estado.APROBADO)),
         rechazados=Count("id", filter=Q(estado=JustificativoAusencia.Estado.RECHAZADO)),
     )
+    estado = request.GET.get("estado", "")
+    if estado in JustificativoAusencia.Estado.values:
+        justificativos = justificativos.filter(estado=estado)
+    else:
+        estado = ""
     return render(
         request,
         "justificativos/gestion.html",
-        {"eleccion": eleccion, "justificativos": justificativos, "resumen": resumen},
+        {
+            "eleccion": eleccion,
+            "justificativos": justificativos,
+            "resumen": resumen,
+            "pestana": pestana,
+            "estado": estado,
+            "estados": JustificativoAusencia.Estado.choices,
+            "nav_en_historial": eleccion.estado == Eleccion.Estado.CERRADA,
+        },
     )
 
 
@@ -138,4 +156,12 @@ def resolver_justificativo(request, justificativo_id):
         else:
             messages.success(request, "El justificativo fue actualizado.")
         return redirect("gestionar-justificativos", eleccion_id=justificativo.registro_padron.eleccion_id)
-    return render(request, "justificativos/resolver.html", {"justificativo": justificativo, "formulario": formulario})
+    return render(
+        request,
+        "justificativos/resolver.html",
+        {
+            "justificativo": justificativo,
+            "formulario": formulario,
+            "nav_en_historial": justificativo.registro_padron.eleccion.estado == Eleccion.Estado.CERRADA,
+        },
+    )

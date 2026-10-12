@@ -8,7 +8,6 @@
   <article class="option"><h2>Padrones</h2><p>{{ cantidad_padrones }} electores registrados. Configura claustros e importa CSV.</p><a class="button secondary" href="{% url 'preparar-eleccion' eleccion.id %}">Gestionar padrones</a></article>
   <article class="option"><h2>Autoridades de mesa</h2><p>{{ cantidad_autoridades }} autoridades asignadas a las mesas de la elección.</p><a class="button secondary" href="{% url 'gestionar-autoridades' eleccion.id %}">Gestionar autoridades</a></article>
   <article class="option"><h2>Puestos, listas y candidaturas</h2><p>{{ cantidad_partidos }} presentaciones registradas. Configure puestos por alcance e importe las listas de la elección.</p><a class="button secondary" href="{% url 'gestionar-partidos' eleccion.id %}">Gestionar candidaturas</a></article>
-  <article class="option"><h2>Justificativos</h2><p>Revise y resuelva las presentaciones de ausencia.</p><a class="button secondary" href="{% url 'gestionar-justificativos' eleccion.id %}">Revisar justificativos</a></article>
   <article class="option"><h2>Reportes</h2><p>Exporte información operativa de la elección.</p><a class="button secondary" href="{% url 'gestionar-reportes' eleccion.id %}">Ver reportes</a></article>
   <article class="option"><h2>Fechas administrativas</h2><p>{{ cantidad_fechas_administrativas }} hitos configurados dentro del período electoral.</p><a class="button secondary" href="{% url 'gestionar-fechas-administrativas' eleccion.id %}">Configurar fechas</a></article>
 </section>

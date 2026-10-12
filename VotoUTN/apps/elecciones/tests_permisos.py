@@ -301,8 +301,8 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Fechas administrativas")
         self.assertContains(respuesta, 'class="toolbar configuration-grid"')
-        self.assertContains(respuesta, 'class="option"', count=8)
-        self.assertContains(respuesta, 'class="button secondary"', count=8)
+        self.assertContains(respuesta, 'class="option"', count=7)
+        self.assertContains(respuesta, 'class="button secondary"', count=7)
         self.assertContains(
             respuesta,
             reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),
@@ -631,9 +631,9 @@ class EleccionCerradaSoloConsultaTests(TestCase):
         self.assertEqual(self.eleccion.nombre, "Eleccion cerrada de prueba")
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.CERRADA)
 
-    def test_historial_sigue_consultable_y_dashboard_permanece_pendiente(self):
+    def test_historial_sigue_consultable_y_enlaza_al_dashboard(self):
         respuesta = self.client.get(reverse("historial-elecciones"))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'href="#">Dashboard</a>')
+        self.assertContains(respuesta, reverse("dashboard-historial-eleccion", args=(self.eleccion.pk,)))
         self.assertNotContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.pk,)))

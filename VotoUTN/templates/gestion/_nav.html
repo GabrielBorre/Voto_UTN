@@ -15,10 +15,14 @@
   <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' or request.resolver_match.url_name == 'catalogos-candidaturas' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parámetros de elección</a>
   {% endif %}
   {% if nav_puede_gestionar_elecciones %}
-  <a class="{% if request.resolver_match.url_name == 'historial-elecciones' or request.resolver_match.url_name == 'dashboard-historial-eleccion' %}active{% endif %}" href="{% url 'historial-elecciones' %}">Historial de elecciones</a>
+  <a class="{% if nav_en_historial or request.resolver_match.url_name == 'historial-elecciones' or request.resolver_match.url_name == 'dashboard-historial-eleccion' %}active{% endif %}" href="{% url 'historial-elecciones' %}">Historial de elecciones</a>
   {% endif %}
   {% if nav_puede_revisar_justificativos %}
-  <a class="{% if request.resolver_match.url_name == 'bandeja-justificativos' %}active{% endif %}" href="{% url 'bandeja-justificativos' %}">Justificativos</a>
+    {% if nav_eleccion_justificativos %}
+  <a class="{% if not nav_en_historial and request.resolver_match.url_name == 'gestionar-justificativos' or not nav_en_historial and request.resolver_match.url_name == 'resolver-justificativo' %}active{% endif %}" href="{% url 'gestionar-justificativos' nav_eleccion_justificativos.pk %}">Justificativos</a>
+    {% else %}
+  <span class="gestion-nav__disabled" role="link" aria-disabled="true" tabindex="0" title="Debe haber una elección en curso para gestionar justificativos.">Justificativos</span>
+    {% endif %}
   {% elif nav_puede_ver_justificativos %}
   <a class="{% if request.resolver_match.url_name == 'mis-justificativos' %}active{% endif %}" href="{% url 'mis-justificativos' %}">Mis justificativos</a>
   {% endif %}
