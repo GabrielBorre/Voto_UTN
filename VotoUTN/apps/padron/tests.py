@@ -372,6 +372,32 @@ class PadronViewsTests(TestCase):
         )
         self.assertContains(respuesta, 'name="configuracion-fecha_votacion" value="2026-08-03"')
 
+    @patch(
+        "apps.padron.views.calcular_mesas_automaticas_eleccion",
+        side_effect=ValueError("detalle interno de la excepción"),
+    )
+    def test_autoguardado_no_expone_detalles_de_error_al_recalcular_mesas(self, recalcular_mesas):
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            {
+                "configuracion-fecha_votacion": "2026-08-03",
+                "configuracion-maximo_votantes_por_mesa": 42,
+                "guardar-configuracion": "1",
+                "autoguardado": "1",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(
+            respuesta.json()["mensaje"],
+            "Configuración guardada; las mesas no se recalcularon. "
+            "Revisá la configuración e intentá nuevamente.",
+        )
+        self.assertNotIn("detalle interno", respuesta.content.decode())
+
     def test_descargar_plantilla_padron_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
 

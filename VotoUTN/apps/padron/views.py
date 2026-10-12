@@ -93,8 +93,11 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
                     usuario=request.user,
                     request=request,
                 )
-            except ValueError as error:
-                mensaje_mesas = f"Configuración guardada; las mesas no se recalcularon: {error}"
+            except ValueError:
+                mensaje_mesas = (
+                    "Configuración guardada; las mesas no se recalcularon. "
+                    "Revisá la configuración e intentá nuevamente."
+                )
             else:
                 mensaje_mesas = (
                     f"Mesas recalculadas automáticamente: {resultado_mesas['mesas']} mesas "
