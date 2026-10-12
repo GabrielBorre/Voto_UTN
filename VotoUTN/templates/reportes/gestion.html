@@ -50,6 +50,28 @@
   </article>
 
   <article class="option report-option">
+    <h2>Boletas electorales</h2>
+    <p>Boletas imprimibles por lista y alcance, generadas desde las candidaturas activas de la elección.</p>
+    {% if not validacion_boletas_pdf.apto %}
+      <div class="report-validation">
+        <strong>Boletas no disponibles</strong>
+        <ul>
+          {% for motivo in validacion_boletas_pdf.motivos %}<li>{{ motivo }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% else %}
+      <p>{{ validacion_boletas_pdf.cantidad_boletas }} boletas para imprimir.</p>
+    {% endif %}
+    <div class="report-actions">
+      {% if validacion_boletas_pdf.apto %}
+        <a class="button primary" href="{% url 'generar-boletas-pdf' eleccion.id %}">Generar boletas imprimibles</a>
+      {% else %}
+        <button class="button light" type="button" disabled>Generar boletas imprimibles</button>
+      {% endif %}
+    </div>
+  </article>
+
+  <article class="option report-option">
     <h2>Control</h2>
     <p>Información para revisar justificativos y errores detectados durante las importaciones.</p>
     <div class="report-actions">

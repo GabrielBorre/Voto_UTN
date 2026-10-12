@@ -805,6 +805,16 @@ th a.table-sort-link:focus-visible {
     grid-template-columns: repeat(4, 1fr);
 }
 
+.summary-grid.management-summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.import-review-help {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 14px 0 0;
+}
+
 .summary-grid>div,
 .metric {
     background: #fff;
@@ -1131,6 +1141,38 @@ th a.table-sort-link:focus-visible {
     color: var(--verde);
 }
 
+.import-error-summary {
+    background: #fff0f2;
+    border: 1px solid #e7aab4;
+    border-left: 5px solid var(--rojo-utn);
+    border-radius: 10px;
+    color: #57202a;
+    margin: 0 0 18px;
+    padding: 16px 18px;
+}
+
+.import-error-summary h3 {
+    color: var(--rojo-utn);
+    margin: 0 0 8px;
+}
+
+.import-error-summary p {
+    color: inherit;
+}
+
+.import-error-summary ul {
+    margin: 10px 0;
+    padding-left: 22px;
+}
+
+.import-error-summary li+li {
+    margin-top: 6px;
+}
+
+.import-error-summary__more {
+    font-weight: 700;
+}
+
 .request-status {
     text-align: center;
 }
@@ -1427,6 +1469,7 @@ table td:last-child {
         font-size: 27px;
     }
 
+    .summary-grid.management-summary-grid,
     .toolbar,
     .summary-grid,
     .summary {

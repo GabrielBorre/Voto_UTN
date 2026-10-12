@@ -105,6 +105,8 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
         request.FILES if carga_candidatos else None,
         prefix="csv",
     )
+    errores_importacion = []
+    errores_importacion_total = 0
     if configura_turnos and formulario_turnos.is_valid():
         formulario_turnos.guardar()
         messages.success(request, f"Turnos de {eleccion_claustro.claustro} actualizados.")
@@ -131,13 +133,19 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
                 claustro_id=eleccion_claustro.id,
             )
     if carga_candidatos and formulario_csv.is_valid():
+        archivo = formulario_csv.cleaned_data["archivo"]
         cantidad, errores = importar_autoridades(
-            formulario_csv.cleaned_data["archivo"].read(),
+            archivo.read(),
             eleccion_claustro,
             request.user,
+            archivo.name,
         )
         if errores:
-            formulario_csv.add_error("archivo", "El CSV contiene errores: " + " ".join(f"Fila {fila}: {mensaje}" for fila, mensaje in errores[:3]))
+            errores_importacion_total = len(errores)
+            errores_importacion = [
+                {"fila": fila, "mensaje": mensaje}
+                for fila, mensaje in errores[:10]
+            ]
         else:
             messages.success(request, f"Se cargaron {cantidad} candidatos desde el CSV.")
             return redirect(
@@ -157,6 +165,8 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
             "formulario_turnos": formulario_turnos,
             "formulario_manual": formulario_manual,
             "formulario_csv": formulario_csv,
+            "errores_importacion": errores_importacion,
+            "errores_importacion_total": errores_importacion_total,
             "autoridades": autoridades,
         },
     )

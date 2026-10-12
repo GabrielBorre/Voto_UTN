@@ -94,9 +94,16 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
                     request=request,
                 )
             except ValueError:
-                mensaje_mesas = (
-                    "Configuración guardada; las mesas no se recalcularon. "
-                    "Revisá la configuración e intentá nuevamente."
+                mensaje_error_mesas = "Configuración guardada; las mesas no se pudieron recalcular."
+                if autoguardado:
+                    return JsonResponse(
+                        {"mensaje": mensaje_error_mesas}
+                    )
+                messages.warning(request, mensaje_error_mesas)
+                return redirect(
+                    "previsualizar-padron",
+                    eleccion_id=eleccion_id,
+                    claustro_id=claustro_id,
                 )
             else:
                 mensaje_mesas = (
@@ -106,10 +113,7 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
         if autoguardado:
             return JsonResponse({"mensaje": mensaje_mesas or "Configuración guardada automáticamente."})
         if mensaje_mesas:
-            if "no se recalcularon" in mensaje_mesas:
-                messages.warning(request, mensaje_mesas)
-            else:
-                messages.success(request, mensaje_mesas)
+            messages.success(request, mensaje_mesas)
         else:
             messages.success(request, "La configuración del padrón fue guardada.")
         return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
@@ -125,7 +129,8 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
             nombre_archivo=archivo.name,
             huella_archivo=hashlib.sha256(contenido).hexdigest(),
             cantidad_filas=len(resultado.filas),
-            cantidad_validas=len(resultado.filas) if not resultado.errores else 0,
+            cantidad_validas=resultado.cantidad_validas,
+            cantidad_existentes=resultado.cantidad_existentes,
             cantidad_errores=len(resultado.errores),
             estado=ImportacionPadron.Estado.PREVISUALIZADA if not resultado.errores else ImportacionPadron.Estado.RECHAZADA,
             usuario=request.user,
@@ -228,8 +233,8 @@ def confirmar_importacion_padron(request, eleccion_id, importacion_id):
         cantidad_existente = max(importacion.cantidad_validas - cantidad, 0)
         messages.success(
             request,
-            f"Padron confirmado. Filas procesadas: {importacion.cantidad_validas}. "
-            f"Nuevos: {cantidad}. Ya existentes: {cantidad_existente}.",
+            f"Padrón confirmado: {cantidad} electores nuevos, "
+            f"{cantidad_existente} electores ya existentes.",
         )
     return redirect("detalle-importacion-padron", eleccion_id=eleccion_id, importacion_id=importacion.id)
 

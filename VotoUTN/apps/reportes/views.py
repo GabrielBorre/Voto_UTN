@@ -11,6 +11,11 @@ from apps.reportes.services_pdf import (
     generar_padron_pdf,
     validar_padron_para_pdf,
 )
+from apps.reportes.services_boletas_pdf import (
+    generar_boletas_pdf,
+    generar_nombre_archivo_boletas,
+    validar_boletas_pdf,
+)
 from apps.usuarios.permisos import puede_administrar_elecciones
 
 
@@ -22,7 +27,11 @@ def gestionar_reportes(request, eleccion_id):
     return render(
         request,
         "reportes/gestion.html",
-        {"eleccion": eleccion, "validacion_padron_pdf": validar_padron_para_pdf(eleccion)},
+        {
+            "eleccion": eleccion,
+            "validacion_padron_pdf": validar_padron_para_pdf(eleccion),
+            "validacion_boletas_pdf": validar_boletas_pdf(eleccion),
+        },
     )
 
 
@@ -51,4 +60,20 @@ def generar_padron_pdf_view(request, eleccion_id):
     messages.success(request, "Padrón imprimible emitido. Los cambios que afecten mesas y QR quedan bloqueados hasta rehabilitarlos explícitamente.")
     respuesta = HttpResponse(contenido, content_type="application/pdf")
     respuesta["Content-Disposition"] = f'attachment; filename="{generar_nombre_archivo_padron(eleccion)}"'
+    return respuesta
+
+
+@login_required
+def generar_boletas_pdf_view(request, eleccion_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para generar las boletas electorales.")
+    validacion = validar_boletas_pdf(eleccion)
+    if not validacion.apto:
+        for motivo in validacion.motivos:
+            messages.error(request, motivo)
+        return redirect("gestionar-reportes", eleccion_id=eleccion.id)
+    contenido = generar_boletas_pdf(eleccion)
+    respuesta = HttpResponse(contenido, content_type="application/pdf")
+    respuesta["Content-Disposition"] = f'attachment; filename="{generar_nombre_archivo_boletas(eleccion)}"'
     return respuesta
