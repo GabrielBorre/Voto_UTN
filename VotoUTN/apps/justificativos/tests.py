@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
+from django.test import override_settings
 from django.utils.timezone import make_aware
 
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
@@ -34,6 +36,7 @@ class JustificativosViewsTests(TestCase):
                 nombre="Juan",
                 apellido="Gómez",
                 dni="23456789",
+                correo_electronico="juan@example.test",
             ),
             eleccion=self.eleccion,
             eleccion_claustro_departamento=configuracion,
@@ -62,6 +65,7 @@ class JustificativosViewsTests(TestCase):
     def crear_elector_con_padrones(self):
         elector = Elector.objects.create(legajo="3001", nombre="Ana", apellido="Pérez", dni="32345678")
         registro_anterior = self.crear_registro_padron(elector, self.eleccion)
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.CERRADA)
         eleccion_reciente = Eleccion.objects.create(
             nombre="Elección reciente",
             fecha_inicio=make_aware(datetime(2026, 9, 3, 8)),
@@ -94,6 +98,7 @@ class JustificativosViewsTests(TestCase):
             reverse("mis-justificativos"),
             {
                 "registro_padron": registro_anterior.id,
+                "ausencia": JustificativoAusencia.Ausencia.VOTAR,
                 "tipo": tipo.id,
                 "detalle": "Ausencia por enfermedad.",
             },
@@ -102,6 +107,43 @@ class JustificativosViewsTests(TestCase):
         self.assertRedirects(respuesta, reverse("mis-justificativos"))
         justificativo = JustificativoAusencia.objects.get(registro_padron__elector=registro_reciente.elector)
         self.assertEqual(justificativo.registro_padron, registro_reciente)
+
+    def test_elector_solo_puede_presentar_un_justificativo_de_votar(self):
+        usuario, _, registro_reciente = self.crear_elector_con_padrones()
+        tipo = TipoJustificativo.objects.create(nombre="Enfermedad")
+        datos = {"ausencia": "votar", "tipo": tipo.id, "detalle": "Detalle."}
+        self.client.login(username=usuario.username, password="clave")
+
+        self.client.post(reverse("mis-justificativos"), datos)
+        respuesta = self.client.post(reverse("mis-justificativos"), datos)
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(JustificativoAusencia.objects.filter(registro_padron=registro_reciente).count(), 1)
+
+    def test_autoridad_puede_presentar_un_justificativo_por_tipo_de_ausencia(self):
+        from apps.autoridades.models import AsignacionAutoridad
+        from apps.mesas.models import Mesa
+        from apps.parametros.models import Sede, Turno
+
+        usuario, _, registro = self.crear_elector_con_padrones()
+        tipo = TipoJustificativo.objects.create(nombre="Enfermedad")
+        sede = Sede.objects.create(nombre="Central")
+        turno = Turno.objects.create(nombre="Mañana", hora_inicio="08:00", hora_fin="12:00")
+        mesa = Mesa.objects.create(
+            eleccion=registro.eleccion,
+            eleccion_claustro_departamento=registro.eleccion_claustro_departamento,
+            sede=sede,
+            numero=1,
+        )
+        AsignacionAutoridad.objects.bulk_create([
+            AsignacionAutoridad(registro_padron=registro, mesa=mesa, turno=turno, asignada_por=usuario)
+        ])
+        self.client.login(username=usuario.username, password="clave")
+
+        for ausencia in ("votar", "autoridad", "autoridad"):
+            self.client.post(reverse("mis-justificativos"), {"ausencia": ausencia, "tipo": tipo.id, "detalle": "x"})
+
+        self.assertEqual(JustificativoAusencia.objects.filter(registro_padron=registro).count(), 2)
 
     def test_bandeja_justificativos_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")
@@ -176,6 +218,49 @@ class JustificativosViewsTests(TestCase):
             contenido.index("Guardar resolución"),
             contenido.index("Volver a justificativos"),
         )
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_resolver_justificativo_envia_correo_al_elector_una_sola_vez(self):
+        justificativo = self.crear_justificativo()
+        self.client.login(username="admin", password="clave")
+        url = reverse("resolver-justificativo", args=(justificativo.id,))
+        datos = {
+            "estado": JustificativoAusencia.Estado.APROBADO,
+            "observacion_resolucion": "Documentación validada.",
+        }
+
+        respuesta = self.client.post(url, datos)
+        self.client.post(url, datos)
+
+        self.assertRedirects(respuesta, reverse("gestionar-justificativos", args=(self.eleccion.id,)))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["juan@example.test"])
+        self.assertIn("fue aprobado", mail.outbox[0].body)
+        self.assertIn("Documentación validada.", mail.outbox[0].body)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_administrador_junta_envia_correo_al_resolver_justificativo(self):
+        justificativo = self.crear_justificativo()
+        administrador = get_user_model().objects.create_user(username="administrador", password="clave")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.login(username=administrador.username, password="clave")
+
+        respuesta = self.client.post(
+            reverse("resolver-justificativo", args=(justificativo.id,)),
+            {
+                "estado": JustificativoAusencia.Estado.RECHAZADO,
+                "observacion_resolucion": "Documentación insuficiente.",
+            },
+        )
+
+        self.assertRedirects(respuesta, reverse("gestionar-justificativos", args=(self.eleccion.id,)))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["juan@example.test"])
+        self.assertIn("fue rechazado", mail.outbox[0].body)
 
     def test_gestionar_justificativos_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")

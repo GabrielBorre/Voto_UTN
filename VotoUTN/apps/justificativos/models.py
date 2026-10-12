@@ -22,7 +22,12 @@ class JustificativoAusencia(models.Model):
         APROBADO = "aprobado", "Aprobado"
         RECHAZADO = "rechazado", "Rechazado"
 
+    class Ausencia(models.TextChoices):
+        VOTAR = "votar", "Ausencia a votar"
+        AUTORIDAD = "autoridad", "Ausencia como autoridad de mesa"
+
     registro_padron = models.ForeignKey(RegistroPadron, on_delete=models.PROTECT, related_name="justificativos")
+    ausencia = models.CharField(max_length=16, choices=Ausencia.choices, default=Ausencia.VOTAR)
     tipo = models.ForeignKey(TipoJustificativo, on_delete=models.PROTECT, related_name="justificativos")
     detalle = models.TextField()
     documento = models.FileField(upload_to="justificativos/%Y/%m/%d", blank=True)

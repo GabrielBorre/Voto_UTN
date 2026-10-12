@@ -5,7 +5,10 @@
 	<p>Presente documentación para justificar una ausencia.</p>
 </section>
 <section class="card form-card">
-	<form method="post" enctype="multipart/form-data">
+	{% if eleccion and not puede_presentar %}
+	<p>Ya presentó todos los justificativos que tiene permitidos. No pueden modificarse.</p>
+	{% else %}
+	<form method="post" enctype="multipart/form-data" id="form-justificativo">
 		{% csrf_token %}
 		{% if eleccion %}
 		<p><strong>Elección:</strong> {{ eleccion.nombre }}</p>
@@ -15,22 +18,42 @@
 		{% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
 		{% for field in formulario %}
 		<div class="field">
-			<label>{{ field.label }}</label>
+			<label for="{{ field.id_for_label }}">{{ field.label }}</label>
 			{{ field }}
 			{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
 		</div>
 		{% endfor %}
-		<div class="footer-actions"><button class="button primary"{% if not eleccion %} disabled{% endif %}>Presentar</button></div>
+		<div class="footer-actions"><button type="button" class="button primary" id="btn-presentar"{% if not eleccion %} disabled{% endif %}>Presentar</button></div>
 	</form>
+	<dialog id="dialogo-confirmar-justificativo" aria-labelledby="titulo-confirmar-justificativo">
+		<h2 id="titulo-confirmar-justificativo">Confirmar presentación</h2>
+		<p>Solo podrá cargar una única justificación por cada tipo de ausencia y no podrá ser modificada una vez presentada.</p>
+		<div class="footer-actions">
+			<button type="button" class="button primary" id="btn-confirmar-justificativo">Confirmar</button>
+			<button type="button" class="button light" id="btn-cancelar-justificativo">Cancelar</button>
+		</div>
+	</dialog>
+	<script>
+		(function () {
+			const formulario = document.getElementById("form-justificativo");
+			const dialogo = document.getElementById("dialogo-confirmar-justificativo");
+			document.getElementById("btn-presentar").addEventListener("click", function () {
+				if (formulario.reportValidity()) { dialogo.showModal(); }
+			});
+			document.getElementById("btn-cancelar-justificativo").addEventListener("click", function () { dialogo.close(); });
+			document.getElementById("btn-confirmar-justificativo").addEventListener("click", function () { this.disabled = true; formulario.submit(); });
+		})();
+	</script>
+	{% endif %}
 </section>
 <div class="table-wrap">
 	<table>
-		<thead><tr><th>Elección</th><th>Motivo</th><th>Estado</th><th>Fecha</th></tr></thead>
+		<thead><tr><th>Elección</th><th>Ausencia</th><th>Motivo</th><th>Estado</th><th>Fecha</th></tr></thead>
 		<tbody>
 			{% for item in justificativos %}
-			<tr><td>{{ item.registro_padron.eleccion }}</td><td>{{ item.tipo }}</td><td>{{ item.get_estado_display }}</td><td>{{ item.presentada_en|date:"d/m/Y" }}</td></tr>
+			<tr><td>{{ item.registro_padron.eleccion }}</td><td>{{ item.get_ausencia_display }}</td><td>{{ item.tipo }}</td><td>{{ item.get_estado_display }}</td><td>{{ item.presentada_en|date:"d/m/Y" }}</td></tr>
 			{% empty %}
-			<tr><td colspan="4">No hay justificativos.</td></tr>
+			<tr><td colspan="5">No hay justificativos.</td></tr>
 			{% endfor %}
 		</tbody>
 	</table>
