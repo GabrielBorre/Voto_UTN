@@ -1,12 +1,16 @@
 import re
 from datetime import datetime, time, timedelta
+from io import BytesIO
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.timezone import make_aware
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.pdfgen.canvas import Canvas
+
+from apps.asistencia.services import ServicioRegistroParticipacion
 
 from apps.elecciones.models import (
     Eleccion,
@@ -42,6 +46,8 @@ from apps.reportes.services_pdf import (
     _agrupar_padrones_por_mesa,
     _construir_tabla,
     _construir_troquel,
+    _dibujar_caratula,
+    _generar_imagen_qr,
     generar_padron_pdf,
     validar_padron_para_pdf,
 )
@@ -173,7 +179,7 @@ class PadronPDFTests(TestCase):
         contenido = generar_padron_pdf(self.eleccion)
 
         self.assertTrue(contenido.startswith(b"%PDF"))
-        self.assertEqual(contar_paginas_pdf(contenido), 1)
+        self.assertEqual(contar_paginas_pdf(contenido), 2)  # caratula + 1 hoja
 
     def test_columna_apellido_y_nombre_usa_apellido_primero(self):
         registro = self.crear_electores(1)[0]
@@ -208,14 +214,49 @@ class PadronPDFTests(TestCase):
 
         contenido = generar_padron_pdf(self.eleccion)
 
-        self.assertEqual(contar_paginas_pdf(contenido), 1)
+        self.assertEqual(contar_paginas_pdf(contenido), 2)
 
     def test_genera_pdf_con_mas_de_15_electores_crea_multiples_paginas(self):
         self.crear_electores(ELECTORES_POR_PAGINA + 1)
 
         contenido = generar_padron_pdf(self.eleccion)
 
-        self.assertEqual(contar_paginas_pdf(contenido), 2)
+        self.assertEqual(contar_paginas_pdf(contenido), 3)
+
+    def test_cada_mesa_tiene_una_caratula_con_codigo_y_qr_de_mesa(self):
+        otra_mesa = Mesa.objects.create(
+            eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=self.configuracion, sede=self.sede
+        )
+        self.crear_electores(2)
+        self.crear_electores(2, mesa=otra_mesa, numero_inicial=10)
+
+        with patch("apps.reportes.services_pdf._dibujar_caratula") as caratula:
+            contenido = generar_padron_pdf(self.eleccion)
+
+        self.assertEqual([llamada.args[2].codigo for llamada in caratula.call_args_list], ["K-001", "K-002"])
+        self.assertEqual(contar_paginas_pdf(contenido), 4)  # caratula + hoja por mesa
+
+    def test_el_pie_numera_las_hojas_de_cada_mesa_sin_contar_las_caratulas(self):
+        otra_mesa = Mesa.objects.create(
+            eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=self.configuracion, sede=self.sede
+        )
+        self.crear_electores(ELECTORES_POR_PAGINA + 1)
+        self.crear_electores(1, mesa=otra_mesa, numero_inicial=100)
+
+        with patch("apps.reportes.services_pdf._dibujar_pie_pagina") as pie:
+            generar_padron_pdf(self.eleccion)
+
+        self.assertEqual([llamada.args[1:] for llamada in pie.call_args_list], [(1, 2), (2, 2), (1, 1)])
+
+    @override_settings(CLAVE_FIRMA_QR="clave-de-prueba-qr")
+    def test_la_caratula_incluye_un_qr_de_mesa_firmado(self):
+        self.crear_electores(1)
+
+        with patch("apps.reportes.services_pdf._generar_imagen_qr", wraps=_generar_imagen_qr) as generar:
+            _dibujar_caratula(Canvas(BytesIO()), self.eleccion, self.mesa)
+
+        payload = generar.call_args.args[0]
+        self.assertEqual(ServicioRegistroParticipacion.parsear_codigo_qr_mesa(payload), (self.eleccion.id, 1))
 
     def test_ultima_pagina_contiene_el_resto_de_electores(self):
         self.crear_electores(ELECTORES_POR_PAGINA + 2)

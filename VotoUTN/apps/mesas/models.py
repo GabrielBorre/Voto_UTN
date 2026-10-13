@@ -7,11 +7,19 @@ from apps.parametros.models import Sede
 
 
 class Mesa(models.Model):
+    class EstadoEscaneo(models.TextChoices):
+        PENDIENTE = "pendiente", "Pendiente"
+        EN_PROCESO = "en_proceso", "En proceso"
+        PROCESADA = "procesada", "Procesada"
+
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="mesas")
     numero = models.PositiveIntegerField("numero")
     eleccion_claustro_departamento = models.ForeignKey(EleccionClaustroDepartamento, on_delete=models.PROTECT, related_name="mesas", null=True, blank=True)
     sede = models.ForeignKey(Sede, on_delete=models.PROTECT, related_name="mesas", null=True, blank=True)
     generada_automaticamente = models.BooleanField(default=False)
+    estado_escaneo = models.CharField(max_length=12, choices=EstadoEscaneo.choices, default=EstadoEscaneo.PENDIENTE, db_index=True)
+    escaneo_iniciado_en = models.DateTimeField(null=True, blank=True)
+    procesada_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "elecciones_mesa"
@@ -26,6 +34,14 @@ class Mesa(models.Model):
 
     def __str__(self):
         return f"{self.eleccion} - Mesa {self.numero}"
+
+    @property
+    def codigo(self):
+        """CODIGO_DEPARTAMENTO-NUMERO_DE_MESA; derivado, el numero ya es unico por eleccion."""
+        configuracion = self.eleccion_claustro_departamento
+        if configuracion is not None and configuracion.departamento_id:
+            return f"{configuracion.departamento.codigo}-{self.numero:03d}"
+        return f"{self.numero:03d}"
 
     def save(self, *args, **kwargs):
         if self.pk:

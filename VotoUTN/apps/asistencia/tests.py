@@ -127,6 +127,11 @@ class ServicioRegistroParticipacionEleccionTests(TestCase):
         AsignacionMesa.objects.create(registro_padron=self.padron_ajeno, mesa=self.mesa_ajena)
         self.usuario = get_user_model().objects.create_user(username="operador-qr", password="clave")
 
+    def mesa_activa_en_proceso(self):
+        self.mesa_activa.estado_escaneo = Mesa.EstadoEscaneo.EN_PROCESO
+        self.mesa_activa.save(update_fields=["estado_escaneo"])
+        return self.mesa_activa
+
     @override_settings(CLAVE_FIRMA_QR="clave-de-prueba-qr")
     def test_registrar_lote_marca_qr_de_otra_eleccion(self):
         codigo_ajeno = ServicioRegistroParticipacion.generar_codigo_qr(
@@ -137,6 +142,7 @@ class ServicioRegistroParticipacionEleccionTests(TestCase):
 
         resultado = ServicioRegistroParticipacion.registrar_lote(
             eleccion=self.eleccion_activa,
+            mesa=self.mesa_activa_en_proceso(),
             codigos_qr=[codigo_ajeno],
             usuario=self.usuario,
         )
@@ -157,7 +163,7 @@ class NomenclaturaDominioTests(SimpleTestCase):
         self.assertIsNotNone(RegistroParticipacion._meta.get_field("registrada_por"))
 
     def test_el_serializador_recibe_codigos_qr(self):
-        serializador = SerializadorLoteAsistencia(data={"codigos_qr": ["codigo-demo"]})
+        serializador = SerializadorLoteAsistencia(data={"codigos_qr": ["codigo-demo"], "mesa_codigo": "DSI-1"})
 
         self.assertTrue(serializador.is_valid(), serializador.errors)
         self.assertEqual(serializador.validated_data["codigos_qr"], ["codigo-demo"])

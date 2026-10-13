@@ -54,12 +54,13 @@ class DashboardParticipacionTests(TestCase):
         return registro
 
     def registrar_participacion(self, registro, mesa):
+        Mesa.objects.filter(pk=mesa.pk).update(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
         return RegistroParticipacion.objects.create(
             registro_padron=registro, mesa=mesa, registrada_por=self.administrativo, metodo="qr"
         )
 
     def pendientes(self, datos):
-        return [mesa.numero for mesa in datos["mesas"] if not mesa.escaneada]
+        return [mesa.numero for mesa in datos["mesas"] if mesa.estado_escaneo != Mesa.EstadoEscaneo.PROCESADA]
 
     def test_calcula_porcentajes_y_mesas_pendientes(self):
         self.registrar_participacion(self.registros_a[0], self.mesa_a)
@@ -76,6 +77,20 @@ class DashboardParticipacionTests(TestCase):
         self.assertEqual(datos["electores_en_mesas_escaneadas"], 2)
         self.assertEqual(datos["historial"]["porcentajes"], [50])
         self.assertEqual(datos["historial"]["etiquetas"], ["Eleccion Dashboard"])
+
+    def test_votaron_son_los_electores_sin_qr_escaneado_y_solo_en_mesas_procesadas(self):
+        self.registrar_participacion(self.registros_a[0], self.mesa_a)
+        Mesa.objects.filter(pk=self.mesa_a.pk).update(estado_escaneo=Mesa.EstadoEscaneo.EN_PROCESO)
+
+        en_proceso = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard())
+        Mesa.objects.filter(pk=self.mesa_a.pk).update(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
+        procesada = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard())
+
+        self.client.force_login(self.administrativo)
+        html = self.client.get(reverse("lista-elecciones"), {"eleccion": self.eleccion.pk}).content.decode()
+        self.assertEqual(procesada["mesas"][0].cantidad_votaron, 1)
+        self.assertEqual(en_proceso["mesas"][0].estado_escaneo, Mesa.EstadoEscaneo.EN_PROCESO)
+        self.assertIn("<td>1</td>", html)
 
     def test_filtra_por_sede_claustro_y_departamento(self):
         self.registrar_participacion(self.registros_a[0], self.mesa_a)
@@ -113,24 +128,26 @@ class DashboardParticipacionTests(TestCase):
     def test_filtro_de_estado_solo_acota_la_tabla_de_mesas(self):
         self.registrar_participacion(self.registros_a[0], self.mesa_a)
 
-        escaneadas = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard(escaneo="escaneadas"))
-        sin_escanear = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard(escaneo="pendientes"))
+        escaneadas = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard(escaneo="procesada"))
+        sin_escanear = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard(escaneo="pendiente"))
 
         self.assertEqual([mesa.numero for mesa in escaneadas["mesas"]], [1])
         self.assertEqual([mesa.numero for mesa in sin_escanear["mesas"]], [2])
         self.assertEqual((escaneadas["mesas_total"], sin_escanear["mesas_escaneadas"]), (2, 1))
         self.assertEqual(FiltrosDashboard.desde_parametros({"escaneo": "cualquiera"}).escaneo, "")
 
-    def test_metricas_de_justificativos_sobre_ausentes_de_mesas_escaneadas(self):
+    def test_metricas_de_justificativos_sobre_ausentes_de_mesas_procesadas(self):
         tipo = TipoJustificativo.objects.create(nombre="Salud")
         self.registrar_participacion(self.registros_a[0], self.mesa_a)
+        self.registrar_participacion(self.registros_a[1], self.mesa_a)
         self.crear_registro(5, self.mesa_a, self.sede_a)
-        # El elector de una mesa sin escanear todavía puede votar: no cuenta como ausente.
+        # Ausente = QR escaneado. Quien votó (QR retirado) o está en una mesa sin procesar no cuenta.
         JustificativoAusencia.objects.create(registro_padron=self.registros_b[0], tipo=tipo, detalle="x")
         justificativo = JustificativoAusencia.objects.create(registro_padron=self.registros_a[1], tipo=tipo, detalle="x")
 
         pendiente = construir_dashboard(self.administrativo, self.eleccion, FiltrosDashboard())
         self.assertEqual((pendiente["electores_ausentes"], pendiente["justificativos_recibidos"]), (2, 1))
+        self.assertEqual((pendiente["electores_participaron"], pendiente["electores_en_mesas_escaneadas"]), (1, 3))
         self.assertEqual((pendiente["justificativos_recibidos_pct"], pendiente["justificativos_confirmados_pct"]), (50, 0))
 
         justificativo.estado = JustificativoAusencia.Estado.APROBADO
@@ -157,9 +174,7 @@ class DashboardParticipacionTests(TestCase):
             elector=elector, eleccion=anterior, eleccion_claustro_departamento=configuracion, sede=self.sede_a
         )
         AsignacionMesa.objects.create(registro_padron=registro, mesa=mesa)
-        RegistroParticipacion.objects.create(
-            registro_padron=registro, mesa=mesa, registrada_por=self.administrativo, metodo="qr"
-        )
+        Mesa.objects.filter(pk=mesa.pk).update(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
         AsignacionRol.objects.create(
             usuario=self.administrativo, rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA, eleccion=anterior
         )

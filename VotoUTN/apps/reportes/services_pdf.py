@@ -87,9 +87,13 @@ def generar_padron_pdf(eleccion) -> bytes:
     for grupo in grupos:
         mesa = grupo["mesa"]
         electores = grupo["padrones"]
-        for inicio in range(0, len(electores), ELECTORES_POR_PAGINA):
+        total_paginas = -(-len(electores) // ELECTORES_POR_PAGINA)
+        _dibujar_caratula(canvas_obj, eleccion, mesa)
+        canvas_obj.showPage()
+        for pagina, inicio in enumerate(range(0, len(electores), ELECTORES_POR_PAGINA), start=1):
             lote = electores[inicio: inicio + ELECTORES_POR_PAGINA]
             _dibujar_pagina(canvas_obj, eleccion, mesa, lote, numero_inicial=inicio + 1)
+            _dibujar_pie_pagina(canvas_obj, pagina, total_paginas)
             canvas_obj.showPage()
 
     canvas_obj.save()
@@ -104,6 +108,7 @@ def _agrupar_padrones_por_mesa(eleccion):
             "sede",
             "asignacion_mesa__mesa__sede",
             "asignacion_mesa__mesa__eleccion_claustro_departamento__eleccion_claustro",
+            "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
         )
         .order_by("elector__nombre", "elector__legajo")
     )
@@ -172,10 +177,13 @@ def _dibujar_encabezado(c, eleccion, mesa):
 
     fecha_votacion = _fecha_votacion_mesa(eleccion, mesa)
     sede_nombre = mesa.sede.nombre if mesa.sede_id else "Sin sede"
+    configuracion = mesa.eleccion_claustro_departamento
+    departamento = configuracion.departamento if configuracion and configuracion.departamento_id else None
     lineas = [
         f"Elección: {eleccion.nombre}",
+        f"Departamento: {departamento.nombre if departamento else 'Sin departamento'}",
         f"Fecha de votación: {fecha_votacion.strftime('%d/%m/%Y')}",
-        f"Sede: {sede_nombre}    Mesa: {mesa.numero}",
+        f"Sede: {sede_nombre}    Mesa: {mesa.codigo}",
     ]
     c.setFont("Helvetica", 7.5)
     y_info = y - 4 * mm
@@ -269,6 +277,45 @@ def _construir_tabla(eleccion, mesa, lote, numero_inicial, alto_fila):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
     return tabla
+
+
+def _dibujar_caratula(c, eleccion, mesa):
+    y = _dibujar_encabezado(c, eleccion, mesa)
+    centro = ANCHO_PAGINA / 2
+    configuracion = mesa.eleccion_claustro_departamento
+    departamento = configuracion.departamento if configuracion and configuracion.departamento_id else None
+
+    c.setFont("Helvetica-Bold", 22)
+    c.drawCentredString(centro, y - 22 * mm, "INFORMACIÓN DE MESA")
+
+    c.setFont("Helvetica", 13)
+    y_dato = y - 40 * mm
+    datos = [
+        f"Elección: {eleccion.nombre}",
+        f"Fecha de votación: {_fecha_votacion_mesa(eleccion, mesa).strftime('%d/%m/%Y')}",
+        f"Sede: {mesa.sede.nombre if mesa.sede_id else 'Sin sede'}",
+        f"Departamento: {departamento.nombre if departamento else 'Sin departamento'}",
+    ]
+    for linea in datos:
+        c.drawCentredString(centro, y_dato, linea)
+        y_dato -= 8 * mm
+
+    c.setFont("Helvetica", 12)
+    c.drawCentredString(centro, y_dato - 10 * mm, "Código de mesa")
+    c.setFont("Helvetica-Bold", 44)
+    c.drawCentredString(centro, y_dato - 26 * mm, mesa.codigo)
+
+    lado_qr = 90 * mm
+    y_qr = y_dato - 36 * mm - lado_qr
+    payload = ServicioRegistroParticipacion.generar_codigo_qr_mesa(eleccion_id=eleccion.id, mesa_numero=mesa.numero)
+    c.drawImage(ImageReader(_generar_imagen_qr(payload)), centro - lado_qr / 2, y_qr, width=lado_qr, height=lado_qr)
+    c.setFont("Helvetica", 10)
+    c.drawCentredString(centro, y_qr - 6 * mm, "Escanee este código para comenzar el registro de la mesa")
+
+
+def _dibujar_pie_pagina(c, pagina, total):
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ANCHO_PAGINA - MARGEN, 5 * mm, f"Página {pagina} de {total}")
 
 
 def _dibujar_pagina(c, eleccion, mesa, lote, numero_inicial):

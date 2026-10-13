@@ -82,8 +82,12 @@ class AuditoriaParticipacionTests(BaseAuditoriaElectoralTests):
             identificador_qr=padron.identificador_qr,
         )
 
+        self.mesa.estado_escaneo = self.mesa.EstadoEscaneo.EN_PROCESO
+        self.mesa.save(update_fields=["estado_escaneo"])
+
         resultado = ServicioRegistroParticipacion.registrar_lote(
             eleccion=self.eleccion,
+            mesa=self.mesa,
             codigos_qr=[codigo],
             usuario=self.usuario,
         )
