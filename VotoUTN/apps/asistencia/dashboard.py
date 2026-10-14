@@ -14,7 +14,7 @@ from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import ROLES_CON_PARTICIPACION
 
 
-ESTADOS_ESCANEO = ("escaneadas", "pendientes")
+ESTADOS_ESCANEO = tuple(Mesa.EstadoEscaneo.values)
 
 
 @dataclass(frozen=True)
@@ -89,10 +89,9 @@ def _registros_filtrados(eleccion, filtros, mesas_alcance, restringido):
     return registros
 
 
-def _electores_de_mesas_escaneadas(registros):
-    """Base del porcentaje: los electores de mesas sin ningún registro aún no cuentan como ausentes."""
-    escaneadas = RegistroParticipacion.objects.values("mesa_id")
-    return registros.filter(Q(asignacion_mesa__mesa_id__in=escaneadas) | Q(participaciones__isnull=False))
+def _electores_de_mesas_procesadas(registros):
+    """Base de las métricas: en mesas sin confirmar todavía no se sabe quién votó."""
+    return registros.filter(asignacion_mesa__mesa__estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
 
 
 def _mesas_filtradas(mesas, filtros):
@@ -129,10 +128,12 @@ def _historial_entre_elecciones(usuario, filtros):
     for eleccion in elecciones[-MAXIMO_ELECCIONES_HISTORIAL:]:
         mesas, restringido = _mesas_del_alcance(usuario, eleccion)
         registros = _registros_filtrados(eleccion, filtros, mesas, restringido)
-        total = _electores_de_mesas_escaneadas(registros).count()
+        base = _electores_de_mesas_procesadas(registros)
+        total = base.count()
         if not total:
             continue
-        cantidad = registros.filter(participaciones__isnull=False).count()
+        # Un QR escaneado (con participación) es un elector que no votó.
+        cantidad = total - base.filter(participaciones__isnull=False).count()
         etiquetas.append(eleccion.nombre)
         porcentajes.append(_porcentaje(cantidad, total))
         participaron.append(cantidad)
@@ -156,13 +157,15 @@ def construir_dashboard(usuario, eleccion, filtros):
     mesas = _mesas_filtradas(mesas_alcance, filtros)
 
     total_electores = registros.count()
-    electores_base = _electores_de_mesas_escaneadas(registros).count()
-    participaron = registros.filter(participaciones__isnull=False).count()
+    electores_base_qs = _electores_de_mesas_procesadas(registros)
+    electores_base = electores_base_qs.count()
+    # Un QR escaneado (con participación) es un elector que no votó.
+    ausentes = electores_base_qs.filter(participaciones__isnull=False)
+    total_ausentes = ausentes.count()
+    participaron = electores_base - total_ausentes
 
-    con_registro = RegistroParticipacion.objects.filter(mesa=OuterRef("pk"))
     mesas_anotadas = (
-        mesas.annotate(escaneada=Exists(con_registro))
-        .select_related("sede", "eleccion_claustro_departamento__eleccion_claustro__claustro", "eleccion_claustro_departamento__departamento")
+        mesas.select_related("sede", "eleccion_claustro_departamento__eleccion_claustro__claustro", "eleccion_claustro_departamento__departamento")
         .annotate(
             cantidad_electores=Count(
                 "asignaciones_padron",
@@ -178,26 +181,26 @@ def construir_dashboard(usuario, eleccion, filtros):
         .order_by("sede__nombre", "numero")
     )
     total_mesas = mesas.count()
-    mesas_escaneadas = mesas_anotadas.filter(escaneada=True).count()
-    if filtros.escaneo == "escaneadas":
-        mesas_anotadas = mesas_anotadas.filter(escaneada=True)
-    elif filtros.escaneo == "pendientes":
-        mesas_anotadas = mesas_anotadas.filter(escaneada=False)
+    mesas_escaneadas = mesas.filter(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA).count()
+    if filtros.escaneo:
+        mesas_anotadas = mesas_anotadas.filter(estado_escaneo=filtros.escaneo)
 
-    # Los ausentes se miden solo en mesas escaneadas: en las demás todavía pueden votar.
-    ausentes = _electores_de_mesas_escaneadas(registros).exclude(participaciones__isnull=False)
     justificativos = JustificativoAusencia.objects.filter(registro_padron=OuterRef("pk"))
-    total_ausentes = ausentes.count()
     justificativos_recibidos = ausentes.filter(Exists(justificativos)).count()
     justificativos_confirmados = ausentes.filter(
         Exists(justificativos.filter(estado=JustificativoAusencia.Estado.APROBADO))
     ).count()
 
+    # La columna Votaron solo se completa cuando la mesa fue procesada.
+    mesas_lista = list(mesas_anotadas)
+    for mesa in mesas_lista:
+        mesa.cantidad_votaron = mesa.cantidad_electores - mesa.cantidad_participaron
+
     return {
         "mesas_total": total_mesas,
         "mesas_escaneadas": mesas_escaneadas,
         "mesas_escaneadas_pct": _porcentaje(mesas_escaneadas, total_mesas),
-        "mesas": list(mesas_anotadas),
+        "mesas": mesas_lista,
         "electores_total": total_electores,
         "electores_en_mesas_escaneadas": electores_base,
         "electores_participaron": participaron,

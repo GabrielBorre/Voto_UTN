@@ -1,12 +1,14 @@
 import hashlib
 import hmac
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from apps.auditoria.services import registrar_evento
 from apps.elecciones.models import Eleccion
+from apps.mesas.models import Mesa
 from apps.padron.models import RegistroPadron
 from apps.usuarios.permisos import puede_registrar_participacion
 from .models import RegistroParticipacion
@@ -20,10 +22,21 @@ class ResultadoParticipacion:
     invalidos_otra_eleccion: list[str]
     mesa_numero: int | None = None
     departamento_codigo: str | None = None
+    invalidos_otra_mesa: list[str] = field(default_factory=list)
+
+
+class ErrorEscaneoMesa(Exception):
+    """Regla de escaneo de mesa incumplida; `estado_http` orienta la respuesta de la API."""
+
+    def __init__(self, mensaje, estado_http=409):
+        super().__init__(mensaje)
+        self.mensaje = mensaje
+        self.estado_http = estado_http
 
 
 class ServicioRegistroParticipacion:
     VERSION_QR = "v1"
+    VERSION_QR_MESA = "M1"
     LONGITUD_IDENTIFICADOR = 8
     LONGITUD_FIRMA = 4
     ANCHO_BASE36_ELECCION = 2
@@ -104,9 +117,125 @@ class ServicioRegistroParticipacion:
         return eleccion_id, mesa_numero, identificador
 
     @classmethod
-    def registrar_lote(cls, *, eleccion: Eleccion, codigos_qr: list, usuario) -> ResultadoParticipacion:
+    def generar_codigo_qr_mesa(cls, *, eleccion_id, mesa_numero):
+        cuerpo = cls._to_base36(int(eleccion_id), cls.ANCHO_BASE36_ELECCION) + cls._to_base36(int(mesa_numero), cls.ANCHO_BASE36_MESA)
+        # El prefijo de dominio evita que una firma de mesa se reutilice con otro tipo de QR.
+        firma = cls._firma_corta(f"{cls.VERSION_QR_MESA}{cuerpo}")
+        return f"{cls.VERSION_QR_MESA}.{cuerpo}{firma}"
+
+    @classmethod
+    def parsear_codigo_qr_mesa(cls, codigo):
+        if not isinstance(codigo, str):
+            return None
+        version, separador, contenido = codigo.strip().upper().partition(".")
+        if separador != "." or version != cls.VERSION_QR_MESA:
+            return None
+        largo_cuerpo = cls.ANCHO_BASE36_ELECCION + cls.ANCHO_BASE36_MESA
+        if len(contenido) != largo_cuerpo + cls.LONGITUD_FIRMA or not contenido.isalnum():
+            return None
+        cuerpo, firma = contenido[:largo_cuerpo], contenido[largo_cuerpo:]
+        if not hmac.compare_digest(firma, cls._firma_corta(f"{version}{cuerpo}")):
+            return None
+        return cls._from_base36(cuerpo[:cls.ANCHO_BASE36_ELECCION]), cls._from_base36(cuerpo[cls.ANCHO_BASE36_ELECCION:])
+
+    @staticmethod
+    def _mesas_de(eleccion):
+        return Mesa.objects.select_related(
+            "sede",
+            "eleccion_claustro_departamento__departamento",
+            "eleccion_claustro_departamento__eleccion_claustro__claustro",
+        ).filter(eleccion=eleccion)
+
+    @classmethod
+    def resolver_mesa(cls, *, eleccion: Eleccion, usuario, codigo_qr=None, codigo_mesa=None) -> Mesa:
+        """Obtiene la mesa desde un QR firmado o desde el codigo escrito a mano, validando alcance del usuario."""
+        if codigo_qr:
+            parseado = cls.parsear_codigo_qr_mesa(codigo_qr)
+            if parseado is None:
+                raise ErrorEscaneoMesa("El QR no es un QR de mesa válido.", 400)
+            if parseado[0] != eleccion.id:
+                raise ErrorEscaneoMesa("El QR de mesa pertenece a otra elección.", 400)
+            mesa = cls._mesas_de(eleccion).filter(numero=parseado[1]).first()
+        else:
+            texto = (codigo_mesa or "").strip().upper()
+            departamento, separador, numero = texto.rpartition("-")
+            if not numero.isdigit():
+                raise ErrorEscaneoMesa("Ingresá el código con el formato CODIGO_DEPARTAMENTO-NUMERO_DE_MESA.", 400)
+            mesa = cls._mesas_de(eleccion).filter(numero=int(numero)).first()
+            if mesa is not None and mesa.codigo.upper() != (f"{departamento}-{int(numero):03d}" if separador else f"{int(numero):03d}"):
+                mesa = None
+        if mesa is None:
+            raise ErrorEscaneoMesa("No existe una mesa con ese código en esta elección.", 404)
+        if not puede_registrar_participacion(usuario, eleccion, mesa):
+            raise ErrorEscaneoMesa("No tenés permisos para registrar participación en esta mesa.", 403)
+        return mesa
+
+    @staticmethod
+    def describir_mesa(mesa: Mesa) -> dict:
+        configuracion = mesa.eleccion_claustro_departamento
+        departamento = configuracion.departamento if configuracion else None
+        claustro = configuracion.eleccion_claustro.claustro if configuracion else None
+        return {
+            "codigo": mesa.codigo,
+            "numero": mesa.numero,
+            "departamento_codigo": departamento.codigo if departamento else None,
+            "departamento": departamento.nombre if departamento else None,
+            "claustro": claustro.nombre if claustro else None,
+            "sede": mesa.sede.nombre if mesa.sede_id else None,
+            "estado": mesa.estado_escaneo,
+            "estado_display": mesa.get_estado_escaneo_display(),
+            "electores": mesa.asignaciones_padron.filter(registro_padron__activo=True).count(),
+            "registrados": mesa.participaciones.filter(registro_padron__activo=True).count(),
+        }
+
+    @classmethod
+    def iniciar_escaneo_mesa(cls, *, mesa: Mesa, usuario) -> Mesa:
+        with transaction.atomic():
+            mesa = Mesa.objects.select_for_update().get(pk=mesa.pk)
+            if mesa.estado_escaneo == Mesa.EstadoEscaneo.PROCESADA:
+                raise ErrorEscaneoMesa("La mesa ya fue procesada.")
+            if mesa.estado_escaneo == Mesa.EstadoEscaneo.PENDIENTE:
+                mesa.estado_escaneo = Mesa.EstadoEscaneo.EN_PROCESO
+                mesa.escaneo_iniciado_en = timezone.now()
+                mesa.save(update_fields=["estado_escaneo", "escaneo_iniciado_en"])
+                registrar_evento(
+                    accion="mesa.escaneo_iniciado",
+                    entidad="Mesa",
+                    entidad_id=mesa.pk,
+                    eleccion=mesa.eleccion,
+                    usuario=usuario,
+                    datos_nuevos={"estado": mesa.estado_escaneo},
+                )
+        return mesa
+
+    @classmethod
+    def finalizar_escaneo_mesa(cls, *, mesa: Mesa, usuario, confirmar_sin_inasistencias=False) -> Mesa:
+        with transaction.atomic():
+            mesa = Mesa.objects.select_for_update().get(pk=mesa.pk)
+            if mesa.estado_escaneo != Mesa.EstadoEscaneo.EN_PROCESO:
+                raise ErrorEscaneoMesa("Solo se puede registrar una mesa cuyo escaneo está en proceso.")
+            sin_registros = not mesa.participaciones.exists()
+            if sin_registros and not confirmar_sin_inasistencias:
+                raise ErrorEscaneoMesa("Confirmá que en esta mesa no hubo inasistencias.", 422)
+            mesa.estado_escaneo = Mesa.EstadoEscaneo.PROCESADA
+            mesa.procesada_en = timezone.now()
+            mesa.save(update_fields=["estado_escaneo", "procesada_en"])
+            registrar_evento(
+                accion="mesa.procesada",
+                entidad="Mesa",
+                entidad_id=mesa.pk,
+                eleccion=mesa.eleccion,
+                usuario=usuario,
+                datos_nuevos={"estado": mesa.estado_escaneo, "sin_inasistencias": sin_registros},
+            )
+        return mesa
+
+    @classmethod
+    def registrar_lote(cls, *, eleccion: Eleccion, mesa: Mesa, codigos_qr: list, usuario) -> ResultadoParticipacion:
+        if mesa.eleccion_id != eleccion.id or mesa.estado_escaneo != Mesa.EstadoEscaneo.EN_PROCESO:
+            raise ErrorEscaneoMesa("Primero escaneá el QR de la mesa y comenzá su escaneo.")
         codigos = list(dict.fromkeys(codigo.strip() for codigo in codigos_qr if isinstance(codigo, str) and codigo.strip()))
-        parseados, invalidos, invalidos_otra_eleccion = [], [], []
+        parseados, invalidos, invalidos_otra_eleccion, invalidos_otra_mesa = [], [], [], []
         for codigo in codigos:
             parseado = cls.parsear_codigo_qr(codigo)
             if parseado is None:
@@ -114,6 +243,9 @@ class ServicioRegistroParticipacion:
             elif parseado[0] != eleccion.id:
                 invalidos.append(codigo)
                 invalidos_otra_eleccion.append(codigo)
+            elif parseado[1] != mesa.numero:
+                invalidos.append(codigo)
+                invalidos_otra_mesa.append(codigo)
             else:
                 parseados.append((codigo, parseado[1], parseado[2]))
 
@@ -131,9 +263,11 @@ class ServicioRegistroParticipacion:
         validos = []
         for codigo, mesa_numero, identificador in parseados:
             padron = padrones.get(identificador)
-            mesa = getattr(getattr(padron, "asignacion_mesa", None), "mesa", None)
-            if padron is None or mesa is None or mesa.numero != mesa_numero or not puede_registrar_participacion(usuario, eleccion, mesa):
+            mesa_padron = getattr(getattr(padron, "asignacion_mesa", None), "mesa", None)
+            if padron is None or mesa_padron is None or mesa_padron.pk != mesa.pk or not puede_registrar_participacion(usuario, eleccion, mesa):
                 invalidos.append(codigo)
+                if mesa_padron is not None and mesa_padron.pk != mesa.pk:
+                    invalidos_otra_mesa.append(codigo)
             else:
                 validos.append((identificador, padron, mesa))
 
@@ -167,10 +301,9 @@ class ServicioRegistroParticipacion:
                     },
                 )
 
-        mesa_info = validos[0][2] if validos else None
         departamento_codigo = None
-        if mesa_info and mesa_info.eleccion_claustro_departamento_id:
-            departamento = mesa_info.eleccion_claustro_departamento.departamento
+        if mesa.eleccion_claustro_departamento_id:
+            departamento = mesa.eleccion_claustro_departamento.departamento
             departamento_codigo = departamento.codigo if departamento else None
 
         return ResultadoParticipacion(
@@ -178,8 +311,9 @@ class ServicioRegistroParticipacion:
             ya_registrados=[str(identificador) for identificador in existentes],
             invalidos=invalidos,
             invalidos_otra_eleccion=invalidos_otra_eleccion,
-            mesa_numero=mesa_info.numero if mesa_info else None,
+            mesa_numero=mesa.numero,
             departamento_codigo=departamento_codigo,
+            invalidos_otra_mesa=invalidos_otra_mesa,
         )
 
     @classmethod

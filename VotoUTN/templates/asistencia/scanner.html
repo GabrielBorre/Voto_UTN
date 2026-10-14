@@ -13,25 +13,25 @@
   <div class="manual-desktop-card">
     <a href="{% url 'lista-elecciones' %}" class="manual-desktop-back">&larr; Volver a registro de participación</a>
     <p class="manual-desktop-eyebrow">{{ eleccion.nombre }}</p>
-    <h1 id="manual-desktop-title">Carga manual de asistencia</h1>
+    <h1 id="manual-desktop-title">Carga manual de inasistencia</h1>
     <p>Registrá a la persona que no pudo procesarse mediante QR. La carga valida la mesa, el padrón y los permisos asignados.</p>
 
     <form id="manual-desktop-form" data-api-url="{% url 'api-asistencia-lote' eleccion.pk %}">
       <div class="manual-desktop-field">
-        <label for="manual-mesa-numero">Número de mesa</label>
-        <input id="manual-mesa-numero" name="mesa_numero" type="number" min="1" inputmode="numeric" required autofocus>
+        <label for="manual-mesa-codigo">Código de mesa</label>
+        <input id="manual-mesa-codigo" name="mesa_codigo" type="text" maxlength="40" placeholder="Ej. K-012" autocapitalize="characters" required autofocus>
       </div>
       <div class="manual-desktop-field">
         <label for="manual-dni">DNI</label>
         <input id="manual-dni" name="dni" type="text" inputmode="numeric" maxlength="12" autocomplete="off" required>
       </div>
-      <button class="btn scanner-btn-primary" type="submit">Registrar asistencia</button>
+      <button class="btn scanner-btn-primary" type="submit">Registrar inasistencia</button>
       <p id="manual-desktop-status" class="manual-desktop-status" role="status" aria-live="polite"></p>
     </form>
   </div>
 </section>
 
-<div id="scanner-app" class="scanner-page" data-api-url="{% url 'api-asistencia-lote' eleccion.pk %}" data-list-url="{% url 'lista-elecciones' %}">
+<div id="scanner-app" class="scanner-page" data-api-url="{% url 'api-asistencia-lote' eleccion.pk %}" data-mesa-api-url="{% url 'api-asistencia-mesa' eleccion.pk %}" data-list-url="{% url 'lista-elecciones' %}">
 
   <header class="scanner-header">
     <a href="{% url 'lista-elecciones' %}" class="scanner-back" aria-label="Volver">
@@ -53,6 +53,13 @@
     <div id="camera-status" class="camera-status">Preparando cámara…</div>
   </section>
 
+  <section id="mesa-info-view" class="mesa-summary-view d-none" aria-live="polite">
+    <h2 class="mesa-summary-title">Mesa a escanear</h2>
+    <p id="mesa-info-codigo" class="mesa-summary-value"></p>
+    <p id="mesa-info-detalle" class="mesa-summary-value mesa-info-detalle"></p>
+    <p id="mesa-info-mensaje" class="mesa-info-mensaje" role="status"></p>
+  </section>
+
   <section id="mesa-summary-view" class="mesa-summary-view d-none" aria-live="polite">
     <h2 class="mesa-summary-title">Resumen de mesa</h2>
     <p id="last-page-summary" class="mesa-summary-value"></p>
@@ -60,7 +67,18 @@
   </section>
 
   <section class="scanner-actions">
-    <div id="scan-controls" class="scanner-action-row">
+    <div id="mesa-select-controls" class="mesa-select-controls">
+      <form id="mesa-code-form" class="mesa-code-form" autocomplete="off">
+        <label class="visually-hidden" for="mesa-code-input">Código de mesa</label>
+        <input id="mesa-code-input" name="codigo_mesa" type="text" maxlength="40" placeholder="Código de mesa (ej. K-012)" autocapitalize="characters" required>
+        <button class="btn scanner-btn-primary" type="submit">Buscar mesa</button>
+      </form>
+    </div>
+    <div id="mesa-info-controls" class="scanner-action-row d-none">
+      <button id="mesa-change" class="btn scanner-btn-secondary" type="button">Elegir otra mesa</button>
+      <button id="mesa-start" class="btn scanner-btn-primary" type="button">Comenzar escaneo de electores</button>
+    </div>
+    <div id="scan-controls" class="scanner-action-row d-none">
       <button id="register-page" class="btn scanner-btn-primary" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 7v14a2 2 0 0 0 2 2h14"></path>
@@ -68,7 +86,7 @@
           <rect x="9" y="13" width="6" height="6" rx="1"></rect>
         </svg>
       </button>
-      <button id="manual-load" class="btn scanner-btn-secondary" type="button">
+      <button id="manual-load" class="btn scanner-btn-secondary js-manual-load" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -77,6 +95,31 @@
       </button>
     </div>
   </section>
+
+  <div id="manual-dni-panel" class="result-panel d-none" role="dialog" aria-modal="true" aria-labelledby="manual-dni-title">
+    <form id="manual-dni-form" class="result-card mobile-dialog" autocomplete="off">
+      <h2 id="manual-dni-title">Carga manual de inasistencia</h2>
+      <p id="manual-dni-mesa" class="mobile-dialog-text"></p>
+      <label for="manual-dni-input">DNI del elector</label>
+      <input id="manual-dni-input" type="text" inputmode="numeric" maxlength="12" required>
+      <p id="manual-dni-error" class="mesa-info-mensaje" role="alert"></p>
+      <div class="scanner-action-row">
+        <button id="manual-dni-cancel" class="btn scanner-btn-secondary" type="button">Cancelar</button>
+        <button class="btn scanner-btn-primary" type="submit">Registrar</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="confirm-panel" class="result-panel d-none" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <div class="result-card mobile-dialog">
+      <h2 id="confirm-title">Mesa sin inasistencias</h2>
+      <p id="confirm-text" class="mobile-dialog-text"></p>
+      <div class="scanner-action-row">
+        <button id="confirm-cancel" class="btn scanner-btn-secondary" type="button">Cancelar</button>
+        <button id="confirm-accept" class="btn scanner-btn-primary" type="button">Confirmar</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script type="module" src="{% static 'js/scanner-app.js' %}"></script>

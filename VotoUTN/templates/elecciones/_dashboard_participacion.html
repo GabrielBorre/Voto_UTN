@@ -15,7 +15,7 @@
         </select>
       </form>
       {% endif %}
-      <a class="button hero-boton" href="{% url 'escanear' eleccion_actual.pk %}">Carga manual de asistencia</a>
+      <a class="button hero-boton" href="{% url 'escanear' eleccion_actual.pk %}">Carga manual de inasistencia</a>
       {% endif %}
       <a class="button hero-boton" href="#historial-participacion">Historial de participación</a>
       <a class="button hero-boton-secundario" href="{% url 'historial-elecciones' %}">Volver</a>
@@ -49,8 +49,9 @@
       <label for="filtro-escaneo">Estado de la mesa</label>
       <select id="filtro-escaneo" name="escaneo" data-autoenviar>
         <option value="">Todas</option>
-        <option value="escaneadas"{% if filtros.escaneo == 'escaneadas' %} selected{% endif %}>Escaneadas</option>
-        <option value="pendientes"{% if filtros.escaneo == 'pendientes' %} selected{% endif %}>Sin escanear</option>
+        <option value="pendiente"{% if filtros.escaneo == 'pendiente' %} selected{% endif %}>Pendiente</option>
+        <option value="en_proceso"{% if filtros.escaneo == 'en_proceso' %} selected{% endif %}>En proceso</option>
+        <option value="procesada"{% if filtros.escaneo == 'procesada' %} selected{% endif %}>Procesada</option>
       </select>
     </div>
     <div class="filtros-acciones">
@@ -88,21 +89,22 @@
   <section id="mesas-pendientes" class="card" aria-labelledby="titulo-mesas-pendientes">
     <div class="section-title seccion-sin-margen">
       <h2 id="titulo-mesas-pendientes">Mesas</h2>
-      <p class="muted">Una mesa se considera escaneada cuando tiene al menos un registro de participación.</p>
+      <p class="muted"><span class="pill gray">Pendiente: Sin escanear</span> <span class="pill warn">En proceso: Escaneo iniciado sin confirmar</span> <span class="pill ok">Procesada: Escaneada y confirmada</span></p>
     </div>
     {% if pagina_mesas.object_list %}
     <div class="table-wrap">
       <table>
-        <thead><tr><th scope="col">Mesa</th><th scope="col">Sede</th><th scope="col">Claustro</th><th scope="col">Departamento</th><th scope="col">Electores</th><th scope="col">Votaron</th></tr></thead>
+        <thead><tr><th scope="col">Mesa</th><th scope="col">Sede</th><th scope="col">Claustro</th><th scope="col">Departamento</th><th scope="col">Estado</th><th scope="col">Electores</th><th scope="col">Votaron</th></tr></thead>
         <tbody>
           {% for mesa in pagina_mesas %}
           <tr>
-            <th scope="row" class="celda-mesa">Mesa {{ mesa.numero }}</th>
+            <th scope="row" class="celda-mesa">{{ mesa.codigo }}</th>
             <td>{{ mesa.sede.nombre|default:"—" }}</td>
             <td>{{ mesa.eleccion_claustro_departamento.eleccion_claustro.claustro.nombre|default:"—" }}</td>
             <td>{{ mesa.eleccion_claustro_departamento.departamento.nombre|default:"—" }}</td>
+            <td><span class="pill {% if mesa.estado_escaneo == 'procesada' %}ok{% elif mesa.estado_escaneo == 'en_proceso' %}warn{% else %}gray{% endif %}">{{ mesa.get_estado_escaneo_display }}</span></td>
             <td>{{ mesa.cantidad_electores }}</td>
-            <td>{% if mesa.escaneada %}{{ mesa.cantidad_participaron }}{% else %}-{% endif %}</td>
+            <td>{% if mesa.estado_escaneo == 'procesada' %}{{ mesa.cantidad_votaron }}{% else %}-{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
