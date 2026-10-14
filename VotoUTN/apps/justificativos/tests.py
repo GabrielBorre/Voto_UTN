@@ -271,5 +271,28 @@ class JustificativosViewsTests(TestCase):
         self.assertTemplateUsed(respuesta, "justificativos/gestion.html")
         self.assertContains(respuesta, 'class="management-panel justifications-panel"')
         self.assertContains(respuesta, "Solicitudes recibidas")
-        self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
-        self.assertContains(respuesta, "Volver a configuración", count=1)
+        self.assertContains(respuesta, "Inasistencia de electores")
+        self.assertContains(respuesta, "Inasistencia de autoridades de mesa")
+        self.assertNotContains(respuesta, "Volver a configuración")
+
+    def test_pestana_autoridades_solo_lista_ausencias_de_autoridad(self):
+        self.client.login(username="admin", password="clave")
+        self.crear_justificativo()
+
+        respuesta = self.client.get(
+            reverse("gestionar-justificativos", args=(self.eleccion.id,)), {"pestana": "autoridades"}
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(len(respuesta.context["justificativos"]), 0)
+
+    def test_filtro_de_estado_limita_los_justificativos_listados(self):
+        self.client.login(username="admin", password="clave")
+        self.crear_justificativo()
+        url = reverse("gestionar-justificativos", args=(self.eleccion.id,))
+
+        pendientes = self.client.get(url, {"estado": "pendiente"})
+        aprobados = self.client.get(url, {"estado": "aprobado"})
+
+        self.assertEqual(len(pendientes.context["justificativos"]), 1)
+        self.assertEqual(len(aprobados.context["justificativos"]), 0)

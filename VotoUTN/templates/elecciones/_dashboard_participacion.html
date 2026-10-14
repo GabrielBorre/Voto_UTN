@@ -5,7 +5,7 @@
     </div>
     <div class="hero-botones">
       {% if modo_historial %}
-      <a class="button hero-boton" href="{% url 'historial-elecciones' %}">Volver al listado de elecciones</a>
+      <a class="button hero-boton" href="{% url 'gestionar-justificativos' eleccion_actual.pk %}">Justificativos</a>
       {% else %}
       {% if elecciones.count > 1 %}
       <form method="get" class="inline-form">
@@ -17,7 +17,8 @@
       {% endif %}
       <a class="button hero-boton" href="{% url 'escanear' eleccion_actual.pk %}">Carga manual de asistencia</a>
       {% endif %}
-      <a class="button hero-boton-secundario" href="#historial-participacion">Historial de participación</a>
+      <a class="button hero-boton" href="#historial-participacion">Historial de participación</a>
+      <a class="button hero-boton-secundario" href="{% url 'historial-elecciones' %}">Volver</a>
     </div>
   </section>
 

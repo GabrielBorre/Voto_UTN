@@ -8,6 +8,11 @@
   <p>{{ eleccion.nombre }}. Revisá la documentación presentada y consultá el estado de cada solicitud.</p>
 </section>
 
+<nav class="gestion-nav" aria-label="Tipo de justificativo">
+  <a class="{% if pestana == 'electores' %}active{% endif %}" href="?pestana=electores">Inasistencia de electores</a>
+  <a class="{% if pestana == 'autoridades' %}active{% endif %}" href="?pestana=autoridades">Inasistencia de autoridades de mesa</a>
+</nav>
+
 <div class="management-panel justifications-panel">
   <section class="card management-section">
     <div class="section-title">
@@ -15,7 +20,6 @@
         <h2>Solicitudes recibidas</h2>
         <p>Las solicitudes pendientes pueden aprobarse o rechazarse dejando una observación de resolución.</p>
       </div>
-      <span class="tag">{{ eleccion.get_estado_display }}</span>
     </div>
 
     <div class="summary-grid management-summary-grid">
@@ -24,6 +28,21 @@
       <div><strong>Aprobados</strong><span>{{ resumen.aprobados }}</span></div>
       <div><strong>Rechazados</strong><span>{{ resumen.rechazados }}</span></div>
     </div>
+
+    <br>
+    
+
+    <form method="get" class="filtros-tablero" aria-label="Filtro de estado">
+      <input type="hidden" name="pestana" value="{{ pestana }}">
+      <div class="field">
+        <label for="filtro-estado">Estado</label>
+        <select id="filtro-estado" name="estado" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for valor, etiqueta in estados %}<option value="{{ valor }}"{% if estado == valor %} selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+        </select>
+      </div>
+      <noscript><button type="submit" class="button light">Filtrar</button></noscript>
+    </form>
 
     <div class="table-wrap">
       <table>
@@ -74,5 +93,9 @@
   </section>
 </div>
 
-{% include "elecciones/_volver_configuracion.html" %}
+{% if eleccion.estado == 'cerrada' %}
+<nav class="section-navigation" aria-label="Navegación de la sección">
+  <a class="button light" href="{% url 'dashboard-historial-eleccion' eleccion.id %}">Volver al dashboard</a>
+</nav>
+{% endif %}
 {% endblock %}

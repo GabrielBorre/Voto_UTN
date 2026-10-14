@@ -5,6 +5,7 @@ from apps.usuarios.permisos import (
     puede_administrar_elecciones,
     puede_administrar_parametros,
     puede_crear_elecciones,
+    puede_revisar_justificativo,
 )
 from apps.usuarios.services import elector_de_identidad
 
@@ -47,7 +48,15 @@ def navegacion_por_rol(request):
         .exists()
     )
 
+    eleccion_justificativos = None
+    if not es_elector:
+        en_curso = Eleccion.objects.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS).order_by("-fecha_inicio", "-id")
+        eleccion_justificativos = next(
+            (e for e in en_curso if puede_revisar_justificativo(usuario, e)), None
+        )
+
     return {
+        "nav_eleccion_justificativos": eleccion_justificativos,
         "nav_es_elector": es_elector,
         "nav_es_autoridad": es_autoridad,
         "nav_es_administrador_junta": AsignacionRol.Rol.ADMINISTRADOR_JUNTA in roles,
