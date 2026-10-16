@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils.timezone import make_aware
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.pdfgen.canvas import Canvas
+from openpyxl import load_workbook
 
 from apps.asistencia.services import ServicioRegistroParticipacion
 
@@ -113,6 +114,26 @@ class ReportesViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta["Content-Type"], "text/csv; charset=utf-8")
         self.assertIn('filename="padron_', respuesta["Content-Disposition"])
+
+    def test_exportar_padron_xlsx_ordena_por_dni(self):
+        sede = Sede.objects.create(nombre="Campus")
+        claustro = Claustro.objects.create(nombre="Estudiantes")
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
+        EleccionSede.objects.create(eleccion=self.eleccion, sede=sede)
+        alcance = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=claustro)
+        configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=alcance, departamento=departamento)
+        for dni in ("40200000", "40100000"):
+            elector = Elector.objects.create(dni=dni, tipo_documento="DNI", legajo=dni, nombre="Nombre", apellido="Prueba")
+            RegistroPadron.objects.create(elector=elector, eleccion=self.eleccion, eleccion_claustro_departamento=configuracion)
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("exportar-reporte", args=(self.eleccion.id, "padron")), {"formato": "xlsx"})
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn("spreadsheetml.sheet", respuesta["Content-Type"])
+        hoja = load_workbook(BytesIO(respuesta.content), read_only=True).active
+        filas = list(hoja.values)
+        self.assertEqual([fila[0] for fila in filas[1:]], ["40100000", "40200000"])
 
     def test_generar_boletas_pdf_sin_candidatos_redirige_con_mensaje(self):
         self.client.force_login(self.usuario)

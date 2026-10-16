@@ -77,3 +77,70 @@ python manage.py seed_voters --election-id 1 --configuracion-departamento-id 2
 
 docker compose exec web python manage.py seed_demo_data
 docker compose exec web python manage.py seed_keycloak_demo
+
+## Reporte Excel de pruebas QA
+
+El `TEST_RUNNER` configurado en `config/settings.py` ejecuta, sin etiquetas,
+una selección fija de **67 pruebas relevantes** y genera al finalizar
+`reporte_pruebas_<fecha-y-hora>.xlsx` en la raíz del proyecto. La selección
+revisable está en `config/pruebas_qa_relevantes.py`; cubre QR y participación,
+permisos, padrón, autoridades, auditoría y reglas electorales, e incluye dos
+pruebas del propio generador. El reporte se genera aunque haya fallos y el
+comando conserva el código de salida de Django.
+
+`openpyxl` ya está incluido en `requirements.txt`. Ejecutá los tests desde el
+directorio que contiene `manage.py`:
+
+```powershell
+python manage.py test
+```
+
+Para elegir un nombre y ubicación fijos, agregá a `config/settings.py`:
+
+```python
+TEST_REPORT_XLSX_PATH = BASE_DIR / "reportes" / "validacion.xlsx"
+```
+
+El runner crea el directorio padre si hace falta. Si no se configura esa opción,
+usa un nombre con marca de tiempo para conservar reportes de ejecuciones
+anteriores.
+
+Los campos de diseño QA se leen primero de `qa_metadata` en la clase de prueba,
+luego de `qa_metadata` en el método y finalmente de las etiquetas del docstring.
+Los valores del docstring pueden ocupar varias líneas hasta la siguiente
+etiqueta. Las columnas dinámicas `Fecha`, `Resultado` y `Observaciones del
+Resultado` las completa el runner; la última incluye el traceback o motivo del
+fallo, error o salto.
+
+```python
+from django.test import TestCase
+
+
+class RegistroParticipacionTests(TestCase):
+    qa_metadata = {
+        "Componente Funcional": "Participación electoral",
+        "Diseñador": "Equipo de QA",
+        "Severidad": "Alta",
+        "Prioridad": "P1",
+        "Tester": "Analista funcional",
+    }
+
+    def test_registro_qr_valido(self):
+        """Caso de Uso: Registrar participación con QR.
+        # Caso de Prueba: QA-PAR-001
+        Regresión (SI/NO): SI
+        Descripción: Registra la participación de un elector habilitado.
+        Precondiciones: Elección abierta y QR vigente asignado a una mesa.
+        Datos de Entrada: Código QR válido de un registro de padrón.
+        Pasos:
+        1. Autenticarse como administrativo de junta.
+        2. Escanear el QR y confirmar el lote.
+        Resultado Esperado: Se registra una única participación para el elector.
+        """
+        ...
+```
+
+Si un dato no se declara, su celda queda vacía; `# Caso de Prueba` usa el ID
+completo del test para facilitar su rastreo. Al pasar etiquetas explícitas al
+comando, se ejecuta únicamente la intersección de esas etiquetas con la
+selección QA.

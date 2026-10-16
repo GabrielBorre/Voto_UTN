@@ -40,7 +40,7 @@ def exportar_reporte(request, eleccion_id, tipo):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para exportar informacion.")
-    return exportar_reporte_eleccion(eleccion, tipo)
+    return exportar_reporte_eleccion(eleccion, tipo, request.GET.get("formato", "csv"))
 
 
 @login_required

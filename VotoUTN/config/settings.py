@@ -35,6 +35,7 @@ TEMPLATES = [{
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"
+TEST_RUNNER = "config.corredor_pruebas_excel.CorredorPruebasExcel"
 
 DATABASES = {"default": {
     "ENGINE": "django.db.backends.postgresql",

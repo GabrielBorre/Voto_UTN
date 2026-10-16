@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.utils.timezone import make_aware
 from PIL import Image
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 from apps.elecciones.models import (
     Eleccion,
@@ -80,6 +80,41 @@ class PadronViewsTests(TestCase):
             respuesta,
             '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
         )
+
+    def test_exportar_padron_desde_gestion_se_limita_al_claustro_y_ordena_por_dni(self):
+        otro_claustro = Claustro.objects.create(nombre="Docentes")
+        otro_alcance = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=otro_claustro)
+        otro_departamento = Departamento.objects.create(nombre="Industrial", codigo="I")
+        otro_configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=otro_alcance, departamento=otro_departamento,
+        )
+        for dni, alcance in (("40200000", self.configuracion), ("40100000", self.configuracion), ("40300000", otro_configuracion)):
+            elector = Elector.objects.create(dni=dni, legajo=f"L{dni}", nombre="Nombre", apellido="Prueba")
+            RegistroPadron.objects.create(
+                elector=elector,
+                eleccion=self.eleccion,
+                eleccion_claustro_departamento=alcance,
+            )
+        self.client.force_login(self.usuario)
+        ruta = reverse("exportar-padron-claustro", args=(self.eleccion.id, self.eleccion_claustro.id, "xlsx"))
+
+        respuesta = self.client.get(ruta)
+
+        self.assertEqual(respuesta.status_code, 200)
+        filas = list(load_workbook(io.BytesIO(respuesta.content), read_only=True).active.values)
+        self.assertEqual([fila[0] for fila in filas[1:]], ["40100000", "40200000"])
+
+        respuesta_csv = self.client.get(ruta.replace("xlsx", "csv"))
+        contenido_csv = respuesta_csv.content.decode("utf-8-sig")
+        self.assertIn("40100000", contenido_csv)
+        self.assertIn("40200000", contenido_csv)
+        self.assertNotIn("40300000", contenido_csv)
+
+        respuesta_pdf = self.client.get(ruta.replace("xlsx", "pdf"))
+        self.assertEqual(respuesta_pdf.status_code, 200)
+        self.assertEqual(respuesta_pdf["Content-Type"], "application/pdf")
+        self.assertTrue(respuesta_pdf.content.startswith(b"%PDF"))
+        self.assertIn("padron_estudiantes_".encode(), respuesta_pdf["Content-Disposition"].encode())
 
     def test_eleccion_cerrada_bloquea_pantalla_y_configuracion_del_padron(self):
         self.eleccion.estado = Eleccion.Estado.CERRADA
@@ -593,6 +628,23 @@ class PadronViewsTests(TestCase):
         self.assertGreaterEqual(len(lineas), 2)
         self.assertEqual(lineas[0], "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde cursa,Nivel")
         self.assertEqual(lineas[1], "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1")
+        tipos = {fila.split(",")[1] for fila in lineas[1:]}
+        self.assertTrue({"DNI", "CUIL", "CUIT", "PAS"}.issubset(tipos))
+
+    def test_importacion_acepta_tipos_documento_definidos_y_rechaza_otros(self):
+        from apps.padron.services import validar_csv_padron
+
+        for tipo, documento in (("CUIL", "20301234567"), ("CUIT", "27301234569"), ("PAS", "A123456")):
+            contenido = (
+                "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n"
+                f"{documento},{tipo},legajo-{tipo},Nombre,Prueba,K,{tipo.lower()}@frba.utn.edu.ar\n"
+            ).encode()
+            resultado = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
+            self.assertNotIn("tipo_documento", [campo for _, campo, _ in resultado.errores])
+
+        contenido = b"DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,PASAPORTE,legajo-x,Nombre,Prueba,K,x@frba.utn.edu.ar\n"
+        resultado = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
+        self.assertIn("tipo_documento", [campo for _, campo, _ in resultado.errores])
 
     def test_validar_csv_padron_mapea_departamento_principal_correctamente(self):
         contenido = (

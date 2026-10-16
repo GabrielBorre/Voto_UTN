@@ -64,6 +64,7 @@
           <label for="{{ formulario_archivo.archivo.id_for_label }}">Archivo del padrón</label>
           {{ formulario_archivo.archivo }}
           {% for error in formulario_archivo.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
+          <small class="muted field-help">En la columna “Tipo Documento” usá DNI, CUIL, CUIT o PAS. Si la columna se omite o queda vacía, se toma DNI.</small>
         </div>
         <div class="footer-actions">
           <a class="button light" href="{% url 'descargar-plantilla-padron' eleccion.id claustro.id %}">Descargar plantilla</a>
@@ -117,6 +118,9 @@
       <div><strong>Electores totales</strong><span>{{ cantidad_electores_padron }}</span></div>
     </div>
     <div class="footer-actions">
+      <a class="button secondary" href="{% url 'exportar-padron-claustro' eleccion.id claustro.id 'csv' %}">Exportar padrón CSV</a>
+      <a class="button secondary" href="{% url 'exportar-padron-claustro' eleccion.id claustro.id 'xlsx' %}">Exportar padrón XLSX</a>
+      <a class="button secondary" href="{% url 'exportar-padron-claustro' eleccion.id claustro.id 'pdf' %}">Exportar padrón PDF</a>
       <a class="button secondary" href="{% url 'configurar-sedes-claustro' eleccion.id claustro.id %}">Configurar asignación de sedes</a>
       {% if puede_eliminar_padron %}<a class="button danger" href="{% url 'eliminar-padron-claustro' eleccion.id claustro.id %}">Vaciar padrón del claustro</a>{% endif %}
     </div>

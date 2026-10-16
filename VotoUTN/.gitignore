@@ -5,4 +5,5 @@ __pycache__/
 staticfiles/
 *.pem
 generated_qrs/
+reporte_pruebas_*.xlsx
 media/

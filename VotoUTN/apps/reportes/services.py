@@ -1,6 +1,8 @@
 import csv
+from io import BytesIO
 
 from django.http import Http404, HttpResponse
+from openpyxl import Workbook
 
 from apps.asistencia.models import RegistroParticipacion
 from apps.autoridades.models import AsignacionAutoridad
@@ -19,7 +21,33 @@ def crear_respuesta_csv(nombre_archivo):
     return respuesta
 
 
-def exportar_reporte_eleccion(eleccion, tipo):
+def exportar_reporte_eleccion(eleccion, tipo, formato="csv"):
+    if formato not in {"csv", "xlsx"}:
+        raise Http404()
+    if formato == "xlsx":
+        if tipo != "padron":
+            raise Http404()
+        libro = Workbook()
+        hoja = libro.active
+        hoja.title = "Padrón"
+        hoja.append(("DNI", "Tipo documento", "Legajo", "Nombre", "Correo", "Claustro", "Departamento", "Sede", "Mesa"))
+        registros = eleccion.registros_padron.select_related(
+            "elector", "sede", "eleccion_claustro_departamento__departamento",
+            "eleccion_claustro_departamento__eleccion_claustro__claustro", "asignacion_mesa__mesa",
+        ).order_by("elector__dni", "id")
+        for registro in registros:
+            hoja.append([
+                registro.elector.dni, registro.elector.tipo_documento, registro.elector.legajo,
+                registro.elector.nombre_completo, registro.elector.correo_electronico,
+                str(registro.eleccion_claustro_departamento.eleccion_claustro.claustro),
+                str(registro.eleccion_claustro_departamento.departamento), str(registro.sede or ""),
+                str(getattr(getattr(registro, "asignacion_mesa", None), "mesa", "") or ""),
+            ])
+        contenido = BytesIO()
+        libro.save(contenido)
+        respuesta = HttpResponse(contenido.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        respuesta["Content-Disposition"] = f'attachment; filename="padron_{eleccion.id}.xlsx"'
+        return respuesta
     respuesta = crear_respuesta_csv(f"{tipo}_{eleccion.id}.csv")
     escritor = csv.writer(respuesta)
 
@@ -31,7 +59,7 @@ def exportar_reporte_eleccion(eleccion, tipo):
             "eleccion_claustro_departamento__departamento",
             "eleccion_claustro_departamento__eleccion_claustro__claustro",
             "asignacion_mesa__mesa",
-        ):
+        ).order_by("elector__dni", "id"):
             escritor.writerow(
                 [
                     valor_csv(valor)

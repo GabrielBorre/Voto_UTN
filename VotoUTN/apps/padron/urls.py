@@ -5,6 +5,7 @@ from apps.padron.views import (
     configurar_sedes_claustro,
     descargar_errores_importacion,
     descargar_plantilla_padron,
+    exportar_padron_claustro,
     detalle_importacion_padron,
     eliminar_padron_claustro,
     historial_importaciones_padron,
@@ -13,6 +14,7 @@ from apps.padron.views import (
 
 
 urlpatterns = [
+    path("gestion/elecciones/<int:eleccion_id>/preparar/<int:claustro_id>/padron/exportar/<str:formato>/", exportar_padron_claustro, name="exportar-padron-claustro"),
     path("gestion/elecciones/<int:eleccion_id>/preparar/<int:claustro_id>/plantilla/", descargar_plantilla_padron, name="descargar-plantilla-padron"),
     path("gestion/elecciones/<int:eleccion_id>/preparar/<int:claustro_id>/padron/", previsualizar_padron, name="previsualizar-padron"),
     path("gestion/elecciones/<int:eleccion_id>/preparar/<int:claustro_id>/padron/eliminar/", eliminar_padron_claustro, name="eliminar-padron-claustro"),
