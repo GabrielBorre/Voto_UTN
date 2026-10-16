@@ -134,8 +134,11 @@ def resolver_justificativo(request, justificativo_id):
         ),
         pk=justificativo_id,
     )
-    if not puede_revisar_justificativo(request.user, justificativo.registro_padron.eleccion):
+    eleccion = justificativo.registro_padron.eleccion
+    if not puede_revisar_justificativo(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para resolver este justificativo.")
+    if request.method == "POST" and eleccion.estado == Eleccion.Estado.CERRADA:
+        return HttpResponseForbidden("No se pueden modificar justificativos de elecciones del historial.")
     formulario = FormularioResolucionJustificativo(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
         estaba_pendiente = justificativo.estado == JustificativoAusencia.Estado.PENDIENTE
@@ -162,6 +165,6 @@ def resolver_justificativo(request, justificativo_id):
         {
             "justificativo": justificativo,
             "formulario": formulario,
-            "nav_en_historial": justificativo.registro_padron.eleccion.estado == Eleccion.Estado.CERRADA,
+            "nav_en_historial": eleccion.estado == Eleccion.Estado.CERRADA,
         },
     )

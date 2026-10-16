@@ -219,6 +219,38 @@ class JustificativosViewsTests(TestCase):
             contenido.index("Volver a justificativos"),
         )
 
+    def test_justificativo_de_eleccion_en_historial_solo_se_puede_consultar(self):
+        justificativo = self.crear_justificativo()
+        justificativo.estado = JustificativoAusencia.Estado.APROBADO
+        justificativo.observacion_resolucion = "Resolución histórica conservada."
+        justificativo.resuelta_por = self.usuario
+        justificativo.resuelta_en = make_aware(datetime(2026, 8, 4, 10))
+        justificativo.save()
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.CERRADA)
+        self.client.login(username="admin", ******)
+        url = reverse("resolver-justificativo", args=(justificativo.id,))
+
+        respuesta = self.client.get(url)
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Elección en el historial")
+        self.assertContains(respuesta, "Resolución histórica conservada.")
+        self.assertNotContains(respuesta, 'id="formulario-resolucion-justificativo"')
+        self.assertNotContains(respuesta, "Guardar resolución")
+
+        respuesta = self.client.post(
+            url,
+            {
+                "estado": JustificativoAusencia.Estado.RECHAZADO,
+                "observacion_resolucion": "Intento de modificación.",
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 403)
+        justificativo.refresh_from_db()
+        self.assertEqual(justificativo.estado, JustificativoAusencia.Estado.APROBADO)
+        self.assertEqual(justificativo.observacion_resolucion, "Resolución histórica conservada.")
+
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
     def test_resolver_justificativo_envia_correo_al_elector_una_sola_vez(self):
         justificativo = self.crear_justificativo()
