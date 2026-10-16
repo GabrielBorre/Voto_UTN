@@ -17,6 +17,7 @@ from apps.padron.models import (
     ReglaSedeClaustro,
 )
 from apps.padron.forms import FormularioArchivoPadron, FormularioReglaSedeClaustro
+from apps.padron.services_pdf import generar_padron_claustro_pdf, nombre_archivo_padron_claustro_pdf
 from apps.padron.services import (
     PLANTILLA_PADRON_EJEMPLO,
     PLANTILLA_PADRON_HEADERS,
@@ -49,6 +50,57 @@ def descargar_plantilla_padron(request, eleccion_id, claustro_id):
     for fila in PLANTILLA_PADRON_EJEMPLO:
         escritor.writerow(fila)
     return respuesta
+
+
+@login_required
+def exportar_padron_claustro(request, eleccion_id, claustro_id, formato):
+    eleccion_claustro = get_object_or_404(
+        EleccionClaustro.objects.select_related("eleccion", "claustro"),
+        pk=claustro_id,
+        eleccion_id=eleccion_id,
+    )
+    if not puede_importar_padron(request.user, eleccion_claustro.eleccion):
+        return HttpResponseForbidden("No tiene permiso para exportar el padrón.")
+    if formato not in {"csv", "pdf"}:
+        raise Http404()
+    registros = RegistroPadron.objects.filter(
+        eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+    ).select_related(
+        "elector", "sede", "eleccion_claustro_departamento__departamento",
+        "asignacion_mesa__mesa",
+    ).order_by("elector__dni", "id")
+    encabezados = ("DNI", "Tipo documento", "Legajo", "Nombre", "Correo", "Claustro", "Departamento", "Sede", "Mesa")
+    filas = (
+        (
+            registro.elector.dni,
+            registro.elector.tipo_documento,
+            registro.elector.legajo,
+            registro.elector.nombre_completo,
+            registro.elector.correo_electronico,
+            str(eleccion_claustro.claustro),
+            str(registro.eleccion_claustro_departamento.departamento),
+            str(registro.sede or ""),
+            str(getattr(getattr(registro, "asignacion_mesa", None), "mesa", "") or ""),
+        )
+        for registro in registros
+    )
+    nombre = f"padron_{eleccion_claustro.claustro.nombre}_{eleccion_id}"
+    if formato == "pdf":
+        respuesta = HttpResponse(
+            generar_padron_claustro_pdf(eleccion_claustro, registros),
+            content_type="application/pdf",
+        )
+        respuesta["Content-Disposition"] = f'attachment; filename="{nombre_archivo_padron_claustro_pdf(eleccion_claustro)}"'
+        return respuesta
+    if formato == "csv":
+        respuesta = HttpResponse(content_type="text/csv; charset=utf-8")
+        respuesta["Content-Disposition"] = f'attachment; filename="{nombre}.csv"'
+        respuesta.write("\ufeff")
+        escritor = csv.writer(respuesta)
+        escritor.writerow(encabezados)
+        escritor.writerows(filas)
+        return respuesta
+    raise Http404()
 
 
 @login_required

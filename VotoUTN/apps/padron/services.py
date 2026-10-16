@@ -92,6 +92,45 @@ PLANTILLA_PADRON_EJEMPLO = [
         "Campus",
         "2",
     ),
+    (
+        "20301234567",
+        "CUIL",
+        "2024004",
+        "Lucia",
+        "Diaz",
+        "K",
+        "lucia.diaz@frba.utn.edu.ar",
+        "No",
+        "K",
+        "Campus",
+        "2",
+    ),
+    (
+        "27301234569",
+        "CUIT",
+        "2024005",
+        "Diego",
+        "Ruiz",
+        "K",
+        "diego.ruiz@frba.utn.edu.ar",
+        "No",
+        "K",
+        "Campus",
+        "2",
+    ),
+    (
+        "PAS123456",
+        "PAS",
+        "2024006",
+        "Sofia",
+        "Torres",
+        "K",
+        "sofia.torres@frba.utn.edu.ar",
+        "No",
+        "K",
+        "Campus",
+        "2",
+    ),
 ]
 
 # Mapeo de variantes de cabeceras (normalizadas: lower().strip()) -> campo canónico
@@ -255,14 +294,22 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             fila[campo] = (fila_original.get(original_header) or "").strip() if original_header is not None else ""
         if not fila["tipo_documento"]:
             fila["tipo_documento"] = "DNI"
+        fila["tipo_documento"] = fila["tipo_documento"].upper()
+        if fila["tipo_documento"] not in {"DNI", "CUIL", "CUIT", "PAS"}:
+            errores.append((numero_fila, "tipo_documento", "El tipo de documento debe ser DNI, CUIL, CUIT o PAS."))
         filas[numero_fila - 2] = fila
         for campo, valor in fila.items():
             if valor.startswith(CARACTERES_FORMULA):
                 errores.append((numero_fila, campo, "No se permiten valores que comiencen con caracteres de formula."))
         dni_normalizado = normalizar_identificador_numerico(fila["dni"])
         fila["dni"] = dni_normalizado
-        if not fila["dni"].isdigit() or not 7 <= len(fila["dni"]) <= 12:
-            errores.append((numero_fila, "dni", "El DNI debe contener entre 7 y 12 digitos."))
+        documento_valido = (
+            fila["dni"].isalnum() and 5 <= len(fila["dni"]) <= 12
+            if fila["tipo_documento"] == "PAS"
+            else fila["dni"].isdigit() and 7 <= len(fila["dni"]) <= 12
+        )
+        if not documento_valido:
+            errores.append((numero_fila, "dni", "El documento debe contener entre 7 y 12 dígitos, o ser un PAS alfanumérico de 5 a 12 caracteres."))
         if not fila["legajo"]:
             errores.append((numero_fila, "legajo", "El legajo es obligatorio."))
         if not fila["nombres"] or not fila["apellidos"]:
