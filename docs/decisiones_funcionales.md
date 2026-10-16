@@ -10,6 +10,10 @@
 
 ## Elecciones, claustros, sedes y departamentos
 
+- Cerrar una elección abierta no exige turnos de autoridades configurados.
+  La exigencia de turnos se mantiene al preparar y abrir la elección; los
+  controles de emisión del padrón imprimible conservan sus requisitos propios.
+
 - Puede existir como máximo una elección en estado borrador, preparada o abierta
 	en conjunto. Las elecciones cerradas pueden ser múltiples; mientras exista
 	una elección no cerrada no se permite crear otra.
@@ -174,3 +178,14 @@ Reglas:
 - Si ninguna regla aplicable coincide en un alcance con varias sedes, la asignación queda pendiente para revisión; no se elige una sede arbitrariamente.
 - El cálculo produce una asignación provisional por elector y no modifica «Sede donde cursa», ni genera listas o QR. Cambiar reglas o sedes invalida el cálculo previo; al volver a calcular las sedes, se recalculan automáticamente las mesas si todos los claustros están listos.
 - El padrón completo de un claustro puede vaciarse mediante confirmación explícita mientras la elección esté en borrador o preparada. Se eliminan sus registros y asignaciones calculadas, además de mesas automáticas que queden vacías. Las identidades de electores sin registros en otros padrones, candidaturas históricas ni perfiles de usuario también se eliminan, liberando sus DNI y legajos; se conservan las que siguen vinculadas a esos datos. Se mantienen el historial/archivos de importación y las mesas manuales. Las importaciones confirmadas de ese ciclo pasan a mostrarse como «Padrón eliminado»; las previsualizaciones y rechazos no cambian. La operación se bloquea ante emisiones QR o datos dependientes (participaciones, justificativos, autoridades o candidaturas) y queda auditada.
+## Flujo actualizado de autoridades de mesa
+
+- El padrón incorpora `Turno` junto a `Sede donde cursa`. Si se indica sede, el turno es obligatorio; si no se indica sede, el elector no tiene restricción de cursada por campus/horario. No se infieren turnos para filas históricas.
+- Los cupos se configuran por claustro y turno: titulares máximos y suplentes requeridos por mesa. Se registra el faltante cuando la nómina no alcanza.
+- El CSV de autoridades solo contiene tipo de documento, documento y/o legajo. La identidad, departamento y elegibilidad se resuelven desde el padrón activo del claustro.
+- La selección manual busca por documento, legajo o nombre y agrega a la misma nómina que el CSV. Cada cambio confirmado recalcula las asignaciones completas.
+- Se prioriza cubrir una titular por mesa y turno; luego se distribuyen las titulares restantes hasta el máximo y finalmente suplentes ordenados. La distribución es pareja entre mesas.
+- La autoridad debe pertenecer al mismo claustro, departamento y sede electoral habilitada; se prioriza su mesa de elector. No puede tener turno laboral superpuesto con su cursada ni ser asignada en la sede donde cursa.
+- Si la cobertura exige cambiar sede electoral, el sistema debe proponer cambios para confirmación de la Junta, limitar destinos a sedes habilitadas del mismo alcance y recalcular mesas y autoridades en una operación atómica. No se modifica sede sin confirmación.
+- El padrón imprimible requiere una titular pendiente o confirmada por cada mesa y turno. Rechazar una designación deja la vacante visible; la promoción automática de suplentes y el flujo de justificativos se implementan en una etapa posterior.
+- Quitar una designación permite liberar la asignación actual o excluir al elector de futuras distribuciones de toda la elección. No se crean usuarios o identidades al asignar autoridades.

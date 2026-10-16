@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede
-from apps.parametros.models import Sede, Departamento
+from apps.parametros.models import Sede, Departamento, Turno
 
 
 class Elector(models.Model):
@@ -39,6 +39,7 @@ class RegistroPadron(models.Model):
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="registros_padron")
     eleccion_claustro_departamento = models.ForeignKey(EleccionClaustroDepartamento, on_delete=models.PROTECT, related_name="registros_padron")
     sede = models.ForeignKey("parametros.Sede", on_delete=models.PROTECT, related_name="registros_padron", null=True, blank=True, verbose_name="sede donde cursa")
+    turno_cursada = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="registros_padron", null=True, blank=True, verbose_name="turno de cursada")
     nivel = models.CharField(max_length=50, blank=True)
     activo = models.BooleanField(default=True)
     identificador_qr = models.CharField(max_length=LONGITUD_CODIGO_QR, unique=True, blank=True, editable=False)
@@ -51,6 +52,8 @@ class RegistroPadron(models.Model):
 
     def clean(self):
         self.validar_sede()
+        if self.sede_id and not self.turno_cursada_id:
+            raise ValidationError({"turno_cursada": "Indique el turno de cursada cuando informa la sede donde cursa."})
         if self.eleccion_id != self.eleccion_claustro_departamento.eleccion_claustro.eleccion_id:
             raise ValidationError({"eleccion_claustro_departamento": "Debe pertenecer a la misma eleccion."})
 

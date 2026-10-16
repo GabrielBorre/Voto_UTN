@@ -30,12 +30,12 @@ from apps.padron.models import (
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.auditoria.services import registrar_evento
-from apps.parametros.models import Departamento, Sede
+from apps.parametros.models import Departamento, Sede, Turno
 
 
 # Campos canónicos que el sistema espera para procesar el padrón
 CANONICAL_FIELDS = ("dni", "legajo", "nombres", "apellidos", "mail", "departamento")
-OPTIONAL_FIELDS = ("tipo_documento", "tiene_discapacidad", "departamento_principal", "sede", "nivel")
+OPTIONAL_FIELDS = ("tipo_documento", "tiene_discapacidad", "departamento_principal", "sede", "turno_cursada", "nivel")
 
 # Cabeceras exactas que se muestran en la plantilla CSV descargada desde la UI.
 PLANTILLA_PADRON_HEADERS = (
@@ -49,6 +49,7 @@ PLANTILLA_PADRON_HEADERS = (
     "TieneDiscapacidad",
     "Departamento Principal",
     "Sede donde cursa",
+    "Turno",
     "Nivel",
 )
 
@@ -64,6 +65,7 @@ PLANTILLA_PADRON_EJEMPLO = [
         "Si",
         "K",
         "Campus",
+        "Mañana",
         "1",
     ),
     (
@@ -77,6 +79,7 @@ PLANTILLA_PADRON_EJEMPLO = [
         "No",
         "K",
         "Campus",
+        "Mañana",
         "1",
     ),
     (
@@ -90,6 +93,7 @@ PLANTILLA_PADRON_EJEMPLO = [
         "Si",
         "K",
         "Campus",
+        "Mañana",
         "2",
     ),
 ]
@@ -115,6 +119,9 @@ HEADER_VARIANTS_TO_CANONICAL = {
     "sede": "sede",
     "sede donde asiste": "sede",
     "sede donde cursa": "sede",
+    "turno": "turno_cursada",
+    "turno de cursada": "turno_cursada",
+    "turno donde cursa": "turno_cursada",
     "tienediscapacidad": "tiene_discapacidad",
     "tiene discapacidad": "tiene_discapacidad",
     "nivel": "nivel",
@@ -216,6 +223,11 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             filas,
             [(None, "archivo", f"Las cabeceras deben incluir: {', '.join(CANONICAL_FIELDS)}. Archivo tiene: {', '.join(fieldnames)}")],
         )
+    if "sede" in canonical_to_original and "turno_cursada" not in canonical_to_original:
+        return ResultadoValidacion(
+            filas,
+            [(None, "turno_cursada", "La columna Turno debe acompañar a Sede donde cursa, aunque algunas filas no tengan valor.")],
+        )
 
     configuraciones = {}
     configuraciones_padron = EleccionClaustroDepartamento.objects.filter(
@@ -232,6 +244,7 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
         configuraciones[departamento.codigo.casefold()] = configuracion
         configuraciones[departamento.nombre.casefold()] = configuracion
     sedes_disponibles = {sede.nombre.casefold() for sede in Sede.objects.filter(activa=True)}
+    turnos_disponibles = {turno.nombre.casefold() for turno in Turno.objects.filter(activo=True)}
     errores = []
     vistos = defaultdict(set)
     electores_existentes = set()
@@ -283,6 +296,10 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             errores.append((numero_fila, "departamento", "El departamento no fue habilitado para este claustro o la fila no corresponde a un claustro sin distinción por departamento."))
         if fila.get("sede") and fila["sede"].casefold() not in sedes_disponibles:
             errores.append((numero_fila, "sede", "La sede donde cursa no está registrada o no está activa."))
+        if fila.get("sede") and not fila.get("turno_cursada"):
+            errores.append((numero_fila, "turno_cursada", "El turno de cursada es obligatorio cuando se informa la sede donde cursa."))
+        if fila.get("turno_cursada") and fila["turno_cursada"].casefold() not in turnos_disponibles:
+            errores.append((numero_fila, "turno_cursada", "El turno de cursada no está registrado o no está activo."))
         if fila.get("nivel"):
             try:
                 int(fila["nivel"])
@@ -545,6 +562,7 @@ def confirmar_importacion(importacion):
         configuraciones[departamento.codigo.casefold()] = configuracion
         configuraciones[departamento.nombre.casefold()] = configuracion
     sedes = {sede.nombre.casefold(): sede for sede in Sede.objects.filter(activa=True)}
+    turnos = {turno.nombre.casefold(): turno for turno in Turno.objects.filter(activo=True)}
     cantidad_creada = 0
     for fila in resultado.filas:
         elector_dni = Elector.objects.filter(dni=fila["dni"]).first()
@@ -598,15 +616,21 @@ def confirmar_importacion(importacion):
             defaults={
                 "eleccion_claustro_departamento": configuracion,
                 "sede": sedes.get(fila.get("sede", "").casefold()),
+                "turno_cursada": turnos.get(fila.get("turno_cursada", "").casefold()),
                 "nivel": fila.get("nivel", ""),
             },
         )
         if not creada and registro.eleccion_claustro_departamento_id != configuracion.id:
             raise ValueError("El elector ya figura en esta elección con otro claustro o departamento.")
         sede_donde_cursa = sedes.get(fila.get("sede", "").casefold())
-        if not creada and registro.sede_id != (sede_donde_cursa.id if sede_donde_cursa else None):
+        turno_cursada = turnos.get(fila.get("turno_cursada", "").casefold())
+        if not creada and (
+            registro.sede_id != (sede_donde_cursa.id if sede_donde_cursa else None)
+            or registro.turno_cursada_id != (turno_cursada.id if turno_cursada else None)
+        ):
             registro.sede = sede_donde_cursa
-            registro.save(update_fields=("sede",))
+            registro.turno_cursada = turno_cursada
+            registro.save(update_fields=("sede", "turno_cursada"))
         # actualizar nivel si cambia
         nivel_csv = fila.get("nivel", "")
         if not creada and registro.nivel != nivel_csv:

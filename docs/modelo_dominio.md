@@ -195,3 +195,11 @@ Los modelos trasladados conservan sus tablas fisicas historicas `elecciones_*`.
 Las migraciones de modularizacion modifican el estado de Django sin recrear,
 renombrar ni eliminar esas tablas. Tambien actualizan los `ContentType` para
 preservar los permisos asociados a los modelos existentes.
+
+## Evolución del modelo de autoridades
+
+- `RegistroPadron.turno_cursada` referencia el turno existente del elector y puede ser nulo únicamente cuando no informa una sede de cursada.
+- `EleccionClaustroTurno` configura por turno la cantidad máxima de titulares y la cantidad requerida de suplentes por mesa.
+- `CandidaturaAutoridad` representa la nómina de elegibles e incluye exclusión explícita para no volver a seleccionar a un elector.
+- `AsignacionAutoridad` conserva mesa, turno y estado, y añade tipo titular/suplente y orden de suplencia.
+- Las asignaciones usan al mismo `RegistroPadron`; no crean un segundo elector ni una identidad local automática.

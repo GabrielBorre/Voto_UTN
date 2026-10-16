@@ -50,6 +50,10 @@ class Turno(models.Model):
         if self.hora_inicio >= self.hora_fin:
             raise ValidationError({"hora_fin": "Debe ser posterior a la hora de inicio."})
 
+    def se_superpone_con(self, otro):
+        """Indica si dos turnos comparten algún minuto de actividad."""
+        return self.hora_inicio < otro.hora_fin and otro.hora_inicio < self.hora_fin
+
     def __str__(self):
         return self.nombre
 

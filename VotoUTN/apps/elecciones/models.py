@@ -61,11 +61,11 @@ class Eleccion(models.Model):
             if valor_inicial and valor_final and valor_inicial > valor_final:
                 raise ValidationError({final: "Debe ser posterior o igual a la fecha administrativa anterior."})
 
-    def validar_configuracion(self):
+    def validar_configuracion(self, *, validar_turnos=True):
         if not self.elecciones_sede.exists() or not self.elecciones_claustro.exists():
             raise ValidationError("La elección debe tener sedes y claustros configurados.")
         for eleccion_claustro in self.elecciones_claustro.all():
-            if not eleccion_claustro.turnos_autoridad.exists():
+            if validar_turnos and not eleccion_claustro.turnos_autoridad.exists():
                 raise ValidationError("Cada claustro debe tener al menos un turno de autoridades configurado.")
             if not eleccion_claustro.sedes_habilitadas.exists():
                 raise ValidationError("Cada claustro debe tener al menos una sede habilitada.")
@@ -82,7 +82,7 @@ class Eleccion(models.Model):
         if transiciones.get(self.estado) != nuevo_estado:
             raise ValidationError("La transicion de estado solicitada no esta permitida.")
         self._validar_estado_unico(nuevo_estado)
-        self.validar_configuracion()
+        self.validar_configuracion(validar_turnos=nuevo_estado != self.Estado.CERRADA)
         if nuevo_estado == self.Estado.ABIERTA and not self.mesas.exists():
             raise ValidationError("La eleccion debe tener al menos una mesa antes de abrirse.")
         self.estado = nuevo_estado
@@ -123,6 +123,8 @@ class EleccionClaustro(models.Model):
 class EleccionClaustroTurno(models.Model):
     eleccion_claustro = models.ForeignKey(EleccionClaustro, on_delete=models.PROTECT, related_name="turnos_autoridad")
     turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="elecciones_turno")
+    titulares_por_mesa = models.PositiveSmallIntegerField(default=3)
+    suplentes_por_mesa = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("eleccion_claustro", "turno"), name="turno_unico_por_claustro")]

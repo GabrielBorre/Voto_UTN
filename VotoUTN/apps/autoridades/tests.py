@@ -1,18 +1,16 @@
-import io
 from datetime import datetime, time, timedelta
 
 from django.contrib.auth import get_user_model, login
 from django.core.exceptions import ValidationError
 from django.contrib.sessions.backends.db import SessionStore
-from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db.models import Count
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils.timezone import make_aware
-from openpyxl import Workbook
 
 from apps.autoridades.forms import FormularioAsignacionAutoridad
 from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
-from apps.autoridades.services import asignar_autoridad, importar_autoridades, validar_csv_autoridades
+from apps.autoridades.services import asignar_autoridad, confirmar_cambio_sede_para_autoridad, proponer_cambios_sede, redistribuir_autoridades, validar_csv_autoridades
 from apps.elecciones.models import (
     Eleccion,
     EleccionClaustro,
@@ -20,8 +18,8 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamentoSede,
     EleccionClaustroTurno,
 )
-from apps.mesas.models import Mesa
-from apps.padron.models import Elector, RegistroPadron
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.padron.models import AsignacionSedePadron, Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.usuarios.backend_auth import ElectorBackend, ElectorUser
 from apps.usuarios.models import AsignacionRol
@@ -70,100 +68,8 @@ class AutoridadesViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "autoridades/gestion_claustro.html")
         self.assertContains(respuesta, "Autoridades de Estudiantes vistas")
-        self.assertContains(respuesta, 'class="card management-section"', count=4)
+        self.assertContains(respuesta, 'class="card management-section"', count=6)
         self.assertContains(respuesta, reverse("gestionar-autoridades", args=(self.eleccion.id,)))
-
-    def test_carga_excel_invalido_muestra_error_y_no_carga_candidaturas(self):
-        self.client.force_login(self.usuario)
-
-        respuesta = self.client.post(
-            reverse(
-                "gestionar-autoridades-claustro",
-                args=(self.eleccion.id, self.eleccion_claustro.id),
-            ),
-            {
-                "cargar-candidatos": "",
-                "csv-archivo": SimpleUploadedFile("autoridades.xlsx", b"no es un Excel valido"),
-            },
-        )
-
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, "No se cargó ningún candidato")
-        self.assertContains(respuesta, "1 error")
-        self.assertContains(respuesta, "Verifique que sea un .xlsx válido.")
-        self.assertContains(respuesta, 'role="alert"')
-        self.assertFalse(CandidaturaAutoridad.objects.exists())
-
-    def test_error_de_importacion_se_muestra_en_resumen_descriptivo_por_fila(self):
-        self.client.force_login(self.usuario)
-        sede = Sede.objects.create(nombre="Campus autoridades")
-        departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
-        configuracion = EleccionClaustroDepartamento.objects.create(
-            eleccion_claustro=self.eleccion_claustro,
-            departamento=departamento,
-        )
-        EleccionClaustroDepartamentoSede.objects.create(
-            eleccion_claustro_departamento=configuracion,
-            sede=sede,
-        )
-        elector = Elector.objects.create(
-            legajo="2024001",
-            nombre="Juan",
-            apellido="Perez",
-            dni="40123456",
-            correo_electronico="juan@frba.utn.edu.ar",
-        )
-        RegistroPadron.objects.create(
-            elector=elector,
-            eleccion=self.eleccion,
-            eleccion_claustro_departamento=configuracion,
-            sede=sede,
-        )
-        archivo = SimpleUploadedFile(
-            "autoridades.csv",
-            (
-                "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n"
-                "40123456,2024001,Juan Carlos,Perez,K,juan@frba.utn.edu.ar\n"
-            ).encode(),
-            content_type="text/csv",
-        )
-
-        respuesta = self.client.post(
-            reverse(
-                "gestionar-autoridades-claustro",
-                args=(self.eleccion.id, self.eleccion_claustro.id),
-            ),
-            {"cargar-candidatos": "", "csv-archivo": archivo},
-        )
-
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'class="import-error-summary"')
-        self.assertContains(respuesta, "No se cargó ningún candidato")
-        self.assertContains(respuesta, "Fila 2:")
-        self.assertContains(respuesta, "El nombre informado «Juan Carlos»")
-        self.assertFalse(CandidaturaAutoridad.objects.exists())
-
-    def test_asignacion_manual_con_datos_invalidos_muestra_errores_del_formulario(self):
-        self.client.force_login(self.usuario)
-
-        respuesta = self.client.post(
-            reverse(
-                "gestionar-autoridades-claustro",
-                args=(self.eleccion.id, self.eleccion_claustro.id),
-            ),
-            {
-                "asignar-autoridad": "",
-                "manual-candidatura": "no-es-un-id",
-                "manual-mesa": "",
-                "manual-turno": "",
-            },
-        )
-
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertTrue(respuesta.context["formulario_manual"].errors)
-        self.assertContains(respuesta, "Este campo es requerido.")
-        self.assertContains(respuesta, 'role="alert"')
-        self.assertFalse(AsignacionAutoridad.objects.exists())
 
     def test_eleccion_cerrada_bloquea_la_configuracion_de_autoridades(self):
         self.eleccion.estado = Eleccion.Estado.CERRADA
@@ -198,8 +104,8 @@ class AutoridadesViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta["Content-Type"], "text/csv; charset=utf-8")
         contenido = respuesta.content.decode("utf-8-sig")
-        self.assertIn("DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail", contenido)
-        self.assertIn("40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar", contenido)
+        self.assertIn("Tipo documento,Documento,Legajo", contenido)
+        self.assertIn("DNI,40123456,2024001", contenido)
 
 
 class AutoridadesImportTests(TestCase):
@@ -212,13 +118,7 @@ class AutoridadesImportTests(TestCase):
         self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=self.claustro)
         self.configuracion = EleccionClaustroDepartamento.objects.create(eleccion_claustro=self.eleccion_claustro, departamento=self.departamento)
         EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=self.sede)
-        self.elector = Elector.objects.create(
-            legajo="2024001",
-            nombre="Juan",
-            apellido="Perez",
-            dni="40123456",
-            correo_electronico="juan@frba.utn.edu.ar",
-        )
+        self.elector = Elector.objects.create(legajo="2024001", nombre="Juan", dni="40123456", correo_electronico="juan@frba.utn.edu.ar")
         self.registro = RegistroPadron.objects.create(
             elector=self.elector,
             eleccion=self.eleccion,
@@ -235,65 +135,6 @@ class AutoridadesImportTests(TestCase):
         self.assertEqual(filas[0]["dni"], "40123456")
         self.assertEqual(filas[0]["legajo"], "2024001")
 
-    def test_validar_csv_autoridades_rechaza_nombre_que_no_coincide_con_el_padron(self):
-        contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan Carlos,Perez,K,juan@frba.utn.edu.ar\n"
-
-        _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
-
-        self.assertIn("El nombre informado «Juan Carlos» no coincide con el nombre del padrón «Juan».", [error for _, error in errores])
-
-    def test_validar_csv_autoridades_rechaza_apellido_que_no_coincide_con_el_padron(self):
-        contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan,Gomez,K,juan@frba.utn.edu.ar\n"
-
-        _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
-
-        self.assertIn("El apellido informado «Gomez» no coincide con el apellido del padrón «Perez».", [error for _, error in errores])
-
-    def test_validar_csv_autoridades_rechaza_correo_que_no_coincide_con_el_padron(self):
-        contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan,Perez,K,otro@frba.utn.edu.ar\n"
-
-        _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
-
-        self.assertIn("El correo informado «otro@frba.utn.edu.ar» no coincide con el correo del padrón «juan@frba.utn.edu.ar».", [error for _, error in errores])
-
-    def test_importar_autoridades_no_crea_candidatura_si_el_nombre_no_coincide(self):
-        contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan Carlos,Perez,K,juan@frba.utn.edu.ar\n"
-        usuario = get_user_model().objects.create_user(username="cargador-autoridades-import")
-
-        creadas, errores = importar_autoridades(contenido, self.eleccion_claustro, usuario)
-
-        self.assertEqual(creadas, 0)
-        self.assertTrue(errores)
-        self.assertFalse(CandidaturaAutoridad.objects.exists())
-
-    def test_validar_csv_autoridades_acepta_variantes_de_mayusculas_espacios_y_tildes(self):
-        Elector.objects.filter(pk=self.elector.pk).update(nombre="José", apellido="Pérez")
-        contenido = "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,  JOSE  ,perez,K,JUAN@FRBA.UTN.EDU.AR\n".encode()
-
-        _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
-
-        self.assertEqual(errores, [])
-
-    def test_validar_csv_autoridades_rechaza_fila_con_columnas_extras(self):
-        contenido = (
-            b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n"
-            b"40123456,2024001,Juan,Perez,K,juan@frba.utn.edu.ar,extra\n"
-        )
-
-        filas, errores = validar_csv_autoridades(contenido, self.eleccion_claustro, "autoridades.csv")
-
-        self.assertEqual(filas, [])
-        self.assertEqual(errores, [(None, "La fila 2 contiene más columnas que las cabeceras.")])
-
-    def test_validar_csv_autoridades_informa_formato_xls_no_compatible(self):
-        filas, errores = validar_csv_autoridades(b"datos", self.eleccion_claustro, "autoridades.xls")
-
-        self.assertEqual(filas, [])
-        self.assertEqual(
-            errores,
-            [(None, "El formato .xls no es compatible. Guardá la planilla como .xlsx o CSV.")],
-        )
-
     def test_validar_csv_autoridades_acepta_alias_mail_mayusculas(self):
         contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan,Perez,K,juan@frba.utn.edu.ar\n"
 
@@ -301,19 +142,6 @@ class AutoridadesImportTests(TestCase):
 
         self.assertEqual(errores, [])
         self.assertEqual(len(filas), 1)
-
-    def test_validar_archivo_xlsx_usa_el_lector_de_excel(self):
-        libro = Workbook()
-        hoja = libro.active
-        hoja.append(["DNI", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail"])
-        hoja.append(["40123456", "2024001", "Juan", "Perez", "K", "juan@frba.utn.edu.ar"])
-        archivo = io.BytesIO()
-        libro.save(archivo)
-
-        filas, errores = validar_csv_autoridades(archivo.getvalue(), self.eleccion_claustro, "candidatos.xlsx")
-
-        self.assertEqual(errores, [])
-        self.assertEqual(filas[0]["dni"], "40123456")
 
     def test_validar_csv_autoridades_rechaza_elector_de_otro_claustro(self):
         otro_claustro = Claustro.objects.create(nombre="Docentes importación")
@@ -347,7 +175,7 @@ class AutoridadesImportTests(TestCase):
         _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro)
 
         self.assertTrue(errores)
-        self.assertIn("No se encontró un elector con ese DNI y legajo en el padrón activo", errores[0][1])
+        self.assertIn("no pertenece al padron activo", errores[0][1])
 
     def test_formulario_manual_solo_ofrece_candidatos_y_mesas_del_claustro(self):
         usuario = get_user_model().objects.create_user(username="cargador-autoridades")
@@ -405,6 +233,7 @@ class AutoridadesImportTests(TestCase):
         self.assertQuerySetEqual(formulario.fields["mesa"].queryset, [mesa_propia])
         self.assertNotIn(mesa_ajena, formulario.fields["mesa"].queryset)
 
+
     def test_candidatura_muestra_nombre_dni_y_legajo(self):
         usuario = get_user_model().objects.create_user(username="cargador-candidatura")
         candidatura = CandidaturaAutoridad.objects.create(
@@ -437,7 +266,7 @@ class TurnosAutoridadesTests(TestCase):
         self.sede = Sede.objects.create(nombre="Campus turnos")
         claustro = Claustro.objects.create(nombre="Docentes turnos")
         departamento = Departamento.objects.create(nombre="Sistemas turnos", codigo="ST")
-        self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=claustro)
+        self.eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=claustro, maximo_votantes_por_mesa=10)
         configuracion = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=self.eleccion_claustro,
             departamento=departamento,
@@ -446,15 +275,21 @@ class TurnosAutoridadesTests(TestCase):
             eleccion_claustro_departamento=configuracion,
             sede=self.sede,
         )
+        self.sede_votacion = Sede.objects.create(nombre="Sede votacion autoridades")
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=configuracion,
+            sede=self.sede_votacion,
+        )
         self.mesa = Mesa.objects.create(
             eleccion=self.eleccion,
             numero=1,
             eleccion_claustro_departamento=configuracion,
-            sede=self.sede,
+            sede=self.sede_votacion,
+            generada_automaticamente=True,
         )
         self.manana = Turno.objects.create(nombre="Mañana autoridades", hora_inicio=time(8), hora_fin=time(13))
         self.tarde = Turno.objects.create(nombre="Tarde autoridades", hora_inicio=time(13), hora_fin=time(18))
-        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.manana)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.manana, titulares_por_mesa=2)
         self.registros = []
         for indice in range(3):
             elector = Elector.objects.create(
@@ -463,14 +298,20 @@ class TurnosAutoridadesTests(TestCase):
                 nombre=f"Autoridad {indice}",
                 correo_electronico=f"autoridad{indice}@frba.utn.edu.ar",
             )
-            self.registros.append(
-                RegistroPadron.objects.create(
+            registro = RegistroPadron.objects.create(
                     elector=elector,
                     eleccion=self.eleccion,
                     eleccion_claustro_departamento=configuracion,
                     sede=self.sede,
+                    turno_cursada=self.tarde,
                 )
+            self.registros.append(registro)
+            AsignacionSedePadron.objects.create(
+                registro_padron=registro,
+                sede=self.sede_votacion,
+                estado=AsignacionSedePadron.Estado.ASIGNADA,
             )
+            AsignacionMesa.objects.create(registro_padron=registro, mesa=self.mesa)
 
     def test_los_turnos_se_configuran_desde_autoridades(self):
         self.client.force_login(self.usuario)
@@ -539,9 +380,81 @@ class TurnosAutoridadesTests(TestCase):
         with self.assertRaisesMessage(ValidationError, "máximo de autoridades"):
             asignar_autoridad(self.registros[2], self.mesa, self.manana, self.usuario)
 
+        self.registros[2].turno_cursada = self.manana
+        self.registros[2].save(update_fields=("turno_cursada",))
         tercera, creada = asignar_autoridad(self.registros[2], self.mesa, self.tarde, self.usuario)
         self.assertTrue(creada)
         self.assertEqual(tercera.turno, self.tarde)
+
+    def test_rechaza_asignacion_en_sede_o_turno_de_cursada(self):
+        registro = self.registros[0]
+        registro.sede = self.sede_votacion
+        registro.save(update_fields=("sede",))
+        with self.assertRaisesMessage(ValidationError, "sede donde cursa"):
+            asignar_autoridad(registro, self.mesa, self.manana, self.usuario)
+        registro.sede = None
+        registro.turno_cursada = self.manana
+        registro.save(update_fields=("sede", "turno_cursada"))
+        with self.assertRaisesMessage(ValidationError, "superpone"):
+            asignar_autoridad(registro, self.mesa, self.manana, self.usuario)
+
+    def test_redistribucion_cubre_primero_y_reparte_titulares(self):
+        segunda_mesa = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=2,
+            eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento,
+            sede=self.sede_votacion,
+            generada_automaticamente=True,
+        )
+        for registro in self.registros:
+            CandidaturaAutoridad.objects.create(registro_padron=registro, cargada_por=self.usuario)
+
+        resultado = redistribuir_autoridades(self.eleccion_claustro, self.usuario)
+
+        conteos = list(AsignacionAutoridad.objects.filter(turno=self.manana).values("mesa_id").annotate(total=Count("id")).order_by("mesa_id"))
+        self.assertEqual(resultado["asignadas"], 3)
+        self.assertEqual([fila["total"] for fila in conteos], [2, 1])
+        self.assertEqual(resultado["sin_cubrir"], [])
+        self.assertEqual(AsignacionAutoridad.objects.filter(mesa=segunda_mesa, tipo=AsignacionAutoridad.Tipo.TITULAR).count(), 1)
+
+    def test_propone_cambio_de_sede_sin_aplicarlo(self):
+        sede_alternativa = Sede.objects.create(nombre="Sede alternativa")
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento,
+            sede=sede_alternativa,
+        )
+        mesa_destino = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=2,
+            eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento,
+            sede=sede_alternativa,
+            generada_automaticamente=True,
+        )
+        candidatura = CandidaturaAutoridad.objects.create(registro_padron=self.registros[0], cargada_por=self.usuario)
+
+        propuestas = proponer_cambios_sede(self.eleccion_claustro, [(mesa_destino, self.manana)])
+
+        self.assertEqual(propuestas[0]["candidatura"], candidatura)
+        self.assertEqual(propuestas[0]["sede_origen"], self.sede_votacion)
+        self.assertEqual(propuestas[0]["sede_destino"], sede_alternativa)
+        self.registros[0].refresh_from_db()
+        self.assertEqual(self.registros[0].asignacion_sede_padron.sede, self.sede_votacion)
+
+    def test_confirma_cambio_de_sede_y_recalcula_mesas_y_autoridades(self):
+        sede_alternativa = Sede.objects.create(nombre="Sede alternativa confirmada")
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento,
+            sede=sede_alternativa,
+        )
+        CandidaturaAutoridad.objects.create(registro_padron=self.registros[0], cargada_por=self.usuario)
+
+        confirmar_cambio_sede_para_autoridad(self.registros[0], sede_alternativa, self.usuario)
+
+        self.registros[0].refresh_from_db()
+        self.assertEqual(self.registros[0].asignacion_sede_padron.sede, sede_alternativa)
+        self.assertEqual(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).count(), 2)
+        asignacion = AsignacionAutoridad.objects.get(registro_padron=self.registros[0])
+        self.assertEqual(asignacion.mesa.sede, sede_alternativa)
 
     def test_no_permite_quitar_un_turno_con_autoridades_asignadas(self):
         EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.tarde)

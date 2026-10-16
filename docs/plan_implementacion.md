@@ -51,9 +51,13 @@ gestion de mesas.
 Incluye CSV, previsualizacion, validacion, confirmacion, errores e historial.
 
 ### Etapa 7 - Autoridades de mesa
-**Estado:** completada
+**Estado:** flujo actualizado completado en la rama del issue 62
 
-Incluye candidaturas, asignaciones, preferencias, confirmaciones y permisos.
+La actualización sustituye la asignación manual mesa por mesa por una nómina
+única por claustro, cupos por turno, distribución de titulares/suplentes,
+propuesta confirmable de cambio de sede con recálculo de mesas y validación
+contra sede/turno de cursada. La gestión de ausencias justificadas y la
+promoción automática de suplentes siguen siendo etapas posteriores.
 
 ### Etapa 8 - Justificativos
 **Estado:** completada

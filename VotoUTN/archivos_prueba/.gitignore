@@ -1,0 +1,4 @@
+# Archivos de prueba con datos personales exportados desde la base local.
+/padron_estudiantes_500.csv
+/autoridades_estudiantes_500.csv
+/variantes_alumnos/**/*.csv

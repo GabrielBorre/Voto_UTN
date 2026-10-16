@@ -20,6 +20,7 @@ from apps.elecciones.models import (
     EleccionSede,
     EleccionClaustroTurno,
 )
+from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import EmisionPadronImprimible, Elector, RegistroPadron
 from apps.padron.services import rehabilitar_cambios_padron
@@ -166,10 +167,19 @@ class PadronPDFTests(TestCase):
                 elector=elector,
                 eleccion=self.eleccion,
                 eleccion_claustro_departamento=self.configuracion,
-                sede=sede_asignada,
+                sede=None if not AsignacionAutoridad.objects.filter(mesa=mesa_asignada).exists() else sede_asignada,
             )
             if mesa_asignada is not None:
                 AsignacionMesa.objects.create(registro_padron=registro, mesa=mesa_asignada)
+                if not AsignacionAutoridad.objects.filter(mesa=mesa_asignada, turno=self.turno).exists():
+                    candidatura = CandidaturaAutoridad.objects.create(registro_padron=registro, cargada_por=self.usuario)
+                    AsignacionAutoridad.objects.create(
+                        registro_padron=registro,
+                        candidatura=candidatura,
+                        mesa=mesa_asignada,
+                        turno=self.turno,
+                        asignada_por=self.usuario,
+                    )
             registros.append(registro)
         return registros
 
@@ -289,6 +299,15 @@ class PadronPDFTests(TestCase):
 
         self.assertTrue(validacion.apto)
         self.assertTrue(generar_padron_pdf(self.eleccion).startswith(b"%PDF"))
+
+    def test_bloquea_emision_si_falta_un_titular_por_turno(self):
+        self.crear_electores(2)
+        AsignacionAutoridad.objects.filter(mesa=self.mesa, turno=self.turno).delete()
+
+        validacion = validar_padron_para_pdf(self.eleccion)
+
+        self.assertFalse(validacion.apto)
+        self.assertTrue(any("no tiene titular asignado" in motivo for motivo in validacion.motivos))
 
     def test_vista_genera_pdf_descargable(self):
         self.crear_electores(3)

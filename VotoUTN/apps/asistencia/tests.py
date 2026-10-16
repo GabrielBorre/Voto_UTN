@@ -80,6 +80,24 @@ class ServicioAsistenciaQrTests(SimpleTestCase):
             (7, 12, "A1B2C3D4"),
         )
 
+    @override_settings(CLAVE_FIRMA_QR=clave_qr)
+    def test_acepta_ids_de_eleccion_mayores_al_ancho_historico(self):
+        id_eleccion = 36**2 + 27
+        codigo_elector = self.generar_codigo(eleccion_id=id_eleccion)
+        codigo_mesa = ServicioRegistroParticipacion.generar_codigo_qr_mesa(
+            eleccion_id=id_eleccion,
+            mesa_numero=12,
+        )
+
+        self.assertEqual(
+            ServicioRegistroParticipacion.parsear_codigo_qr(codigo_elector),
+            (id_eleccion, 12, "A1B2C3D4"),
+        )
+        self.assertEqual(
+            ServicioRegistroParticipacion.parsear_codigo_qr_mesa(codigo_mesa),
+            (id_eleccion, 12),
+        )
+
 
 class ServicioRegistroParticipacionEleccionTests(TestCase):
     def setUp(self):
@@ -421,6 +439,33 @@ class CicloDeVidaEleccionTests(TestCase):
         self.eleccion.refresh_from_db()
         self.assertFalse(self.eleccion.habilitada)
 
+    def test_cierra_eleccion_sin_turnos_de_autoridades(self):
+        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.habilitada = True
+        self.eleccion.save(update_fields=("estado", "habilitada"))
+        self.eleccion_claustro.turnos_autoridad.all().delete()
+
+        self.eleccion.cambiar_estado(Eleccion.Estado.CERRADA)
+
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.CERRADA)
+        self.assertFalse(self.eleccion.habilitada)
+
+    def test_preparar_y_abrir_siguen_exigiendo_turnos_de_autoridades(self):
+        self.eleccion_claustro.turnos_autoridad.all().delete()
+        Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=self.sede)
+        for estado_actual, estado_destino in (
+            (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA),
+            (Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA),
+        ):
+            with self.subTest(estado_destino=estado_destino):
+                self.eleccion.estado = estado_actual
+                self.eleccion.save(update_fields=("estado",))
+                with self.assertRaisesMessage(ValidationError, "Cada claustro debe tener al menos un turno"):
+                    self.eleccion.cambiar_estado(estado_destino)
+                self.eleccion.refresh_from_db()
+                self.assertEqual(self.eleccion.estado, estado_actual)
+
     def test_no_permite_quitar_una_sede_utilizada_por_mesas(self):
         otra_sede = Sede.objects.create(nombre="Sede B")
         EleccionSede.objects.create(eleccion=self.eleccion, sede=otra_sede)
@@ -474,7 +519,7 @@ class ImportacionPadronTests(TestCase):
         )
 
     def test_confirma_csv_valido_y_es_idempotente(self):
-        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano\n"
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede,turno\n12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano,Tarde\n"
         importacion = self.crear_importacion(contenido)
 
         self.assertEqual(confirmar_importacion(importacion), 1)
@@ -483,7 +528,7 @@ class ImportacionPadronTests(TestCase):
         self.assertEqual(confirmar_importacion(importacion), 0)
 
     def test_rechaza_formula_y_sede_fuera_del_alcance(self):
-        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n=12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Sede ajena\n"
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede,turno\n=12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Sede ajena,Tarde\n"
         resultado = validar_csv_padron(contenido, self.claustro)
 
         self.assertGreaterEqual(len(resultado.errores), 2)
@@ -494,7 +539,7 @@ class ImportacionPadronTests(TestCase):
         self.usuario.is_superuser = True
         self.usuario.save(update_fields=("is_superuser",))
         self.client.force_login(self.usuario)
-        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede\n12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano\n"
+        contenido = b"dni,legajo,nombres,apellidos,mail,departamento,sede,turno\n12345678,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano,Tarde\n"
 
         respuesta = self.client.post(
             reverse("previsualizar-padron", args=(self.eleccion.id, self.claustro.id)),
@@ -506,10 +551,10 @@ class ImportacionPadronTests(TestCase):
 
     def test_confirmar_importacion_no_genera_mesas_hasta_la_confirmacion_posterior(self):
         contenido = (
-            b"dni,legajo,nombres,apellidos,mail,departamento,sede\n"
-            b"12345678,1003,Zoe,Alvarez,zoe@frba.utn.edu.ar,K,Campus Medrano\n"
-            b"12345679,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano\n"
-            b"12345680,1002,Bruno,Gomez,bruno@frba.utn.edu.ar,K,Campus Medrano\n"
+            b"dni,legajo,nombres,apellidos,mail,departamento,sede,turno\n"
+            b"12345678,1003,Zoe,Alvarez,zoe@frba.utn.edu.ar,K,Campus Medrano,Tarde\n"
+            b"12345679,1001,Ana,Perez,ana@frba.utn.edu.ar,K,Campus Medrano,Tarde\n"
+            b"12345680,1002,Bruno,Gomez,bruno@frba.utn.edu.ar,K,Campus Medrano,Tarde\n"
         )
 
         confirmar_importacion(self.crear_importacion(contenido))
@@ -533,7 +578,7 @@ class AutoridadesMesaTests(TestCase):
         self.mesa_a = Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=configuracion_a, sede=sede)
         self.mesa_b = Mesa.objects.create(eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=configuracion_b, sede=sede)
         elector = Elector.objects.create(dni="12345678", legajo="100", nombre="Ana Perez")
-        self.padron = RegistroPadron.objects.create(elector=elector, eleccion=self.eleccion, eleccion_claustro_departamento=configuracion_a, sede=sede)
+        self.padron = RegistroPadron.objects.create(elector=elector, eleccion=self.eleccion, eleccion_claustro_departamento=configuracion_a)
         self.usuario = get_user_model().objects.create_user(username="ana")
         PerfilUsuario.objects.create(usuario=self.usuario, elector=elector)
         self.administrador = get_user_model().objects.create_superuser(username="admin", email="admin@example.com", password="clave")

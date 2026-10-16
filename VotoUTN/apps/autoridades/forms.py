@@ -51,6 +51,14 @@ class FormularioAsignacionAutoridad(forms.Form):
         return datos
 
 
+class FormularioBusquedaCandidato(forms.Form):
+    busqueda = forms.CharField(label="Documento, legajo o nombre", max_length=180)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["busqueda"].widget.attrs.update({"class": "input", "placeholder": "DNI, CUIL, legajo o nombre"})
+
+
 class FormularioTurnosAutoridades(forms.Form):
     turnos = forms.ModelMultipleChoiceField(
         queryset=Turno.objects.none(),
@@ -69,13 +77,10 @@ class FormularioTurnosAutoridades(forms.Form):
 
     def clean_turnos(self):
         turnos = self.cleaned_data["turnos"]
-        utilizados = set(
-            AsignacionAutoridad.objects.filter(
-                mesa__eleccion_claustro_departamento__eleccion_claustro=self.eleccion_claustro,
-            ).values_list("turno_id", flat=True)
-        )
-        removidos = utilizados - set(turnos.values_list("id", flat=True))
-        if removidos:
+        utilizados = set(AsignacionAutoridad.objects.filter(
+            mesa__eleccion_claustro_departamento__eleccion_claustro=self.eleccion_claustro,
+        ).values_list("turno_id", flat=True))
+        if utilizados - set(turnos.values_list("id", flat=True)):
             raise forms.ValidationError("No se puede quitar un turno que ya tiene autoridades asignadas.")
         return turnos
 

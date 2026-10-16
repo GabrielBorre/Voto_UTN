@@ -3,10 +3,23 @@
 {% block content %}
 <section class="hero">
   <h1>Autoridades de {{ eleccion_claustro.claustro }}</h1>
-  <p>{{ eleccion.nombre }}. Cargá candidatos y asigná autoridades únicamente a las mesas de este claustro.</p>
+  <p>{{ eleccion.nombre }}. Cargá la nómina del claustro y revisá la distribución automática de titulares y suplentes.</p>
 </section>
 
 <div class="management-panel autoridades-panel">
+  <section class="card management-section">
+    <div class="section-title"><div><h2>Cobertura pendiente y cambios de sede propuestos</h2><p>Si falta una titular, se sugieren movimientos a una sede habilitada del mismo departamento. No se aplican sin confirmación.</p></div></div>
+    {% if propuesta_sede %}
+      <div class="notice"><strong>Revisá el impacto antes de continuar.</strong> {{ propuesta_sede.registro.elector.nombre_completo }} cambiaría su sede electoral de {{ propuesta_sede.registro.asignacion_sede_padron.sede }} a {{ propuesta_sede.sede_destino }} para cubrir la mesa {{ propuesta_sede.mesa_destino.numero }} ({{ propuesta_sede.mesa_destino.sede }}) en el turno {{ propuesta_sede.turno }}. Se regenerarán las mesas automáticas de la elección y se recalcularán sus asignaciones de autoridades. La mesa de origen {{ propuesta_sede.mesa_origen }} tiene {{ propuesta_sede.electores_mesa_origen }} electores y conservará {{ propuesta_sede.electores_mesa_origen|add:"-1" }} después del cambio.</div>
+      <div class="footer-actions"><form method="post">{% csrf_token %}<button class="button primary" name="confirmar-cambio-sede">Confirmar cambio y recalcular</button><button class="button light" name="cancelar-cambio-sede">Cancelar</button></form></div>
+    {% else %}
+      <div class="table-wrap"><table><thead><tr><th>Elector propuesto</th><th>Origen</th><th>Destino</th><th>Mesa y turno a cubrir</th><th>Impacto</th><th></th></tr></thead><tbody>
+        {% for propuesta in propuestas_sede %}<tr><td>{{ propuesta.registro.elector.nombre_completo }}</td><td>{{ propuesta.sede_origen }}</td><td>{{ propuesta.sede_destino }}</td><td>{{ propuesta.mesa_destino.numero }} · {{ propuesta.turno }}</td><td>La mesa de origen tiene {{ propuesta.electores_mesa_origen }} electores; quedarán {{ propuesta.electores_mesa_origen|add:"-1" }}.</td><td><form method="post">{% csrf_token %}<input type="hidden" name="candidatura_id" value="{{ propuesta.candidatura.id }}"><input type="hidden" name="mesa_destino" value="{{ propuesta.mesa_destino.id }}"><input type="hidden" name="turno_destino" value="{{ propuesta.turno.id }}"><button class="button light" name="revisar-cambio-sede">Revisar propuesta</button></form></td></tr>
+        {% empty %}<tr><td colspan="6" class="muted">No hay movimientos seguros de sede para proponer. Se requiere revisar manualmente la nómina o las sedes habilitadas.</td></tr>{% endfor %}
+      </tbody></table></div>
+    {% endif %}
+  </section>
+
   <section class="card management-section">
     <div class="section-title">
       <div>
@@ -22,6 +35,12 @@
         {{ formulario_turnos.turnos }}
         {% for error in formulario_turnos.turnos.errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}
       </div>
+      {% for configuracion in configuraciones_turnos %}
+        <div class="gestion-form-grid">
+          <div class="field"><label>Titulares por mesa · {{ configuracion.turno }}</label><input class="input" type="number" min="1" name="titulares_{{ configuracion.turno_id }}" value="{{ configuracion.titulares_por_mesa }}"></div>
+          <div class="field"><label>Suplentes por mesa · {{ configuracion.turno }}</label><input class="input" type="number" min="0" name="suplentes_{{ configuracion.turno_id }}" value="{{ configuracion.suplentes_por_mesa }}"></div>
+        </div>
+      {% endfor %}
       <div class="footer-actions">
         <button class="button primary" name="guardar-turnos">Guardar turnos</button>
       </div>
@@ -31,10 +50,10 @@
   <section class="card management-section">
     <div class="section-title">
       <div>
-        <h2>Asignación manual</h2>
-        <p>Asigná individualmente un candidato a una mesa y un turno de trabajo.</p>
+        <h2>Agregar elector manualmente</h2>
+        <p>Buscá por documento, legajo o nombre y agregalo a la misma nómina que el archivo.</p>
       </div>
-      <span class="tag">Máximo {{ eleccion.maximo_autoridades_por_mesa }} por mesa y turno</span>
+      <span class="tag">Padrón activo del claustro</span>
     </div>
     <form method="post">
       {% csrf_token %}
@@ -49,7 +68,7 @@
         {% endfor %}
       </div>
       <div class="footer-actions">
-        <button class="button primary" name="asignar-autoridad">Asignar candidato</button>
+        <button class="button primary" name="agregar-candidato">Agregar a la nómina</button>
       </div>
     </form>
   </section>
@@ -63,8 +82,8 @@
       <span class="tag">CSV o Excel (.xlsx)</span>
     </div>
     <div class="notice">
-      <strong>Formato esperado:</strong> DNI, Legajo, Nombre, Apellido, Depto/Carrera, Mail.
-      <span class="field-help">Ejemplo: <span class="mono">40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar</span></span>
+      <strong>Formato esperado:</strong> Tipo documento, Documento, Legajo. Los datos personales se toman del padrón.
+      <span class="field-help">Ejemplo: <span class="mono">DNI,40123456,2024001</span></span>
     </div>
     {% if errores_importacion %}
       <div class="import-error-summary" role="alert" aria-labelledby="errores-importacion-titulo">
@@ -96,9 +115,23 @@
       </div>
       <div class="footer-actions">
         <a class="button light" href="{% url 'descargar-plantilla-autoridades-claustro' eleccion.id eleccion_claustro.id %}">Descargar plantilla</a>
-        <button class="button primary" name="cargar-candidatos">Cargar candidatos</button>
+        <button class="button primary" name="cargar-candidatos">Cargar y distribuir</button>
       </div>
     </form>
+  </section>
+
+  <section class="card management-section">
+    <div class="section-title">
+      <div>
+        <h2>Nómina de electores disponibles</h2>
+        <p>La lista es común a todos los turnos; el sistema asigna cada elector como máximo una vez.</p>
+      </div>
+      <span class="tag">{{ candidatos|length }} candidatos</span>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Elector</th><th>Documento y legajo</th><th>Sede donde cursa</th><th>Turno de cursada</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
+      {% for candidato in candidatos %}<tr><td>{{ candidato.registro_padron.elector.nombre_completo }}</td><td>{{ candidato.registro_padron.elector.tipo_documento }} {{ candidato.registro_padron.elector.dni }}<br><span class="muted">{{ candidato.registro_padron.elector.legajo }}</span></td><td>{{ candidato.registro_padron.sede|default:"Sin sede de cursada" }}</td><td>{{ candidato.registro_padron.turno_cursada|default:"Sin turno" }}</td><td>{% if candidato.excluida %}Excluido{% elif candidato.registro_padron.sede and not candidato.registro_padron.turno_cursada %}<span class="pill warn">Completar turno de cursada</span>{% else %}Disponible{% endif %}</td><td><form method="post">{% csrf_token %}<input type="hidden" name="candidatura_id" value="{{ candidato.id }}"><select name="modo" class="form-select"><option value="liberar">Quitar de la nómina</option><option value="excluir">Excluir de la elección</option></select><button class="button light" name="quitar-candidato" value="1" onclick="return confirm(this.form.modo.value === 'excluir' ? '¿Excluir al elector de futuras distribuciones en toda la elección?' : '¿Liberar su asignación actual? Podrá ser seleccionado al recalcular.')">Confirmar cambio</button></form></td></tr>
+      {% empty %}<tr><td colspan="6" class="muted">Todavía no hay electores en la nómina.</td></tr>{% endfor %}
+    </tbody></table></div>
   </section>
 
   <section class="card management-section">
@@ -109,10 +142,15 @@
       </div>
       <span class="tag">{{ autoridades|length }} asignaciones</span>
     </div>
+    <div class="footer-actions"><form method="post">{% csrf_token %}<button class="button primary" name="recalcular-autoridades">Recalcular distribución</button></form></div>
+    <h3>Cobertura por mesa y turno</h3>
+    <div class="table-wrap"><table><thead><tr><th>Mesa</th><th>Sede</th><th>Turno</th><th>Titulares</th><th>Suplentes faltantes</th><th>Estado</th></tr></thead><tbody>
+      {% for fila in cobertura %}<tr><td>{{ fila.mesa.numero }}</td><td>{{ fila.mesa.sede }}</td><td>{{ fila.turno }}</td><td>{{ fila.titulares }} / {{ fila.maximo_titulares }}</td><td>{{ fila.suplentes_faltantes }}</td><td>{% if fila.cubierta %}<span class="pill ok">Cubierta</span>{% else %}<span class="pill danger">Falta titular</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="6" class="muted">No hay mesas o turnos configurados.</td></tr>{% endfor %}
+    </tbody></table></div>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Autoridad</th><th>Mesa</th><th>Turno de trabajo</th><th>Estado</th><th>Asignada por</th><th>Fecha</th></tr>
+          <tr><th>Autoridad</th><th>Mesa</th><th>Turno de trabajo</th><th>Función</th><th>Estado</th><th>Asignada por</th><th>Fecha</th></tr>
         </thead>
         <tbody>
           {% for autoridad in autoridades %}
@@ -120,12 +158,13 @@
               <td>{{ autoridad.registro_padron.elector.nombre_completo }}<br><span class="muted">{{ autoridad.registro_padron.elector.legajo }}</span></td>
               <td>{{ autoridad.mesa.numero }} · {{ autoridad.mesa.sede }}</td>
               <td>{{ autoridad.turno }}</td>
+              <td>{{ autoridad.get_tipo_display }}{% if autoridad.orden_suplencia %} · orden {{ autoridad.orden_suplencia }}{% endif %}</td>
               <td><span class="pill info">{{ autoridad.get_estado_display }}</span></td>
               <td>{{ autoridad.asignada_por }}</td>
               <td>{{ autoridad.asignada_en|date:"d/m/Y H:i" }}</td>
             </tr>
           {% empty %}
-            <tr><td colspan="6" class="muted">Todavía no hay autoridades asignadas en este claustro.</td></tr>
+            <tr><td colspan="7" class="muted">Todavía no hay autoridades asignadas en este claustro.</td></tr>
           {% endfor %}
         </tbody>
       </table>
