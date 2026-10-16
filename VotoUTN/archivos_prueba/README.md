@@ -4,7 +4,7 @@ Las [variantes solo de alumnos](variantes_alumnos/README.md) incluyen archivos
 separados para errores de importación, restricciones de cursada, distribución,
 faltantes y cambios de sede, con instrucciones y resultados esperados.
 
-Estos archivos sirven para una elección de prueba. La base local `1234` aportó los 500 registros de Estudiantes: se conservaron sus identificadores, nombres, correos y departamentos para que una nueva importación los reconozca. **Los CSV derivados contienen datos personales reales del entorno local; están excluidos de Git y no deben compartirse ni subirse al remoto.**
+Estos archivos sirven para una elección de prueba. La base local `1234` aportó los 500 registros de Estudiantes: se conservaron sus identificadores, nombres, correos y departamentos para que una nueva importación los reconozca. **El responsable del proyecto confirmó que los datos son inventados. Todos los CSV de prueba se incluyen en el repositorio para reproducir los escenarios.**
 
 ## Archivos disponibles
 

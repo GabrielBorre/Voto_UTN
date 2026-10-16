@@ -1,7 +1,8 @@
 # Variantes de prueba: alumnos
 
 Estos CSV derivan del padrón local de 500 estudiantes. Conservan sus identidades
-y contienen datos personales: los CSV están excluidos de Git. La carpeta
+y contienen datos ficticios, según confirmó el responsable del proyecto. Los CSV
+están incluidos en Git para reproducir las pruebas. La carpeta
 `controlados` modifica únicamente cursada y nivel para preparar escenarios.
 El generador no consulta ni modifica la base de datos.
 
