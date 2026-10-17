@@ -5,7 +5,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.elecciones.models import Eleccion
+from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
+from apps.padron.models import Elector, RegistroPadron
+from apps.parametros.models import Claustro, Departamento
 from apps.usuarios.backend_auth import ElectorUser
 from apps.usuarios.models import AsignacionRol
 
@@ -265,3 +267,95 @@ class InicioAutenticadoTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Mi información electoral")
+
+
+class InicioElectorTests(TestCase):
+    def setUp(self):
+        self.elector = Elector.objects.create(
+            legajo="inicio-elector-1",
+            nombre="Elector",
+            apellido="Prueba",
+            dni="9876543210",
+        )
+        self.claustro = Claustro.objects.create(nombre="Claustro inicio")
+        self.departamento = Departamento.objects.create(nombre="Departamento inicio", codigo="INI")
+        self.eleccion_en_curso = self.crear_eleccion(
+            "Elección en curso",
+            Eleccion.Estado.PREPARADA,
+        )
+        self.crear_registro(self.eleccion_en_curso)
+        self.client.force_login(
+            ElectorUser(self.elector.dni),
+            backend="apps.usuarios.backend_auth.ElectorBackend",
+        )
+
+    def crear_eleccion(self, nombre, estado):
+        return Eleccion.objects.create(
+            nombre=nombre,
+            fecha_inicio=date(2026, 10, 1),
+            fecha_fin=date(2026, 10, 2),
+            estado=estado,
+        )
+
+    def crear_registro(self, eleccion):
+        eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=eleccion,
+            claustro=self.claustro,
+        )
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=eleccion_claustro,
+            departamento=self.departamento,
+        )
+        return RegistroPadron.objects.create(
+            elector=self.elector,
+            eleccion=eleccion,
+            eleccion_claustro_departamento=alcance,
+        )
+
+    def test_muestra_solo_el_registro_de_la_eleccion_en_curso(self):
+        eleccion_cerrada = self.crear_eleccion(
+            "Elección cerrada anterior",
+            Eleccion.Estado.CERRADA,
+        )
+        self.crear_registro(eleccion_cerrada)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, self.eleccion_en_curso.nombre)
+        self.assertNotContains(respuesta, eleccion_cerrada.nombre)
+        self.assertEqual(
+            [registro.eleccion_id for registro in respuesta.context["registros"]],
+            [self.eleccion_en_curso.pk],
+        )
+
+    def test_muestra_sin_padron_si_no_esta_cargado_en_la_eleccion_en_curso(self):
+        self.eleccion_en_curso.registros_padron.all().delete()
+        eleccion_cerrada = self.crear_eleccion(
+            "Elección cerrada anterior",
+            Eleccion.Estado.CERRADA,
+        )
+        self.crear_registro(eleccion_cerrada)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertContains(respuesta, "Sin información disponible")
+        self.assertContains(
+            respuesta,
+            "No encontramos un registro de padrón asociado a tu identidad.",
+        )
+        self.assertNotContains(respuesta, "Sin elecciones en curso")
+
+    def test_muestra_aviso_y_enlace_al_historial_si_no_hay_elecciones_en_curso(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.CERRADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertContains(respuesta, "Sin elecciones en curso")
+        self.assertContains(respuesta, "No hay elecciones en curso en este momento.")
+        self.assertContains(
+            respuesta,
+            f'href="{reverse("historial-electoral")}"',
+        )
+        self.assertNotContains(respuesta, "Sin información disponible")

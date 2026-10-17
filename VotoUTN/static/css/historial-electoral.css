@@ -1,0 +1,83 @@
+.historial-electoral h3 {
+  margin: 0 0 14px;
+  color: var(--rojo-utn);
+  font-size: 20px;
+}
+
+.historial-electoral__table-wrap {
+  overflow-x: auto;
+}
+
+.historial-electoral__table {
+  min-width: 720px;
+}
+
+.historial-electoral__table th {
+  white-space: nowrap;
+}
+
+.historial-electoral__table td {
+  vertical-align: middle;
+}
+
+.historial-electoral__empty {
+  color: var(--muted);
+  text-align: center;
+}
+
+.historial-electoral__detail-heading {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.historial-electoral__detail-heading h2 {
+  color: var(--azul-900);
+  font-size: 22px;
+  margin: 0;
+}
+
+.historial-electoral__detail > p {
+  margin: 0 0 14px;
+}
+
+.historial-electoral__detail h3 {
+  color: var(--azul-900);
+  font-size: 17px;
+  margin: 24px 0 12px;
+}
+
+.historial-electoral__document {
+  margin-bottom: 14px;
+}
+
+.historial-electoral__document embed {
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  height: min(65vh, 640px);
+  width: 100%;
+}
+
+.historial-electoral__document img {
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  display: block;
+  height: auto;
+  max-height: 640px;
+  max-width: 100%;
+}
+
+.historial-electoral__detail hr {
+  border: 0;
+  border-top: 1px solid var(--borde);
+  margin: 22px 0;
+}
+
+@media (max-width: 640px) {
+  .historial-electoral__detail-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

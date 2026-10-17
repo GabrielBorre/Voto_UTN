@@ -4,8 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import HttpResponseForbidden
-from django.http import Http404
+from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -49,13 +48,27 @@ from apps.notificaciones.services import (
 from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import (
     elecciones_con_participacion,
+    puede_consultar_historial_electoral,
     puede_administrar_elecciones,
     puede_configurar_eleccion,
     puede_crear_elecciones,
 )
 from apps.usuarios.models import AsignacionRol
+from .historial import construir_historial_electoral
 
 MESAS_POR_PAGINA = 10
+
+
+@login_required
+def historial_electoral(request):
+    elector = elector_de_identidad(request.user)
+    if not puede_consultar_historial_electoral(request.user, elector):
+        return HttpResponseForbidden("No tiene permiso para consultar el historial electoral.")
+    return render(
+        request,
+        "elecciones/historial_electoral.html",
+        {"historial": construir_historial_electoral(elector)},
+    )
 
 
 def contexto_formulario_eleccion(formulario, incluir_parametros=False):
@@ -95,9 +108,16 @@ def inicio_autenticado(request):
         es_autoridad_asignada = roles_persona.filter(rol=AsignacionRol.Rol.AUTORIDAD_MESA).exists()
     if es_elector or es_autoridad_asignada:
         elector = elector_de_identidad(request.user)
+        eleccion_en_curso = Eleccion.objects.filter(
+            estado__in=ESTADOS_ELECCION_NO_CERRADOS,
+        ).order_by("-fecha_inicio", "-id").first()
         registros = RegistroPadron.objects.none()
-        if elector is not None:
-            registros = RegistroPadron.objects.filter(elector=elector, activo=True).select_related(
+        if elector is not None and eleccion_en_curso is not None:
+            registros = RegistroPadron.objects.filter(
+                elector=elector,
+                eleccion=eleccion_en_curso,
+                activo=True,
+            ).select_related(
                 "eleccion",
                 "eleccion_claustro_departamento__eleccion_claustro",
                 "sede",
@@ -107,7 +127,15 @@ def inicio_autenticado(request):
                 "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
             )
         es_autoridad = AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists() if elector is not None else False
-        return render(request, "elecciones/inicio_elector.html", {"registros": registros, "es_autoridad": es_autoridad})
+        return render(
+            request,
+            "elecciones/inicio_elector.html",
+            {
+                "registros": registros,
+                "eleccion_en_curso": eleccion_en_curso,
+                "es_autoridad": es_autoridad,
+            },
+        )
     if AsignacionRol.objects.filter(
         usuario=request.user,
         activo=True,

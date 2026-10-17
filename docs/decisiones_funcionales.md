@@ -7,6 +7,25 @@
 - No existe una aplicación móvil nativa.
 - El administrativo de junta registra la participación.
 - La autoridad de mesa no registra participación.
+- El registro por QR o carga manual identifica a quienes no votaron; la ausencia
+  de un registro implica que se presume que el elector votó.
+- El historial electoral se muestra a electores y autoridades de mesa, y cada
+  persona solo consulta sus propios registros y justificativos.
+- Mientras la elección está abierta, el historial muestra «En Curso» hasta que
+  se habilite el período de justificación de electores.
+- Una vez habilitado el período, quien no tenga registro de ausencia figura
+  como «Voto Emitido» y quien tenga registro de ausencia como «En Curso - Voto
+  No Registrado». Un justificativo pendiente figura como «Pendiente de
+  Revisión»; uno aprobado, como «Inasistencia Justificada»; y uno rechazado,
+  como «Infractor - Justificación Rechazada».
+- El período de justificación se abre desde una acción web del administrador
+  de junta después de completar el escaneo de todas las mesas. Esa acción y la
+  señal de finalización del escaneo quedan pendientes y no forman parte de la
+  integración del historial.
+- Solo se puede presentar un justificativo electoral durante el período
+  habilitado y si existe un registro de ausencia. La fecha límite configurada
+  es inclusiva. Al vencer, la ausencia sin solicitud pasa a «Infractor»; una
+  solicitud pendiente o rechazada conserva su estado propio.
 
 ## Elecciones, claustros, sedes y departamentos
 

@@ -1,0 +1,60 @@
+{% extends "gestion/base.html" %}
+{% load static %}
+
+{% block title %}Detalle de justificativo | {{ justificativo.registro_padron.eleccion.nombre }}{% endblock %}
+
+{% block styles %}
+<link href="{% static 'css/historial-electoral.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Historial Electoral</h1>
+  <p>Consulta el detalle de tu solicitud de justificación.</p>
+</section>
+
+<section class="card historial-electoral__detail">
+  <div class="historial-electoral__detail-heading">
+    <h2>Detalle de solicitud Nº {{ justificativo.pk }}</h2>
+    <a href="{% url 'historial-electoral' %}" class="btn small light">Volver</a>
+  </div>
+
+  <p>
+    <strong>Estado:</strong>
+    {% if justificativo.estado == "pendiente" %}
+    <span class="pill warn request-status">Pendiente de Revisión</span>
+    {% elif justificativo.estado == "aprobado" %}
+    <span class="pill ok request-status">Inasistencia Justificada</span>
+    {% else %}
+    <span class="pill danger request-status">Infractor - Justificación Rechazada</span>
+    {% endif %}
+  </p>
+  <p><strong>Elección:</strong> {{ justificativo.registro_padron.eleccion.nombre }}</p>
+  <p><strong>Solicitante:</strong> {{ justificativo.registro_padron.elector.nombre_completo }}</p>
+  <p><strong>Motivo:</strong> {{ justificativo.tipo }}</p>
+  <p><strong>Presentada:</strong> {{ justificativo.presentada_en|date:"d/m/Y H:i" }}</p>
+  <p><strong>Descripción:</strong> {{ justificativo.detalle|linebreaksbr }}</p>
+  {% if justificativo.observacion_resolucion %}
+  <p><strong>Observación de la resolución:</strong> {{ justificativo.observacion_resolucion|linebreaksbr }}</p>
+  {% endif %}
+
+  {% if justificativo.documento %}
+  <h3>Vista previa del adjunto</h3>
+  <div class="historial-electoral__document">
+    {% if documento_es_pdf %}
+    <embed src="{{ url_documento }}" type="application/pdf" title="Documento adjunto del justificativo">
+    {% else %}
+    <img src="{{ url_documento }}" alt="Documento adjunto del justificativo">
+    {% endif %}
+  </div>
+  <a class="btn small light" href="{{ url_documento }}" target="_blank" rel="noopener">Abrir documento adjunto</a>
+  {% else %}
+  <p class="muted">No se adjuntó documentación.</p>
+  {% endif %}
+
+  <hr>
+  <div class="footer-actions">
+    <a href="{% url 'historial-electoral' %}" class="btn small light">Volver al historial</a>
+  </div>
+</section>
+{% endblock %}

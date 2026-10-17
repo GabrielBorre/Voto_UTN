@@ -24,6 +24,10 @@ https://:8443 {
 		file_server
 	}
 
+	handle /media/justificativos/* {
+		reverse_proxy web:8000
+	}
+
 	handle_path /media/* {
 		root * /srv/media
 		file_server

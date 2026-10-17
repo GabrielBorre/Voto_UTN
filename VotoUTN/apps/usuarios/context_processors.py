@@ -6,6 +6,7 @@ from apps.usuarios.permisos import (
     puede_administrar_parametros,
     puede_crear_elecciones,
     puede_revisar_justificativo,
+    puede_consultar_historial_electoral,
 )
 from apps.usuarios.services import elector_de_identidad
 
@@ -84,6 +85,7 @@ def navegacion_por_rol(request):
         "nav_es_administrador_junta": AsignacionRol.Rol.ADMINISTRADOR_JUNTA in roles,
         "nav_es_administrativo_junta": AsignacionRol.Rol.ADMINISTRATIVO_JUNTA in roles,
         "nav_tiene_datos_elector": elector is not None,
+        "nav_puede_consultar_historial_electoral": puede_consultar_historial_electoral(usuario, elector),
         "nav_puede_ver_elecciones": puede_ver_elecciones,
         "nav_hay_eleccion_en_curso": puede_ver_elecciones
         and Eleccion.objects.filter(estado=Eleccion.Estado.EN_CURSO).exists(),
