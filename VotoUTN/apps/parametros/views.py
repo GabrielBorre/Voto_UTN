@@ -248,7 +248,7 @@ def previsualizar_plantilla(request, plantilla_id):
         "url_accion": "https://voto.utn.edu.ar/gestion", "fecha_capacitacion": "10/11/2026",
         "hora_capacitacion": "18:00", "lugar_capacitacion": "Aula Magna", "fecha_presentacion": "02/10/2026 10:30",
         "estado_solicitud": "Pendiente", "observacion_resolucion": "Documentación validada.",
-        "sede_solicitada": "Campus", "turno_solicitado": "Tarde",
+        "sede_solicitada": "Campus", "turno_solicitado": "Tarde", "tipo_ausencia": "ausencia a votar",
     }
     asunto, contenido = plantilla.asunto, plantilla.contenido
     for variable, valor in ejemplos.items():

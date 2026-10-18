@@ -147,6 +147,17 @@ Reglas:
 - La notificación interna muestra el mismo contenido del correo.
 - El módulo interno administra plantillas, programación, estados, historial y lectura.
 - El envío efectivo puede delegarse a un proveedor externo mediante un adaptador desacoplado.
+- Los envíos pueden pertenecer a un usuario local o a un elector del padrón.
+  Los electores autenticados por Keycloak no necesitan una cuenta en `auth.User`
+  para consultar sus mensajes; el listado, el detalle y el contador de no leídas
+  utilizan la misma identificación del destinatario.
+- La primera resolución de un justificativo genera una notificación persistente,
+  con asunto y contenido renderizados compartidos por correo y web. Se conserva
+  el comportamiento de no reenviar ni duplicar el aviso al editar esa resolución.
+  La notificación interna permanece disponible si el correo falla o falta una
+  dirección; el envío registra el error y no se marca como enviado.
+- No se reconstruyen avisos de resoluciones anteriores a esta integración: esos
+  correos no conservaron una copia persistente del contenido enviado.
 
 ## Catálogos administrativos, mensajes y emisión de QR
 
