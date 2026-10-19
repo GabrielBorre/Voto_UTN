@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+from smtplib import SMTPException
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -9,9 +11,11 @@ from django.utils.timezone import make_aware
 
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
+from apps.notificaciones.models import EnvioNotificacion
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
+from apps.usuarios.backend_auth import ElectorUser
 
 
 class JustificativosViewsTests(TestCase):
@@ -227,13 +231,13 @@ class JustificativosViewsTests(TestCase):
         justificativo.resuelta_en = make_aware(datetime(2026, 8, 4, 10))
         justificativo.save()
         Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.CERRADA)
-        self.client.login(username="admin", ******)
+        self.client.force_login(self.usuario)
         url = reverse("resolver-justificativo", args=(justificativo.id,))
 
         respuesta = self.client.get(url)
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, "Elección en el historial")
+        self.assertContains(respuesta, "está en el historial.")
         self.assertContains(respuesta, "Resolución histórica conservada.")
         self.assertNotContains(respuesta, 'id="formulario-resolucion-justificativo"')
         self.assertNotContains(respuesta, "Guardar resolución")
@@ -269,6 +273,23 @@ class JustificativosViewsTests(TestCase):
         self.assertEqual(mail.outbox[0].to, ["juan@example.test"])
         self.assertIn("fue aprobado", mail.outbox[0].body)
         self.assertIn("Documentación validada.", mail.outbox[0].body)
+        notificacion = EnvioNotificacion.objects.get(elector=justificativo.registro_padron.elector)
+        self.assertEqual(notificacion.asunto, mail.outbox[0].subject)
+        self.assertEqual(notificacion.contenido, mail.outbox[0].body)
+        self.assertEqual(notificacion.estado, EnvioNotificacion.Estado.ENVIADO)
+        self.assertIsNotNone(notificacion.enviada_en)
+        self.assertIsNone(notificacion.leida_en)
+        self.client.force_login(
+            ElectorUser(justificativo.registro_padron.elector.dni),
+            backend="apps.usuarios.backend_auth.ElectorBackend",
+        )
+        listado = self.client.get(reverse("mis-notificaciones"))
+        self.assertContains(listado, notificacion.asunto)
+        self.assertEqual(listado.context["notificaciones_no_leidas"], 1)
+        detalle = self.client.get(reverse("leer-notificacion", args=(notificacion.pk,)))
+        self.assertEqual(detalle.context["notificacion"].contenido, mail.outbox[0].body)
+        notificacion.refresh_from_db()
+        self.assertIsNotNone(notificacion.leida_en)
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
     def test_administrador_junta_envia_correo_al_resolver_justificativo(self):
@@ -293,6 +314,43 @@ class JustificativosViewsTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["juan@example.test"])
         self.assertIn("fue rechazado", mail.outbox[0].body)
+        notificacion = EnvioNotificacion.objects.get(elector=justificativo.registro_padron.elector)
+        self.assertEqual(notificacion.contenido, mail.outbox[0].body)
+
+    def test_resolucion_conserva_notificacion_web_si_falla_el_correo(self):
+        justificativo = self.crear_justificativo()
+        self.client.force_login(self.usuario)
+
+        with patch("apps.notificaciones.services.send_mail", side_effect=SMTPException("fallo simulado")):
+            with self.assertLogs("apps.notificaciones.services", level="WARNING"):
+                respuesta = self.client.post(
+                    reverse("resolver-justificativo", args=(justificativo.pk,)),
+                    {"estado": "aprobado", "observacion_resolucion": "Validada."},
+                    follow=True,
+                )
+
+        self.assertContains(respuesta, "la notificación está disponible en la web")
+        justificativo.refresh_from_db()
+        self.assertEqual(justificativo.estado, JustificativoAusencia.Estado.APROBADO)
+        notificacion = EnvioNotificacion.objects.get(elector=justificativo.registro_padron.elector)
+        self.assertEqual(notificacion.estado, EnvioNotificacion.Estado.ERROR)
+        self.assertIn("Validada.", notificacion.contenido)
+
+    def test_error_al_crear_notificacion_no_deja_justificativo_resuelto_sin_aviso(self):
+        justificativo = self.crear_justificativo()
+        self.client.force_login(self.usuario)
+
+        with patch("apps.justificativos.views.crear_notificacion_resultado_justificativo", side_effect=ValueError("fallo simulado")):
+            with self.assertRaises(ValueError):
+                self.client.post(
+                    reverse("resolver-justificativo", args=(justificativo.pk,)),
+                    {"estado": "aprobado", "observacion_resolucion": "Validada."},
+                )
+
+        justificativo.refresh_from_db()
+        self.assertEqual(justificativo.estado, JustificativoAusencia.Estado.PENDIENTE)
+        self.assertIsNone(justificativo.resuelta_en)
+        self.assertFalse(EnvioNotificacion.objects.exists())
 
     def test_gestionar_justificativos_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")

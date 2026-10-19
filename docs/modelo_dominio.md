@@ -155,6 +155,12 @@ la previsualización, errores, advertencias, usuario y confirmación de cada CSV
 - `VarianteComunicacionFechaAdministrativa`
 - `EnvioNotificacion`
 
+`EnvioNotificacion` conserva una copia del asunto y contenido renderizados para
+correo y web. Requiere un destinatario local (`auth.User`) o un `Elector`, sin
+obligar a crear usuarios locales para identidades de Keycloak. Ambas relaciones
+usan `PROTECT` para conservar el destinatario y la trazabilidad histórica. La
+lectura interna es independiente del resultado del envío de correo.
+
 La comunicación define referencia temporal, desplazamiento y hora sugerida. Sus
 variantes enlazan plantillas por prioridad y por un criterio adicional
 controlado. Esta estructura es configuración reutilizable: no ejecuta todavía

@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -8,7 +9,7 @@ from django.utils import timezone
 from apps.elecciones.models import Eleccion
 from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
-from apps.notificaciones.services import enviar_resultado_justificativo
+from apps.notificaciones.services import crear_notificacion_resultado_justificativo, enviar_notificacion
 from apps.padron.models import Elector, RegistroPadron
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import es_administrativo_junta, puede_revisar_justificativo
@@ -141,21 +142,25 @@ def resolver_justificativo(request, justificativo_id):
         return HttpResponseForbidden("No se pueden modificar justificativos de elecciones del historial.")
     formulario = FormularioResolucionJustificativo(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
-        estaba_pendiente = justificativo.estado == JustificativoAusencia.Estado.PENDIENTE
-        justificativo.estado = formulario.cleaned_data["estado"]
-        justificativo.observacion_resolucion = formulario.cleaned_data["observacion_resolucion"]
-        justificativo.resuelta_por = request.user
-        justificativo.resuelta_en = timezone.now()
-        justificativo.save(update_fields=("estado", "observacion_resolucion", "resuelta_por", "resuelta_en"))
-        if estaba_pendiente:
-            try:
-                correo_enviado = enviar_resultado_justificativo(justificativo)
-            except Exception:
-                correo_enviado = False
+        with transaction.atomic():
+            justificativo = (
+                JustificativoAusencia.objects.select_for_update(of=("self",))
+                .select_related("registro_padron__eleccion", "registro_padron__elector")
+                .get(pk=justificativo.pk)
+            )
+            estaba_pendiente = justificativo.estado == JustificativoAusencia.Estado.PENDIENTE
+            justificativo.estado = formulario.cleaned_data["estado"]
+            justificativo.observacion_resolucion = formulario.cleaned_data["observacion_resolucion"]
+            justificativo.resuelta_por = request.user
+            justificativo.resuelta_en = timezone.now()
+            justificativo.save(update_fields=("estado", "observacion_resolucion", "resuelta_por", "resuelta_en"))
+            envio = crear_notificacion_resultado_justificativo(justificativo) if estaba_pendiente else None
+        if envio is not None:
+            correo_enviado = enviar_notificacion(envio)
             if correo_enviado:
                 messages.success(request, "El justificativo fue resuelto y se notificó al elector por correo.")
             else:
-                messages.warning(request, "El justificativo fue resuelto, pero no se pudo enviar el correo al elector.")
+                messages.warning(request, "El justificativo fue resuelto y la notificación está disponible en la web, pero no se pudo enviar el correo al elector.")
         else:
             messages.success(request, "El justificativo fue actualizado.")
         return redirect("gestionar-justificativos", eleccion_id=justificativo.registro_padron.eleccion_id)

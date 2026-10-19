@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
 from apps.notificaciones.forms import FormularioEnviarNotificacion
-from apps.notificaciones.services import crear_envios
+from apps.notificaciones.services import crear_envios, notificaciones_para_usuario
 from apps.usuarios.permisos import puede_administrar_parametros
 
 
@@ -25,23 +25,20 @@ def gestionar_notificaciones(request):
         {
             "formulario_envio": formulario_envio,
             "plantillas": PlantillaNotificacion.objects.filter(activa=True, permite_envio_manual=True),
-            "envios": EnvioNotificacion.objects.select_related("destinatario", "eleccion")[:20],
+            "envios": EnvioNotificacion.objects.select_related("destinatario", "elector", "eleccion")[:20],
         },
     )
 
 
 @login_required
 def mis_notificaciones(request):
-    relacion_notificaciones = getattr(request.user, "notificaciones", None)
-    notificaciones = relacion_notificaciones.all() if relacion_notificaciones is not None else EnvioNotificacion.objects.none()
+    notificaciones = notificaciones_para_usuario(request.user)
     return render(request, "notificaciones/mis_notificaciones.html", {"notificaciones": notificaciones})
 
 
 @login_required
 def leer_notificacion(request, notificacion_id):
-    if not hasattr(request.user, "notificaciones"):
-        return HttpResponseForbidden("No tiene notificaciones asociadas.")
-    notificacion = get_object_or_404(EnvioNotificacion, pk=notificacion_id, destinatario=request.user)
+    notificacion = get_object_or_404(notificaciones_para_usuario(request.user), pk=notificacion_id)
     if notificacion.leida_en is None:
         notificacion.leida_en = timezone.now()
         notificacion.save(update_fields=("leida_en",))
