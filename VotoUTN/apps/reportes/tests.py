@@ -1,6 +1,5 @@
 import re
 from datetime import datetime, time, timedelta
-from io import BytesIO
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model

@@ -31,7 +31,7 @@ def exportar_reporte_eleccion(eleccion, tipo):
             "eleccion_claustro_departamento__departamento",
             "eleccion_claustro_departamento__eleccion_claustro__claustro",
             "asignacion_mesa__mesa",
-        ):
+        ).order_by("elector__dni", "id"):
             escritor.writerow(
                 [
                     valor_csv(valor)
