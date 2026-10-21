@@ -117,6 +117,51 @@ class ImportacionPadron(models.Model):
             raise ValidationError({"eleccion_claustro": "Debe pertenecer a la misma eleccion."})
 
 
+class SolicitudCambioSede(models.Model):
+    class Estado(models.TextChoices):
+        PENDIENTE = "pendiente", "Pendiente"
+        APROBADA = "aprobada", "Aprobada"
+        RECHAZADA = "rechazada", "Rechazada"
+
+    registro_padron = models.ForeignKey(RegistroPadron, on_delete=models.PROTECT, related_name="solicitudes_cambio_sede")
+    sede_origen = models.ForeignKey(Sede, on_delete=models.PROTECT, related_name="solicitudes_cambio_origen")
+    sede_destino = models.ForeignKey(Sede, on_delete=models.PROTECT, related_name="solicitudes_cambio_destino")
+    estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.PENDIENTE)
+    observacion = models.TextField(blank=True)
+    observacion_resolucion = models.TextField(blank=True)
+    creada_en = models.DateTimeField(auto_now_add=True)
+    resuelta_en = models.DateTimeField(null=True, blank=True)
+    resuelta_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="solicitudes_cambio_sede_resueltas",
+    )
+
+    class Meta:
+        db_table = "elecciones_solicitudcambiosede"
+        ordering = ("-creada_en",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("registro_padron",),
+                condition=models.Q(estado="pendiente"),
+                name="solicitud_cambio_sede_pendiente_unica",
+            ),
+        ]
+
+    def clean(self):
+        if self.sede_origen_id == self.sede_destino_id:
+            raise ValidationError({"sede_destino": "La sede solicitada debe ser distinta de la sede actual."})
+        if self.registro_padron_id and self.sede_origen_id and self.registro_padron.sede_id != self.sede_origen_id:
+            raise ValidationError({"sede_origen": "La sede de origen debe coincidir con la sede actual del padrón."})
+        if self.registro_padron_id and self.sede_destino_id:
+            alcance = self.registro_padron.eleccion_claustro_departamento
+            habilitada = alcance.sedes_habilitadas.filter(sede_id=self.sede_destino_id).exists()
+            if not habilitada:
+                raise ValidationError({"sede_destino": "La sede solicitada no está habilitada para el alcance del elector."})
+
+
 class ErrorImportacionPadron(models.Model):
     importacion = models.ForeignKey(ImportacionPadron, on_delete=models.CASCADE, related_name="errores")
     fila = models.PositiveIntegerField(null=True, blank=True)

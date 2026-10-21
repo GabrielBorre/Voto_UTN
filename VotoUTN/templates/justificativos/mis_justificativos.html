@@ -5,16 +5,18 @@
 	<p>Presente documentación para justificar una ausencia.</p>
 </section>
 <section class="card form-card">
-	{% if eleccion and not puede_presentar %}
-	<p>Ya presentó todos los justificativos que tiene permitidos. No pueden modificarse.</p>
+	{% if not eleccion %}
+	<p class="error">No hay una elección actual habilitada para presentar justificativos.</p>
+	{% elif not estado_habilitado %}
+	<p>La presentación de justificativos está disponible únicamente para elecciones publicadas o en curso.</p>
+	{% elif not registro_padron %}
+	<p class="error">No se encontró un padrón activo para la elección actual.</p>
+	{% elif not puede_presentar %}
+	<div class="notice">Ya presentó todos los justificativos que tiene permitidos. No pueden modificarse.</div>
 	{% else %}
 	<form method="post" enctype="multipart/form-data" id="form-justificativo">
 		{% csrf_token %}
-		{% if eleccion %}
 		<p><strong>Elección:</strong> {{ eleccion.nombre }}</p>
-		{% else %}
-		<p class="error">No se encontró un padrón activo para presentar el justificativo.</p>
-		{% endif %}
 		{% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
 		{% for field in formulario %}
 		<div class="field">
@@ -23,7 +25,7 @@
 			{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
 		</div>
 		{% endfor %}
-		<div class="footer-actions"><button type="button" class="button primary" id="btn-presentar"{% if not eleccion %} disabled{% endif %}>Presentar</button></div>
+		<div class="footer-actions"><button type="button" class="button primary" id="btn-presentar">Presentar</button></div>
 	</form>
 	<dialog id="dialogo-confirmar-justificativo" aria-labelledby="titulo-confirmar-justificativo">
 		<h2 id="titulo-confirmar-justificativo">Confirmar presentación</h2>

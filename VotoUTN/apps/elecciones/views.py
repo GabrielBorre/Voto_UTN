@@ -7,6 +7,7 @@ from django.db.models import Count, Q
 from django.http import HttpResponseForbidden
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from .forms import (
@@ -30,11 +31,18 @@ from apps.asistencia.dashboard import (
 )
 from apps.autoridades.models import AsignacionAutoridad
 from apps.auditoria.services import registrar_evento
+from apps.mesas.models import Mesa
 from apps.partidos.models import ParticipacionPartido
 from apps.padron.models import RegistroPadron
 from apps.parametros.models import Claustro
 from apps.padron.services import rehabilitar_cambios_padron as servicio_rehabilitar_cambios_padron
 from apps.justificativos.models import JustificativoAusencia
+from apps.notificaciones.services import (
+    crear_notificaciones_ausentes_confirmadas,
+    enviar_notificacion,
+    notificar_eleccion_en_curso,
+    notificar_eleccion_publicada,
+)
 from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import (
     elecciones_con_participacion,
@@ -49,7 +57,10 @@ MESAS_POR_PAGINA = 10
 
 def contexto_formulario_eleccion(formulario, incluir_parametros=False):
     contexto = {
-        "campos_generales": [formulario[nombre] for nombre in ("nombre", "fecha_inicio", "fecha_fin")],
+        "campos_generales": [
+            formulario[nombre]
+            for nombre in ("nombre", "fecha_inicio", "fecha_fin", "fecha_cierre_solicitudes_cambio_sede")
+        ],
     }
     if incluir_parametros:
         contexto["campos_parametros"] = [formulario[nombre] for nombre in ("sedes", "claustros")]
@@ -166,7 +177,7 @@ def inicio_administrador_junta(request):
 def listar_elecciones(request):
     elecciones = elecciones_con_participacion(request.user)
     hay_eleccion_en_curso = Eleccion.objects.filter(
-        estado__in=ESTADOS_ELECCION_NO_CERRADOS,
+        estado=Eleccion.Estado.ABIERTA,
     ).exists()
     contexto = {
         "elecciones": elecciones,
@@ -186,7 +197,57 @@ def listar_elecciones(request):
             pagina_mesas=Paginator(dashboard["mesas"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
             querystring_paginacion=parametros.urlencode(),
         )
+        puede_confirmar_ausentes = (
+            puede_administrar_elecciones(request.user, eleccion_actual)
+            and eleccion_actual.estado == Eleccion.Estado.ABIERTA
+            and eleccion_actual.notificaciones_ausentes_confirmadas_en is None
+            and eleccion_actual.mesas.exists()
+            and not eleccion_actual.mesas.exclude(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA).exists()
+        )
+        contexto["puede_confirmar_notificaciones_ausentes"] = puede_confirmar_ausentes
     return render(request, "elecciones/list.html", contexto)
+
+
+@login_required
+def confirmar_notificaciones_ausentes(request, eleccion_id):
+    if request.method != "POST":
+        raise Http404()
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("Solo el administrador de junta puede confirmar las notificaciones a ausentes.")
+    try:
+        envios = crear_notificaciones_ausentes_confirmadas(eleccion)
+    except ValueError as error:
+        messages.error(request, str(error))
+        return redirect(f"{reverse('lista-elecciones')}?eleccion={eleccion.pk}")
+
+    enviados = sum(enviar_notificacion(envio) for envio in envios)
+    registrar_evento(
+        accion="eleccion.notificaciones_ausentes_confirmadas",
+        entidad="Eleccion",
+        entidad_id=eleccion.pk,
+        eleccion=eleccion,
+        usuario=request.user,
+        request=request,
+        datos_nuevos={
+            "notificaciones_creadas": len(envios),
+            "correos_enviados": enviados,
+            "correos_no_enviados": len(envios) - enviados,
+        },
+    )
+    if not envios:
+        messages.success(request, "Escaneo confirmado: no se registraron ausentes para notificar.")
+    elif enviados == len(envios):
+        messages.success(request, f"Se notificó a {len(envios)} electores ausentes por correo y en la aplicación.")
+    else:
+        messages.warning(
+            request,
+            f"Se generaron notificaciones para {len(envios)} ausentes. "
+            f"Correos enviados: {enviados}; con error: {len(envios) - enviados}. "
+            "Las notificaciones permanecen disponibles en la aplicación.",
+        )
+    return redirect(f"{reverse('lista-elecciones')}?eleccion={eleccion.pk}")
+
 
 def index(request):
     return render(request, "elecciones/index.html")
@@ -376,11 +437,30 @@ def cambiar_estado_eleccion(request, eleccion_id):
         return HttpResponseForbidden("No tiene permiso para cambiar esta eleccion.")
     nuevo_estado = request.POST.get("estado")
     estado_anterior = eleccion.estado
+    if nuevo_estado == Eleccion.Estado.CERRADA:
+        hay_justificativos_pendientes = JustificativoAusencia.objects.filter(
+            registro_padron__eleccion=eleccion,
+            estado=JustificativoAusencia.Estado.PENDIENTE,
+        ).exists()
+        if hay_justificativos_pendientes:
+            messages.error(request, "No se puede finalizar la elección con justificativos pendientes.")
+            return redirect("gestionar-elecciones")
+        hay_mesas_pendientes = Mesa.objects.filter(
+            eleccion=eleccion,
+            estado_escaneo__in=(Mesa.EstadoEscaneo.PENDIENTE, Mesa.EstadoEscaneo.EN_PROCESO),
+        ).exists()
+        if hay_mesas_pendientes:
+            messages.error(request, "No se puede finalizar la elección con mesas pendientes de escaneo.")
+            return redirect("gestionar-elecciones")
     try:
         eleccion.cambiar_estado(nuevo_estado)
     except ValidationError as error:
         messages.error(request, error.messages[0])
     else:
+        if nuevo_estado == Eleccion.Estado.PREPARADA:
+            notificar_eleccion_publicada(eleccion)
+        elif nuevo_estado == Eleccion.Estado.ABIERTA:
+            notificar_eleccion_en_curso(eleccion)
         registrar_evento(
             accion="eleccion.cambio_estado",
             entidad="Eleccion",
@@ -391,7 +471,7 @@ def cambiar_estado_eleccion(request, eleccion_id):
             datos_anteriores={"estado": estado_anterior},
             datos_nuevos={"estado": eleccion.estado, "habilitada": eleccion.habilitada},
         )
-        messages.success(request, f"La eleccion quedo {eleccion.get_estado_display().lower()}.")
+        messages.success(request, f"La elección quedó {eleccion.get_estado_display().lower()}.")
     return redirect("gestionar-elecciones")
 
 

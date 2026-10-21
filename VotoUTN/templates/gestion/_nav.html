@@ -26,6 +26,11 @@
   {% elif nav_puede_ver_justificativos %}
   <a class="{% if request.resolver_match.url_name == 'mis-justificativos' %}active{% endif %}" href="{% url 'mis-justificativos' %}">Mis justificativos</a>
   {% endif %}
+  {% if nav_puede_revisar_justificativos and nav_eleccion_cambio_sede %}
+  <a class="{% if request.resolver_match.url_name == 'gestionar-solicitudes-cambio-sede' %}active{% endif %}" href="{% url 'gestionar-solicitudes-cambio-sede' nav_eleccion_cambio_sede.pk %}">Cambios de sede</a>
+  {% elif nav_puede_ver_justificativos %}
+  <a class="{% if request.resolver_match.url_name == 'mis-solicitudes-cambio-sede' %}active{% endif %}" href="{% url 'mis-solicitudes-cambio-sede' %}">Cambio de sede</a>
+  {% endif %}
   {% if nav_es_autoridad %}
   <a class="{% if request.resolver_match.url_name == 'mis-asignaciones-autoridad' %}active{% endif %}" href="{% url 'mis-asignaciones-autoridad' %}">Mis asignaciones</a>
   {% endif %}

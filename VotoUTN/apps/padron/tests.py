@@ -11,6 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.models import Count
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.timezone import make_aware
 from PIL import Image
 
@@ -23,6 +24,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamentoSede,
     EleccionSede,
     EleccionClaustroTurno,
+    EleccionClaustroSede,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.forms import FormularioArchivoPadron, FormularioReglaSedeClaustro
@@ -41,16 +43,19 @@ from apps.padron.models import (
     RegistroPadron,
     ReglaAsignacionSede,
     ReglaSedeClaustro,
+    SolicitudCambioSede,
 )
 from apps.padron.services import (
     calcular_asignaciones_sede_claustro,
     calcular_mesas_automaticas_eleccion,
     calcular_padrones_votacion,
     eliminar_padron_claustro,
+    resolver_solicitud_cambio_sede,
+    resolver_solicitudes_pendientes,
 )
 from apps.partidos.models import CargoElectivo, OrganoElectivo, PuestoEleccion
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
-from apps.usuarios.models import AsignacionRol
+from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
 class PadronViewsTests(TestCase):
@@ -1578,3 +1583,255 @@ class EliminarPadronClaustroTests(TestCase):
             reverse("previsualizar-padron", args=(self.eleccion.id, self.claustro.id)),
         )
         self.assertFalse(RegistroPadron.objects.filter(pk=self.registro.pk).exists())
+
+
+class SolicitudCambioSedeTests(TestCase):
+    def setUp(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        self.eleccion = Eleccion.objects.create(
+            nombre="Elección cambio de sede",
+            fecha_inicio=inicio,
+            fecha_fin=inicio + timedelta(hours=8),
+            estado=Eleccion.Estado.PREPARADA,
+            fecha_cierre_solicitudes_cambio_sede=inicio.date() + timedelta(days=2),
+            habilitada=True,
+        )
+        self.sede_origen = Sede.objects.create(nombre="Campus")
+        self.sede_destino = Sede.objects.create(nombre="Medrano")
+        claustro = Claustro.objects.create(nombre="Estudiantes")
+        turno = Turno.objects.create(nombre="Mañana", hora_inicio=time(8), hora_fin=time(12))
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
+        EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede_origen)
+        EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede_destino)
+        self.eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion,
+            claustro=claustro,
+            maximo_votantes_por_mesa=100,
+        )
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=turno)
+        EleccionClaustroSede.objects.create(eleccion_claustro=self.eleccion_claustro, sede=self.sede_origen)
+        EleccionClaustroSede.objects.create(eleccion_claustro=self.eleccion_claustro, sede=self.sede_destino)
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=self.eleccion_claustro,
+            departamento=departamento,
+        )
+        EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=alcance, sede=self.sede_origen)
+        EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=alcance, sede=self.sede_destino)
+        elector = Elector.objects.create(dni="40111222", legajo="L40111222", nombre="Ada", apellido="Lovelace")
+        self.registro = RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=alcance,
+            sede=self.sede_origen,
+        )
+        self.mesa_origen = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=1,
+            eleccion_claustro_departamento=alcance,
+            sede=self.sede_origen,
+        )
+        AsignacionMesa.objects.create(registro_padron=self.registro, mesa=self.mesa_origen)
+        self.usuario = get_user_model().objects.create_user(username="admin-cambio-sede")
+        self.usuario_elector = get_user_model().objects.create_user(username="elector-cambio-sede")
+        PerfilUsuario.objects.create(usuario=self.usuario_elector, elector=self.registro.elector)
+
+    def test_aprobar_solicitud_cambia_sede_y_reasigna_mesa(self):
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+
+        resolver_solicitud_cambio_sede(solicitud, SolicitudCambioSede.Estado.APROBADA, self.usuario)
+
+        self.registro.refresh_from_db()
+        solicitud.refresh_from_db()
+        self.assertEqual(self.registro.sede, self.sede_destino)
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.APROBADA)
+        self.assertEqual(self.registro.asignacion_mesa.mesa.sede, self.sede_destino)
+
+    def test_elector_solo_puede_registrar_una_solicitud_por_eleccion(self):
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate() + timedelta(days=2)
+        self.eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
+        self.client.force_login(self.usuario_elector)
+        url = reverse("mis-solicitudes-cambio-sede")
+
+        primera = self.client.post(
+            url,
+            {"sede_destino": self.sede_destino.id, "observacion": "Primera solicitud"},
+            follow=True,
+        )
+        segunda = self.client.post(
+            url,
+            {"sede_destino": self.sede_destino.id, "observacion": "Segunda solicitud"},
+            follow=True,
+        )
+
+        self.assertEqual(primera.status_code, 200)
+        self.assertEqual(segunda.status_code, 200)
+        self.assertEqual(
+            SolicitudCambioSede.objects.filter(registro_padron=self.registro).count(),
+            1,
+        )
+        self.assertContains(segunda, "Ya registraste una solicitud de cambio de sede para esta elección.")
+
+    def test_mis_solicitudes_oculta_formulario_cuando_ya_existe_una_solicitud(self):
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate() + timedelta(days=2)
+        self.eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
+        SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        self.client.force_login(self.usuario_elector)
+
+        respuesta = self.client.get(reverse("mis-solicitudes-cambio-sede"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Ya registraste una solicitud de cambio de sede para esta elección.")
+        self.assertNotContains(respuesta, "Sede solicitada")
+
+    def test_aprobar_sin_agregar_mesas_rechaza_si_no_hay_mesa_disponible(self):
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        Mesa.objects.filter(eleccion=self.eleccion, sede=self.sede_destino).delete()
+
+        resultado = resolver_solicitudes_pendientes(
+            self.eleccion,
+            usuario=self.usuario,
+            accion="aprobar_sin_agregar_mesas",
+        )
+
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.RECHAZADA)
+        self.assertEqual(resultado["rechazadas"], 1)
+
+    def test_aprobar_con_maximo_total_deja_pendientes_las_que_requieren_mesas_excedentes(self):
+        self.eleccion_claustro.maximo_votantes_por_mesa = 1
+        self.eleccion_claustro.save(update_fields=("maximo_votantes_por_mesa",))
+        segunda_persona = Elector.objects.create(
+            dni="40111223",
+            legajo="L40111223",
+            nombre="Grace",
+            apellido="Hopper",
+        )
+        segundo_registro = RegistroPadron.objects.create(
+            elector=segunda_persona,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.registro.eleccion_claustro_departamento,
+            sede=self.sede_origen,
+        )
+        solicitudes = [
+            SolicitudCambioSede.objects.create(
+                registro_padron=registro,
+                sede_origen=self.sede_origen,
+                sede_destino=self.sede_destino,
+            )
+            for registro in (self.registro, segundo_registro)
+        ]
+
+        resultado = resolver_solicitudes_pendientes(
+            self.eleccion,
+            usuario=self.usuario,
+            accion="aprobar_con_maximo_mesas",
+            maximo_mesas_nuevas=1,
+        )
+
+        solicitudes[0].refresh_from_db()
+        solicitudes[1].refresh_from_db()
+        self.assertEqual(solicitudes[0].estado, SolicitudCambioSede.Estado.APROBADA)
+        self.assertEqual(solicitudes[1].estado, SolicitudCambioSede.Estado.PENDIENTE)
+        self.assertEqual(resultado["aprobadas"], 1)
+        self.assertEqual(resultado["pendientes"], 1)
+        self.assertEqual(Mesa.objects.filter(eleccion=self.eleccion, sede=self.sede_destino).count(), 1)
+
+    def test_maximo_total_de_mesas_rechaza_entrada_negativa(self):
+        with self.assertRaisesMessage(ValueError, "no puede ser negativo"):
+            resolver_solicitudes_pendientes(
+                self.eleccion,
+                usuario=self.usuario,
+                accion="aprobar_con_maximo_mesas",
+                maximo_mesas_nuevas=-1,
+            )
+
+    def test_gestion_muestra_cantidad_actual_de_mesas_por_sede(self):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(
+            reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.id,))
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        resumen = {
+            item["sede_nombre"]: item["mesas_actuales"]
+            for item in respuesta.context["resumen_mesas_por_sede"]
+        }
+        self.assertEqual(resumen, {"Campus": 1, "Medrano": 0})
+        self.assertEqual(respuesta.context["mesas_nuevas_si_aceptar_todas"], 1)
+        self.assertContains(respuesta, "Aceptar con límite de mesas nuevas")
+        self.assertNotContains(respuesta, "Aceptar con límite por sede")
+        self.assertContains(respuesta, "id=\"dialogo-limite-mesas\"")
+        self.assertContains(respuesta, "Mesas actuales por sede")
+        self.assertContains(respuesta, "resolucion-masiva-layout")
+
+    def test_boton_limite_de_mesas_se_muestra_deshabilitado_sin_solicitudes_pendientes(self):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(
+            reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.id,))
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(
+            respuesta,
+            '<button class="button secondary" type="button" id="abrir-dialogo-limite-mesas" '
+            'aria-haspopup="dialog" aria-controls="dialogo-limite-mesas" '
+            'disabled aria-describedby="sin-solicitudes-pendientes">Aceptar con límite de mesas nuevas</button>',
+            html=True,
+        )
+        self.assertContains(respuesta, "No hay solicitudes pendientes para resolver.")
+
+    def test_resolucion_con_maximo_no_acepta_un_valor_vacio(self):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.id,)),
+            {"accion": "aprobar_con_maximo_mesas", "maximo_mesas_nuevas": ""},
+        )
+
+        solicitud.refresh_from_db()
+        self.assertRedirects(
+            respuesta,
+            reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.id,)),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.PENDIENTE)
+        self.assertFalse(Mesa.objects.filter(eleccion=self.eleccion, sede=self.sede_destino).exists())

@@ -9,10 +9,47 @@ from apps.padron.models import (
     PadronVotacion,
     ReglaAsignacionSede,
     ReglaSedeClaustro,
+    SolicitudCambioSede,
 )
 from apps.partidos.models import PuestoEleccion
 from apps.padron.services import alcances_con_sedes_multiples
 from apps.parametros.models import Sede
+
+
+class FormularioSolicitudCambioSede(forms.ModelForm):
+    class Meta:
+        model = SolicitudCambioSede
+        fields = ("sede_destino", "observacion")
+        widgets = {
+            "sede_destino": forms.Select(attrs={"class": "form-select"}),
+            "observacion": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+    def __init__(self, *args, registro_padron, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.registro_padron = registro_padron
+        self.fields["sede_destino"].queryset = Sede.objects.filter(
+            activa=True,
+            elecciones_departamento_sede__eleccion_claustro_departamento=registro_padron.eleccion_claustro_departamento,
+        ).exclude(pk=registro_padron.sede_id).distinct().order_by("nombre")
+        self.fields["observacion"].required = False
+
+    def save(self, commit=True):
+        solicitud = super().save(commit=False)
+        solicitud.registro_padron = self.registro_padron
+        solicitud.sede_origen = self.registro_padron.sede
+        solicitud.estado = SolicitudCambioSede.Estado.PENDIENTE
+        if commit:
+            solicitud.save()
+        return solicitud
+
+    def clean(self):
+        datos = super().clean()
+        if self.registro_padron and SolicitudCambioSede.objects.filter(
+            registro_padron=self.registro_padron
+        ).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Solo se permite una solicitud de cambio de sede por elección.")
+        return datos
 
 
 class FormularioArchivoPadron(forms.Form):

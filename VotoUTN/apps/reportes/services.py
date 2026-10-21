@@ -5,6 +5,7 @@ from django.http import Http404, HttpResponse
 from apps.asistencia.models import RegistroParticipacion
 from apps.autoridades.models import AsignacionAutoridad
 from apps.justificativos.models import JustificativoAusencia
+from apps.mesas.models import Mesa
 
 
 def valor_csv(valor):
@@ -108,6 +109,28 @@ def exportar_reporte_eleccion(eleccion, tipo):
         for error in eleccion.importaciones_padron.prefetch_related("errores").all():
             for detalle in error.errores.all():
                 escritor.writerow([valor_csv(valor) for valor in (error.nombre_archivo, detalle.fila, detalle.campo, detalle.mensaje)])
+    elif tipo == "infractores":
+        escritor.writerow(("elector", "legajo", "dni", "sede", "mesa", "estado_justificativo"))
+        ausentes = eleccion.registros_padron.filter(
+            activo=True,
+            asignacion_mesa__mesa__estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
+            participaciones__isnull=True,
+        ).select_related("elector", "sede", "asignacion_mesa__mesa").distinct()
+        for registro in ausentes:
+            justificativos = JustificativoAusencia.objects.filter(registro_padron=registro)
+            if justificativos.filter(estado=JustificativoAusencia.Estado.APROBADO).exists():
+                continue
+            estado_justificativo = "rechazado" if justificativos.filter(estado=JustificativoAusencia.Estado.RECHAZADO).exists() else "sin_justificativo"
+            escritor.writerow(
+                (
+                    valor_csv(registro.elector.nombre_completo),
+                    valor_csv(registro.elector.legajo),
+                    valor_csv(registro.elector.dni),
+                    valor_csv(registro.sede),
+                    valor_csv(getattr(getattr(registro, "asignacion_mesa", None), "mesa", "")),
+                    estado_justificativo,
+                )
+            )
     else:
         raise Http404()
 

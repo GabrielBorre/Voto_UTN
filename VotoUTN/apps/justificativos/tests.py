@@ -74,8 +74,8 @@ class JustificativosViewsTests(TestCase):
             nombre="Elección reciente",
             fecha_inicio=make_aware(datetime(2026, 9, 3, 8)),
             fecha_fin=make_aware(datetime(2026, 9, 3, 16)),
-            estado=Eleccion.Estado.CERRADA,
-            habilitada=False,
+            estado=Eleccion.Estado.PREPARADA,
+            habilitada=True,
         )
         registro_reciente = self.crear_registro_padron(elector, eleccion_reciente)
         usuario = get_user_model().objects.create_user(username="elector", password="clave")
@@ -92,6 +92,40 @@ class JustificativosViewsTests(TestCase):
         self.assertEqual(respuesta.context["eleccion"], registro_reciente.eleccion)
         self.assertContains(respuesta, registro_reciente.eleccion.nombre)
         self.assertNotContains(respuesta, 'name="registro_padron"')
+
+    def test_presentacion_habilitada_en_elecciones_publicadas_y_en_curso(self):
+        usuario, _, registro = self.crear_elector_con_padrones()
+        self.client.force_login(usuario)
+
+        for estado in (Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA):
+            with self.subTest(estado=estado):
+                Eleccion.objects.filter(pk=registro.eleccion_id).update(estado=estado)
+
+                respuesta = self.client.get(reverse("mis-justificativos"))
+
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertEqual(respuesta.context["eleccion"].estado, estado)
+                self.assertTrue(respuesta.context["estado_habilitado"])
+                self.assertTrue(respuesta.context["puede_presentar"])
+                self.assertContains(respuesta, 'id="btn-presentar"')
+
+    def test_presentacion_bloqueada_en_eleccion_en_preparacion(self):
+        usuario, _, registro = self.crear_elector_con_padrones()
+        Eleccion.objects.filter(pk=registro.eleccion_id).update(estado=Eleccion.Estado.BORRADOR)
+        tipo = TipoJustificativo.objects.create(nombre="Enfermedad")
+        self.client.force_login(usuario)
+
+        respuesta = self.client.post(
+            reverse("mis-justificativos"),
+            {"ausencia": "votar", "tipo": tipo.id, "detalle": "Detalle."},
+            follow=True,
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertFalse(respuesta.context["estado_habilitado"])
+        self.assertNotContains(respuesta, 'id="btn-presentar"')
+        self.assertContains(respuesta, "únicamente para elecciones publicadas o en curso")
+        self.assertFalse(JustificativoAusencia.objects.filter(registro_padron=registro).exists())
 
     def test_mis_justificativos_ignora_un_registro_padron_alterado_en_post(self):
         usuario, registro_anterior, registro_reciente = self.crear_elector_con_padrones()
@@ -148,6 +182,39 @@ class JustificativosViewsTests(TestCase):
             self.client.post(reverse("mis-justificativos"), {"ausencia": ausencia, "tipo": tipo.id, "detalle": "x"})
 
         self.assertEqual(JustificativoAusencia.objects.filter(registro_padron=registro).count(), 2)
+
+    def test_autoridad_puede_presentar_justificativo_en_eleccion_en_curso(self):
+        from apps.autoridades.models import AsignacionAutoridad
+        from apps.mesas.models import Mesa
+        from apps.parametros.models import Sede, Turno
+
+        usuario, _, registro = self.crear_elector_con_padrones()
+        Eleccion.objects.filter(pk=registro.eleccion_id).update(estado=Eleccion.Estado.ABIERTA)
+        tipo = TipoJustificativo.objects.create(nombre="Motivo autoridad en curso")
+        turno = Turno.objects.create(nombre="Tarde", hora_inicio="13:00", hora_fin="17:00")
+        mesa = Mesa.objects.create(
+            eleccion=registro.eleccion,
+            eleccion_claustro_departamento=registro.eleccion_claustro_departamento,
+            sede=Sede.objects.create(nombre="Campus autoridad"),
+            numero=1,
+        )
+        AsignacionAutoridad.objects.bulk_create(
+            [AsignacionAutoridad(registro_padron=registro, mesa=mesa, turno=turno, asignada_por=usuario)]
+        )
+        self.client.force_login(usuario)
+
+        respuesta = self.client.post(
+            reverse("mis-justificativos"),
+            {"ausencia": "autoridad", "tipo": tipo.id, "detalle": "No puede asistir."},
+        )
+
+        self.assertRedirects(respuesta, reverse("mis-justificativos"))
+        self.assertTrue(
+            JustificativoAusencia.objects.filter(
+                registro_padron=registro,
+                ausencia=JustificativoAusencia.Ausencia.AUTORIDAD,
+            ).exists()
+        )
 
     def test_bandeja_justificativos_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")

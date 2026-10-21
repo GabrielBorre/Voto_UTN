@@ -53,9 +53,9 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
     def test_deshabilita_nueva_eleccion_y_muestra_el_estado_en_curso(self):
         for estado, etiqueta in (
-            (Eleccion.Estado.BORRADOR, "Borrador"),
-            (Eleccion.Estado.PREPARADA, "Preparada"),
-            (Eleccion.Estado.ABIERTA, "Abierta"),
+            (Eleccion.Estado.BORRADOR, "En preparación"),
+            (Eleccion.Estado.PREPARADA, "Publicada"),
+            (Eleccion.Estado.ABIERTA, "En curso"),
         ):
             with self.subTest(estado=estado):
                 self.eleccion_asignada.estado = estado
@@ -202,7 +202,7 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         respuesta = self.client.get(reverse("crear-eleccion"))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'type="date"', count=2)
+        self.assertContains(respuesta, 'type="date"', count=3)
         self.assertContains(respuesta, 'class="help-tip-icon"', count=3)
         self.assertContains(respuesta, 'role="tooltip"', count=3)
         self.assertContains(respuesta, "Nombre de la elección")

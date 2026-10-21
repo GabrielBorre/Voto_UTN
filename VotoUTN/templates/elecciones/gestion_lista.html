@@ -22,7 +22,7 @@
 <div class="section-title" id="elecciones">
     <div>
         <h2>Elección gestionable</h2>
-        <p>Proceso en borrador, preparado o abierto para la Junta.</p>
+        <p>Proceso en preparación, publicado o en curso para la Junta.</p>
     </div>
     <span class="tag">Junta Electoral</span>
 </div>
@@ -44,7 +44,7 @@
                     <td><span class="pill info">{{ eleccion.get_estado_display }}</span></td>
                     <td>{{ eleccion.fecha_inicio|date:"d/m/Y" }}</td>
                     <td>{{ eleccion.fecha_fin|date:"d/m/Y" }}</td>
-                    <td class="actions"><a class="button light small" href="{% url 'configurar-eleccion' eleccion.id %}">Configuracion</a>{% if eleccion.estado == 'borrador' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="preparada"><button class="button secondary small">Preparar</button></form>{% elif eleccion.estado == 'preparada' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="abierta"><button class="button primary small">Abrir</button></form>{% elif eleccion.estado == 'abierta' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="cerrada"><button class="button secondary small">Cerrar</button></form>{% endif %}</td>
+                    <td class="actions"><a class="button light small" href="{% url 'configurar-eleccion' eleccion.id %}">Configuración</a>{% if eleccion.estado == 'borrador' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" onsubmit="return confirm('¿Confirmás publicar la elección? Luego no podrás cargar más electores.');">{% csrf_token %}<input type="hidden" name="estado" value="preparada"><button class="button secondary small">Publicar</button></form>{% elif eleccion.estado == 'preparada' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" onsubmit="return confirm('¿Confirmás iniciar la elección? Se habilitará el escaneo de QR.');">{% csrf_token %}<input type="hidden" name="estado" value="abierta"><button class="button primary small">Iniciar elección</button></form>{% elif eleccion.estado == 'abierta' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" onsubmit="return confirm('¿Confirmás finalizar la elección?');">{% csrf_token %}<input type="hidden" name="estado" value="cerrada"><button class="button secondary small">Finalizar</button></form>{% endif %}</td>
                 </tr>
                 {% empty %}
                 <tr>

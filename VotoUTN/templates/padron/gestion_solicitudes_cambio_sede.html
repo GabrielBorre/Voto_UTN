@@ -1,0 +1,159 @@
+{% extends "gestion/base.html" %}
+{% load static %}
+{% block title %}Solicitudes de cambio de sede | {{ eleccion.nombre }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Solicitudes de cambio de sede</h1>
+  <p>{{ eleccion.nombre }} · {{ pendientes }} pendientes</p>
+</section>
+
+<section class="card management-section resolucion-masiva-layout">
+  <div class="resolucion-masiva-acciones">
+    <div class="section-title">
+      <div>
+        <h2>Resolución masiva</h2>
+        <p>Podés aprobar o rechazar todas las solicitudes pendientes.</p>
+      </div>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="aprobar_todas">
+      <div class="footer-actions">
+        <button class="button primary" onclick="return confirm('Se aprobarán todas las solicitudes y se crearán las mesas necesarias sin límite. ¿Continuar?');">Aceptar todas sin límite de mesas nuevas</button>
+      </div>
+    </form>
+    <form method="post" id="formulario-aprobar-con-limite-mesas">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="aprobar_con_maximo_mesas">
+      <input type="hidden" name="maximo_mesas_nuevas" id="maximo_mesas_nuevas">
+      <div class="footer-actions">
+        <button
+          class="button secondary"
+          type="button"
+          id="abrir-dialogo-limite-mesas"
+          aria-haspopup="dialog"
+          aria-controls="dialogo-limite-mesas"
+          {% if not pendientes %}disabled aria-describedby="sin-solicitudes-pendientes"{% endif %}
+        >Aceptar con límite de mesas nuevas</button>
+      </div>
+      {% if not pendientes %}
+      <small id="sin-solicitudes-pendientes">No hay solicitudes pendientes para resolver.</small>
+      {% endif %}
+    </form>
+        <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="aprobar_sin_agregar_mesas">
+      <div class="footer-actions">
+        <button class="button secondary" onclick="return confirm('Se aprobarán sin crear mesas nuevas. Las que no se puedan resolver quedarán rechazadas.');">Aceptar sin agregar mesas</button>
+      </div>
+    </form>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="rechazar_todas">
+      <div class="footer-actions">
+        <button class="button light" onclick="return confirm('Se rechazarán todas las solicitudes pendientes.');">Rechazar todas</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="resolucion-masiva-mesas">
+    <div class="section-title">
+      <div>
+        <h2>Mesas actuales por sede</h2>
+        <p>La cantidad estimada de mesas adicionales ayuda a evaluar el impacto de las solicitudes pendientes.</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Sede</th><th>Mesas actuales</th><th>Mesas adicionales estimadas</th></tr>
+        </thead>
+        <tbody>
+          {% for item in resumen_mesas_por_sede %}
+          <tr>
+            <td>{{ item.sede_nombre }}</td>
+            <td>{{ item.mesas_actuales }}</td>
+            <td>{{ item.mesas_adicionales_estimadas }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="muted">No hay sedes configuradas para esta elección.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% if pendientes %}
+<dialog class="dialogo-limite-mesas" id="dialogo-limite-mesas" aria-labelledby="titulo-dialogo-limite-mesas">
+  <form method="dialog" id="formulario-dialogo-limite-mesas">
+    <h2 id="titulo-dialogo-limite-mesas">Aceptar con límite de mesas nuevas</h2>
+    <p>
+      Si se aceptaran todas las solicitudes pendientes, se crearían
+      <strong>{{ mesas_nuevas_si_aceptar_todas }}</strong>
+      {% if mesas_nuevas_si_aceptar_todas == 1 %}mesa nueva{% else %}mesas nuevas{% endif %}.
+    </p>
+    <div class="field">
+      <label for="cantidad-maxima-mesas-nuevas">¿Cuál es la cantidad máxima de mesas nuevas que se pueden crear?</label>
+      <input
+        class="form-control"
+        type="number"
+        min="0"
+        step="1"
+        id="cantidad-maxima-mesas-nuevas"
+        required
+        inputmode="numeric"
+      >
+      <small>Las solicitudes que superen ese máximo permanecerán pendientes.</small>
+    </div>
+    <div class="footer-actions">
+      <button class="button light" type="button" id="cancelar-dialogo-limite-mesas">Cancelar</button>
+      <button class="button primary" type="submit" value="aceptar">Continuar</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+
+<section class="card management-section">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Elector</th><th>Claustro</th><th>Origen</th><th>Destino</th><th>Estado</th><th>Acciones</th></tr>
+      </thead>
+      <tbody>
+        {% for solicitud in solicitudes %}
+        <tr>
+          <td>{{ solicitud.registro_padron.elector.nombre_completo }}</td>
+          <td>{{ solicitud.registro_padron.eleccion_claustro_departamento.eleccion_claustro.claustro }}</td>
+          <td>{{ solicitud.sede_origen }}</td>
+          <td>{{ solicitud.sede_destino }}</td>
+          <td><span class="pill info">{{ solicitud.get_estado_display }}</span></td>
+          <td>
+            {% if solicitud.estado == 'pendiente' %}
+            <form class="inline-form" method="post">
+              {% csrf_token %}
+              <input type="hidden" name="solicitud_id" value="{{ solicitud.id }}">
+              <input type="hidden" name="accion" value="aprobar">
+              <button class="button primary small">Aprobar</button>
+            </form>
+            <form class="inline-form" method="post">
+              {% csrf_token %}
+              <input type="hidden" name="solicitud_id" value="{{ solicitud.id }}">
+              <input type="hidden" name="accion" value="rechazar">
+              <button class="button light small">Rechazar</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="muted">No hay solicitudes para esta elección.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{% static 'js/solicitudes-cambio-sede.js' %}"></script>
+{% endblock %}

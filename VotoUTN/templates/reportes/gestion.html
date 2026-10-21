@@ -76,6 +76,11 @@
     <div class="report-actions">
       <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'justificativos' %}">Exportar justificativos</a>
       <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'errores-importacion' %}">Exportar errores de importación</a>
+      {% if puede_exportar_infractores %}
+      <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'infractores' %}">Exportar infractores</a>
+      {% else %}
+      <button class="button light" type="button" disabled>Exportar infractores</button>
+      {% endif %}
     </div>
   </article>
 </section>

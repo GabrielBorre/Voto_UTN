@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     configurar_eleccion,
     cambiar_estado_eleccion,
+    confirmar_notificaciones_ausentes,
     crear_eleccion,
     editar_alcance_sedes,
     editar_eleccion,
@@ -42,6 +43,11 @@ urlpatterns = [
         name="gestionar-fechas-administrativas",
     ),
     path("gestion/elecciones/<int:eleccion_id>/estado/", cambiar_estado_eleccion, name="cambiar-estado-eleccion"),
+    path(
+        "gestion/elecciones/<int:eleccion_id>/confirmar-notificaciones-ausentes/",
+        confirmar_notificaciones_ausentes,
+        name="confirmar-notificaciones-ausentes",
+    ),
     path("gestion/elecciones/<int:eleccion_id>/alcances/", gestionar_alcances, name="gestionar-alcances"),
     path(
         "gestion/elecciones/<int:eleccion_id>/alcances/claustros/<int:claustro_id>/departamentos/",

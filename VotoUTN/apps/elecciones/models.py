@@ -9,10 +9,10 @@ ESTADOS_ELECCION_NO_CERRADOS = ("borrador", "preparada", "abierta")
 
 class Eleccion(models.Model):
     class Estado(models.TextChoices):
-        BORRADOR = "borrador", "Borrador"
-        PREPARADA = "preparada", "Preparada"
-        ABIERTA = "abierta", "Abierta"
-        CERRADA = "cerrada", "Cerrada"
+        BORRADOR = "borrador", "En preparación"
+        PREPARADA = "preparada", "Publicada"
+        ABIERTA = "abierta", "En curso"
+        CERRADA = "cerrada", "Finalizada"
 
     nombre = models.CharField("nombre", max_length=180)
     fecha_inicio = models.DateField("fecha de inicio del proceso")
@@ -21,8 +21,10 @@ class Eleccion(models.Model):
     fecha_cierre_padron_provisorio = models.DateField(null=True, blank=True)
     fecha_cierre_candidaturas = models.DateField(null=True, blank=True)
     fecha_publicacion_padron_definitivo = models.DateField(null=True, blank=True)
+    fecha_cierre_solicitudes_cambio_sede = models.DateField(null=True, blank=True)
     fecha_limite_justificacion_autoridades = models.DateField(null=True, blank=True)
     fecha_limite_justificacion_electores = models.DateField(null=True, blank=True)
+    notificaciones_ausentes_confirmadas_en = models.DateTimeField(null=True, blank=True, editable=False)
     habilitada = models.BooleanField("habilitada", default=True)
     estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.BORRADOR)
     maximo_autoridades_por_mesa = models.PositiveSmallIntegerField(default=3)
@@ -54,6 +56,7 @@ class Eleccion(models.Model):
             ("fecha_apertura_padron_provisorio", "fecha_cierre_padron_provisorio"),
             ("fecha_cierre_padron_provisorio", "fecha_publicacion_padron_definitivo"),
             ("fecha_publicacion_padron_definitivo", "fecha_inicio"),
+            ("fecha_inicio", "fecha_cierre_solicitudes_cambio_sede"),
         )
         for inicial, final in fechas_ordenadas:
             valor_inicial = getattr(self, inicial)
@@ -84,9 +87,15 @@ class Eleccion(models.Model):
         self._validar_estado_unico(nuevo_estado)
         self.validar_configuracion()
         if nuevo_estado == self.Estado.ABIERTA and not self.mesas.exists():
-            raise ValidationError("La eleccion debe tener al menos una mesa antes de abrirse.")
+            raise ValidationError("La eleccion debe tener al menos una mesa antes de iniciarse.")
+        if nuevo_estado == self.Estado.PREPARADA:
+            claustros_sin_padron = self.elecciones_claustro.exclude(
+                departamentos__registros_padron__activo=True
+            )
+            if claustros_sin_padron.exists():
+                raise ValidationError("Debe existir al menos una importación de padrón válida por cada claustro antes de publicar la elección.")
         self.estado = nuevo_estado
-        self.habilitada = nuevo_estado == self.Estado.ABIERTA
+        self.habilitada = nuevo_estado in (self.Estado.PREPARADA, self.Estado.ABIERTA)
         self.save(update_fields=("estado", "habilitada"))
 
     def __str__(self):

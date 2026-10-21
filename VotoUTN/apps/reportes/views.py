@@ -4,6 +4,7 @@ from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.elecciones.models import Eleccion
+from apps.justificativos.models import JustificativoAusencia
 from apps.padron.services import registrar_emision_padron_imprimible
 from apps.reportes.services import exportar_reporte_eleccion
 from apps.reportes.services_pdf import (
@@ -31,6 +32,11 @@ def gestionar_reportes(request, eleccion_id):
             "eleccion": eleccion,
             "validacion_padron_pdf": validar_padron_para_pdf(eleccion),
             "validacion_boletas_pdf": validar_boletas_pdf(eleccion),
+            "puede_exportar_infractores": eleccion.estado == Eleccion.Estado.CERRADA
+            and not JustificativoAusencia.objects.filter(
+                registro_padron__eleccion=eleccion,
+                estado=JustificativoAusencia.Estado.PENDIENTE,
+            ).exists(),
         },
     )
 
@@ -40,6 +46,14 @@ def exportar_reporte(request, eleccion_id, tipo):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para exportar informacion.")
+    if tipo == "infractores":
+        if eleccion.estado != Eleccion.Estado.CERRADA:
+            return HttpResponseForbidden("La exportación de infractores solo está disponible para elecciones finalizadas.")
+        if JustificativoAusencia.objects.filter(
+            registro_padron__eleccion=eleccion,
+            estado=JustificativoAusencia.Estado.PENDIENTE,
+        ).exists():
+            return HttpResponseForbidden("No se puede exportar infractores con justificativos pendientes de resolución.")
     return exportar_reporte_eleccion(eleccion, tipo)
 
 

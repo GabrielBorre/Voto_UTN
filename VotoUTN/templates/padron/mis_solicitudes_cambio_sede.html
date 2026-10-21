@@ -1,0 +1,73 @@
+{% extends "gestion/base.html" %}
+{% block title %}Cambio de sede | Voto UTN{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Solicitud de cambio de sede</h1>
+  <p>Pedí el cambio de sede para tu elección publicada.</p>
+</section>
+
+{% if registro %}
+<section class="card management-section">
+  <div class="section-title">
+    <div>
+      <h2>{{ registro.eleccion.nombre }}</h2>
+      <p>Sede actual: <strong>{{ registro.sede|default:"Sin asignar" }}</strong></p>
+      {% if registro.eleccion.fecha_cierre_solicitudes_cambio_sede %}
+      <p>Cierre de solicitudes: {{ registro.eleccion.fecha_cierre_solicitudes_cambio_sede|date:"d/m/Y" }}</p>
+      {% endif %}
+    </div>
+  </div>
+  {% if solicitud_existente %}
+  <div class="notice">Ya registraste una solicitud de cambio de sede para esta elección.</div>
+  {% elif periodo_habilitado %}
+  <form method="post">
+    {% csrf_token %}
+    <div class="field">
+      <label for="{{ formulario.sede_destino.id_for_label }}">Sede solicitada</label>
+      {{ formulario.sede_destino }}
+      {% for error in formulario.sede_destino.errors %}<div class="error">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="field">
+      <label for="{{ formulario.observacion.id_for_label }}">Motivo (opcional)</label>
+      {{ formulario.observacion }}
+      {% for error in formulario.observacion.errors %}<div class="error">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="footer-actions"><button class="button primary">Enviar solicitud</button></div>
+  </form>
+  {% else %}
+  <div class="notice">El período de solicitudes no está habilitado para esta elección.</div>
+  {% endif %}
+</section>
+{% else %}
+<section class="card management-section">
+  <h2>Sin elección publicada activa</h2>
+  <p class="muted">No hay registros de padrón habilitados para solicitar cambios.</p>
+</section>
+{% endif %}
+
+<section class="card management-section">
+  <div class="section-title">
+    <div><h2>Historial de solicitudes</h2></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Elección</th><th>Origen</th><th>Destino</th><th>Estado</th><th>Fecha</th></tr>
+      </thead>
+      <tbody>
+        {% for solicitud in solicitudes %}
+        <tr>
+          <td>{{ solicitud.registro_padron.eleccion }}</td>
+          <td>{{ solicitud.sede_origen }}</td>
+          <td>{{ solicitud.sede_destino }}</td>
+          <td><span class="pill info">{{ solicitud.get_estado_display }}</span></td>
+          <td>{{ solicitud.creada_en|date:"d/m/Y H:i" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="muted">Todavía no realizaste solicitudes.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

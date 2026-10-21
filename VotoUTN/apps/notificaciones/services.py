@@ -7,6 +7,9 @@ from django.core.mail import BadHeaderError, send_mail
 from django.utils import timezone
 
 from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
+from apps.elecciones.models import Eleccion
+from apps.mesas.models import Mesa
+from apps.padron.models import RegistroPadron
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 from apps.usuarios.services import elector_de_identidad
 
@@ -70,6 +73,161 @@ def crear_notificacion_resultado_justificativo(justificativo):
             "observacion_resolucion": justificativo.observacion_resolucion or "Sin observaciones.",
         },
     )
+
+
+def crear_notificacion_resultado_cambio_sede(solicitud):
+    elector = solicitud.registro_padron.elector
+    eleccion = solicitud.registro_padron.eleccion
+    plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+        codigo="cambio-sede-resolucion",
+        defaults={
+            "nombre": "Cambio de sede: resolución",
+            "categoria": PlantillaNotificacion.Categoria.TRANSACCIONAL,
+            "asunto": "Resolución de solicitud de cambio de sede: {nombre_eleccion}",
+            "contenido": (
+                "Hola {nombre_destinatario},\n\n"
+                "Tu solicitud de cambio de sede para la elección {nombre_eleccion} "
+                "fue {estado_solicitud}.\n\n"
+                "Sede solicitada: {sede_solicitada}\n"
+                "Observación: {observacion_resolucion}\n\nVoto UTN"
+            ),
+            "roles_destinatarios": [AsignacionRol.Rol.ELECTOR],
+            "permite_envio_manual": False,
+        },
+    )
+    return crear_notificacion(
+        plantilla=plantilla,
+        eleccion=eleccion,
+        elector=elector,
+        contexto={
+            "nombre_destinatario": elector.nombre_completo,
+            "nombre_eleccion": eleccion.nombre,
+            "estado_solicitud": solicitud.get_estado_display().lower(),
+            "sede_solicitada": solicitud.sede_destino.nombre,
+            "observacion_resolucion": solicitud.observacion_resolucion or "Sin observaciones.",
+        },
+    )
+
+
+def notificar_eleccion_publicada(eleccion):
+    plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+        codigo="eleccion-publicada-padron-definitivo",
+        defaults={
+            "nombre": "Elección publicada: padrón definitivo",
+            "categoria": PlantillaNotificacion.Categoria.JORNADA,
+            "asunto": "Padrón definitivo disponible: {nombre_eleccion}",
+            "contenido": (
+                "Hola {nombre_destinatario},\n\n"
+                "La elección {nombre_eleccion} fue publicada y el padrón definitivo ya está disponible.\n"
+                "Podés revisar tu sede de votación y solicitar cambio de sede hasta la fecha de cierre habilitada.\n\n"
+                "Voto UTN"
+            ),
+            "roles_destinatarios": [AsignacionRol.Rol.ELECTOR],
+            "permite_envio_manual": False,
+        },
+    )
+    _notificar_electores_de_eleccion(eleccion, plantilla)
+
+
+def notificar_eleccion_en_curso(eleccion):
+    plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+        codigo="eleccion-en-curso-asignacion-mesa",
+        defaults={
+            "nombre": "Elección en curso: sede y mesa",
+            "categoria": PlantillaNotificacion.Categoria.JORNADA,
+            "asunto": "Tu mesa para {nombre_eleccion}",
+            "contenido": (
+                "Hola {nombre_destinatario},\n\n"
+                "La elección {nombre_eleccion} está en curso.\n"
+                "Tu sede asignada es {sede} y tu mesa es {mesa}.\n\n"
+                "Voto UTN"
+            ),
+            "roles_destinatarios": [AsignacionRol.Rol.ELECTOR],
+            "permite_envio_manual": False,
+        },
+    )
+    _notificar_electores_de_eleccion(eleccion, plantilla)
+
+
+@transaction.atomic
+def crear_notificaciones_ausentes_confirmadas(eleccion):
+    eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+    if eleccion.estado != Eleccion.Estado.ABIERTA:
+        raise ValueError("Las notificaciones de ausentes solo se pueden confirmar durante una elección en curso.")
+    if eleccion.notificaciones_ausentes_confirmadas_en:
+        raise ValueError("Las notificaciones a ausentes ya fueron confirmadas para esta elección.")
+    mesas = Mesa.objects.filter(eleccion=eleccion)
+    if not mesas.exists():
+        raise ValueError("La elección no tiene mesas para verificar el cierre del escaneo.")
+    if mesas.exclude(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA).exists():
+        raise ValueError("Todas las mesas deben estar escaneadas y confirmadas antes de notificar a los ausentes.")
+
+    plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+        codigo="aviso-ausentes-eleccion",
+        defaults={
+            "nombre": "Ausentes: período de justificativos",
+            "categoria": PlantillaNotificacion.Categoria.JORNADA,
+            "asunto": "Información sobre tu participación: {nombre_eleccion}",
+            "contenido": (
+                "Hola {nombre_destinatario},\n\n"
+                "En los registros de la elección {nombre_eleccion} figurás como ausente. "
+                "Podés presentar un justificativo dentro del período habilitado desde Voto UTN.\n\n"
+                "Si considerás que esta información es incorrecta, comunicate con la Junta Electoral.\n\n"
+                "Voto UTN"
+            ),
+            "roles_destinatarios": [AsignacionRol.Rol.ELECTOR],
+            "permite_envio_manual": False,
+        },
+    )
+    registros_ausentes = RegistroPadron.objects.filter(
+        eleccion=eleccion,
+        activo=True,
+        asignacion_mesa__mesa__estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
+        participaciones__isnull=False,
+    ).select_related("elector").distinct()
+    envios = [
+        EnvioNotificacion(
+            plantilla=plantilla,
+            eleccion=eleccion,
+            elector=registro.elector,
+            asunto=plantilla.asunto.format(
+                nombre_destinatario=registro.elector.nombre_completo,
+                nombre_eleccion=eleccion.nombre,
+            ),
+            contenido=plantilla.contenido.format(
+                nombre_destinatario=registro.elector.nombre_completo,
+                nombre_eleccion=eleccion.nombre,
+            ),
+        )
+        for registro in registros_ausentes
+    ]
+    EnvioNotificacion.objects.bulk_create(envios)
+    eleccion.notificaciones_ausentes_confirmadas_en = timezone.now()
+    eleccion.save(update_fields=("notificaciones_ausentes_confirmadas_en",))
+    return envios
+
+
+def _notificar_electores_de_eleccion(eleccion, plantilla):
+    from apps.padron.models import RegistroPadron
+
+    registros = RegistroPadron.objects.filter(eleccion=eleccion, activo=True).select_related(
+        "elector",
+        "sede",
+        "asignacion_mesa__mesa",
+    )
+    for registro in registros:
+        envio = crear_notificacion(
+            plantilla=plantilla,
+            eleccion=eleccion,
+            elector=registro.elector,
+            contexto={
+                "nombre_destinatario": registro.elector.nombre_completo,
+                "nombre_eleccion": eleccion.nombre,
+                "sede": registro.sede.nombre if registro.sede_id else "Sin asignar",
+                "mesa": str(registro.asignacion_mesa.mesa.numero) if hasattr(registro, "asignacion_mesa") else "Sin asignar",
+            },
+        )
+        enviar_notificacion(envio)
 
 
 def enviar_notificacion(envio):

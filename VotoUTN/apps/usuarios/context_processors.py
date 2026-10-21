@@ -49,14 +49,17 @@ def navegacion_por_rol(request):
     )
 
     eleccion_justificativos = None
+    eleccion_cambio_sede = None
     if not es_elector:
         en_curso = Eleccion.objects.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS).order_by("-fecha_inicio", "-id")
         eleccion_justificativos = next(
             (e for e in en_curso if puede_revisar_justificativo(usuario, e)), None
         )
+        eleccion_cambio_sede = en_curso.filter(estado=Eleccion.Estado.PREPARADA).first()
 
     return {
         "nav_eleccion_justificativos": eleccion_justificativos,
+        "nav_eleccion_cambio_sede": eleccion_cambio_sede,
         "nav_es_elector": es_elector,
         "nav_es_autoridad": es_autoridad,
         "nav_es_administrador_junta": AsignacionRol.Rol.ADMINISTRADOR_JUNTA in roles,
@@ -64,7 +67,7 @@ def navegacion_por_rol(request):
         "nav_tiene_datos_elector": elector is not None,
         "nav_puede_ver_elecciones": puede_ver_elecciones,
         "nav_hay_eleccion_en_curso": puede_ver_elecciones
-        and Eleccion.objects.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS).exists(),
+        and Eleccion.objects.filter(estado=Eleccion.Estado.ABIERTA).exists(),
         "nav_puede_gestionar_elecciones": puede_administrar_elecciones(usuario),
         "nav_puede_crear_elecciones": puede_crear_elecciones(usuario),
         "nav_puede_gestionar_parametros": puede_administrar_parametros(usuario),

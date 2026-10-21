@@ -5,18 +5,21 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models import Count
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.elecciones.forms import FormularioPrepararClaustro
 from apps.elecciones.models import Eleccion, EleccionClaustro
+from apps.mesas.models import Mesa
 from apps.padron.models import (
     AsignacionSedePadron,
     ConfiguracionSedesClaustro,
     ImportacionPadron,
+    SolicitudCambioSede,
     ReglaSedeClaustro,
 )
-from apps.padron.forms import FormularioArchivoPadron, FormularioReglaSedeClaustro
+from apps.padron.forms import FormularioArchivoPadron, FormularioReglaSedeClaustro, FormularioSolicitudCambioSede
 from apps.padron.services_pdf import generar_padron_claustro_pdf, nombre_archivo_padron_claustro_pdf
 from apps.padron.services import (
     PLANTILLA_PADRON_EJEMPLO,
@@ -29,12 +32,21 @@ from apps.padron.services import (
     estado_eliminacion_padron_claustro,
     invalidar_asignaciones_sede_claustro,
     invalidar_calculo_padrones_votacion,
+    resolver_solicitud_cambio_sede,
+    resolver_solicitudes_pendientes,
     registrar_errores,
+    solicitudes_cambio_sede_habilitadas,
+    estimar_mesas_adicionales_por_sede,
     validar_csv_padron,
 )
 from apps.usuarios.permisos import puede_administrar_elecciones, puede_importar_padron, puede_configurar_eleccion
 from apps.padron.models import RegistroPadron
 from apps.padron.services import calcular_mesas_automaticas_eleccion, claustro_tiene_emision_vigente
+from apps.notificaciones.services import (
+    crear_notificacion_resultado_cambio_sede,
+    enviar_notificacion,
+)
+from apps.usuarios.services import elector_de_identidad
 
 
 @login_required
@@ -118,12 +130,12 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
     carga_archivo = request.method == "POST" and not configura_padron
     autoguardado = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.POST.get("autoguardado") == "1"
     puede_configurar = puede_configurar_eleccion(request.user, eleccion_claustro.eleccion)
-    puede_cargar = puede_configurar and eleccion_claustro.eleccion.estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA)
+    puede_cargar = puede_configurar and eleccion_claustro.eleccion.estado == Eleccion.Estado.BORRADOR
 
     if configura_padron and not puede_configurar:
         return HttpResponseForbidden("No tiene permiso para configurar este padrón.")
     if carga_archivo and not puede_cargar:
-        return HttpResponseForbidden("No se puede importar un padrón para una elección abierta o cerrada.")
+        return HttpResponseForbidden("Solo se puede importar padrón en estado En preparación.")
 
     formulario_configuracion = FormularioPrepararClaustro(
         request.POST if configura_padron else None,
@@ -323,7 +335,7 @@ def calcular_mesas_eleccion(request, eleccion_id):
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para calcular las mesas de esta elecciÃ³n.")
     if eleccion.estado not in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA):
-        messages.error(request, "Solo se pueden calcular o recalcular mesas antes de abrir la elecciÃ³n.")
+        messages.error(request, "Solo se pueden calcular o recalcular mesas antes de iniciar la elección.")
         return redirect("preparar-eleccion", eleccion_id=eleccion_id)
     try:
         resultado = calcular_mesas_automaticas_eleccion(eleccion, usuario=request.user, request=request)
@@ -471,3 +483,151 @@ def configurar_sedes_claustro(request, eleccion_id, claustro_id):
         "estado_filtro": estado_filtro,
         "rango_paginas": rango_paginas,
     })
+
+
+@login_required
+def mis_solicitudes_cambio_sede(request):
+    elector = elector_de_identidad(request.user)
+    if elector is None:
+        return HttpResponseForbidden("No existe un elector asociado a esta identidad.")
+    registros = RegistroPadron.objects.filter(
+        elector=elector,
+        activo=True,
+        eleccion__estado=Eleccion.Estado.PREPARADA,
+    ).select_related("eleccion", "sede", "eleccion_claustro_departamento__eleccion_claustro__claustro")
+    registro = registros.order_by("-eleccion__fecha_inicio", "-eleccion_id").first()
+    formulario = None
+    if registro is not None:
+        formulario = FormularioSolicitudCambioSede(request.POST or None, registro_padron=registro)
+        solicitud_existente = SolicitudCambioSede.objects.filter(registro_padron=registro).first()
+        if request.method == "POST":
+            if solicitud_existente is not None:
+                messages.error(request, "Ya registraste una solicitud de cambio de sede para esta elección.")
+                return redirect("mis-solicitudes-cambio-sede")
+            if not solicitudes_cambio_sede_habilitadas(registro.eleccion):
+                messages.error(request, "El período para solicitar cambio de sede no está habilitado.")
+                return redirect("mis-solicitudes-cambio-sede")
+            if formulario.is_valid():
+                formulario.save()
+                messages.success(request, "La solicitud fue enviada para revisión.")
+                return redirect("mis-solicitudes-cambio-sede")
+    else:
+        solicitud_existente = None
+    solicitudes = SolicitudCambioSede.objects.filter(
+        registro_padron__elector=elector,
+    ).select_related("registro_padron__eleccion", "sede_origen", "sede_destino", "resuelta_por")
+    return render(
+        request,
+        "padron/mis_solicitudes_cambio_sede.html",
+        {
+            "registro": registro,
+            "solicitudes": solicitudes,
+            "formulario": formulario,
+            "periodo_habilitado": bool(registro and solicitudes_cambio_sede_habilitadas(registro.eleccion)),
+            "solicitud_existente": solicitud_existente,
+        },
+    )
+
+
+@login_required
+def gestionar_solicitudes_cambio_sede(request, eleccion_id):
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para revisar solicitudes de cambio de sede.")
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+        observacion = request.POST.get("observacion_resolucion", "")
+        if accion in {"aprobar", "rechazar"}:
+            solicitud = get_object_or_404(
+                SolicitudCambioSede.objects.select_related("registro_padron__eleccion"),
+                pk=request.POST.get("solicitud_id"),
+                registro_padron__eleccion=eleccion,
+            )
+            try:
+                solicitud = resolver_solicitud_cambio_sede(
+                    solicitud,
+                    SolicitudCambioSede.Estado.APROBADA if accion == "aprobar" else SolicitudCambioSede.Estado.RECHAZADA,
+                    request.user,
+                    observacion,
+                )
+            except ValueError as error:
+                messages.error(request, str(error))
+            else:
+                envio = crear_notificacion_resultado_cambio_sede(solicitud)
+                enviar_notificacion(envio)
+                messages.success(request, "La solicitud fue resuelta y se notificó al elector.")
+            return redirect("gestionar-solicitudes-cambio-sede", eleccion_id=eleccion.id)
+
+        if accion in {
+            "aprobar_todas",
+            "aprobar_sin_agregar_mesas",
+            "aprobar_con_maximo_mesas",
+            "rechazar_todas",
+        }:
+            maximo_mesas_nuevas = None
+            if accion == "aprobar_con_maximo_mesas":
+                try:
+                    maximo_mesas_nuevas = int(request.POST.get("maximo_mesas_nuevas", ""))
+                    if maximo_mesas_nuevas < 0:
+                        raise ValueError
+                except ValueError:
+                    messages.error(request, "Ingresá un máximo de mesas nuevas entero y mayor o igual a cero.")
+                    return redirect("gestionar-solicitudes-cambio-sede", eleccion_id=eleccion.id)
+            try:
+                resultado = resolver_solicitudes_pendientes(
+                    eleccion,
+                    usuario=request.user,
+                    accion=accion,
+                    observacion_resolucion=observacion,
+                    maximo_mesas_nuevas=maximo_mesas_nuevas,
+                )
+            except ValueError as error:
+                messages.error(request, str(error))
+            else:
+                for solicitud in SolicitudCambioSede.objects.filter(pk__in=resultado["resueltas_ids"]):
+                    envio = crear_notificacion_resultado_cambio_sede(solicitud)
+                    enviar_notificacion(envio)
+                messages.success(
+                    request,
+                    f"Solicitudes resueltas. Aprobadas: {resultado['aprobadas']}. "
+                    f"Rechazadas: {resultado['rechazadas']}. Pendientes: {resultado['pendientes']}.",
+                )
+            return redirect("gestionar-solicitudes-cambio-sede", eleccion_id=eleccion.id)
+
+    solicitudes = SolicitudCambioSede.objects.filter(
+        registro_padron__eleccion=eleccion,
+    ).select_related(
+        "registro_padron__elector",
+        "registro_padron__eleccion_claustro_departamento__eleccion_claustro__claustro",
+        "sede_origen",
+        "sede_destino",
+    )
+    pendientes = solicitudes.filter(estado=SolicitudCambioSede.Estado.PENDIENTE)
+    impacto = estimar_mesas_adicionales_por_sede(eleccion, pendientes)
+    sedes = list(eleccion.elecciones_sede.select_related("sede").order_by("sede__nombre"))
+    nombres_sede = {item.sede_id: item.sede.nombre for item in sedes}
+    mesas_actuales_por_sede = dict(
+        Mesa.objects.filter(eleccion=eleccion, sede_id__in=[item.sede_id for item in sedes])
+        .values("sede_id")
+        .annotate(cantidad=Count("id"))
+        .values_list("sede_id", "cantidad")
+    )
+    resumen_mesas_por_sede = [
+        {
+            "sede_nombre": item.sede.nombre,
+            "mesas_actuales": mesas_actuales_por_sede.get(item.sede_id, 0),
+            "mesas_adicionales_estimadas": impacto.get(item.sede_id, 0),
+        }
+        for item in sedes
+    ]
+    return render(
+        request,
+        "padron/gestion_solicitudes_cambio_sede.html",
+        {
+            "eleccion": eleccion,
+            "solicitudes": solicitudes,
+            "pendientes": pendientes.count(),
+            "resumen_mesas_por_sede": resumen_mesas_por_sede,
+            "mesas_nuevas_si_aceptar_todas": sum(impacto.values()),
+        },
+    )
