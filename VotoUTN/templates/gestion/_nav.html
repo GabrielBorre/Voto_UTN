@@ -34,7 +34,6 @@
   {% if nav_es_autoridad %}
   <a class="{% if request.resolver_match.url_name == 'mis-asignaciones-autoridad' %}active{% endif %}" href="{% url 'mis-asignaciones-autoridad' %}">Mis asignaciones</a>
   {% endif %}
-  <a class="{% if request.resolver_match.url_name == 'mis-notificaciones' or request.resolver_match.url_name == 'leer-notificacion' %}active{% endif %}" href="{% url 'mis-notificaciones' %}">Notificaciones{% if notificaciones_no_leidas %} ({{ notificaciones_no_leidas }}){% endif %}</a>
   <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Cerrar Sesión</button></form>
 </nav>
 {% endif %}

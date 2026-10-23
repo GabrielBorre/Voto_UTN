@@ -132,6 +132,23 @@ class NotificacionesDestinatariosTests(TestCase):
         listado = self.client.get(reverse("mis-notificaciones"))
         self.assertEqual(listado.context["notificaciones_no_leidas"], 0)
 
+    def test_campana_muestra_no_leidas_y_reemplaza_pestana_de_navegacion(self):
+        self.ingresar_como_elector()
+        url_listado = reverse("mis-notificaciones")
+
+        for nombre_ruta in ("mis-notificaciones", "inicio-autenticado"):
+            with self.subTest(ruta=nombre_ruta):
+                respuesta = self.client.get(reverse(nombre_ruta), follow=True)
+                self.assertContains(respuesta, 'class="campana-notificaciones', count=1)
+                self.assertContains(respuesta, f'href="{url_listado}" aria-label="Notificaciones: 1 sin leer"')
+                self.assertContains(respuesta, '<span class="campana-indicador" aria-hidden="true">1</span>', html=False)
+                self.assertNotContains(respuesta, ">Notificaciones (1)<")
+
+        self.client.get(reverse("leer-notificacion", args=(self.envio.pk,)))
+        respuesta = self.client.get(url_listado)
+        self.assertContains(respuesta, 'aria-label="Notificaciones"')
+        self.assertNotContains(respuesta, "campana-indicador")
+
     def test_otro_usuario_no_puede_listar_ni_leer_notificaciones_ajenas(self):
         self.client.force_login(self.usuario)
 

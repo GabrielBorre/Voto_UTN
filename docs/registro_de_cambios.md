@@ -12,6 +12,9 @@ Este documento registra cambios aplicados al proyecto. Describe los archivos y e
 - El botón de avance de estado se ubica en el encabezado del ciclo. Cuando una
   regla impide la transición, el motivo se informa con un popup propio de la
   aplicación (con aviso en página como alternativa sin JavaScript).
+- La pestaña "Notificaciones" se reemplaza por una campanita a la izquierda del
+  rol del usuario, en todos los roles, con indicador rojo de no leídas. Sigue
+  visible en móvil aunque se oculte el bloque de usuario.
 - Configuración actual directa desde el menú, línea de tiempo con estado
   destacado y ayudas breves, e indicadores de configuración pendiente.
 - Inicio de junta global con elección actual, justificativos pendientes,

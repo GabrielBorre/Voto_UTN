@@ -355,6 +355,55 @@
     color: var(--azul-900);
 }
 
+.topbar-usuario {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.campana-notificaciones {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: none;
+    color: var(--azul-900);
+    background: var(--azul-100);
+    border: 1px solid #d3e3fa;
+    border-radius: 50%;
+    text-decoration: none;
+}
+
+.campana-notificaciones:hover,
+.campana-notificaciones.activa {
+    color: #fff;
+    background: var(--azul-900);
+    border-color: var(--azul-900);
+}
+
+.campana-notificaciones:focus-visible {
+    outline: 3px solid var(--azul-500);
+    outline-offset: 2px;
+}
+
+.campana-indicador {
+    position: absolute;
+    top: -5px;
+    right: -6px;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: var(--rojo-utn);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 15px;
+    text-align: center;
+}
+
 .gestion-nav {
     min-height: 54px;
     background: #fff;
