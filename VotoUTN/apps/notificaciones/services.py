@@ -213,7 +213,7 @@ def _notificar_electores_de_eleccion(eleccion, plantilla):
     registros = RegistroPadron.objects.filter(eleccion=eleccion, activo=True).select_related(
         "elector",
         "sede",
-        "asignacion_mesa__mesa",
+        "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
     )
     for registro in registros:
         envio = crear_notificacion(
@@ -224,7 +224,7 @@ def _notificar_electores_de_eleccion(eleccion, plantilla):
                 "nombre_destinatario": registro.elector.nombre_completo,
                 "nombre_eleccion": eleccion.nombre,
                 "sede": registro.sede.nombre if registro.sede_id else "Sin asignar",
-                "mesa": str(registro.asignacion_mesa.mesa.numero) if hasattr(registro, "asignacion_mesa") else "Sin asignar",
+                "mesa": registro.asignacion_mesa.mesa.codigo if hasattr(registro, "asignacion_mesa") else "Sin asignar",
             },
         )
         enviar_notificacion(envio)

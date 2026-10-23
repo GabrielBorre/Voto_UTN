@@ -44,7 +44,7 @@ class InicioAutenticadoTests(TestCase):
 
         self.assertRedirects(
             respuesta,
-            reverse("gestionar-elecciones"),
+            reverse("inicio-administrador-junta"),
             fetch_redirect_response=False,
         )
 
@@ -162,7 +162,7 @@ class InicioAutenticadoTests(TestCase):
         self.assertContains(respuesta, "Publicada")
         self.assertNotContains(respuesta, eleccion_cerrada.nombre)
 
-    def test_inicio_administrador_junta_muestra_ultima_eleccion_cerrada_si_no_hay_una_en_curso(self):
+    def test_inicio_administrador_junta_ofrece_crear_si_no_hay_eleccion_actual(self):
         usuario = get_user_model().objects.create_user(
             username="admin-junta-cerrada",
         )
@@ -192,8 +192,8 @@ class InicioAutenticadoTests(TestCase):
 
         respuesta = self.client.get(reverse("inicio-administrador-junta"))
 
-        self.assertContains(respuesta, eleccion_cerrada.nombre)
-        self.assertContains(respuesta, "Finalizada")
+        self.assertContains(respuesta, "Crear elección")
+        self.assertNotContains(respuesta, eleccion_cerrada.nombre)
         self.assertNotContains(respuesta, otra_eleccion_cerrada.nombre)
 
     def test_lista_solo_considera_en_curso_estado_abierta(self):

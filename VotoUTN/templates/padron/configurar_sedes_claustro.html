@@ -64,7 +64,7 @@
                   {% csrf_token %}<input type="hidden" name="regla_id" value="{{ regla.id }}">
                   <button class="button light small" name="accion" value="mover-regla-subir" type="submit" {% if forloop.first %}disabled title="Ya es la primera regla"{% endif %}>↑ Subir</button>
                   <button class="button light small" name="accion" value="mover-regla-bajar" type="submit" {% if forloop.last %}disabled title="Ya es la última regla"{% endif %}>↓ Bajar</button>
-                  <button class="button danger small" name="accion" value="eliminar-regla" type="submit" onclick="return confirm('¿Eliminar esta regla? El cálculo actual de sedes se invalidará.');">Eliminar</button>
+                  <button class="button danger small" name="accion" value="eliminar-regla" type="submit" data-confirm="¿Eliminar esta regla? El cálculo actual de sedes se invalidará.">Eliminar</button>
                 </form>
               </td>
             </tr>

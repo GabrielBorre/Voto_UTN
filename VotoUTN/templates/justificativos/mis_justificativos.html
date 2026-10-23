@@ -8,7 +8,6 @@
 	{% if not eleccion %}
 	<p class="error">No hay una elección actual habilitada para presentar justificativos.</p>
 	{% elif not estado_habilitado %}
-	<p>La presentación de justificativos está disponible únicamente para elecciones publicadas o en curso.</p>
 	{% elif not registro_padron %}
 	<p class="error">No se encontró un padrón activo para la elección actual.</p>
 	{% elif not puede_presentar %}
@@ -43,7 +42,7 @@
 				if (formulario.reportValidity()) { dialogo.showModal(); }
 			});
 			document.getElementById("btn-cancelar-justificativo").addEventListener("click", function () { dialogo.close(); });
-			document.getElementById("btn-confirmar-justificativo").addEventListener("click", function () { this.disabled = true; formulario.submit(); });
+			document.getElementById("btn-confirmar-justificativo").addEventListener("click", function () { dialogo.close(); formulario.requestSubmit(); });
 		})();
 	</script>
 	{% endif %}

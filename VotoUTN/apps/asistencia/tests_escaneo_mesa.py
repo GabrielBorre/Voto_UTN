@@ -224,6 +224,8 @@ class EscaneoDeMesaTests(TestCase):
         self.assertEqual(sin_codigo.status_code, 400)
 
     def test_la_vista_del_escaner_expone_la_api_de_mesa_y_el_ingreso_manual_de_codigo(self):
+        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.save(update_fields=("estado",))
         respuesta = self.client.get(reverse("escanear", args=(self.eleccion.pk,)))
 
         self.assertContains(respuesta, 'id="mesa-code-form"')

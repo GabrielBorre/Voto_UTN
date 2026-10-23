@@ -36,7 +36,7 @@ from apps.usuarios.permisos import puede_configurar_eleccion
 
 
 def _tiene_permiso(request, eleccion):
-    return puede_configurar_eleccion(request.user, eleccion)
+    return puede_configurar_eleccion(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD"))
 
 
 def _url_gestion(eleccion_id, participacion_id=None, lista_id=None):

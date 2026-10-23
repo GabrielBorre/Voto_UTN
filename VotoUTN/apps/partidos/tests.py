@@ -233,7 +233,7 @@ class PartidosViewsTests(PartidosBaseTests):
         self.assertTemplateUsed(respuesta, "partidos/gestion.html")
         self.assertContains(
             respuesta,
-            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+            '<a class="active" href="/gestion/elecciones/">Configurar elección</a>',
         )
         self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
         self.assertContains(respuesta, "Volver a configuración", count=1)

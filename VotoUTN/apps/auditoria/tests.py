@@ -131,6 +131,7 @@ class AuditoriaEleccionTests(BaseAuditoriaElectoralTests):
         self.client.force_login(self.usuario)
 
     def test_cambio_de_estado_crea_evento_de_auditoria(self):
+        self.crear_padron()
         respuesta = self.client.post(
             reverse("cambiar-estado-eleccion", args=(self.eleccion.id,)),
             {"estado": Eleccion.Estado.PREPARADA},

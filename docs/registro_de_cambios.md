@@ -2,6 +2,50 @@
 
 Este documento registra cambios aplicados al proyecto. Describe los archivos y el efecto de cada cambio; no reemplaza el historial de Git ni las migraciones de Django.
 
+## Ciclo electoral, configuración y resolución seleccionada
+
+- Refinamiento visual: indicadores de configuración completa en verde y
+  pendientes en amarillo. El ciclo se presenta mediante tarjetas con colores
+  e iconos por etapa, conectadas de izquierda a derecha en escritorio y de
+  arriba hacia abajo en móvil, con el estado actual destacado y ayudas
+  accesibles por foco o cursor. No se modifican transiciones ni permisos.
+- El botón de avance de estado se ubica en el encabezado del ciclo. Cuando una
+  regla impide la transición, el motivo se informa con un popup propio de la
+  aplicación (con aviso en página como alternativa sin JavaScript).
+- Configuración actual directa desde el menú, línea de tiempo con estado
+  destacado y ayudas breves, e indicadores de configuración pendiente.
+- Inicio de junta global con elección actual, justificativos pendientes,
+  cambios de sede pendientes y participación confirmada. Sin elección actual
+  ofrece crearla; la creación continúa por Sedes y departamentos.
+- Alta/baja de claustros en preparación, con herencia de sedes y rechazo
+  transaccional de bajas que afectarían datos vinculados.
+- Permisos de configuración: consulta en curso y bloqueo de POST, con las
+  excepciones acordadas de fechas administrativas, transición de estado y
+  padrón imprimible. Se conserva el acceso histórico previo de finalizadas.
+- Emisión imprimible solo en curso; emisión y resolución de cambios coordinan
+  el bloqueo de la elección para preservar los QR. Reimpresiones conservan
+  identificadores, marcas de emisión y número de mesa.
+- Selección de solicitudes pendientes, estimación por sede sin duplicar las
+  reglas en JavaScript y aprobación exclusiva de las seleccionadas. Después
+  de imprimir quedan bloqueadas las resoluciones individuales y masivas.
+- Código de mesa con departamento en avisos y tarjetas del elector y autoridad.
+- Diálogos propios y throbber compartido para operaciones demoradas. Se retiró
+  la leyenda de estados de la presentación de justificativos sin ampliar permisos.
+- Nuevas pruebas de invariantes y regresiones en elecciones y reportes;
+  expectativas de navegación y redirecciones ajustadas en suites relacionadas.
+  No se modificaron modelos ni se requieren nuevas migraciones.
+- Por indicación expresa, no se implementó pedir fechas en la transición de
+  estado ni reasignarlas a estados.
+- Verificación: 342 pruebas correctas en PostgreSQL de pruebas aislado; check,
+  detección de migraciones y plan de migraciones sin pendientes. También se
+  verificaron en Chromium selección, confirmaciones, controles en lectura,
+  diálogo de límite y disposición móvil de la línea de tiempo.
+- Observación ajena a esta entrega: al reutilizar repetidamente la base de
+  pruebas con `--keepdb`, los IDs superaron 1295. El formato QR previo reserva
+  dos caracteres base36 para elección y mesa y no admite correctamente IDs
+  mayores al parsearlos. No se cambió ese contrato ni su comportamiento;
+  la validación final se ejecutó en una base de pruebas nueva y aislada.
+
 ## Etapa 0 - Auditoria y estabilizacion
 
 Fecha de cierre: 2026-08-02

@@ -42,6 +42,7 @@ from apps.padron.services import (
 from apps.usuarios.permisos import puede_administrar_elecciones, puede_importar_padron, puede_configurar_eleccion
 from apps.padron.models import RegistroPadron
 from apps.padron.services import calcular_mesas_automaticas_eleccion, claustro_tiene_emision_vigente
+from apps.padron.services import eleccion_tiene_padron_emitido
 from apps.notificaciones.services import (
     crear_notificacion_resultado_cambio_sede,
     enviar_notificacion,
@@ -52,7 +53,7 @@ from apps.usuarios.services import elector_de_identidad
 @login_required
 def descargar_plantilla_padron(request, eleccion_id, claustro_id):
     eleccion_claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
-    if not puede_importar_padron(request.user, eleccion_claustro.eleccion):
+    if not puede_importar_padron(request.user, eleccion_claustro.eleccion, solo_consulta=True):
         return HttpResponseForbidden("No tiene permiso para descargar la plantilla.")
     respuesta = HttpResponse(content_type="text/csv; charset=utf-8")
     respuesta["Content-Disposition"] = f'attachment; filename="plantilla_padron_{eleccion_claustro.claustro.nombre}.csv"'
@@ -71,7 +72,7 @@ def exportar_padron_claustro(request, eleccion_id, claustro_id, formato):
         pk=claustro_id,
         eleccion_id=eleccion_id,
     )
-    if not puede_importar_padron(request.user, eleccion_claustro.eleccion):
+    if not puede_importar_padron(request.user, eleccion_claustro.eleccion, solo_consulta=True):
         return HttpResponseForbidden("No tiene permiso para exportar el padrón.")
     if formato not in {"csv", "pdf"}:
         raise Http404()
@@ -122,9 +123,9 @@ def previsualizar_padron(request, eleccion_id, claustro_id):
         pk=claustro_id,
         eleccion_id=eleccion_id,
     )
-    if not puede_importar_padron(request.user, eleccion_claustro.eleccion):
+    if not puede_importar_padron(request.user, eleccion_claustro.eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para importar el padrón.")
-    if not puede_configurar_eleccion(request.user, eleccion_claustro.eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion_claustro.eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No se puede modificar el padrón de una elección cerrada.")
     configura_padron = request.method == "POST" and "guardar-configuracion" in request.POST
     carga_archivo = request.method == "POST" and not configura_padron
@@ -237,7 +238,7 @@ def eliminar_padron_claustro(request, eleccion_id, claustro_id):
         pk=claustro_id,
         eleccion_id=eleccion_id,
     )
-    if not puede_configurar_eleccion(request.user, claustro.eleccion):
+    if not puede_configurar_eleccion(request.user, claustro.eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para eliminar el padrón del claustro.")
 
     resumen = estado_eliminacion_padron_claustro(claustro)
@@ -266,7 +267,7 @@ def eliminar_padron_claustro(request, eleccion_id, claustro_id):
 @login_required
 def detalle_importacion_padron(request, eleccion_id, importacion_id):
     importacion = get_object_or_404(ImportacionPadron.objects.select_related("eleccion_claustro__claustro", "usuario"), pk=importacion_id, eleccion_id=eleccion_id)
-    if not puede_importar_padron(request.user, importacion.eleccion):
+    if not puede_importar_padron(request.user, importacion.eleccion, solo_consulta=True):
         return HttpResponseForbidden("No tiene permiso para consultar esta importación.")
     importacion.archivo.open("rb")
     try:
@@ -306,7 +307,7 @@ def confirmar_importacion_padron(request, eleccion_id, importacion_id):
 @login_required
 def descargar_errores_importacion(request, eleccion_id, importacion_id):
     importacion = get_object_or_404(ImportacionPadron, pk=importacion_id, eleccion_id=eleccion_id)
-    if not puede_importar_padron(request.user, importacion.eleccion):
+    if not puede_importar_padron(request.user, importacion.eleccion, solo_consulta=True):
         return HttpResponseForbidden("No tiene permiso para descargar los errores.")
     respuesta = HttpResponse(content_type="text/csv; charset=utf-8")
     respuesta["Content-Disposition"] = f'attachment; filename="errores_padron_{importacion.id}.csv"'
@@ -321,7 +322,7 @@ def descargar_errores_importacion(request, eleccion_id, importacion_id):
 @login_required
 def historial_importaciones_padron(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_importar_padron(request.user, eleccion):
+    if not puede_importar_padron(request.user, eleccion, solo_consulta=True):
         return HttpResponseForbidden("No tiene permiso para consultar el historial de padrones.")
     importaciones = eleccion.importaciones_padron.select_related("eleccion_claustro__claustro", "usuario")
     return render(request, "padron/historial_importaciones.html", {"eleccion": eleccion, "importaciones": importaciones})
@@ -353,9 +354,14 @@ def calcular_mesas_eleccion(request, eleccion_id):
 @login_required
 def configurar_sedes_claustro(request, eleccion_id, claustro_id):
     claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
-    if not puede_configurar_eleccion(request.user, claustro.eleccion):
+    if not puede_configurar_eleccion(request.user, claustro.eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para configurar las sedes del padrón.")
-    configuracion, _ = ConfiguracionSedesClaustro.objects.get_or_create(eleccion_claustro=claustro)
+    configuracion = ConfiguracionSedesClaustro.objects.filter(eleccion_claustro=claustro).first()
+    if configuracion is None:
+        if not puede_configurar_eleccion(request.user, claustro.eleccion):
+            messages.info(request, "Este claustro no tiene reglas de sede configuradas.")
+            return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
+        configuracion = ConfiguracionSedesClaustro.objects.create(eleccion_claustro=claustro)
 
     if request.method == "POST" and request.POST.get("accion") == "calcular":
         resultado = calcular_asignaciones_sede_claustro(claustro)
@@ -534,7 +540,13 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para revisar solicitudes de cambio de sede.")
+    solo_lectura = (
+        eleccion.estado not in (Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA)
+        or eleccion_tiene_padron_emitido(eleccion)
+    )
     if request.method == "POST":
+        if solo_lectura:
+            return HttpResponseForbidden("Los cambios de sede están en modo lectura.")
         accion = request.POST.get("accion")
         observacion = request.POST.get("observacion_resolucion", "")
         if accion in {"aprobar", "rechazar"}:
@@ -562,6 +574,7 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
             "aprobar_todas",
             "aprobar_sin_agregar_mesas",
             "aprobar_con_maximo_mesas",
+            "aprobar_seleccionadas",
             "rechazar_todas",
         }:
             maximo_mesas_nuevas = None
@@ -574,12 +587,19 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
                     messages.error(request, "Ingresá un máximo de mesas nuevas entero y mayor o igual a cero.")
                     return redirect("gestionar-solicitudes-cambio-sede", eleccion_id=eleccion.id)
             try:
+                seleccion_ids = None
+                if accion == "aprobar_seleccionadas":
+                    seleccion = request.POST.getlist("solicitudes_ids")
+                    if any(not valor.isdecimal() for valor in seleccion):
+                        raise ValueError("La selección de solicitudes es inválida.")
+                    seleccion_ids = [int(valor) for valor in seleccion]
                 resultado = resolver_solicitudes_pendientes(
                     eleccion,
                     usuario=request.user,
-                    accion=accion,
+                    accion="aprobar_todas" if accion == "aprobar_seleccionadas" else accion,
                     observacion_resolucion=observacion,
                     maximo_mesas_nuevas=maximo_mesas_nuevas,
+                    solicitudes_ids=seleccion_ids,
                 )
             except ValueError as error:
                 messages.error(request, str(error))
@@ -603,9 +623,21 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
         "sede_destino",
     )
     pendientes = solicitudes.filter(estado=SolicitudCambioSede.Estado.PENDIENTE)
+    if request.GET.get("accion") == "estimar_seleccion":
+        ids = request.GET.getlist("solicitudes_ids")
+        if any(not valor.isdecimal() for valor in ids):
+            return JsonResponse({"error": "La selección de solicitudes es inválida."}, status=400)
+        seleccionadas = pendientes.filter(pk__in=[int(valor) for valor in ids])
+        if seleccionadas.count() != len(set(ids)):
+            return JsonResponse({"error": "La selección contiene solicitudes no disponibles."}, status=400)
+        impacto_seleccion = estimar_mesas_adicionales_por_sede(eleccion, seleccionadas)
+        return JsonResponse({
+            "mesas_por_sede": impacto_seleccion,
+            "total": sum(impacto_seleccion.values()),
+            "seleccionadas": seleccionadas.count(),
+        })
     impacto = estimar_mesas_adicionales_por_sede(eleccion, pendientes)
     sedes = list(eleccion.elecciones_sede.select_related("sede").order_by("sede__nombre"))
-    nombres_sede = {item.sede_id: item.sede.nombre for item in sedes}
     mesas_actuales_por_sede = dict(
         Mesa.objects.filter(eleccion=eleccion, sede_id__in=[item.sede_id for item in sedes])
         .values("sede_id")
@@ -614,6 +646,7 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
     )
     resumen_mesas_por_sede = [
         {
+            "sede_id": item.sede_id,
             "sede_nombre": item.sede.nombre,
             "mesas_actuales": mesas_actuales_por_sede.get(item.sede_id, 0),
             "mesas_adicionales_estimadas": impacto.get(item.sede_id, 0),
@@ -629,5 +662,6 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
             "pendientes": pendientes.count(),
             "resumen_mesas_por_sede": resumen_mesas_por_sede,
             "mesas_nuevas_si_aceptar_todas": sum(impacto.values()),
+            "solo_lectura": solo_lectura,
         },
     )

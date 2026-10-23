@@ -6,6 +6,20 @@
   <p>{{ eleccion.nombre }}. Definí las sedes habilitadas para cada claustro y, cuando corresponda, sus departamentos.</p>
 </section>
 
+{% if eleccion.estado == 'borrador' %}
+<section class="card management-section">
+  <h2>Agregar claustro</h2>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="agregar_claustro">
+    {{ formulario_agregar_claustro.as_p }}
+    <button class="button primary" type="submit">Agregar claustro</button>
+  </form>
+</section>
+{% else %}
+<div class="notice">Los claustros solo se pueden agregar o eliminar en estado En preparación.</div>
+{% endif %}
+
 <div class="management-panel scopes-panel">
   {% for configuracion in claustros %}
     <section class="card management-section">
@@ -21,6 +35,14 @@
         <div class="scope-heading-actions">
           <span class="scope-count">{{ configuracion.sedes_habilitadas.count }} sede{{ configuracion.sedes_habilitadas.count|pluralize:"s" }} habilitada{{ configuracion.sedes_habilitadas.count|pluralize:"s" }}</span>
           <div class="scope-heading-buttons">
+            {% if eleccion.estado == 'borrador' %}
+            <form method="post" data-confirm="¿Eliminar este claustro de la elección? Si tiene datos vinculados, se conservará sin cambios.">
+              {% csrf_token %}
+              <input type="hidden" name="accion" value="eliminar_claustro">
+              <input type="hidden" name="claustro_id" value="{{ configuracion.id }}">
+              <button class="button light" type="submit">Eliminar claustro</button>
+            </form>
+            {% endif %}
             {% if configuracion.organizacion_departamentos != "sin_departamento" %}
               <a class="button light" href="{% url 'gestionar-departamentos-claustro' eleccion.id configuracion.id %}">Gestionar departamentos</a>
             {% endif %}

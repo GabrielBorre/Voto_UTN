@@ -32,9 +32,10 @@ def puede_administrar_elecciones(usuario, eleccion=None):
     return asignaciones.filter(rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA).exists()
 
 
-def puede_configurar_eleccion(usuario, eleccion):
+def puede_configurar_eleccion(usuario, eleccion, *, solo_consulta=False):
     return (
         eleccion.estado != Eleccion.Estado.CERRADA
+        and (solo_consulta or eleccion.estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA))
         and puede_administrar_elecciones(usuario, eleccion)
     )
 
@@ -86,8 +87,8 @@ def puede_registrar_participacion(usuario, eleccion, mesa=None):
     return asignaciones.filter(mesa__isnull=True, sede__isnull=True).exists() or asignaciones.filter(mesa=mesa).exists() or asignaciones.filter(sede=mesa.sede, mesa__isnull=True).exists()
 
 
-def puede_importar_padron(usuario, eleccion):
-    return puede_configurar_eleccion(usuario, eleccion)
+def puede_importar_padron(usuario, eleccion, *, solo_consulta=False):
+    return puede_configurar_eleccion(usuario, eleccion, solo_consulta=solo_consulta)
 
 
 def puede_revisar_justificativo(usuario, eleccion):

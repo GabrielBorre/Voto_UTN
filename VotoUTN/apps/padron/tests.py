@@ -83,7 +83,7 @@ class PadronViewsTests(TestCase):
         self.assertTemplateUsed(respuesta, "padron/cargar.html")
         self.assertContains(
             respuesta,
-            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+            '<a class="active" href="/gestion/elecciones/">Configurar elección</a>',
         )
 
     def test_exportar_padron_csv_y_pdf_desde_gestion_se_limita_al_claustro(self):

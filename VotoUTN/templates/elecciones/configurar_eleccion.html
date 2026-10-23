@@ -1,16 +1,68 @@
 {% extends "gestion/base.html" %}
-{% block title %}Configuración | {{ eleccion.nombre }}{% endblock %}
+{% block title %}Configurar elección | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero"><h1>Configuración de elección</h1><p>{{ eleccion.nombre }} · {{ eleccion.get_estado_display }}</p></section>
-<section class="toolbar configuration-grid">
-  <article class="option"><h2>Datos generales</h2><p>Nombre y periodo completo del proceso electoral.</p><a class="button secondary" href="{% url 'editar-eleccion' eleccion.id %}">Editar datos</a></article>
-  <article class="option"><h2>Sedes y departamentos</h2><p>Ajusta las sedes habilitadas para cada claustro y departamento.</p><a class="button secondary" href="{% url 'gestionar-alcances' eleccion.id %}">Gestionar alcances</a></article>
-  <article class="option"><h2>Padrones</h2><p>{{ cantidad_padrones }} electores registrados. Configura claustros e importa CSV.</p><a class="button secondary" href="{% url 'preparar-eleccion' eleccion.id %}">Gestionar padrones</a></article>
-  <article class="option"><h2>Autoridades de mesa</h2><p>{{ cantidad_autoridades }} autoridades asignadas a las mesas de la elección.</p><a class="button secondary" href="{% url 'gestionar-autoridades' eleccion.id %}">Gestionar autoridades</a></article>
-  <article class="option"><h2>Puestos, listas y candidaturas</h2><p>{{ cantidad_partidos }} presentaciones registradas. Configure puestos por alcance e importe las listas de la elección.</p><a class="button secondary" href="{% url 'gestionar-partidos' eleccion.id %}">Gestionar candidaturas</a></article>
-  <article class="option"><h2>Reportes</h2><p>Exporte información operativa de la elección.</p><a class="button secondary" href="{% url 'gestionar-reportes' eleccion.id %}">Ver reportes</a></article>
-  <article class="option"><h2>Fechas administrativas</h2><p>{{ cantidad_fechas_administrativas }} hitos configurados dentro del período electoral.</p><a class="button secondary" href="{% url 'gestionar-fechas-administrativas' eleccion.id %}">Configurar fechas</a></article>
+<section class="hero">
+  <h1>Configurar elección</h1>
+  <p>{{ eleccion.nombre }} · {{ eleccion.get_estado_display }}</p>
 </section>
-<section class="card"><div class="section-title"><div><h2>Mesas</h2><p>{{ cantidad_mesas }} mesas generadas para la elección.</p></div><a class="button primary" href="{% url 'gestionar-mesas' eleccion.id %}">Ver mesas</a></div></section>
-<div class="footer-actions"><a class="button light" href="{% url 'gestionar-elecciones' %}">Volver a elecciones</a></div>
+<section class="card management-section ciclo-electoral">
+  <div class="ciclo-encabezado">
+    <div>
+      <span class="ciclo-antetitulo">Ciclo electoral</span>
+      <h2>Una elección, cuatro etapas</h2>
+    </div>
+    {% if siguiente_estado %}
+    <form class="ciclo-accion" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" data-confirm="¿{{ siguiente_estado.1 }}?">
+      {% csrf_token %}
+      <input type="hidden" name="estado" value="{{ siguiente_estado.0 }}">
+      <button class="button primary" type="submit">{{ siguiente_estado.1 }} <span aria-hidden="true">&rarr;</span></button>
+    </form>
+    {% endif %}
+  </div>
+  <ol class="linea-tiempo-eleccion" aria-label="Estados de la elección en orden de avance">
+    {% for estado in linea_tiempo %}
+    <li class="etapa-electoral etapa-{{ estado.codigo }}{% if estado.codigo == eleccion.estado %} estado-actual{% endif %}" {% if estado.codigo == eleccion.estado %}aria-current="step"{% endif %} tabindex="0" aria-describedby="ayuda-estado-{{ estado.codigo }}">
+      <div class="etapa-cabecera">
+        <span class="etapa-etiquetas">
+          <span class="estado-numero">Etapa 0{{ forloop.counter }}</span>
+          {% if estado.codigo == eleccion.estado %}<span class="etapa-indicador"><span class="etapa-punto" aria-hidden="true"></span>Estado actual</span>{% endif %}
+        </span>
+        <span class="etapa-icono" aria-hidden="true">
+          <svg width="18" height="18" style="width:18px;height:18px;max-width:18px;flex:none" viewBox="0 0 24 24" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            {% if estado.codigo == 'borrador' %}
+            <path d="M14 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-9M8 16l1-4L19 2l3 3-10 10-4 1Z"/>
+            {% elif estado.codigo == 'preparada' %}
+            <path d="m4 10 15-6v16L4 14v-4Zm4 5 2 6H6l-2-7M19 9h2v6h-2"/>
+            {% elif estado.codigo == 'abierta' %}
+            <path d="M4 11h16l2 10H2l2-10Zm4 0V4h8v7M8 15h8m-6-8 2 2 3-3"/>
+            {% else %}
+            <rect x="4" y="10" width="16" height="12" rx="3"/><path d="M8 10V6a4 4 0 0 1 8 0v4m-7 6 2 2 4-4"/>
+            {% endif %}
+          </svg>
+        </span>
+      </div>
+      <h3>{{ estado.nombre }}</h3>
+      <p class="etapa-resumen">{% if estado.codigo == 'borrador' %}Prepará las bases de la elección.{% elif estado.codigo == 'preparada' %}Comunicá y recibí solicitudes.{% elif estado.codigo == 'abierta' %}Es momento de votar y registrar participación.{% else %}Cierra la elección.{% endif %}</p>
+      <small class="estado-ayuda" id="ayuda-estado-{{ estado.codigo }}">{{ estado.ayuda }}</small>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+<br>
+<section class="toolbar configuration-grid">
+  <article class="option"><h2>Datos generales <span class="pill ok">Configurado</span></h2><p>Nombre y período completo del proceso electoral.</p><a class="button secondary" href="{% url 'editar-eleccion' eleccion.id %}">{% if eleccion.estado == 'abierta' or eleccion.estado == 'cerrada' %}Consultar datos{% else %}Editar datos{% endif %}</a></article>
+  <article class="option"><h2>Sedes y departamentos <span class="pill {% if alcances_pendientes %}warn{% else %}ok{% endif %}">{% if alcances_pendientes %}Revisar pendientes{% else %}Configurado{% endif %}</span></h2><p>Sedes habilitadas para cada claustro y departamento.</p><a class="button secondary" href="{% url 'gestionar-alcances' eleccion.id %}">Ver sedes y departamentos</a></article>
+  <article class="option"><h2>Padrones <span class="pill {% if padrones_pendientes or not cantidad_padrones %}warn{% else %}ok{% endif %}">{% if padrones_pendientes or not cantidad_padrones %}Pendiente{% else %}Cargados{% endif %}</span></h2><p>{{ cantidad_padrones }} electores registrados.</p><a class="button secondary" href="{% url 'preparar-eleccion' eleccion.id %}">Ver padrones</a></article>
+  <article class="option"><h2>Autoridades de mesa <span class="pill {% if autoridades_pendientes %}warn{% else %}ok{% endif %}">{% if autoridades_pendientes %}Pendiente{% else %}Asignadas{% endif %}</span></h2><p>{{ cantidad_autoridades }} autoridades asignadas.</p><a class="button secondary" href="{% url 'gestionar-autoridades' eleccion.id %}">Ver autoridades</a></article>
+  <article class="option"><h2>Puestos, listas y candidaturas <span class="pill {% if not cantidad_partidos %}warn{% else %}ok{% endif %}">{% if not cantidad_partidos %}Sin presentaciones{% else %}Presentaciones cargadas{% endif %}</span></h2><p>{{ cantidad_partidos }} presentaciones registradas.</p><a class="button secondary" href="{% url 'gestionar-partidos' eleccion.id %}">Ver candidaturas</a></article>
+  <article class="option"><h2>Reportes <span class="pill ok">{% if eleccion.estado == 'abierta' %}Padrón imprimible habilitado{% else %}Consulta{% endif %}</span></h2><p>El padrón imprimible solo se genera en curso y bloquea cambios de sede.</p><a class="button secondary" href="{% url 'gestionar-reportes' eleccion.id %}">Ver reportes</a></article>
+  <article class="option"><h2>Fechas administrativas <span class="pill {% if not cantidad_fechas_administrativas %}warn{% else %}ok{% endif %}">{% if not cantidad_fechas_administrativas %}Sin fechas cargadas{% else %}Fechas cargadas{% endif %}</span></h2><p>{{ cantidad_fechas_administrativas }} hitos configurados.</p>{% if eleccion.estado != 'cerrada' %}<a class="button secondary" href="{% url 'gestionar-fechas-administrativas' eleccion.id %}">Configurar fechas</a>{% endif %}</article>
+  <article class="option"><h2>Mesas <span class="pill {% if not cantidad_mesas %}warn{% else %}ok{% endif %}">{% if not cantidad_mesas %}Pendiente{% else %}Generadas{% endif %}</span></h2><p>{{ cantidad_mesas }} mesas generadas.</p><a class="button secondary" href="{% url 'gestionar-mesas' eleccion.id %}">Ver mesas</a></article>
+</section>
+{% if pendientes_configuracion %}
+<div class="notice"><strong>Configuración pendiente</strong><ul>{% for pendiente in pendientes_configuracion %}<li>{{ pendiente }}</li>{% endfor %}</ul></div>
+{% endif %}
+{% if eleccion.estado == 'abierta' or eleccion.estado == 'cerrada' %}
+<div class="notice">La configuración está en modo lectura. {% if eleccion.estado == 'abierta' %}Se permite modificar fechas administrativas, emitir el padrón imprimible y finalizar la elección.{% endif %}</div>
+{% endif %}
 {% endblock %}

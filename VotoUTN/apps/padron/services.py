@@ -1,7 +1,6 @@
 import csv
 import hashlib
 import io
-import math
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -700,8 +699,25 @@ def claustro_tiene_emision_vigente(eleccion_claustro):
     ).exists()
 
 
+def eleccion_tiene_padron_emitido(eleccion):
+    return EmisionPadronImprimible.objects.filter(
+        eleccion_claustro__eleccion=eleccion,
+        estado=EmisionPadronImprimible.Estado.VIGENTE,
+    ).exists() or RegistroPadron.objects.filter(eleccion=eleccion, qr_generado_en__isnull=False).exists()
+
+
+def validar_resolucion_cambios_sede(eleccion):
+    if eleccion.estado not in (Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA):
+        raise ValueError("Solo se pueden resolver cambios de sede con la elección publicada o en curso.")
+    if eleccion_tiene_padron_emitido(eleccion):
+        raise ValueError("El padrón imprimible ya fue generado. Los cambios de sede están en modo lectura.")
+
+
 @transaction.atomic
 def registrar_emision_padron_imprimible(eleccion, usuario):
+    eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+    if eleccion.estado != Eleccion.Estado.ABIERTA:
+        raise ValueError("El padrón imprimible solo se puede generar cuando la elección está en curso.")
     ahora = timezone.now()
     clausuros_emitidos = []
     for claustro in eleccion.elecciones_claustro.all():
@@ -719,7 +735,7 @@ def registrar_emision_padron_imprimible(eleccion, usuario):
             defaults={"emitida_por": usuario},
         )
         for registro in registros:
-            RegistroPadron.objects.filter(pk=registro.pk).update(
+            RegistroPadron.objects.filter(pk=registro.pk, qr_generado_en__isnull=True).update(
                 qr_generado_en=ahora,
                 numero_mesa_qr=registro.asignacion_mesa.mesa.numero,
             )
@@ -737,6 +753,8 @@ def registrar_emision_padron_imprimible(eleccion, usuario):
 
 @transaction.atomic
 def rehabilitar_cambios_padron(eleccion_claustro, usuario):
+    if eleccion_claustro.eleccion.estado not in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA):
+        raise ValueError("No se pueden rehabilitar cambios de configuración con la elección en curso o finalizada.")
     ahora = timezone.now()
     emisiones = EmisionPadronImprimible.objects.select_for_update().filter(
         eleccion_claustro=eleccion_claustro,
@@ -1100,47 +1118,56 @@ def solicitudes_cambio_sede_habilitadas(eleccion):
 
 
 def estimar_mesas_adicionales_por_sede(eleccion, solicitudes):
-    solicitudes = list(solicitudes.select_related("registro_padron__eleccion_claustro_departamento", "sede_destino"))
-    if not solicitudes:
-        return {}
-    impacto = defaultdict(int)
-    for solicitud in solicitudes:
-        clave = (solicitud.registro_padron.eleccion_claustro_departamento_id, solicitud.sede_destino_id)
-        impacto[clave] += 1
-
-    capacidad_por_alcance = {
-        item["id"]: item["maximo_votantes_por_mesa"] or 0
-        for item in EleccionClaustro.objects.filter(eleccion=eleccion).values("id", "maximo_votantes_por_mesa")
+    solicitudes = solicitudes.select_related(
+        "registro_padron__eleccion_claustro_departamento__eleccion_claustro",
+    ).order_by("creada_en", "id")
+    mesas = {
+        mesa.pk: {
+            "alcance": mesa.eleccion_claustro_departamento_id,
+            "sede": mesa.sede_id,
+            "numero": mesa.numero,
+            "total": mesa.total,
+        }
+        for mesa in Mesa.objects.filter(eleccion=eleccion).annotate(total=Count("asignaciones_padron"))
     }
-    electores_actuales = {
-        (item["eleccion_claustro_departamento_id"], item["sede_id"]): item["total"]
-        for item in RegistroPadron.objects.filter(eleccion=eleccion, activo=True, sede__isnull=False)
-        .values("eleccion_claustro_departamento_id", "sede_id")
-        .annotate(total=Count("id"))
-    }
-    mesas_actuales = {
-        (item["eleccion_claustro_departamento_id"], item["sede_id"]): item["total"]
-        for item in Mesa.objects.filter(eleccion=eleccion, sede__isnull=False)
-        .values("eleccion_claustro_departamento_id", "sede_id")
-        .annotate(total=Count("id"))
-    }
-
+    asignaciones = dict(
+        AsignacionMesa.objects.filter(mesa__eleccion=eleccion).values_list("registro_padron_id", "mesa_id")
+    )
     resultado = defaultdict(int)
-    for (alcance_id, sede_id), extra in impacto.items():
-        alcance = EleccionClaustroDepartamento.objects.select_related("eleccion_claustro").get(pk=alcance_id)
-        capacidad = capacidad_por_alcance.get(alcance.eleccion_claustro_id) or 0
-        if capacidad <= 0:
+    for solicitud in solicitudes:
+        registro = solicitud.registro_padron
+        if registro.qr_generado_en:
             continue
-        actuales = electores_actuales.get((alcance_id, sede_id), 0)
-        mesas_requeridas = math.ceil((actuales + extra) / capacidad)
-        mesas_existentes = mesas_actuales.get((alcance_id, sede_id), 0)
-        if mesas_requeridas > mesas_existentes:
-            resultado[sede_id] += mesas_requeridas - mesas_existentes
+        capacidad = registro.eleccion_claustro_departamento.eleccion_claustro.maximo_votantes_por_mesa
+        disponibles = [
+            mesa for mesa in mesas.values()
+            if mesa["alcance"] == registro.eleccion_claustro_departamento_id
+            and mesa["sede"] == solicitud.sede_destino_id
+            and (not capacidad or mesa["total"] < capacidad)
+        ]
+        if disponibles:
+            destino = min(disponibles, key=lambda mesa: (mesa["total"], mesa["numero"]))
+        else:
+            numero = max((mesa["numero"] for mesa in mesas.values()), default=0) + 1
+            destino = {
+                "alcance": registro.eleccion_claustro_departamento_id,
+                "sede": solicitud.sede_destino_id,
+                "numero": numero,
+                "total": 0,
+            }
+            mesas[-numero] = destino
+            resultado[solicitud.sede_destino_id] += 1
+        origen_id = asignaciones.get(registro.pk)
+        if origen_id in mesas:
+            mesas[origen_id]["total"] -= 1
+        destino["total"] += 1
     return dict(resultado)
 
 
 @transaction.atomic
 def resolver_solicitud_cambio_sede(solicitud, estado, usuario, observacion_resolucion=""):
+    eleccion = Eleccion.objects.select_for_update().get(pk=solicitud.registro_padron.eleccion_id)
+    validar_resolucion_cambios_sede(eleccion)
     solicitud = SolicitudCambioSede.objects.select_for_update(of=("self",)).select_related(
         "registro_padron",
         "registro_padron__eleccion",
@@ -1169,7 +1196,10 @@ def resolver_solicitudes_pendientes(
     accion,
     observacion_resolucion="",
     maximo_mesas_nuevas=None,
+    solicitudes_ids=None,
 ):
+    eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+    validar_resolucion_cambios_sede(eleccion)
     if accion not in {
         "aprobar_todas",
         "aprobar_sin_agregar_mesas",
@@ -1185,13 +1215,21 @@ def resolver_solicitudes_pendientes(
         if maximo_mesas_nuevas < 0:
             raise ValueError("El máximo de mesas nuevas no puede ser negativo.")
 
+    consulta_solicitudes = SolicitudCambioSede.objects.filter(
+        registro_padron__eleccion=eleccion, estado=SolicitudCambioSede.Estado.PENDIENTE,
+    )
+    if solicitudes_ids is not None:
+        if not solicitudes_ids:
+            raise ValueError("Seleccioná al menos una solicitud pendiente.")
+        consulta_solicitudes = consulta_solicitudes.filter(pk__in=solicitudes_ids)
+        if consulta_solicitudes.count() != len(set(solicitudes_ids)):
+            raise ValueError("La selección contiene solicitudes resueltas o de otra elección.")
     solicitudes = list(
-        SolicitudCambioSede.objects.select_for_update(of=("self",))
+        consulta_solicitudes.select_for_update(of=("self",))
         .select_related(
             "registro_padron__eleccion_claustro_departamento__eleccion_claustro",
             "sede_destino",
         )
-        .filter(registro_padron__eleccion=eleccion, estado=SolicitudCambioSede.Estado.PENDIENTE)
         .order_by("creada_en", "id")
     )
     if not solicitudes:

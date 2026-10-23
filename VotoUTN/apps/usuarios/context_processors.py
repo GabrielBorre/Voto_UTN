@@ -44,7 +44,6 @@ def navegacion_por_rol(request):
             activo=True,
             rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
         )
-        .exclude(eleccion__isnull=True)
         .exists()
     )
 
@@ -55,9 +54,27 @@ def navegacion_por_rol(request):
         eleccion_justificativos = next(
             (e for e in en_curso if puede_revisar_justificativo(usuario, e)), None
         )
-        eleccion_cambio_sede = en_curso.filter(estado=Eleccion.Estado.PREPARADA).first()
+        eleccion_cambio_sede = en_curso.filter(estado__in=(Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA)).first()
+
+    coincidencia = request.resolver_match
+    eleccion_configuracion = None
+    configuracion_solo_lectura = False
+    if coincidencia and "eleccion_id" in coincidencia.kwargs:
+        eleccion_configuracion = Eleccion.objects.filter(pk=coincidencia.kwargs["eleccion_id"]).first()
+        modulo = coincidencia.func.__module__
+        configuracion_solo_lectura = bool(
+            eleccion_configuracion
+            and eleccion_configuracion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA)
+            and modulo in ("apps.elecciones.views", "apps.padron.views", "apps.autoridades.views", "apps.partidos.views")
+            and coincidencia.url_name not in (
+                "configurar-eleccion", "gestionar-elecciones", "gestionar-fechas-administrativas",
+                "gestionar-solicitudes-cambio-sede", "confirmar-notificaciones-ausentes",
+                "cambiar-estado-eleccion", "dashboard-historial-eleccion",
+            )
+        )
 
     return {
+        "configuracion_solo_lectura": configuracion_solo_lectura,
         "nav_eleccion_justificativos": eleccion_justificativos,
         "nav_eleccion_cambio_sede": eleccion_cambio_sede,
         "nav_es_elector": es_elector,

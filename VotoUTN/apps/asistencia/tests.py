@@ -216,6 +216,9 @@ class PermisosParticipacionTests(TestCase):
         self.assertTrue(puede_registrar_participacion(self.usuario, self.eleccion))
 
     def test_administrativo_global_puede_abrir_asistencia_de_cualquier_eleccion_activa(self):
+        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.habilitada = True
+        self.eleccion.save(update_fields=("estado", "habilitada"))
         AsignacionRol.objects.create(
             usuario=self.usuario,
             rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
@@ -249,6 +252,9 @@ class VistaCargaManualEscritorioTests(TestCase):
         )
 
     def test_la_vista_incluye_formulario_manual_y_escanner_movil(self):
+        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.habilitada = True
+        self.eleccion.save(update_fields=("estado", "habilitada"))
         self.client.force_login(self.usuario)
 
         response = self.client.get(reverse("escanear", args=[self.eleccion.id]))
@@ -408,6 +414,10 @@ class CicloDeVidaEleccionTests(TestCase):
         self.turno = turno
 
     def test_solo_abre_con_mesas_y_cerrar_la_deshabilita(self):
+        RegistroPadron.objects.create(
+            elector=Elector.objects.create(dni="40180001", legajo="40180001", nombre="Elector ciclo"),
+            eleccion=self.eleccion, eleccion_claustro_departamento=self.configuracion,
+        )
         self.eleccion.cambiar_estado(Eleccion.Estado.PREPARADA)
         with self.assertRaises(ValidationError):
             self.eleccion.cambiar_estado(Eleccion.Estado.ABIERTA)

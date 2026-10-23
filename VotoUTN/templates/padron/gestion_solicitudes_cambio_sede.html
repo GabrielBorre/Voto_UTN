@@ -6,7 +6,8 @@
   <h1>Solicitudes de cambio de sede</h1>
   <p>{{ eleccion.nombre }} · {{ pendientes }} pendientes</p>
 </section>
-
+{% if solo_lectura %}<div class="notice">Cambios de sede en modo lectura: el padrón imprimible ya fue generado o el estado de la elección no permite resolver solicitudes.</div>{% endif %}
+<fieldset class="configuracion-campos" {% if solo_lectura %}disabled{% endif %}>
 <section class="card management-section resolucion-masiva-layout">
   <div class="resolucion-masiva-acciones">
     <div class="section-title">
@@ -15,11 +16,11 @@
         <p>Podés aprobar o rechazar todas las solicitudes pendientes.</p>
       </div>
     </div>
-    <form method="post">
+    <form method="post" data-confirm="Se aprobarán todas las solicitudes y se crearán las mesas necesarias sin límite. ¿Continuar?">
       {% csrf_token %}
       <input type="hidden" name="accion" value="aprobar_todas">
       <div class="footer-actions">
-        <button class="button primary" onclick="return confirm('Se aprobarán todas las solicitudes y se crearán las mesas necesarias sin límite. ¿Continuar?');">Aceptar todas sin límite de mesas nuevas</button>
+        <button class="button primary">Aceptar todas sin límite de mesas nuevas</button>
       </div>
     </form>
     <form method="post" id="formulario-aprobar-con-limite-mesas">
@@ -40,19 +41,24 @@
       <small id="sin-solicitudes-pendientes">No hay solicitudes pendientes para resolver.</small>
       {% endif %}
     </form>
-        <form method="post">
+    <form method="post" data-confirm="Se aprobarán sin crear mesas nuevas. Las que no se puedan resolver quedarán rechazadas.">
       {% csrf_token %}
       <input type="hidden" name="accion" value="aprobar_sin_agregar_mesas">
       <div class="footer-actions">
-        <button class="button secondary" onclick="return confirm('Se aprobarán sin crear mesas nuevas. Las que no se puedan resolver quedarán rechazadas.');">Aceptar sin agregar mesas</button>
+        <button class="button secondary">Aceptar sin agregar mesas</button>
       </div>
     </form>
-    <form method="post">
+    <form method="post" data-confirm="Se rechazarán todas las solicitudes pendientes. ¿Continuar?">
       {% csrf_token %}
       <input type="hidden" name="accion" value="rechazar_todas">
       <div class="footer-actions">
-        <button class="button light" onclick="return confirm('Se rechazarán todas las solicitudes pendientes.');">Rechazar todas</button>
+        <button class="button light">Rechazar todas</button>
       </div>
+    </form>
+    <form method="post" id="aprobar-seleccionadas" data-confirm="Se aprobarán las solicitudes seleccionadas y se crearán las mesas necesarias. ¿Continuar?">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="aprobar_seleccionadas">
+      <div class="footer-actions"><button class="button primary" id="boton-aprobar-seleccionadas" disabled>Aprobar seleccionadas (<span id="cantidad-seleccionadas">0</span>)</button></div>
     </form>
   </div>
 
@@ -60,7 +66,8 @@
     <div class="section-title">
       <div>
         <h2>Mesas actuales por sede</h2>
-        <p>La cantidad estimada de mesas adicionales ayuda a evaluar el impacto de las solicitudes pendientes.</p>
+        <p>Mesas adicionales para las solicitudes seleccionadas: <strong id="total-mesas-seleccionadas">0</strong>.</p>
+        <p id="error-estimacion-mesas" class="error" role="alert" hidden></p>
       </div>
     </div>
     <div class="table-wrap">
@@ -73,7 +80,7 @@
           <tr>
             <td>{{ item.sede_nombre }}</td>
             <td>{{ item.mesas_actuales }}</td>
-            <td>{{ item.mesas_adicionales_estimadas }}</td>
+            <td data-estimacion-sede="{{ item.sede_id }}">0</td>
           </tr>
           {% empty %}
           <tr><td colspan="3" class="muted">No hay sedes configuradas para esta elección.</td></tr>
@@ -118,11 +125,12 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Elector</th><th>Claustro</th><th>Origen</th><th>Destino</th><th>Estado</th><th>Acciones</th></tr>
+        <tr><th><input type="checkbox" id="seleccionar-todas-solicitudes" aria-label="Seleccionar todas las pendientes"></th><th>Elector</th><th>Claustro</th><th>Origen</th><th>Destino</th><th>Estado</th><th>Acciones</th></tr>
       </thead>
       <tbody>
         {% for solicitud in solicitudes %}
         <tr>
+          <td>{% if solicitud.estado == 'pendiente' %}<input type="checkbox" name="solicitudes_ids" value="{{ solicitud.id }}" form="aprobar-seleccionadas" class="seleccion-solicitud" aria-label="Seleccionar solicitud de {{ solicitud.registro_padron.elector.nombre_completo }}">{% endif %}</td>
           <td>{{ solicitud.registro_padron.elector.nombre_completo }}</td>
           <td>{{ solicitud.registro_padron.eleccion_claustro_departamento.eleccion_claustro.claustro }}</td>
           <td>{{ solicitud.sede_origen }}</td>
@@ -146,12 +154,13 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="6" class="muted">No hay solicitudes para esta elección.</td></tr>
+        <tr><td colspan="7" class="muted">No hay solicitudes para esta elección.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+</fieldset>
 {% endblock %}
 
 {% block scripts %}

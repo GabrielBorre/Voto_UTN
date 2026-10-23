@@ -10,6 +10,34 @@
 
 ## Elecciones, claustros, sedes y departamentos
 
+- En estado **En curso** la configuración se conserva consultable, pero no
+  modificable desde las pantallas ni sus endpoints. Las excepciones son las
+  fechas administrativas existentes, la emisión del padrón imprimible y el
+  avance a Finalizada. No se incorpora por ahora la solicitud de fechas al
+  cambiar de estado ni una nueva clasificación de fechas por estado.
+- Solo se pueden agregar o quitar claustros en **En preparación**. Los nuevos
+  heredan las sedes de la elección; eliminar un claustro con datos vinculados
+  se rechaza sin borrar padrones ni modificar sus alcances.
+- El padrón imprimible con QR solo se genera **En curso**. Su emisión deja
+  **todos** los cambios de sede de la elección en modo lectura, incluidos los
+  rechazos individuales y masivos. No se permite rehabilitar cambios de
+  configuración en curso ni invalidar los QR impresos desde ese flujo.
+- La junta puede resolver cambios de sede en Publicada y En curso hasta la
+  primera emisión del padrón imprimible. Puede seleccionar solicitudes,
+  estimar las mesas adicionales y aprobar únicamente las marcadas. La
+  estimación simula la capacidad de cada mesa en el mismo orden de aprobación.
+- Los correos y las tarjetas de inicio identifican la mesa mediante su código
+  canónico (por ejemplo, `K-001`), no solo su número.
+- Configurar elección abre directamente la configuración actual y muestra
+  los cuatro estados e indicadores de pendientes. Al crear la elección se
+  continúa por Sedes y departamentos. El inicio de junta muestra cuatro
+  tarjetas informativas sin acciones, o Crear elección si no hay una actual.
+- La participación del inicio reutiliza el dashboard: solo computa electores
+  de mesas procesadas; los QR escaneados representan ausencias. Se aclara ese
+  denominador en la tarjeta para no presentar mesas sin procesar como votos.
+- Las confirmaciones y avisos interactivos usan diálogos propios, y las
+  operaciones demoradas muestran un indicador de procesamiento.
+
 - Puede existir como máximo una elección en estado borrador, preparada o abierta
 	en conjunto. Las elecciones cerradas pueden ser múltiples; mientras exista
 	una elección no cerrada no se permite crear otra.

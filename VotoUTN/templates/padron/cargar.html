@@ -52,7 +52,7 @@
   <section class="card management-section">
     <div class="section-title">
       <div>
-        <h2>Cargar archivo</h2>
+        <h2>Cargar padrón</h2>
         <p>El archivo se valida y se previsualiza antes de incorporar cualquier elector. “Sede donde cursa” es opcional y no determina la sede electoral. Importar no genera mesas ni QR.</p>
       </div>
       <span class="tag">CSV o Excel</span>
@@ -68,7 +68,7 @@
         </div>
         <div class="footer-actions">
           <a class="button light" href="{% url 'descargar-plantilla-padron' eleccion.id claustro.id %}">Descargar plantilla</a>
-          <button class="button primary" name="previsualizar-archivo">Previsualizar archivo</button>
+          <button class="button primary" name="previsualizar-archivo">Validar padrón</button>
         </div>
       </form>
     {% else %}
@@ -123,7 +123,7 @@
       <a class="button secondary" href="{% url 'configurar-sedes-claustro' eleccion.id claustro.id %}">Configurar asignación de sedes</a>
       {% if puede_eliminar_padron %}<a class="button danger" href="{% url 'eliminar-padron-claustro' eleccion.id claustro.id %}">Vaciar padrón del claustro</a>{% endif %}
     </div>
-    {% if cantidad_electores_padron and emision_vigente %}<small class="muted field-help">Para vaciar el padrón primero deberás invalidar la emisión imprimible.</small>{% endif %}
+    {% if cantidad_electores_padron and emision_vigente %}<small class="muted field-help">{% if puede_configurar %}Para vaciar el padrón primero deberás invalidar la emisión imprimible.{% else %}El padrón emitido se conserva en modo lectura; sus QR no pueden invalidarse desde la configuración.{% endif %}</small>{% endif %}
   </section>
 </div>
 

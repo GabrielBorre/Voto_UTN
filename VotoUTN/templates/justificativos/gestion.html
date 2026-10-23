@@ -40,7 +40,7 @@
       <input type="hidden" name="pestana" value="{{ pestana }}">
       <div class="field">
         <label for="filtro-estado">Estado</label>
-        <select id="filtro-estado" name="estado" onchange="this.form.submit()">
+        <select id="filtro-estado" name="estado" onchange="this.form.requestSubmit()">
           <option value="">Todos</option>
           {% for valor, etiqueta in estados %}<option value="{{ valor }}"{% if estado == valor %} selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
         </select>
