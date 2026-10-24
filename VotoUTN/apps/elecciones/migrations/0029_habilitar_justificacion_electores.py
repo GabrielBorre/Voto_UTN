@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("elecciones", "0025_una_eleccion_no_cerrada"),
+        ("elecciones", "0028_eleccion_notificaciones_ausentes_confirmadas_en"),
     ]
 
     operations = [
