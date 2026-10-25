@@ -69,7 +69,7 @@ class AutoridadesViewsTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "autoridades/gestion_claustro.html")
-        self.assertContains(respuesta, "Autoridades de Estudiantes vistas")
+        self.assertContains(respuesta, "Autoridades de mesa de Estudiantes vistas")
         self.assertContains(respuesta, 'class="card management-section"', count=4)
         self.assertContains(respuesta, reverse("gestionar-autoridades", args=(self.eleccion.id,)))
 

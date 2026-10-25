@@ -1,9 +1,9 @@
 {% extends "gestion/base.html" %}
-{% block title %}Autoridades de {{ eleccion_claustro.claustro }} | {{ eleccion.nombre }}{% endblock %}
+{% block title %}Autoridades de mesa de {{ eleccion_claustro.claustro }} | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
 <section class="hero">
-  <h1>Autoridades de {{ eleccion_claustro.claustro }}</h1>
-  <p>{{ eleccion.nombre }}. Cargá candidatos y asigná autoridades únicamente a las mesas de este claustro.</p>
+  <h1>Autoridades de mesa de {{ eleccion_claustro.claustro }}</h1>
+  <p>{{ eleccion.nombre }}. Cargá candidatos a autoridades de mesa y asigná autoridades únicamente a las mesas de este claustro.</p>
 </section>
 
 <div class="management-panel autoridades-panel">
@@ -32,7 +32,7 @@
     <div class="section-title">
       <div>
         <h2>Asignación manual</h2>
-        <p>Asigná individualmente un candidato a una mesa y un turno de trabajo.</p>
+        <p>Asigná individualmente un candidato a autoridad de mesa a una mesa y un turno de trabajo.</p>
       </div>
       <span class="tag">Máximo {{ eleccion.maximo_autoridades_por_mesa }} por mesa y turno</span>
     </div>
@@ -57,8 +57,8 @@
   <section class="card management-section">
     <div class="section-title">
       <div>
-        <h2>Carga de candidatos por archivo</h2>
-        <p>Incorporá la nómina de candidatos de {{ eleccion_claustro.claustro }} sin asignarles una mesa manualmente.</p>
+        <h2>Carga de candidatos a autoridades de mesa por archivo</h2>
+        <p>Incorporá la nómina de candidatos a autoridades de mesa de {{ eleccion_claustro.claustro }} sin asignarles una mesa manualmente.</p>
       </div>
       <span class="tag">CSV o Excel (.xlsx)</span>
     </div>
@@ -68,7 +68,7 @@
     </div>
     {% if errores_importacion %}
       <div class="import-error-summary" role="alert" aria-labelledby="errores-importacion-titulo">
-        <h3 id="errores-importacion-titulo">No se cargó ningún candidato</h3>
+        <h3 id="errores-importacion-titulo">No se cargó ningún candidato a autoridad de mesa</h3>
         <p>
           Se encontr{{ errores_importacion_total|pluralize:"ó,aron" }} {{ errores_importacion_total }} error{{ errores_importacion_total|pluralize:"|es" }}.
           Corregí los datos indicados y volvé a cargar el archivo; la importación se realiza completa o no se aplica.
@@ -96,7 +96,7 @@
       </div>
       <div class="footer-actions">
         <a class="button light" href="{% url 'descargar-plantilla-autoridades-claustro' eleccion.id eleccion_claustro.id %}">Descargar plantilla</a>
-        <button class="button primary" name="cargar-candidatos">Cargar candidatos</button>
+        <button class="button primary" name="cargar-candidatos">Cargar candidatos a autoridades de mesa</button>
       </div>
     </form>
   </section>
@@ -105,7 +105,7 @@
     <div class="section-title">
       <div>
         <h2>Asignaciones registradas</h2>
-        <p>Estado y trazabilidad de las autoridades de {{ eleccion_claustro.claustro }}.</p>
+        <p>Estado y trazabilidad de las autoridades de mesa de {{ eleccion_claustro.claustro }}.</p>
       </div>
       <span class="tag">{{ autoridades|length }} asignaciones</span>
     </div>

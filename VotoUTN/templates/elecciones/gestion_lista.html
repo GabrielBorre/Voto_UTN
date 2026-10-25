@@ -44,7 +44,7 @@
                     <td><span class="pill info">{{ eleccion.get_estado_display }}</span></td>
                     <td>{{ eleccion.fecha_inicio|date:"d/m/Y" }}</td>
                     <td>{{ eleccion.fecha_fin|date:"d/m/Y" }}</td>
-                    <td class="actions"><a class="button light small" href="{% url 'configurar-eleccion' eleccion.id %}">Configuracion</a>{% if eleccion.estado == 'borrador' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="preparada"><button class="button secondary small">Preparar</button></form>{% elif eleccion.estado == 'preparada' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="abierta"><button class="button primary small">Abrir</button></form>{% elif eleccion.estado == 'abierta' %}<form class="inline-form" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">{% csrf_token %}<input type="hidden" name="estado" value="cerrada"><button class="button secondary small">Cerrar</button></form>{% endif %}</td>
+                    <td class="actions"><a class="button light small" href="{% url 'configurar-eleccion' eleccion.id %}">Configuracion</a>{% if eleccion.estado == 'borrador' %}<form class="inline-form formulario-cambio-estado" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" data-estado-destino="Preparada">{% csrf_token %}<input type="hidden" name="estado" value="preparada"><button class="button secondary small">Preparar</button></form>{% elif eleccion.estado == 'preparada' %}<form class="inline-form formulario-cambio-estado" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" data-estado-destino="Abierta">{% csrf_token %}<input type="hidden" name="estado" value="abierta"><button class="button primary small">Abrir</button></form>{% elif eleccion.estado == 'abierta' %}<form class="inline-form formulario-cambio-estado" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" data-estado-destino="Cerrada">{% csrf_token %}<input type="hidden" name="estado" value="cerrada"><button class="button secondary small">Cerrar</button></form>{% endif %}</td>
                 </tr>
                 {% empty %}
                 <tr>
@@ -54,4 +54,48 @@
         </tbody>
     </table>
 </div>
+<dialog id="dialogo-cambio-estado" aria-labelledby="dialogo-cambio-estado-titulo" aria-describedby="dialogo-cambio-estado-mensaje" style="border:0;border-radius:16px;padding:0;max-width: min(440px, calc(100% - 32px));width:100%;box-shadow:0 20px 60px rgba(15,23,42,.28)">
+    <div style="padding:24px">
+        <h2 id="dialogo-cambio-estado-titulo" style="margin:0 0 12px">Confirmar cambio de estado</h2>
+        <p id="dialogo-cambio-estado-mensaje" style="margin:0 0 24px"></p>
+        <div style="display:flex;justify-content:flex-end;gap:12px">
+            <button class="button light" type="button" id="cancelar-cambio-estado">Cancelar</button>
+            <button class="button primary" type="button" id="confirmar-cambio-estado">Confirmar</button>
+        </div>
+    </div>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script>
+    const dialogoCambioEstado = document.getElementById("dialogo-cambio-estado");
+    const mensajeCambioEstado = document.getElementById("dialogo-cambio-estado-mensaje");
+    let formularioCambioEstadoPendiente = null;
+    let envioCambioEstadoConfirmado = false;
+
+    document.querySelectorAll(".formulario-cambio-estado").forEach((formulario) => {
+        formulario.addEventListener("submit", (evento) => {
+            if (envioCambioEstadoConfirmado) {
+                envioCambioEstadoConfirmado = false;
+                return;
+            }
+            evento.preventDefault();
+            formularioCambioEstadoPendiente = formulario;
+            mensajeCambioEstado.textContent = `¿Estás seguro de que deseas cambiar el estado a ${formulario.dataset.estadoDestino}?`;
+            dialogoCambioEstado.showModal();
+        });
+    });
+
+    document.getElementById("cancelar-cambio-estado").addEventListener("click", () => {
+        formularioCambioEstadoPendiente = null;
+        dialogoCambioEstado.close();
+    });
+
+    document.getElementById("confirmar-cambio-estado").addEventListener("click", () => {
+        const formulario = formularioCambioEstadoPendiente;
+        formularioCambioEstadoPendiente = null;
+        envioCambioEstadoConfirmado = true;
+        dialogoCambioEstado.close();
+        formulario?.requestSubmit();
+    });
+</script>
 {% endblock %}
