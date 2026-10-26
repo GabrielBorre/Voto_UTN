@@ -250,10 +250,7 @@ def eliminar_padron_claustro(request, eleccion_id, claustro_id):
             return redirect("eliminar-padron-claustro", eleccion_id=eleccion_id, claustro_id=claustro_id)
         messages.success(
             request,
-            f"Se eliminaron {resumen['cantidad_registros']} registros del padrón. "
-            f"Se liberaron {resumen['cantidad_electores_a_eliminar']} identidades sin otras referencias; "
-            "se conservaron las vinculadas a otros padrones o datos históricos. "
-            "El historial de importaciones permanece.",
+            f"Se eliminaron {resumen['cantidad_registros']} registros del padrón.",
         )
         return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
 

@@ -73,6 +73,8 @@ def navegacion_por_rol(request):
             )
         )
 
+    puede_gestionar_elecciones = puede_administrar_elecciones(usuario)
+
     return {
         "configuracion_solo_lectura": configuracion_solo_lectura,
         "nav_eleccion_justificativos": eleccion_justificativos,
@@ -85,7 +87,9 @@ def navegacion_por_rol(request):
         "nav_puede_ver_elecciones": puede_ver_elecciones,
         "nav_hay_eleccion_en_curso": puede_ver_elecciones
         and Eleccion.objects.filter(estado=Eleccion.Estado.ABIERTA).exists(),
-        "nav_puede_gestionar_elecciones": puede_administrar_elecciones(usuario),
+        "nav_puede_gestionar_elecciones": puede_gestionar_elecciones,
+        "nav_hay_eleccion_actual": puede_gestionar_elecciones
+        and Eleccion.objects.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS).exists(),
         "nav_puede_crear_elecciones": puede_crear_elecciones(usuario),
         "nav_puede_gestionar_parametros": puede_administrar_parametros(usuario),
         "nav_puede_revisar_justificativos": usuario.is_superuser

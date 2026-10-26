@@ -195,6 +195,29 @@ class InicioAutenticadoTests(TestCase):
         self.assertContains(respuesta, "Crear elección")
         self.assertNotContains(respuesta, eleccion_cerrada.nombre)
         self.assertNotContains(respuesta, otra_eleccion_cerrada.nombre)
+        self.assertContains(
+            respuesta,
+            'class="gestion-nav__disabled" role="link" aria-disabled="true" tabindex="0" '
+            'title="No hay una elección actual para configurar. Creala desde Inicio.">Configurar elección</span>',
+        )
+        self.assertNotContains(respuesta, f'href="{reverse("gestionar-elecciones")}"')
+
+    def test_pestana_configurar_eleccion_habilitada_con_eleccion_actual(self):
+        usuario = get_user_model().objects.create_user(username="admin-junta-actual")
+        eleccion = Eleccion.objects.create(
+            nombre="Elección actual",
+            fecha_inicio=date(2026, 9, 1),
+            fecha_fin=date(2026, 9, 10),
+        )
+        AsignacionRol.objects.create(
+            usuario=usuario, eleccion=eleccion, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        )
+        self.client.force_login(usuario)
+
+        respuesta = self.client.get(reverse("inicio-administrador-junta"))
+
+        self.assertContains(respuesta, f'href="{reverse("gestionar-elecciones")}">Configurar elección</a>')
+        self.assertNotContains(respuesta, "No hay una elección actual para configurar.")
 
     def test_lista_solo_considera_en_curso_estado_abierta(self):
         usuario = get_user_model().objects.create_user(

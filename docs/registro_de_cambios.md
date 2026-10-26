@@ -15,6 +15,8 @@ Este documento registra cambios aplicados al proyecto. Describe los archivos y e
 - La pestaña "Notificaciones" se reemplaza por una campanita a la izquierda del
   rol del usuario, en todos los roles, con indicador rojo de no leídas. Sigue
   visible en móvil aunque se oculte el bloque de usuario.
+- La pestaña "Configurar elección" se muestra grisada y deshabilitada cuando no
+  hay una elección actual (En preparación, Publicada o En curso).
 - Configuración actual directa desde el menú, línea de tiempo con estado
   destacado y ayudas breves, e indicadores de configuración pendiente.
 - Inicio de junta global con elección actual, justificativos pendientes,
