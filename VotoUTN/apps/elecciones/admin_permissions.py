@@ -29,25 +29,32 @@ class EleccionCerradaAdminMixin(admin.ModelAdmin):
 
     def _esta_cerrada(self, objeto):
         eleccion = self._eleccion_asociada(objeto)
-        return eleccion is not None and eleccion.estado == Eleccion.Estado.CERRADA
+        return eleccion is not None and eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA)
 
     def has_change_permission(self, request, obj=None):
         return not self._esta_cerrada(obj) and super().has_change_permission(request, obj)
 
     def has_delete_permission(self, request, obj=None):
+        eleccion = self._eleccion_asociada(obj)
+        if obj is not None and obj._meta.label_lower == "elecciones.eleccionclaustro":
+            if eleccion and eleccion.estado != Eleccion.Estado.BORRADOR:
+                return False
         return not self._esta_cerrada(obj) and super().has_delete_permission(request, obj)
 
     def save_model(self, request, obj, form, change):
         if self._esta_cerrada(obj):
-            raise PermissionDenied("No se puede modificar la configuracion de una eleccion cerrada.")
+            raise PermissionDenied("No se puede modificar la configuración de una elección en curso o finalizada.")
+        if not change and obj._meta.label_lower == "elecciones.eleccionclaustro":
+            if obj.eleccion.estado != Eleccion.Estado.BORRADOR:
+                raise PermissionDenied("Solo se pueden agregar claustros en estado En preparación.")
         super().save_model(request, obj, form, change)
 
     def delete_model(self, request, obj):
-        if self._esta_cerrada(obj):
-            raise PermissionDenied("No se puede modificar la configuracion de una eleccion cerrada.")
+        if not self.has_delete_permission(request, obj):
+            raise PermissionDenied("No se puede eliminar esta configuración en el estado actual de la elección.")
         super().delete_model(request, obj)
 
     def delete_queryset(self, request, queryset):
-        if any(self._esta_cerrada(obj) for obj in queryset):
-            raise PermissionDenied("No se puede modificar la configuracion de una eleccion cerrada.")
+        if any(not self.has_delete_permission(request, obj) for obj in queryset):
+            raise PermissionDenied("No se puede eliminar esta configuración en el estado actual de la elección.")
         super().delete_queryset(request, queryset)

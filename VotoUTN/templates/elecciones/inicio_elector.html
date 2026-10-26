@@ -16,13 +16,14 @@
       {% if registro.asignacion_autoridad %}
       <div class="option">
         <h3>Desempeño como Autoridad de Mesa</h3>
+        <p><strong>Mesa:</strong> {{ registro.asignacion_autoridad.mesa.codigo|default:"Sin asignar" }}</p>
         <p><strong>Sede:</strong> {{ registro.asignacion_autoridad.mesa.sede|default:"Sin asignar" }}</p>
         <p><strong>Turno de trabajo:</strong> {{ registro.asignacion_autoridad.turno|default:"Sin asignar" }}</p>
       </div>
       {% endif %}
       <div class="option">
         <h3>Mesa y sede de votación</h3>
-        <p><strong>Mesa:</strong> {{ registro.asignacion_mesa.mesa.numero|default:"Sin asignar" }}</p>
+        <p><strong>Mesa:</strong> {{ registro.asignacion_mesa.mesa.codigo|default:"Sin asignar" }}</p>
         <p><strong>Sede:</strong> {{ registro.sede|default:"Sin asignar" }}</p>
       </div>
       <div class="option">
@@ -34,7 +35,7 @@
         <h3>Justificación </h3>
                     {% if registro.asignacion_autoridad %}
         <p>Fecha límite de carga autoridades de mesa:</p>
-        <p><strong>{{ registro.eleccion.|date:"j \d\e F \d\e Y"|default:"A confirmar" }}</strong></p>
+        <p><strong>{{ registro.eleccion.fecha_limite_justificacion_autoridades|date:"j \d\e F \d\e Y"|default:"A confirmar" }}</strong></p>
             {% endif %}
         <p>Fecha límite de carga electores:</p>
         <p><strong>{{ registro.eleccion.fecha_limite_justificacion_electores|date:"j \d\e F \d\e Y"|default:"A confirmar" }}</strong></p>

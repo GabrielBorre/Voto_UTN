@@ -18,7 +18,10 @@ from apps.usuarios.models import AsignacionRol
 class DashboardParticipacionTests(TestCase):
     def setUp(self):
         self.eleccion = Eleccion.objects.create(
-            nombre="Eleccion Dashboard", fecha_inicio=date(2026, 8, 3), fecha_fin=date(2026, 8, 3)
+            nombre="Eleccion Dashboard",
+            fecha_inicio=date(2026, 8, 3),
+            fecha_fin=date(2026, 8, 3),
+            estado=Eleccion.Estado.ABIERTA,
         )
         self.sede_a = Sede.objects.create(nombre="Sede A")
         self.sede_b = Sede.objects.create(nombre="Sede B")
@@ -46,7 +49,12 @@ class DashboardParticipacionTests(TestCase):
         )
 
     def crear_registro(self, indice, mesa, sede):
-        elector = Elector.objects.create(legajo=f"L{indice}", nombre=f"Elector {indice}", dni=f"3000000{indice}")
+        elector = Elector.objects.create(
+            legajo=f"L{indice}",
+            nombre=f"Elector {indice}",
+            dni=f"3000000{indice}",
+            correo_electronico=f"elector{indice}@example.test",
+        )
         registro = RegistroPadron.objects.create(
             elector=elector, eleccion=self.eleccion, eleccion_claustro_departamento=self.configuracion, sede=sede
         )
@@ -227,3 +235,54 @@ class DashboardParticipacionTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.context["eleccion_actual"], self.eleccion)
         self.assertEqual(respuesta.context["dashboard"]["electores_total"], 4)
+
+    def test_admin_confirma_notificaciones_solo_con_todas_las_mesas_procesadas_y_no_duplica(self):
+        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.save(update_fields=("estado",))
+        administrador = get_user_model().objects.create_user(username="admin-notificaciones-ausentes")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(administrador)
+        url = reverse("confirmar-notificaciones-ausentes", args=(self.eleccion.pk,))
+        destino = f"{reverse('lista-elecciones')}?eleccion={self.eleccion.pk}"
+
+        Mesa.objects.filter(pk=self.mesa_a.pk).update(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
+        incompleto = self.client.post(url)
+        self.assertRedirects(incompleto, destino, fetch_redirect_response=False)
+        self.assertEqual(self.eleccion.envios_notificacion.count(), 0)
+
+        Mesa.objects.filter(pk=self.mesa_b.pk).update(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
+        RegistroParticipacion.objects.create(
+            registro_padron=self.registros_a[0],
+            mesa=self.mesa_a,
+            registrada_por=self.administrativo,
+            metodo=RegistroParticipacion.Metodo.QR,
+        )
+        dashboard = self.client.get(reverse("lista-elecciones"), {"eleccion": self.eleccion.pk})
+        self.assertContains(dashboard, "Confirmar escaneo y notificar ausentes")
+
+        respuesta = self.client.post(url)
+        self.assertRedirects(respuesta, destino, fetch_redirect_response=False)
+        self.assertEqual(self.eleccion.envios_notificacion.count(), 1)
+        self.eleccion.refresh_from_db()
+        self.assertIsNotNone(self.eleccion.notificaciones_ausentes_confirmadas_en)
+        self.assertEqual(self.eleccion.envios_notificacion.get().elector, self.registros_a[0].elector)
+
+        self.client.post(url)
+        self.assertEqual(self.eleccion.envios_notificacion.count(), 1)
+
+    def test_administrativo_no_puede_confirmar_notificaciones_a_ausentes(self):
+        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.save(update_fields=("estado",))
+        Mesa.objects.filter(eleccion=self.eleccion).update(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
+        self.client.force_login(self.administrativo)
+
+        respuesta = self.client.post(
+            reverse("confirmar-notificaciones-ausentes", args=(self.eleccion.pk,))
+        )
+
+        self.assertEqual(respuesta.status_code, 403)
+        self.assertEqual(self.eleccion.envios_notificacion.count(), 0)

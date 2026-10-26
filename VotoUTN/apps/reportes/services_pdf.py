@@ -21,6 +21,7 @@ from reportlab.platypus import Image as ImagenPDF
 from reportlab.platypus import Paragraph, Table, TableStyle
 
 from apps.asistencia.services import ServicioRegistroParticipacion
+from apps.elecciones.models import Eleccion
 from apps.padron.models import RegistroPadron
 
 PAGINA = portrait(legal)
@@ -49,10 +50,12 @@ class ValidacionPadronPDF:
 
 def validar_padron_para_pdf(eleccion) -> ValidacionPadronPDF:
     motivos = []
+    if eleccion.estado != Eleccion.Estado.ABIERTA:
+        motivos.append("El padrón imprimible solo se puede generar cuando la elección está en curso.")
     padrones = RegistroPadron.objects.filter(eleccion=eleccion, activo=True)
     total = padrones.count()
     if total == 0:
-        return ValidacionPadronPDF(False, ["La elección no tiene electores cargados en el padrón."])
+        return ValidacionPadronPDF(False, motivos + ["La elección no tiene electores cargados en el padrón."])
 
     sin_sede = padrones.filter(asignacion_mesa__mesa__sede__isnull=True).count()
     if sin_sede:

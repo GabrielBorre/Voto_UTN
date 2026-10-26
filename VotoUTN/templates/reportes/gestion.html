@@ -32,7 +32,7 @@
     <div class="report-actions">
       <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'mesas' %}">Exportar mesas</a>
       {% if validacion_padron_pdf.apto %}
-        <form method="post" action="{% url 'generar-padron-pdf' eleccion.id %}">{% csrf_token %}<button class="button primary" type="submit">Generar padrón imprimible</button></form>
+        <form method="post" action="{% url 'generar-padron-pdf' eleccion.id %}" data-download>{% csrf_token %}<button class="button primary" type="submit">Generar padrón imprimible</button></form>
       {% else %}
         <button class="button light" type="button" disabled>Generar padrón imprimible</button>
       {% endif %}
@@ -76,6 +76,11 @@
     <div class="report-actions">
       <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'justificativos' %}">Exportar justificativos</a>
       <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'errores-importacion' %}">Exportar errores de importación</a>
+      {% if puede_exportar_infractores %}
+      <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'infractores' %}">Exportar infractores</a>
+      {% else %}
+      <button class="button light" type="button" disabled>Exportar infractores</button>
+      {% endif %}
     </div>
   </article>
 </section>

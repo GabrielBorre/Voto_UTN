@@ -6,7 +6,7 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.elecciones.models import Eleccion
+from apps.elecciones.models import ESTADOS_ELECCION_NO_CERRADOS, Eleccion
 from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
 from apps.notificaciones.services import crear_notificacion_resultado_justificativo, enviar_notificacion
@@ -25,17 +25,36 @@ def mis_justificativos(request):
             elector = Elector.objects.filter(dni=dni).first()
     if elector is None:
         return HttpResponseForbidden("No existe un elector asociado a esta identidad.")
-    registro_padron = (
-        RegistroPadron.objects.filter(elector=elector, activo=True)
-        .select_related("eleccion")
-        .order_by("-eleccion__fecha_inicio", "-eleccion_id")
+    eleccion = (
+        Eleccion.objects.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS)
+        .order_by("-fecha_inicio", "-id")
         .first()
+    )
+    registro_padron = None
+    if eleccion is not None:
+        registro_padron = (
+            RegistroPadron.objects.filter(elector=elector, eleccion=eleccion, activo=True)
+            .select_related("eleccion")
+            .first()
+        )
+    estado_habilitado = bool(
+        eleccion
+        and eleccion.estado in (Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA)
     )
     formulario = FormularioJustificativo(
         request.POST or None,
         request.FILES or None,
         registro_padron=registro_padron,
     )
+    if request.method == "POST" and not estado_habilitado:
+        messages.error(
+            request,
+            "La presentación de justificativos está habilitada únicamente para elecciones publicadas o en curso.",
+        )
+        return redirect("mis-justificativos")
+    if request.method == "POST" and registro_padron is None:
+        messages.error(request, "No tenés un padrón activo para la elección actual.")
+        return redirect("mis-justificativos")
     if request.method == "POST" and formulario.is_valid():
         formulario.save()
         messages.success(request, "El justificativo fue presentado para revision.")
@@ -46,9 +65,11 @@ def mis_justificativos(request):
         request,
         "justificativos/mis_justificativos.html",
         {
-            "eleccion": registro_padron.eleccion if registro_padron else None,
+            "eleccion": eleccion,
+            "registro_padron": registro_padron,
+            "estado_habilitado": estado_habilitado,
             "formulario": formulario,
-            "puede_presentar": bool(formulario.fields["ausencia"].choices),
+            "puede_presentar": estado_habilitado and bool(formulario.fields["ausencia"].choices),
             "justificativos": justificativos,
         },
     )

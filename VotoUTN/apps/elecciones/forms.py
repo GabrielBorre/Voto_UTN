@@ -14,6 +14,7 @@ from .models import (
 from apps.mesas.models import Mesa
 from apps.padron.services import claustro_tiene_emision_vigente
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede
+from .services import agregar_claustro
 
 
 class FormularioEleccion(forms.ModelForm):
@@ -26,15 +27,18 @@ class FormularioEleccion(forms.ModelForm):
             "nombre",
             "fecha_inicio",
             "fecha_fin",
+            "fecha_cierre_solicitudes_cambio_sede",
         )
         labels = {
             "nombre": "Nombre de la elección",
             "fecha_inicio": "Inicio del proceso electoral",
             "fecha_fin": "Fin del proceso electoral",
+            "fecha_cierre_solicitudes_cambio_sede": "Cierre de solicitudes de cambio de sede",
         }
         widgets = {
             "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
             "fecha_fin": forms.DateInput(attrs={"type": "date"}),
+            "fecha_cierre_solicitudes_cambio_sede": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -60,32 +64,19 @@ class FormularioEleccion(forms.ModelForm):
             [EleccionSede(eleccion=eleccion, sede=sede) for sede in sedes]
         )
         for claustro in self.cleaned_data["claustros"]:
-            eleccion_claustro = EleccionClaustro.objects.create(
-                eleccion=eleccion,
-                claustro=claustro,
-                organizacion_departamentos=claustro.organizacion_departamentos,
-            )
-            EleccionClaustroSede.objects.bulk_create(
-                [EleccionClaustroSede(eleccion_claustro=eleccion_claustro, sede=sede) for sede in sedes]
-            )
-            if (
-                claustro.organizacion_departamentos
-                == Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO
-            ):
-                alcance = EleccionClaustroDepartamento.objects.create(
-                    eleccion_claustro=eleccion_claustro,
-                    departamento=None,
-                )
-                EleccionClaustroDepartamentoSede.objects.bulk_create(
-                    [
-                        EleccionClaustroDepartamentoSede(
-                            eleccion_claustro_departamento=alcance,
-                            sede=sede,
-                        )
-                        for sede in sedes
-                    ]
-                )
+            agregar_claustro(eleccion, claustro)
         return eleccion
+
+
+class FormularioAgregarClaustro(forms.Form):
+    claustro = forms.ModelChoiceField(queryset=Claustro.objects.none(), label="Claustro")
+
+    def __init__(self, *args, eleccion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["claustro"].queryset = Claustro.objects.filter(activo=True).exclude(
+            elecciones_claustro__eleccion=eleccion,
+        )
+        self.fields["claustro"].widget.attrs["class"] = "form-control"
 
 
 class FormularioFechasAdministrativasEleccion(forms.Form):

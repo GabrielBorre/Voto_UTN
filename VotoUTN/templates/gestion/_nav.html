@@ -8,8 +8,12 @@
   <span class="gestion-nav__disabled" role="link" aria-disabled="true" tabindex="0" title="Debe haber una elección en curso para poder registrar participación.">Registro de participación</span>
     {% endif %}
   {% endif %}
-  {% if nav_es_administrador_junta %}
-  <a class="{% if request.resolver_match.url_name in 'gestionar-elecciones,crear-eleccion,preparar-eleccion,preparar-claustro,editar-eleccion,configurar-eleccion,gestionar-fechas-administrativas,cambiar-estado-eleccion,gestionar-alcances,gestionar-departamentos-claustro,editar-alcance-sedes,gestionar-mesas,gestionar-autoridades,gestionar-autoridades-claustro,previsualizar-padron,gestionar-reportes,gestionar-partidos,importar-candidaturas,plantilla-candidaturas,plantilla-candidatos-lista,editar-puesto-eleccion,cambiar-estado-puesto-eleccion,confirmar-importacion-candidaturas,detalle-participacion-partido,editar-participacion-partido,cambiar-estado-participacion-partido,detalle-lista-candidatos,cambiar-estado-lista-candidatos,editar-candidato,cambiar-estado-candidato,buscar-elector-candidato' %}active{% endif %}" href="{% url 'gestionar-elecciones' %}">Gestionar elecciones</a>
+  {% if nav_puede_gestionar_elecciones %}
+  {% if nav_hay_eleccion_actual %}
+  <a class="{% if request.resolver_match.url_name in 'gestionar-elecciones,crear-eleccion,preparar-eleccion,preparar-claustro,editar-eleccion,configurar-eleccion,gestionar-fechas-administrativas,cambiar-estado-eleccion,gestionar-alcances,gestionar-departamentos-claustro,editar-alcance-sedes,gestionar-mesas,gestionar-autoridades,gestionar-autoridades-claustro,previsualizar-padron,gestionar-reportes,gestionar-partidos,importar-candidaturas,plantilla-candidaturas,plantilla-candidatos-lista,editar-puesto-eleccion,cambiar-estado-puesto-eleccion,confirmar-importacion-candidaturas,detalle-participacion-partido,editar-participacion-partido,cambiar-estado-participacion-partido,detalle-lista-candidatos,cambiar-estado-lista-candidatos,editar-candidato,cambiar-estado-candidato,buscar-elector-candidato' %}active{% endif %}" href="{% url 'gestionar-elecciones' %}">Configurar elección</a>
+  {% else %}
+  <span class="gestion-nav__disabled" role="link" aria-disabled="true" tabindex="0" title="No hay una elección actual para configurar. Creala desde Inicio.">Configurar elección</span>
+  {% endif %}
   {% endif %}
   {% if nav_puede_gestionar_parametros %}
   <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' or request.resolver_match.url_name == 'catalogos-candidaturas' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parámetros de elección</a>
@@ -26,10 +30,14 @@
   {% elif nav_puede_ver_justificativos %}
   <a class="{% if request.resolver_match.url_name == 'mis-justificativos' %}active{% endif %}" href="{% url 'mis-justificativos' %}">Mis justificativos</a>
   {% endif %}
+  {% if nav_puede_revisar_justificativos and nav_eleccion_cambio_sede %}
+  <a class="{% if request.resolver_match.url_name == 'gestionar-solicitudes-cambio-sede' %}active{% endif %}" href="{% url 'gestionar-solicitudes-cambio-sede' nav_eleccion_cambio_sede.pk %}">Cambios de sede</a>
+  {% elif nav_puede_ver_justificativos %}
+  <a class="{% if request.resolver_match.url_name == 'mis-solicitudes-cambio-sede' %}active{% endif %}" href="{% url 'mis-solicitudes-cambio-sede' %}">Cambio de sede</a>
+  {% endif %}
   {% if nav_es_autoridad %}
   <a class="{% if request.resolver_match.url_name == 'mis-asignaciones-autoridad' %}active{% endif %}" href="{% url 'mis-asignaciones-autoridad' %}">Mis asignaciones</a>
   {% endif %}
-  <a class="{% if request.resolver_match.url_name == 'mis-notificaciones' or request.resolver_match.url_name == 'leer-notificacion' %}active{% endif %}" href="{% url 'mis-notificaciones' %}">Notificaciones{% if notificaciones_no_leidas %} ({{ notificaciones_no_leidas }}){% endif %}</a>
   <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Cerrar Sesión</button></form>
 </nav>
 {% endif %}

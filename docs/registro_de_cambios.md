@@ -2,6 +2,55 @@
 
 Este documento registra cambios aplicados al proyecto. Describe los archivos y el efecto de cada cambio; no reemplaza el historial de Git ni las migraciones de Django.
 
+## Ciclo electoral, configuración y resolución seleccionada
+
+- Refinamiento visual: indicadores de configuración completa en verde y
+  pendientes en amarillo. El ciclo se presenta mediante tarjetas con colores
+  e iconos por etapa, conectadas de izquierda a derecha en escritorio y de
+  arriba hacia abajo en móvil, con el estado actual destacado y ayudas
+  accesibles por foco o cursor. No se modifican transiciones ni permisos.
+- El botón de avance de estado se ubica en el encabezado del ciclo. Cuando una
+  regla impide la transición, el motivo se informa con un popup propio de la
+  aplicación (con aviso en página como alternativa sin JavaScript).
+- La pestaña "Notificaciones" se reemplaza por una campanita a la izquierda del
+  rol del usuario, en todos los roles, con indicador rojo de no leídas. Sigue
+  visible en móvil aunque se oculte el bloque de usuario.
+- La pestaña "Configurar elección" se muestra grisada y deshabilitada cuando no
+  hay una elección actual (En preparación, Publicada o En curso).
+- Configuración actual directa desde el menú, línea de tiempo con estado
+  destacado y ayudas breves, e indicadores de configuración pendiente.
+- Inicio de junta global con elección actual, justificativos pendientes,
+  cambios de sede pendientes y participación confirmada. Sin elección actual
+  ofrece crearla; la creación continúa por Sedes y departamentos.
+- Alta/baja de claustros en preparación, con herencia de sedes y rechazo
+  transaccional de bajas que afectarían datos vinculados.
+- Permisos de configuración: consulta en curso y bloqueo de POST, con las
+  excepciones acordadas de fechas administrativas, transición de estado y
+  padrón imprimible. Se conserva el acceso histórico previo de finalizadas.
+- Emisión imprimible solo en curso; emisión y resolución de cambios coordinan
+  el bloqueo de la elección para preservar los QR. Reimpresiones conservan
+  identificadores, marcas de emisión y número de mesa.
+- Selección de solicitudes pendientes, estimación por sede sin duplicar las
+  reglas en JavaScript y aprobación exclusiva de las seleccionadas. Después
+  de imprimir quedan bloqueadas las resoluciones individuales y masivas.
+- Código de mesa con departamento en avisos y tarjetas del elector y autoridad.
+- Diálogos propios y throbber compartido para operaciones demoradas. Se retiró
+  la leyenda de estados de la presentación de justificativos sin ampliar permisos.
+- Nuevas pruebas de invariantes y regresiones en elecciones y reportes;
+  expectativas de navegación y redirecciones ajustadas en suites relacionadas.
+  No se modificaron modelos ni se requieren nuevas migraciones.
+- Por indicación expresa, no se implementó pedir fechas en la transición de
+  estado ni reasignarlas a estados.
+- Verificación: 342 pruebas correctas en PostgreSQL de pruebas aislado; check,
+  detección de migraciones y plan de migraciones sin pendientes. También se
+  verificaron en Chromium selección, confirmaciones, controles en lectura,
+  diálogo de límite y disposición móvil de la línea de tiempo.
+- Observación ajena a esta entrega: al reutilizar repetidamente la base de
+  pruebas con `--keepdb`, los IDs superaron 1295. El formato QR previo reserva
+  dos caracteres base36 para elección y mesa y no admite correctamente IDs
+  mayores al parsearlos. No se cambió ese contrato ni su comportamiento;
+  la validación final se ejecutó en una base de pruebas nueva y aislada.
+
 ## Etapa 0 - Auditoria y estabilizacion
 
 Fecha de cierre: 2026-08-02
@@ -87,6 +136,64 @@ Fecha de cierre: 2026-08-03
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 6 pruebas correctas.
 - No se pudo ejecutar una comprobacion estatica con Node.js porque Node no esta instalado en el entorno.
+
+## Ajuste funcional - Estados de eleccion y cambio de sede
+
+Fecha de cierre: 2026-10-19
+
+### Estados y reglas de ciclo de vida
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | Se mantuvieron los valores tecnicos de estado para compatibilidad (`borrador`, `preparada`, `abierta`, `cerrada`) y se actualizaron sus etiquetas visibles a `En preparación`, `Publicada`, `En curso` y `Finalizada`. Se agregó `fecha_cierre_solicitudes_cambio_sede`. |
+| `VotoUTN/apps/elecciones/views.py` | Se incorporaron validaciones para finalizar elección (sin justificativos pendientes y sin mesas pendientes de escaneo), y envío de notificaciones al publicar e iniciar elección. |
+| `VotoUTN/apps/elecciones/migrations/0026_eleccion_fecha_cierre_solicitudes_cambio_sede.py` | Migración aditiva para la nueva fecha de cierre de solicitudes de cambio de sede. |
+| `VotoUTN/apps/elecciones/migrations/0027_alter_eleccion_estado.py` | Migración de actualización de `choices` del campo `estado` para reflejar los nuevos nombres funcionales. |
+
+### Flujo de solicitud de cambio de sede
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/padron/models.py` | Se agregó `SolicitudCambioSede` con estados `pendiente/aprobada/rechazada`, trazabilidad de resolución y restricción de única solicitud pendiente por registro de padrón. |
+| `VotoUTN/apps/padron/services.py` | Se agregaron servicios para resolver solicitudes individuales y masivas (aprobar/rechazar, con o sin creación de mesas, y con límite de mesas por sede). |
+| `VotoUTN/apps/padron/views.py` | Se incorporaron vistas para `mis-solicitudes-cambio-sede` (elector) y `gestionar-solicitudes-cambio-sede` (junta), incluyendo validaciones de período y notificación al resolver. |
+| `VotoUTN/apps/padron/urls.py` | Se registraron rutas nuevas para solicitud y gestión de cambios de sede. |
+| `VotoUTN/apps/padron/migrations/0011_solicitudcambiosede.py` | Migración de creación de `SolicitudCambioSede` y su constraint de unicidad parcial. |
+| `VotoUTN/templates/padron/mis_solicitudes_cambio_sede.html` | Nueva pantalla para que el elector solicite cambio de sede y consulte historial de solicitudes. |
+| `VotoUTN/templates/padron/gestion_solicitudes_cambio_sede.html` | Nueva pantalla para gestión masiva e individual de solicitudes desde administración de junta. |
+
+### Navegación y reportes
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/templates/gestion/_nav.html` | Se agregó acceso a gestión de solicitudes de cambio de sede para administración y acceso para electores a sus solicitudes. |
+| `VotoUTN/apps/reportes/services.py` | Se agregó exportación CSV de infractores (ausentes sin justificativo aprobado). |
+| `VotoUTN/apps/reportes/views.py` y `VotoUTN/templates/reportes/gestion.html` | Se habilitó la exportación de infractores solo para elecciones finalizadas y sin justificativos pendientes. |
+
+### Verificaciones
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py test apps.elecciones apps.padron.tests apps.justificativos.tests`: correcto (114 pruebas).
+
+## Límite total de mesas en la resolución de cambios de sede
+
+La pantalla de administración muestra las mesas actuales por sede y una estimación de mesas adicionales. Se agregó una resolución masiva con un máximo total ingresado por el administrador; las solicitudes que superen el límite quedan pendientes. La asignación ahora busca una mesa con capacidad disponible antes de crear una nueva, respetando el máximo de electores por mesa del claustro.
+
+La acción «Aceptar con límite de mesas nuevas» ahora abre un diálogo con la cantidad estimada de mesas que se crearían si se aceptaran todas las solicitudes y solicita el máximo total antes de continuar. El resumen por sede queda junto a las acciones en escritorio y se apila en pantallas angostas.
+Además, cada elector ahora puede registrar una sola solicitud de cambio de sede por elección: si ya existe una solicitud para esa elección, se bloquea una nueva carga y se informa en pantalla.
+
+Archivos modificados:
+
+- `VotoUTN/apps/padron/services.py`
+- `VotoUTN/apps/padron/views.py`
+- `VotoUTN/apps/padron/tests.py`
+- `VotoUTN/templates/padron/gestion_solicitudes_cambio_sede.html`
+- `VotoUTN/static/js/solicitudes-cambio-sede.js`
+- `VotoUTN/static/css/gestion-electoral.css`
+- `VotoUTN/templates/gestion/base.html`
+- `docs/decisiones_funcionales.md`
+- `docs/registro_de_cambios.md`
 
 ## Etapa 2 - Modelo electoral base
 
@@ -697,3 +804,14 @@ Fecha de implementación: 2026-09-27
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 125 pruebas correctas.
+
+## Confirmación de notificaciones a ausentes
+
+Fecha de implementación: 2026-10-19
+
+- El tablero ofrece al administrador de junta una acción confirmable cuando todas las mesas están procesadas.
+- El servidor vuelve a validar permisos, estado de elección y procesamiento de todas las mesas; rechaza confirmaciones repetidas.
+- Se generan notificaciones web para electores activos registrados como ausentes mediante escaneo de QR. Se intenta el envío por correo y se informa el resultado sin ocultar los avisos web cuando falla el correo.
+- La confirmación, el usuario y los totales de notificación/correo quedan registrados en la elección y en auditoría.
+- `elecciones.0028_eleccion_notificaciones_ausentes_confirmadas_en` agrega el marcador de confirmación sin alterar datos existentes.
+- Se agregaron pruebas para confirmar que no se notifica antes de procesar todas las mesas, para la autorización exclusiva de junta y para la idempotencia del envío.

@@ -44,7 +44,7 @@ class InicioAutenticadoTests(TestCase):
 
         self.assertRedirects(
             respuesta,
-            reverse("gestionar-elecciones"),
+            reverse("inicio-administrador-junta"),
             fetch_redirect_response=False,
         )
 
@@ -159,10 +159,10 @@ class InicioAutenticadoTests(TestCase):
         respuesta = self.client.get(reverse("inicio-administrador-junta"))
 
         self.assertContains(respuesta, eleccion_en_curso.nombre)
-        self.assertContains(respuesta, "Preparada")
+        self.assertContains(respuesta, "Publicada")
         self.assertNotContains(respuesta, eleccion_cerrada.nombre)
 
-    def test_inicio_administrador_junta_muestra_ultima_eleccion_cerrada_si_no_hay_una_en_curso(self):
+    def test_inicio_administrador_junta_ofrece_crear_si_no_hay_eleccion_actual(self):
         usuario = get_user_model().objects.create_user(
             username="admin-junta-cerrada",
         )
@@ -192,11 +192,34 @@ class InicioAutenticadoTests(TestCase):
 
         respuesta = self.client.get(reverse("inicio-administrador-junta"))
 
-        self.assertContains(respuesta, eleccion_cerrada.nombre)
-        self.assertContains(respuesta, "Cerrada")
+        self.assertContains(respuesta, "Crear elección")
+        self.assertNotContains(respuesta, eleccion_cerrada.nombre)
         self.assertNotContains(respuesta, otra_eleccion_cerrada.nombre)
+        self.assertContains(
+            respuesta,
+            'class="gestion-nav__disabled" role="link" aria-disabled="true" tabindex="0" '
+            'title="No hay una elección actual para configurar. Creala desde Inicio.">Configurar elección</span>',
+        )
+        self.assertNotContains(respuesta, f'href="{reverse("gestionar-elecciones")}"')
 
-    def test_lista_considera_en_curso_borrador_preparada_y_abierta(self):
+    def test_pestana_configurar_eleccion_habilitada_con_eleccion_actual(self):
+        usuario = get_user_model().objects.create_user(username="admin-junta-actual")
+        eleccion = Eleccion.objects.create(
+            nombre="Elección actual",
+            fecha_inicio=date(2026, 9, 1),
+            fecha_fin=date(2026, 9, 10),
+        )
+        AsignacionRol.objects.create(
+            usuario=usuario, eleccion=eleccion, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+        )
+        self.client.force_login(usuario)
+
+        respuesta = self.client.get(reverse("inicio-administrador-junta"))
+
+        self.assertContains(respuesta, f'href="{reverse("gestionar-elecciones")}">Configurar elección</a>')
+        self.assertNotContains(respuesta, "No hay una elección actual para configurar.")
+
+    def test_lista_solo_considera_en_curso_estado_abierta(self):
         usuario = get_user_model().objects.create_user(
             username="operador-con-eleccion",
         )
@@ -206,31 +229,33 @@ class InicioAutenticadoTests(TestCase):
         )
         self.client.force_login(usuario)
 
-        for estado in (
-            Eleccion.Estado.BORRADOR,
-            Eleccion.Estado.PREPARADA,
-            Eleccion.Estado.ABIERTA,
-        ):
+        for estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA):
             with self.subTest(estado=estado):
-                eleccion = Eleccion.objects.create(
-                    nombre=f"Elección {estado}",
-                    fecha_inicio=date(2026, 10, 1),
-                    fecha_fin=date(2026, 10, 2),
-                    estado=estado,
-                )
-
-                respuesta = self.client.get(reverse("lista-elecciones"))
-
-                self.assertNotContains(
-                    respuesta,
-                    "Debe haber una elección en curso para poder registrar participación.",
-                )
-                self.assertContains(
-                    respuesta,
-                    f'href="{reverse("lista-elecciones")}"',
-                )
-                self.assertNotContains(respuesta, 'class="gestion-nav__disabled"')
-                eleccion.delete()
+                eleccion = None
+                try:
+                    eleccion = Eleccion.objects.create(
+                        nombre=f"Elección {estado}",
+                        fecha_inicio=date(2026, 10, 1),
+                        fecha_fin=date(2026, 10, 2),
+                        estado=estado,
+                    )
+                    respuesta = self.client.get(reverse("lista-elecciones"))
+                    if estado == Eleccion.Estado.ABIERTA:
+                        self.assertNotContains(
+                            respuesta,
+                            "Debe haber una elección en curso para poder registrar participación.",
+                        )
+                        self.assertContains(respuesta, f'href="{reverse("lista-elecciones")}"')
+                        self.assertNotContains(respuesta, 'class="gestion-nav__disabled"')
+                    else:
+                        self.assertContains(
+                            respuesta,
+                            "Debe haber una elección en curso para poder registrar participación.",
+                        )
+                        self.assertContains(respuesta, 'class="gestion-nav__disabled"')
+                finally:
+                    if eleccion is not None:
+                        eleccion.delete()
 
     def test_elector_keycloak_puede_abrir_su_inicio(self):
         elector = ElectorUser("9876543210")

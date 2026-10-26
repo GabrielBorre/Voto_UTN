@@ -28,6 +28,7 @@ formulario.addEventListener("submit", async (evento) => {
   estado.textContent = "Consultando padrón...";
   estado.classList.remove("is-error");
   botonConsulta.disabled = true;
+  const terminarCarga = window.VotoUTN.iniciarCarga("Consultando padrón…");
 
   try {
     const respuesta = await fetch(formulario.dataset.apiUrl, {
@@ -48,6 +49,7 @@ formulario.addEventListener("submit", async (evento) => {
     estado.textContent = error.message || "No se pudo conectar con el servicio. Intentá nuevamente.";
     estado.classList.add("is-error");
   } finally {
+    terminarCarga();
     botonConsulta.disabled = false;
   }
 });

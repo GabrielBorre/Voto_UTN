@@ -1,4 +1,5 @@
 import re
+from io import BytesIO
 from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
@@ -99,7 +100,7 @@ class ReportesViewsTests(TestCase):
         self.assertContains(respuesta, "disabled")
         self.assertContains(
             respuesta,
-            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+            '<a class="active" href="/gestion/elecciones/">Configurar elección</a>',
         )
         self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
         self.assertContains(respuesta, "Volver a configuración", count=1)
@@ -132,7 +133,10 @@ class ReportesViewsTests(TestCase):
 class PadronPDFTests(TestCase):
     def setUp(self):
         inicio = make_aware(datetime(2026, 8, 3, 8))
-        self.eleccion = Eleccion.objects.create(nombre="Eleccion Oficio", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8))
+        self.eleccion = Eleccion.objects.create(
+            nombre="Eleccion Oficio", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8),
+            estado=Eleccion.Estado.ABIERTA,
+        )
         self.sede = Sede.objects.create(nombre="Campus Central")
         self.turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
         self.claustro = Claustro.objects.create(nombre="Estudiantes")
@@ -311,19 +315,46 @@ class PadronPDFTests(TestCase):
         mensajes = [str(mensaje) for mensaje in respuesta.context["messages"]]
         self.assertTrue(any("mesa" in mensaje for mensaje in mensajes))
 
-    def test_rehabilitar_invalida_la_emision_y_los_qr_anteriores(self):
+    def test_no_se_puede_rehabilitar_una_emision_en_curso(self):
         registros = self.crear_electores(1)
         identificador_anterior = registros[0].identificador_qr
         self.client.login(username="admin-reportes", password="clave")
         self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.id,)))
 
-        rehabilitar_cambios_padron(self.eleccion_claustro, self.usuario)
+        with self.assertRaisesMessage(ValueError, "No se pueden rehabilitar"):
+            rehabilitar_cambios_padron(self.eleccion_claustro, self.usuario)
 
         registros[0].refresh_from_db()
-        self.assertEqual(EmisionPadronImprimible.objects.get().estado, "invalidada")
-        self.assertIsNone(registros[0].qr_generado_en)
-        self.assertIsNone(registros[0].numero_mesa_qr)
-        self.assertNotEqual(registros[0].identificador_qr, identificador_anterior)
+        self.assertEqual(EmisionPadronImprimible.objects.get().estado, "vigente")
+        self.assertIsNotNone(registros[0].qr_generado_en)
+        self.assertEqual(registros[0].numero_mesa_qr, self.mesa.numero)
+        self.assertEqual(registros[0].identificador_qr, identificador_anterior)
+
+    def test_pdf_solo_se_puede_generar_en_curso(self):
+        self.crear_electores(1)
+        self.client.force_login(self.usuario)
+        for estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA, Eleccion.Estado.CERRADA):
+            with self.subTest(estado=estado):
+                self.eleccion.estado = estado
+                self.eleccion.save(update_fields=("estado",))
+                self.assertFalse(validar_padron_para_pdf(self.eleccion).apto)
+                with self.assertRaisesMessage(ValueError, "en curso"):
+                    generar_padron_pdf(self.eleccion)
+                respuesta = self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.pk,)))
+                self.assertEqual(respuesta.status_code, 302)
+                self.assertFalse(EmisionPadronImprimible.objects.exists())
+
+    def test_reimpresion_preserva_los_qr_y_la_emision_vigente(self):
+        registro = self.crear_electores(1)[0]
+        self.client.force_login(self.usuario)
+        url = reverse("generar-padron-pdf", args=(self.eleccion.pk,))
+        self.assertEqual(self.client.post(url).status_code, 200)
+        registro.refresh_from_db()
+        marcas = (registro.identificador_qr, registro.qr_generado_en, registro.numero_mesa_qr)
+        self.assertEqual(self.client.post(url).status_code, 200)
+        registro.refresh_from_db()
+        self.assertEqual((registro.identificador_qr, registro.qr_generado_en, registro.numero_mesa_qr), marcas)
+        self.assertEqual(EmisionPadronImprimible.objects.count(), 1)
 
 
 class BoletasPDFTests(TestCase):

@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Junta Electoral UTN{% endblock %}</title>
   {% load static %}
-  <link href="{% static 'css/gestion-electoral.css' %}?v=20261011.3" rel="stylesheet">
+  <link href="{% static 'css/gestion-electoral.css' %}?v=20261023.5" rel="stylesheet">
   <link href="{% static 'css/gestion-nav.css' %}" rel="stylesheet">
+  <link href="{% static 'css/interfaz.css' %}" rel="stylesheet">
+  <script type="module" src="{% static 'js/interfaz.js' %}"></script>
 </head>
 <body class="gestion-electoral">
   <header class="topbar">
@@ -15,6 +17,8 @@
       <span class="brand-title"><strong>UTN.<i>BA</i></strong><small>Sistema de Gestión Electoral</small></span>
     </a>
     {% if user.is_authenticated %}
+      <div class="topbar-usuario">
+      {% include "gestion/_campana_notificaciones.html" %}
       <div class="userbox">
         <strong>{{ user.first_name|default:user.username }}{% if user.last_name %} {{ user.last_name }}{% endif %}</strong>
         <span>
@@ -25,6 +29,7 @@
           {% else %}Proceso: <b>Junta Electoral</b>{% endif %}
         </span>
       </div>
+      </div>
     {% else %}
       <div><a href="" class="btn primary">Iniciar Sesión</a></div>
     {% endif %}
@@ -32,9 +37,14 @@
   {% include "gestion/_nav.html" %}
   <main class="gestion-page">
     {% if messages %}
-      {% for message in messages %}<div class="notice {{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}
+      {% for message in messages %}<div class="notice {{ message.level_tag|default:'info' }}"{% if 'popup' in message.extra_tags %} data-popup-mensaje data-popup-titulo="No se puede cambiar el estado" role="alert"{% endif %}>{{ message }}</div>{% endfor %}
+    {% endif %}
+    {% if configuracion_solo_lectura %}
+      <div class="notice info" role="status">Configuración en modo lectura.</div>
+      <fieldset disabled class="configuracion-solo-lectura">
     {% endif %}
     {% block content %}{% endblock %}
+    {% if configuracion_solo_lectura %}</fieldset>{% endif %}
   </main>
   {% block scripts %}{% endblock %}
   <script src="{% static 'js/seleccion-multiple.js' %}?v=20260923.2" defer></script>

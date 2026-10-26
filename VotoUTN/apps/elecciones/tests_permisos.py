@@ -49,13 +49,13 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, f'href="{reverse("gestionar-elecciones")}"')
-        self.assertContains(respuesta, ">Gestionar elecciones</a>")
+        self.assertContains(respuesta, ">Configurar elección</a>")
 
     def test_deshabilita_nueva_eleccion_y_muestra_el_estado_en_curso(self):
         for estado, etiqueta in (
-            (Eleccion.Estado.BORRADOR, "Borrador"),
-            (Eleccion.Estado.PREPARADA, "Preparada"),
-            (Eleccion.Estado.ABIERTA, "Abierta"),
+            (Eleccion.Estado.BORRADOR, "En preparación"),
+            (Eleccion.Estado.PREPARADA, "Publicada"),
+            (Eleccion.Estado.ABIERTA, "En curso"),
         ):
             with self.subTest(estado=estado):
                 self.eleccion_asignada.estado = estado
@@ -64,12 +64,10 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
                 respuesta = self.client.get(reverse("gestionar-elecciones"))
 
                 self.assertEqual(respuesta.status_code, 200)
-                self.assertContains(respuesta, "option-disabled")
-                self.assertContains(
-                    respuesta,
-                    f'<span class="button-tooltip__message" id="tooltip-nueva-eleccion" role="tooltip">Ya hay una elección en curso en estado: {etiqueta}</span>',
-                )
-                self.assertContains(respuesta, 'tabindex="0" aria-describedby="tooltip-nueva-eleccion"')
+                self.assertTemplateUsed(respuesta, "elecciones/configurar_eleccion.html")
+                self.assertContains(respuesta, etiqueta)
+                self.assertContains(respuesta, 'aria-current="step"', count=1)
+                self.assertContains(respuesta, "Estado actual")
                 self.assertNotContains(respuesta, f'href="{reverse("crear-eleccion")}"')
 
     def test_habilita_nueva_eleccion_si_no_hay_eleccion_en_curso(self):
@@ -104,10 +102,7 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
         self.assertEqual(respuesta_gestion.status_code, 200)
         self.assertEqual(respuesta_historial.status_code, 200)
-        self.assertSetEqual(
-            set(respuesta_gestion.context["elecciones"].values_list("nombre", flat=True)),
-            {"Eleccion preparada"},
-        )
+        self.assertEqual(respuesta_gestion.context["eleccion"].nombre, "Eleccion preparada")
         self.assertSetEqual(
             set(respuesta_historial.context["elecciones"].values_list("nombre", flat=True)),
             {"Eleccion asignada", "Eleccion cerrada"},
@@ -202,7 +197,7 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         respuesta = self.client.get(reverse("crear-eleccion"))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'type="date"', count=2)
+        self.assertContains(respuesta, 'type="date"', count=3)
         self.assertContains(respuesta, 'class="help-tip-icon"', count=3)
         self.assertContains(respuesta, 'role="tooltip"', count=3)
         self.assertContains(respuesta, "Nombre de la elección")
@@ -251,7 +246,7 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         eleccion = Eleccion.objects.get(nombre="Nueva eleccion")
         self.assertRedirects(
             respuesta,
-            reverse("configurar-eleccion", args=(eleccion.pk,)),
+            reverse("gestionar-alcances", args=(eleccion.pk,)),
             fetch_redirect_response=False,
         )
         self.assertTrue(
@@ -301,8 +296,8 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Fechas administrativas")
         self.assertContains(respuesta, 'class="toolbar configuration-grid"')
-        self.assertContains(respuesta, 'class="option"', count=7)
-        self.assertContains(respuesta, 'class="button secondary"', count=7)
+        self.assertContains(respuesta, 'class="option"', count=8)
+        self.assertContains(respuesta, 'class="button secondary"', count=8)
         self.assertContains(
             respuesta,
             reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),
@@ -512,7 +507,7 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, 'class="management-panel scopes-panel"')
-        self.assertContains(respuesta, 'class="card management-section"', count=1)
+        self.assertContains(respuesta, 'class="card management-section"', count=2)
         self.assertContains(respuesta, "Gestionar sedes del claustro")
         self.assertContains(respuesta, "Sistemas")
         self.assertContains(respuesta, "Gestionar sedes")

@@ -18,6 +18,274 @@
     box-sizing: border-box;
 }
 
+.ciclo-electoral {
+    background: linear-gradient(145deg, #fff, #f4f7fc);
+}
+
+.ciclo-encabezado,
+.ciclo-pie {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.ciclo-antetitulo {
+    color: var(--azul-700);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.ciclo-encabezado h2 {
+    margin: 2px 0 2px;
+    font-size: 20px;
+}
+
+.ciclo-encabezado p,
+.ciclo-pie p {
+    color: var(--muted);
+    margin: 0;
+}
+
+.ciclo-accion {
+    margin: 0;
+}
+
+.ciclo-guia-vertical {
+    display: none;
+}
+
+.linea-tiempo-eleccion {
+    display: flex;
+    flex-direction: row;
+    gap: 32px;
+    padding: 10px 4px 6px;
+    margin: 6px 0 4px;
+    list-style: none;
+}
+
+.linea-tiempo-eleccion .etapa-electoral {
+    --etapa-color: #855400;
+    --etapa-fondo: #fff7df;
+    --etapa-borde: #eccc80;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    background: linear-gradient(155deg, #fff, var(--etapa-fondo));
+    color: var(--etapa-color);
+    border: 1px solid var(--etapa-borde);
+    border-top: 4px solid var(--etapa-color);
+    border-radius: 14px;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, .04);
+}
+
+.linea-tiempo-eleccion .etapa-preparada {
+    --etapa-color: #1557b0;
+    --etapa-fondo: #eaf2ff;
+    --etapa-borde: #afcaf0;
+}
+
+.linea-tiempo-eleccion .etapa-abierta {
+    --etapa-color: #087557;
+    --etapa-fondo: #e5f8ef;
+    --etapa-borde: #9bd5ba;
+}
+
+.linea-tiempo-eleccion .etapa-cerrada {
+    --etapa-color: #6941a0;
+    --etapa-fondo: #f2eafb;
+    --etapa-borde: #cbb5e5;
+}
+
+.etapa-electoral:not(:last-child)::after {
+    content: "\2192";
+    position: absolute;
+    right: -30px;
+    top: 34px;
+    width: 26px;
+    text-align: center;
+    color: #8090a7;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.linea-tiempo-eleccion .estado-actual {
+    border-color: var(--etapa-color);
+    box-shadow: 0 0 0 2px var(--etapa-color), 0 12px 24px rgba(15, 23, 42, .12);
+    transform: translateY(-3px);
+}
+
+.etapa-cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.etapa-etiquetas {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+}
+
+.estado-numero {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.etapa-icono {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    background: var(--etapa-fondo);
+    border: 1px solid var(--etapa-borde);
+}
+
+.etapa-icono svg {
+    width: 18px !important;
+    height: 18px !important;
+    max-width: 18px !important;
+}
+
+.linea-tiempo-eleccion .etapa-electoral h3 {
+    color: var(--etapa-color);
+    font-size: 16px;
+    margin: 6px 0 2px;
+    line-height: 1.2;
+}
+
+.etapa-electoral .etapa-resumen {
+    color: #536175;
+    font-size: 12px;
+    line-height: 1.35;
+    margin: 0;
+}
+
+.etapa-indicador {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: var(--etapa-color);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.etapa-punto,
+.ciclo-pie-punto {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.ciclo-pie {
+    padding-top: 8px;
+    border-top: 1px solid var(--borde);
+}
+
+.ciclo-pie p {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    font-size: 13px;
+}
+
+.ciclo-pie-punto,
+.ciclo-pie strong {
+    color: var(--azul-900);
+}
+
+.estado-ayuda {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: -1px;
+    right: -1px;
+    z-index: 3;
+    padding: 10px;
+    background: var(--azul-900);
+    color: white;
+    border-radius: 6px;
+    box-shadow: var(--sombra);
+}
+
+.etapa-electoral:hover .estado-ayuda,
+.etapa-electoral:focus .estado-ayuda {
+    display: block;
+}
+
+@media (max-width: 1000px) {
+    .linea-tiempo-eleccion {
+        gap: 24px;
+    }
+
+    .linea-tiempo-eleccion .etapa-electoral {
+        padding: 10px;
+    }
+
+    .etapa-electoral:not(:last-child)::after {
+        right: -24px;
+        width: 22px;
+    }
+}
+
+@media (max-width: 760px) {
+    .linea-tiempo-eleccion {
+        flex-direction: column;
+        gap: 26px;
+        padding-left: 30px;
+    }
+
+    .linea-tiempo-eleccion .etapa-electoral {
+        padding: 10px 14px;
+    }
+
+    .etapa-electoral:not(:last-child)::after {
+        content: "\2193";
+        left: -28px;
+        right: auto;
+        top: auto;
+        bottom: -24px;
+    }
+
+    .linea-tiempo-eleccion .estado-actual {
+        transform: none;
+    }
+
+    .estado-ayuda {
+        left: 0;
+        right: 0;
+    }
+
+    .ciclo-guia-horizontal {
+        display: none;
+    }
+
+    .ciclo-guia-vertical {
+        display: inline;
+    }
+}
+
 .gestion-electoral {
     margin: 0;
     background: var(--fondo);
@@ -85,6 +353,55 @@
 
 .userbox b {
     color: var(--azul-900);
+}
+
+.topbar-usuario {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.campana-notificaciones {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: none;
+    color: var(--azul-900);
+    background: var(--azul-100);
+    border: 1px solid #d3e3fa;
+    border-radius: 50%;
+    text-decoration: none;
+}
+
+.campana-notificaciones:hover,
+.campana-notificaciones.activa {
+    color: #fff;
+    background: var(--azul-900);
+    border-color: var(--azul-900);
+}
+
+.campana-notificaciones:focus-visible {
+    outline: 3px solid var(--azul-500);
+    outline-offset: 2px;
+}
+
+.campana-indicador {
+    position: absolute;
+    top: -5px;
+    right: -6px;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: var(--rojo-utn);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 15px;
+    text-align: center;
 }
 
 .gestion-nav {
@@ -1066,6 +1383,47 @@ th a.table-sort-link:focus-visible {
     margin-top: 22px;
 }
 
+.resolucion-masiva-layout {
+    display: grid;
+    gap: 28px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.resolucion-masiva-layout .section-title {
+    margin-top: 0;
+}
+
+.resolucion-masiva-layout .footer-actions {
+    justify-content: flex-start;
+    margin-top: 12px;
+}
+
+.resolucion-masiva-mesas .table-wrap {
+    margin-top: 16px;
+}
+
+.dialogo-limite-mesas {
+    border: 1px solid var(--borde);
+    border-radius: 16px;
+    box-shadow: 0 18px 60px rgb(15 23 42 / 28%);
+    max-width: 560px;
+    padding: 24px;
+    width: calc(100% - 32px);
+}
+
+.dialogo-limite-mesas::backdrop {
+    background: rgb(15 23 42 / 55%);
+}
+
+.dialogo-limite-mesas h2 {
+    color: var(--azul-900);
+    margin: 0 0 14px;
+}
+
+.dialogo-limite-mesas p {
+    line-height: 1.5;
+}
+
 .checkbox-list {
     display: grid;
     gap: 9px;
@@ -1490,7 +1848,8 @@ table td:last-child {
 
     .row,
     .checkbox-grid,
-    .gestion-form-grid {
+    .gestion-form-grid,
+    .resolucion-masiva-layout {
         grid-template-columns: 1fr;
     }
 

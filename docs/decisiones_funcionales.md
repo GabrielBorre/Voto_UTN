@@ -10,6 +10,34 @@
 
 ## Elecciones, claustros, sedes y departamentos
 
+- En estado **En curso** la configuración se conserva consultable, pero no
+  modificable desde las pantallas ni sus endpoints. Las excepciones son las
+  fechas administrativas existentes, la emisión del padrón imprimible y el
+  avance a Finalizada. No se incorpora por ahora la solicitud de fechas al
+  cambiar de estado ni una nueva clasificación de fechas por estado.
+- Solo se pueden agregar o quitar claustros en **En preparación**. Los nuevos
+  heredan las sedes de la elección; eliminar un claustro con datos vinculados
+  se rechaza sin borrar padrones ni modificar sus alcances.
+- El padrón imprimible con QR solo se genera **En curso**. Su emisión deja
+  **todos** los cambios de sede de la elección en modo lectura, incluidos los
+  rechazos individuales y masivos. No se permite rehabilitar cambios de
+  configuración en curso ni invalidar los QR impresos desde ese flujo.
+- La junta puede resolver cambios de sede en Publicada y En curso hasta la
+  primera emisión del padrón imprimible. Puede seleccionar solicitudes,
+  estimar las mesas adicionales y aprobar únicamente las marcadas. La
+  estimación simula la capacidad de cada mesa en el mismo orden de aprobación.
+- Los correos y las tarjetas de inicio identifican la mesa mediante su código
+  canónico (por ejemplo, `K-001`), no solo su número.
+- Configurar elección abre directamente la configuración actual y muestra
+  los cuatro estados e indicadores de pendientes. Al crear la elección se
+  continúa por Sedes y departamentos. El inicio de junta muestra cuatro
+  tarjetas informativas sin acciones, o Crear elección si no hay una actual.
+- La participación del inicio reutiliza el dashboard: solo computa electores
+  de mesas procesadas; los QR escaneados representan ausencias. Se aclara ese
+  denominador en la tarjeta para no presentar mesas sin procesar como votos.
+- Las confirmaciones y avisos interactivos usan diálogos propios, y las
+  operaciones demoradas muestran un indicador de procesamiento.
+
 - Puede existir como máximo una elección en estado borrador, preparada o abierta
 	en conjunto. Las elecciones cerradas pueden ser múltiples; mientras exista
 	una elección no cerrada no se permite crear otra.
@@ -185,3 +213,27 @@ Reglas:
 - Si ninguna regla aplicable coincide en un alcance con varias sedes, la asignación queda pendiente para revisión; no se elige una sede arbitrariamente.
 - El cálculo produce una asignación provisional por elector y no modifica «Sede donde cursa», ni genera listas o QR. Cambiar reglas o sedes invalida el cálculo previo; al volver a calcular las sedes, se recalculan automáticamente las mesas si todos los claustros están listos.
 - El padrón completo de un claustro puede vaciarse mediante confirmación explícita mientras la elección esté en borrador o preparada. Se eliminan sus registros y asignaciones calculadas, además de mesas automáticas que queden vacías. Las identidades de electores sin registros en otros padrones, candidaturas históricas ni perfiles de usuario también se eliminan, liberando sus DNI y legajos; se conservan las que siguen vinculadas a esos datos. Se mantienen el historial/archivos de importación y las mesas manuales. Las importaciones confirmadas de ese ciclo pasan a mostrarse como «Padrón eliminado»; las previsualizaciones y rechazos no cambian. La operación se bloquea ante emisiones QR o datos dependientes (participaciones, justificativos, autoridades o candidaturas) y queda auditada.
+
+## Confirmación de notificaciones a ausentes
+
+- El administrador de junta confirma explícitamente el envío desde el tablero de participación, después de que todas las mesas de la elección estén procesadas.
+- La acción se rechaza si existe alguna mesa pendiente o en proceso, si no hay mesas, si la elección no está en curso o si ya se confirmó el envío.
+- Se notifica únicamente a los electores activos con un `RegistroParticipacion` en una mesa procesada; en el flujo vigente, el escaneo de su QR es el registro de ausencia.
+- La confirmación y la creación de notificaciones se registran una sola vez por elección. Los avisos quedan disponibles en la aplicación aunque el correo no pueda enviarse; el resultado de correo se informa y audita.
+
+## Presentación de justificativos por electores y autoridades
+
+- La presentación de justificativos se habilita únicamente para la elección actual cuando se encuentra publicada (`PREPARADA`) o en curso (`ABIERTA`).
+- La misma regla aplica a electores y autoridades de mesa; el servidor rechaza envíos aunque se intente omitir la restricción de la interfaz.
+- No se habilita la presentación en elecciones en preparación, finalizadas ni cuando no existe una elección actual con padrón activo para la persona.
+
+## Resolución de solicitudes de cambio de sede
+
+- Cada elector puede registrar una única solicitud de cambio de sede por elección, independientemente de su estado (pendiente, aprobada o rechazada).
+- La gestión muestra la cantidad actual de mesas de cada sede habilitada para la elección y una estimación de las mesas adicionales necesarias para las solicitudes pendientes.
+- El administrador de junta puede aprobar solicitudes agregando como máximo una cantidad total de mesas nuevas definida en el formulario. El límite se aplica a toda la elección, no por sede.
+- Al elegir la acción con límite, se informa cuántas mesas nuevas se crearían si se aceptaran todas las solicitudes pendientes y se solicita el máximo total permitido antes de confirmar.
+- La resolución masiva ofrece una sola acción limitada, con máximo global de mesas nuevas; no se ofrece un límite independiente por sede. La tabla por sede es informativa.
+- Las solicitudes que no puedan asignarse a una mesa existente ni crear una mesa sin superar el máximo permanecen pendientes para una resolución posterior.
+- Una mesa existente solo se considera disponible si no alcanzó el máximo de electores por mesa configurado para el claustro. Si todas las mesas de la sede están completas, se crea otra únicamente si la acción y el límite lo permiten.
+- En la pantalla de resolución, las acciones se ubican a la izquierda y el resumen de mesas por sede a su derecha; en pantallas angostas se apilan.
