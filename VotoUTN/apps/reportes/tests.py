@@ -7,7 +7,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.timezone import make_aware
+from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
 from reportlab.pdfgen.canvas import Canvas
 
 from apps.asistencia.services import ServicioRegistroParticipacion
@@ -42,12 +44,18 @@ from apps.reportes.services_boletas_pdf import (
     validar_boletas_pdf,
 )
 from apps.reportes.services_pdf import (
+    ALTO_PAGINA,
+    ANCHO_COLUMNA_QR,
+    ANCHO_TABLA,
+    COL_TROQUEL,
     ELECTORES_POR_PAGINA,
+    LADO_QR_ELECTOR,
+    MARGEN,
     _agrupar_padrones_por_mesa,
     _construir_tabla,
     _construir_troquel,
     _dibujar_caratula,
-    _generar_imagen_qr,
+    _generar_qr_vectorial,
     generar_padron_pdf,
     validar_padron_para_pdf,
 )
@@ -215,15 +223,49 @@ class PadronPDFTests(TestCase):
         registro.elector.apellido = "Gomez"
         registro.elector.nombre = "Maria Elena"
 
-        with (
-            patch("apps.reportes.services_pdf._generar_imagen_qr", return_value=b"qr"),
-            patch("apps.reportes.services_pdf.ImagenPDF", return_value="qr-image"),
-            patch("apps.reportes.services_pdf._construir_espacio_firma", return_value="firma"),
-        ):
-            troquel = _construir_troquel(self.eleccion, self.mesa, registro, 20)
+        troquel = _construir_troquel(self.eleccion, self.mesa, registro, 20)
 
         texto_troquel = troquel._cellvalues[0][1]
         self.assertEqual(texto_troquel._cellvalues[0][0].text, "Gomez, Maria Elena")
+
+    @override_settings(CLAVE_FIRMA_QR="clave-de-prueba-qr")
+    def test_qr_vectorial_conserva_payload_y_margen_de_cuatro_modulos(self):
+        import qrcode
+        from qrcode.constants import ERROR_CORRECT_M
+
+        registro = self.crear_electores(1)[0]
+        with patch("apps.reportes.services_pdf._generar_qr_vectorial", wraps=_generar_qr_vectorial) as generar:
+            troquel = _construir_troquel(self.eleccion, self.mesa, registro, 21 * mm)
+
+        payload, lado = generar.call_args.args
+        self.assertEqual(
+            ServicioRegistroParticipacion.parsear_codigo_qr(payload),
+            (self.eleccion.id, self.mesa.numero, registro.identificador_qr),
+        )
+        referencia = qrcode.QRCode(error_correction=ERROR_CORRECT_M, border=4)
+        referencia.add_data(payload)
+        referencia.make(fit=True)
+        matriz = referencia.get_matrix()
+        modulo = lado / len(matriz)
+        dibujo = troquel._cellvalues[0][0]
+        fondo, trazado = dibujo.contents
+        self.assertEqual(fondo.fillColor, colors.white)
+        self.assertEqual(trazado.fillColor, colors.black)
+        coordenadas = []
+        for fila, modulos in enumerate(matriz):
+            for columna, oscuro in enumerate(modulos):
+                if oscuro:
+                    x = columna * modulo
+                    y = lado - (fila + 1) * modulo
+                    coordenadas.extend([x, y, x + modulo, y, x + modulo, y + modulo, x, y + modulo])
+        self.assertEqual(trazado.points, coordenadas)
+        self.assertGreaterEqual(min(trazado.points), 4 * modulo - 1e-8)
+        self.assertLessEqual(max(trazado.points), lado - 4 * modulo + 1e-8)
+        buffer = BytesIO()
+        lienzo = Canvas(buffer, pageCompression=0)
+        dibujo.drawOn(lienzo, 0, 0)
+        lienzo.save()
+        self.assertNotIn(b"/Subtype /Image", buffer.getvalue())
 
     def test_genera_pdf_con_exactamente_15_electores(self):
         self.crear_electores(ELECTORES_POR_PAGINA)
@@ -268,7 +310,7 @@ class PadronPDFTests(TestCase):
     def test_la_caratula_incluye_un_qr_de_mesa_firmado(self):
         self.crear_electores(1)
 
-        with patch("apps.reportes.services_pdf._generar_imagen_qr", wraps=_generar_imagen_qr) as generar:
+        with patch("apps.reportes.services_pdf._generar_qr_vectorial", wraps=_generar_qr_vectorial) as generar:
             _dibujar_caratula(Canvas(BytesIO()), self.eleccion, self.mesa)
 
         payload = generar.call_args.args[0]

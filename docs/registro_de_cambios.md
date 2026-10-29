@@ -2,6 +2,22 @@
 
 Este documento registra cambios aplicados al proyecto. Describe los archivos y el efecto de cada cambio; no reemplaza el historial de Git ni las migraciones de Django.
 
+## Nitidez del padrón imprimible
+
+- Troqueles con fondo blanco, sin sombreado gris.
+- QR de electores ampliados de 14 a 18 mm, con margen blanco de cuatro módulos.
+- Los QR del PDF se dibujan como vectores negros sobre blanco, incluidos los de
+  las carátulas: no dependen de la resolución de un PNG ni se pixelan al ampliar.
+- Ajuste del espacio interno del troquel para conservar las firmas y los
+  15 electores por hoja sin invadir las columnas contiguas.
+- Línea de firma de autoridad de mesa acortada 2 mm a la izquierda y 2 mm
+  a la derecha mediante márgenes simétricos explícitos, sin modificar la firma
+  del votante ni el tamaño del QR.
+- Se conservan el contenido firmado, la mesa, los identificadores y las marcas
+  de emisión. No se modifican modelos ni migraciones.
+- Pruebas de fondo blanco, tamaño, margen, correspondencia de la matriz QR,
+  contenido firmado y ausencia de imágenes rasterizadas en el QR.
+
 ## Ciclo electoral, configuración y resolución seleccionada
 
 - Estados de elección con códigos nuevos (`en_preparacion`, `publicada`,
