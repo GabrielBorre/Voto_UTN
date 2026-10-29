@@ -16,8 +16,8 @@ from reportlab.lib.pagesizes import legal, portrait
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
+from reportlab.graphics.shapes import Drawing, Path as Trazado, Rect
 from reportlab.pdfgen import canvas as pdfcanvas
-from reportlab.platypus import Image as ImagenPDF
 from reportlab.platypus import Paragraph, Table, TableStyle
 
 from apps.asistencia.services import ServicioRegistroParticipacion
@@ -29,6 +29,8 @@ ANCHO_PAGINA, ALTO_PAGINA = PAGINA
 MARGEN = 10 * mm
 ANCHO_TABLA = ANCHO_PAGINA - 2 * MARGEN
 ELECTORES_POR_PAGINA = 15
+LADO_QR_ELECTOR = 22 * mm
+ANCHO_COLUMNA_QR = 19 * mm
 
 COL_ORDEN = 12 * mm
 COL_DNI = 24 * mm
@@ -135,15 +137,27 @@ def _fecha_votacion_mesa(eleccion, mesa):
     return eleccion.fecha_inicio
 
 
-def _generar_imagen_qr(payload):
-    qr = qrcode.QRCode(error_correction=ERROR_CORRECT_M, box_size=6, border=1)
+def _generar_qr_vectorial(payload, lado):
+    qr = qrcode.QRCode(error_correction=ERROR_CORRECT_M, border=4)
     qr.add_data(payload)
     qr.make(fit=True)
-    imagen = qr.make_image(fill_color="black", back_color="white").convert("RGB")
-    imagen_buffer = BytesIO()
-    imagen.save(imagen_buffer, format="PNG")
-    imagen_buffer.seek(0)
-    return imagen_buffer
+    matriz = qr.get_matrix()
+    modulo = lado / len(matriz)
+    dibujo = Drawing(lado, lado)
+    dibujo.add(Rect(0, 0, lado, lado, fillColor=colors.white, strokeColor=None))
+    trazado = Trazado(fillColor=colors.black, strokeColor=None)
+    for fila, modulos in enumerate(matriz):
+        for columna, oscuro in enumerate(modulos):
+            if oscuro:
+                x = columna * modulo
+                y = lado - (fila + 1) * modulo
+                trazado.moveTo(x, y)
+                trazado.lineTo(x + modulo, y)
+                trazado.lineTo(x + modulo, y + modulo)
+                trazado.lineTo(x, y + modulo)
+                trazado.closePath()
+    dibujo.add(trazado)
+    return dibujo
 
 
 def _construir_espacio_firma(rotulo, ancho, alto):
@@ -212,28 +226,36 @@ def _construir_troquel(eleccion, mesa, registro, alto_fila):
         mesa_numero=mesa.numero,
         identificador_qr=registro.identificador_qr,
     )
-    qr_imagen = ImagenPDF(_generar_imagen_qr(payload), width=14 * mm, height=14 * mm)
+    qr_imagen = _generar_qr_vectorial(payload, LADO_QR_ELECTOR)
     fecha_votacion = _fecha_votacion_mesa(eleccion, mesa)
+    ancho_texto = COL_TROQUEL - ANCHO_COLUMNA_QR - 2
+    firma_autoridad = _construir_espacio_firma(
+        "Autoridad de mesa", ancho_texto - 2 - 4 * mm, alto_fila - 16 * mm,
+    )
+    firma_autoridad.hAlign = "LEFT"
 
     texto = Table(
         [
             [Paragraph(_formatear_apellido_y_nombre(registro.elector), ESTILO_TROQUEL)],
             [Paragraph(f"DNI: {registro.elector.dni}", ESTILO_TROQUEL)],
             [Paragraph(f"Fecha: {fecha_votacion.strftime('%d/%m/%Y')}", ESTILO_TROQUEL)],
-            [_construir_espacio_firma("Autoridad de mesa", COL_TROQUEL - 20 * mm, alto_fila - 16 * mm)],
+            [firma_autoridad],
         ],
-        colWidths=[COL_TROQUEL - 16 * mm],
+        colWidths=[ancho_texto],
         rowHeights=[2 * mm, 2 * mm, 2 * mm, alto_fila - 9 * mm],
     )
     texto.setStyle(TableStyle([
         ("TOPPADDING", (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
         ("LEFTPADDING", (0, 0), (-1, -1), 1),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+        ("LEFTPADDING", (0, 3), (0, 3), 1 + 2 * mm),
+        ("RIGHTPADDING", (0, 3), (0, 3), 1 + 2 * mm),
     ]))
 
     contenedor = Table(
         [[qr_imagen, texto]],
-        colWidths=[15 * mm, COL_TROQUEL - 15 * mm],
+        colWidths=[ANCHO_COLUMNA_QR, COL_TROQUEL - ANCHO_COLUMNA_QR],
         rowHeights=[alto_fila],
     )
     contenedor.setStyle(TableStyle([
@@ -274,10 +296,14 @@ def _construir_tabla(eleccion, mesa, lote, numero_inicial, alto_fila):
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ALIGN", (0, 0), (0, -1), "CENTER"),
         ("ALIGN", (1, 0), (1, -1), "CENTER"),
-        ("BACKGROUND", (4, 1), (4, -1), colors.HexColor("#f5f5f5")),
+        ("BACKGROUND", (4, 1), (4, -1), colors.white),
         ("LINEBEFORE", (4, 0), (4, -1), 1.2, colors.black),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LEFTPADDING", (4, 1), (4, -1), 0),
+        ("RIGHTPADDING", (4, 1), (4, -1), 0),
+        ("TOPPADDING", (4, 1), (4, -1), 0),
+        ("BOTTOMPADDING", (4, 1), (4, -1), 0),
     ]))
     return tabla
 
@@ -311,7 +337,7 @@ def _dibujar_caratula(c, eleccion, mesa):
     lado_qr = 90 * mm
     y_qr = y_dato - 36 * mm - lado_qr
     payload = ServicioRegistroParticipacion.generar_codigo_qr_mesa(eleccion_id=eleccion.id, mesa_numero=mesa.numero)
-    c.drawImage(ImageReader(_generar_imagen_qr(payload)), centro - lado_qr / 2, y_qr, width=lado_qr, height=lado_qr)
+    _generar_qr_vectorial(payload, lado_qr).drawOn(c, centro - lado_qr / 2, y_qr)
     c.setFont("Helvetica", 10)
     c.drawCentredString(centro, y_qr - 6 * mm, "Escanee este código para comenzar el registro de la mesa")
 
