@@ -33,7 +33,7 @@ def gestionar_reportes(request, eleccion_id):
             "eleccion": eleccion,
             "validacion_padron_pdf": validar_padron_para_pdf(eleccion),
             "validacion_boletas_pdf": validar_boletas_pdf(eleccion),
-            "puede_exportar_infractores": eleccion.estado == Eleccion.Estado.CERRADA
+            "puede_exportar_infractores": eleccion.estado == Eleccion.Estado.FINALIZADA
             and not JustificativoAusencia.objects.filter(
                 registro_padron__eleccion=eleccion,
                 estado=JustificativoAusencia.Estado.PENDIENTE,
@@ -48,7 +48,7 @@ def exportar_reporte(request, eleccion_id, tipo):
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para exportar informacion.")
     if tipo == "infractores":
-        if eleccion.estado != Eleccion.Estado.CERRADA:
+        if eleccion.estado != Eleccion.Estado.FINALIZADA:
             return HttpResponseForbidden("La exportación de infractores solo está disponible para elecciones finalizadas.")
         if JustificativoAusencia.objects.filter(
             registro_padron__eleccion=eleccion,

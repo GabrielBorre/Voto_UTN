@@ -166,7 +166,7 @@ class AutoridadesViewsTests(TestCase):
         self.assertFalse(AsignacionAutoridad.objects.exists())
 
     def test_eleccion_cerrada_bloquea_la_configuracion_de_autoridades(self):
-        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.estado = Eleccion.Estado.FINALIZADA
         self.eleccion.save(update_fields=("estado",))
         self.client.force_login(self.usuario)
 

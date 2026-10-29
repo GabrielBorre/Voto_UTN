@@ -2,11 +2,14 @@
 {% load static %}
 {% block title %}Padrón de {{ claustro.claustro }} | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero">
-  <h1>Padrón de {{ claustro.claustro }}</h1>
-  <p>{{ eleccion.nombre }}. Configurá los datos operativos, cargá el archivo y consultá sus importaciones.</p>
+<section class="hero hero-acciones hero-acciones-arriba">
+  <div>
+    <h1>Padrón de {{ claustro.claustro }}</h1>
+    <p>{{ eleccion.nombre }}. Configurá los datos operativos, cargá el archivo y consultá sus importaciones.</p>
+  </div>
+  <div class="hero-botones"><a class="button hero-boton" href="{% url 'gestionar-mesas' eleccion.id %}?claustro={{ claustro.id }}">Ver mesas de {{ claustro.claustro }}</a></div>
 </section>
-
+  
 <div class="management-panel padron-panel">
   <section class="card management-section">
     <div class="section-title">
@@ -53,7 +56,7 @@
     <div class="section-title">
       <div>
         <h2>Cargar padrón</h2>
-        <p>El archivo se valida y se previsualiza antes de incorporar cualquier elector. “Sede donde cursa” es opcional y no determina la sede electoral. Importar no genera mesas ni QR.</p>
+        <p>El archivo se valida y se previsualiza antes de incorporar cualquier elector. “Sede donde cursa” es opcional y no determina la sede electoral. Al confirmar la importación se recalculan automáticamente las sedes y las mesas; no se generan QR.</p>
       </div>
       <span class="tag">CSV o Excel</span>
     </div>
@@ -74,16 +77,9 @@
     {% else %}
       <div class="notice">La carga de padrones solo está disponible en estado En preparación.</div>
     {% endif %}
-  </section>
-
-  <section class="card management-section">
-    <div class="section-title">
-      <div>
-        <h2>Historial de importaciones</h2>
-        <p>Solo se muestran los archivos cargados para {{ claustro.claustro }}.</p>
-      </div>
-      <span class="tag">{{ importaciones|length }} importaciones</span>
-    </div>
+    <details class="historial-importaciones">
+      <summary>Historial de importaciones <span class="tag">{{ importaciones|length }} importaciones</span></summary>
+      <p class="muted">Solo se muestran los archivos cargados para {{ claustro.claustro }}.</p>
     <div class="table-wrap">
       <table>
         <thead>
@@ -107,6 +103,7 @@
         </tbody>
       </table>
     </div>
+    </details>
   </section>
 
   <section class="card management-section padron-management-card">
@@ -114,14 +111,14 @@
       <div><h2>Gestión del padrón</h2><p>Administrá la asignación de sedes o restablecé los registros de este claustro.</p></div>
       <span class="tag">{{ cantidad_electores_padron }} electores</span>
     </div>
-    <div class="summary-grid compact-summary">
-      <div><strong>Electores totales</strong><span>{{ cantidad_electores_padron }}</span></div>
-    </div>
-    <div class="footer-actions">
-      <a class="button secondary" href="{% url 'exportar-padron-claustro' eleccion.id claustro.id 'csv' %}">Exportar padrón CSV</a>
-      <a class="button secondary" href="{% url 'exportar-padron-claustro' eleccion.id claustro.id 'pdf' %}">Exportar padrón PDF</a>
-      <a class="button secondary" href="{% url 'configurar-sedes-claustro' eleccion.id claustro.id %}">Configurar asignación de sedes</a>
-      {% if puede_eliminar_padron %}<a class="button danger" href="{% url 'eliminar-padron-claustro' eleccion.id claustro.id %}">Vaciar padrón del claustro</a>{% endif %}
+    <div class="gestion-padron-fila">
+      <div class="summary-grid compact-summary">
+        <div><strong>Electores totales</strong><span>{{ cantidad_electores_padron }}</span></div>
+      </div>
+      <div class="acciones-apiladas">
+        <a class="button primary" href="{% url 'configurar-sedes-claustro' eleccion.id claustro.id %}">Configurar asignación de sedes</a>
+        {% if puede_eliminar_padron %}<a class="button danger" href="{% url 'eliminar-padron-claustro' eleccion.id claustro.id %}">Vaciar padrón del claustro</a>{% endif %}
+      </div>
     </div>
     {% if cantidad_electores_padron and emision_vigente %}<small class="muted field-help">{% if puede_configurar %}Para vaciar el padrón primero deberás invalidar la emisión imprimible.{% else %}El padrón emitido se conserva en modo lectura; sus QR no pueden invalidarse desde la configuración.{% endif %}</small>{% endif %}
   </section>

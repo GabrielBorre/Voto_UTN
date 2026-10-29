@@ -32,8 +32,8 @@ destinatarios y evento sugerido. La fecha concreta por elección continúa en
 - `Mesa`
 
 Regla de unicidad del ciclo de vida: como máximo una `Eleccion` puede estar en
-estado `borrador`, `preparada` o `abierta` considerando esos estados como un
-único grupo. Puede haber varias elecciones `cerrada`.
+estado `en_preparacion`, `publicada` o `en_curso` considerando esos estados como un
+único grupo. Puede haber varias elecciones `finalizada`.
 
 ### Relaciones conceptuales
 

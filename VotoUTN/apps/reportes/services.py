@@ -6,6 +6,7 @@ from apps.asistencia.models import RegistroParticipacion
 from apps.autoridades.models import AsignacionAutoridad
 from apps.justificativos.models import JustificativoAusencia
 from apps.mesas.models import Mesa
+from apps.padron.models import AsignacionSedePadron
 
 
 def valor_csv(valor):
@@ -45,6 +46,34 @@ def exportar_reporte_eleccion(eleccion, tipo):
                         registro.eleccion_claustro_departamento.departamento,
                         registro.sede,
                         getattr(getattr(registro, "asignacion_mesa", None), "mesa", None),
+                    )
+                ]
+            )
+    elif tipo == "asignacion-sedes":
+        escritor.writerow(("dni", "legajo", "nombre", "claustro", "departamento", "sede_asignada", "estado", "regla"))
+        for asignacion in AsignacionSedePadron.objects.filter(
+            registro_padron__eleccion=eleccion,
+            registro_padron__activo=True,
+        ).select_related(
+            "sede",
+            "regla_aplicada",
+            "registro_padron__elector",
+            "registro_padron__eleccion_claustro_departamento__departamento",
+            "registro_padron__eleccion_claustro_departamento__eleccion_claustro__claustro",
+        ).order_by("registro_padron__elector__dni", "id"):
+            registro = asignacion.registro_padron
+            escritor.writerow(
+                [
+                    valor_csv(valor)
+                    for valor in (
+                        registro.elector.dni,
+                        registro.elector.legajo,
+                        registro.elector.nombre_completo,
+                        registro.eleccion_claustro_departamento.eleccion_claustro.claustro,
+                        registro.eleccion_claustro_departamento.departamento,
+                        asignacion.sede,
+                        asignacion.get_estado_display(),
+                        f"Regla {asignacion.regla_aplicada.orden}" if asignacion.regla_aplicada_id else "Automática",
                     )
                 ]
             )

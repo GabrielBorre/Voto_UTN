@@ -114,6 +114,19 @@ class ReportesViewsTests(TestCase):
         self.assertEqual(respuesta["Content-Type"], "text/csv; charset=utf-8")
         self.assertIn('filename="padron_', respuesta["Content-Disposition"])
 
+    def test_reportes_exporta_padron_y_asignacion_de_sedes(self):
+        self.client.force_login(self.usuario)
+
+        pantalla = self.client.get(reverse("gestionar-reportes", args=(self.eleccion.id,)))
+        respuesta = self.client.get(reverse("exportar-reporte", args=(self.eleccion.id, "asignacion-sedes")))
+
+        self.assertContains(pantalla, "Exportar padrón")
+        self.assertContains(pantalla, "Exportar asignación de sedes")
+        self.assertContains(pantalla, reverse("exportar-reporte", args=(self.eleccion.id, "asignacion-sedes")))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn('filename="asignacion-sedes_', respuesta["Content-Disposition"])
+        self.assertIn("sede_asignada", respuesta.content.decode("utf-8-sig"))
+
     def test_generar_boletas_pdf_sin_candidatos_redirige_con_mensaje(self):
         self.client.force_login(self.usuario)
 
@@ -135,7 +148,7 @@ class PadronPDFTests(TestCase):
         inicio = make_aware(datetime(2026, 8, 3, 8))
         self.eleccion = Eleccion.objects.create(
             nombre="Eleccion Oficio", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8),
-            estado=Eleccion.Estado.ABIERTA,
+            estado=Eleccion.Estado.EN_CURSO,
         )
         self.sede = Sede.objects.create(nombre="Campus Central")
         self.turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
@@ -333,7 +346,7 @@ class PadronPDFTests(TestCase):
     def test_pdf_solo_se_puede_generar_en_curso(self):
         self.crear_electores(1)
         self.client.force_login(self.usuario)
-        for estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA, Eleccion.Estado.CERRADA):
+        for estado in (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA, Eleccion.Estado.FINALIZADA):
             with self.subTest(estado=estado):
                 self.eleccion.estado = estado
                 self.eleccion.save(update_fields=("estado",))

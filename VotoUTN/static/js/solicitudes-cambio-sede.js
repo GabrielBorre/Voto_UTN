@@ -15,6 +15,25 @@ const aprobarSeleccionadas = document.getElementById("boton-aprobar-seleccionada
 const totalMesas = document.getElementById("total-mesas-seleccionadas");
 const errorEstimacion = document.getElementById("error-estimacion-mesas");
 const celdasEstimacion = [...document.querySelectorAll("[data-estimacion-sede]")];
+const celdasQuitadas = [...document.querySelectorAll("[data-quitadas-sede]")];
+const totalQuitadas = document.getElementById("total-mesas-quitadas-seleccionadas");
+const formularioSeleccionadas = document.getElementById("aprobar-seleccionadas");
+const nombresSede = Object.fromEntries(celdasQuitadas.map((celda) => [celda.dataset.quitadasSede, celda.dataset.sedeNombre]));
+
+function describirImpacto(porSede, verbo) {
+  const partes = Object.entries(porSede || {})
+    .filter(([, cantidad]) => cantidad > 0)
+    .map(([sede, cantidad]) => `${cantidad} ${cantidad === 1 ? "mesa" : "mesas"} en ${nombresSede[sede] || "otra sede"}`);
+  return partes.length ? `Se ${verbo}: ${partes.join("; ")}.` : `No se ${verbo} mesas.`;
+}
+
+function actualizarConfirmacionSeleccion(cantidad, datos) {
+  if (!formularioSeleccionadas) return;
+  const detalle = datos
+    ? `${describirImpacto(datos.mesas_por_sede, "agregan")}\n${describirImpacto(datos.mesas_quitadas_por_sede, "quitan")}`
+    : "";
+  formularioSeleccionadas.dataset.confirm = `Se aprobarán ${cantidad} ${cantidad === 1 ? "solicitud seleccionada" : "solicitudes seleccionadas"}.${detalle ? `\n\n${detalle}` : ""}\n\n¿Continuar?`;
+}
 
 if (seleccionarTodas && cantidadSeleccionadas && aprobarSeleccionadas && totalMesas && errorEstimacion) {
   let consultaActual = 0;
@@ -34,7 +53,10 @@ if (seleccionarTodas && cantidadSeleccionadas && aprobarSeleccionadas && totalMe
 
     if (!seleccionadas.length) {
       totalMesas.textContent = "0";
+      if (totalQuitadas) totalQuitadas.textContent = "0";
       celdasEstimacion.forEach((celda) => { celda.textContent = "0"; });
+      celdasQuitadas.forEach((celda) => { celda.textContent = "0"; });
+      actualizarConfirmacionSeleccion(0, null);
       return;
     }
 
@@ -46,6 +68,7 @@ if (seleccionarTodas && cantidadSeleccionadas && aprobarSeleccionadas && totalMe
     seleccionadas.forEach((casilla) => url.searchParams.append("solicitudes_ids", casilla.value));
     totalMesas.textContent = "Calculando…";
     celdasEstimacion.forEach((celda) => { celda.textContent = "…"; });
+    celdasQuitadas.forEach((celda) => { celda.textContent = "…"; });
     const terminarCarga = iniciarCarga("Calculando mesas de las solicitudes seleccionadas…");
     try {
       const respuesta = await fetch(url, {
@@ -63,14 +86,21 @@ if (seleccionarTodas && cantidadSeleccionadas && aprobarSeleccionadas && totalMe
       celdasEstimacion.forEach((celda) => {
         celda.textContent = String(datos.mesas_por_sede[celda.dataset.estimacionSede] || 0);
       });
+      celdasQuitadas.forEach((celda) => {
+        celda.textContent = String((datos.mesas_quitadas_por_sede || {})[celda.dataset.quitadasSede] || 0);
+      });
       totalMesas.textContent = String(datos.total);
+      if (totalQuitadas) totalQuitadas.textContent = String(datos.total_quitadas || 0);
+      actualizarConfirmacionSeleccion(seleccionadas.length, datos);
       aprobarSeleccionadas.disabled = Boolean(aprobarSeleccionadas.closest("fieldset:disabled"));
     } catch (error) {
       if (consulta !== consultaActual || error.name === "AbortError") return;
       errorEstimacion.textContent = error.message || "No se pudo estimar la cantidad de mesas.";
       errorEstimacion.hidden = false;
       totalMesas.textContent = "No disponible";
+      if (totalQuitadas) totalQuitadas.textContent = "—";
       celdasEstimacion.forEach((celda) => { celda.textContent = "—"; });
+      celdasQuitadas.forEach((celda) => { celda.textContent = "—"; });
     } finally {
       terminarCarga();
       if (consulta === consultaActual) solicitud = null;

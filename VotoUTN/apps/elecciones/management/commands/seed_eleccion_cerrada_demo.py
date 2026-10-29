@@ -33,7 +33,7 @@ class Command(BaseCommand):
             defaults={
                 "fecha_inicio": fecha_inicio,
                 "fecha_fin": fecha_fin,
-                "estado": Eleccion.Estado.CERRADA,
+                "estado": Eleccion.Estado.FINALIZADA,
                 "habilitada": False,
             },
         )
@@ -41,7 +41,7 @@ class Command(BaseCommand):
             eleccion.nombre = nombre_eleccion
             eleccion.fecha_inicio = fecha_inicio
             eleccion.fecha_fin = fecha_fin
-            eleccion.estado = Eleccion.Estado.CERRADA
+            eleccion.estado = Eleccion.Estado.FINALIZADA
             eleccion.habilitada = False
             eleccion.save(
                 update_fields=(

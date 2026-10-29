@@ -21,7 +21,7 @@ class DashboardParticipacionTests(TestCase):
             nombre="Eleccion Dashboard",
             fecha_inicio=date(2026, 8, 3),
             fecha_fin=date(2026, 8, 3),
-            estado=Eleccion.Estado.ABIERTA,
+            estado=Eleccion.Estado.EN_CURSO,
         )
         self.sede_a = Sede.objects.create(nombre="Sede A")
         self.sede_b = Sede.objects.create(nombre="Sede B")
@@ -169,7 +169,7 @@ class DashboardParticipacionTests(TestCase):
             nombre="Eleccion Anterior",
             fecha_inicio=date(2025, 8, 3),
             fecha_fin=date(2025, 8, 3),
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
             habilitada=False,
         )
         eleccion_claustro = EleccionClaustro.objects.create(eleccion=anterior, claustro=self.claustro)
@@ -221,7 +221,7 @@ class DashboardParticipacionTests(TestCase):
             nombre="Ajena",
             fecha_inicio=date(2026, 9, 1),
             fecha_fin=date(2026, 9, 1),
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
             habilitada=False,
         )
         administrador = get_user_model().objects.create_user(username="administrador", password="clave")
@@ -237,7 +237,7 @@ class DashboardParticipacionTests(TestCase):
         self.assertEqual(respuesta.context["dashboard"]["electores_total"], 4)
 
     def test_admin_confirma_notificaciones_solo_con_todas_las_mesas_procesadas_y_no_duplica(self):
-        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.estado = Eleccion.Estado.EN_CURSO
         self.eleccion.save(update_fields=("estado",))
         administrador = get_user_model().objects.create_user(username="admin-notificaciones-ausentes")
         AsignacionRol.objects.create(
@@ -275,7 +275,7 @@ class DashboardParticipacionTests(TestCase):
         self.assertEqual(self.eleccion.envios_notificacion.count(), 1)
 
     def test_administrativo_no_puede_confirmar_notificaciones_a_ausentes(self):
-        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.estado = Eleccion.Estado.EN_CURSO
         self.eleccion.save(update_fields=("estado",))
         Mesa.objects.filter(eleccion=self.eleccion).update(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
         self.client.force_login(self.administrativo)

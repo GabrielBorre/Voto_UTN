@@ -4,6 +4,29 @@ Este documento registra cambios aplicados al proyecto. Describe los archivos y e
 
 ## Ciclo electoral, configuración y resolución seleccionada
 
+- Estados de elección con códigos nuevos (`en_preparacion`, `publicada`,
+  `en_curso`, `finalizada`). La migración `elecciones/0029` renombra los datos
+  existentes (`borrador`, `preparada`, `abierta`, `cerrada`) y recrea la
+  restricción de una única elección no finalizada, con reversión.
+- La configuración queda en modo lectura también en Publicada: solo En
+  preparación permite modificarla (incluye calcular mesas y vaciar padrones).
+- Línea de tiempo: estados pasados en un verde, actual en un verde destacado y
+  posteriores en gris. El popup de cambio de estado describe qué ocurre en el
+  siguiente estado. Las etiquetas de las cards se muestran debajo del título.
+- Padrón: historial de importaciones desplegable dentro de "Cargar padrón",
+  botón azul "Configurar asignación de sedes" sobre "Vaciar padrón" y acceso a
+  "Ver mesas" filtrado por claustro desde el encabezado. Se quitan las
+  exportaciones CSV/PDF del padrón y "Ver mesas" de Padrones.
+- Asignación de sedes automática al agregar, eliminar o reordenar reglas y al
+  confirmar importaciones (sin botón "Calcular asignaciones"). Se muestra un
+  resumen por sede y regla; el detalle por elector es desplegable, de a 10.
+- "Ver mesas" filtra por claustro, departamento y sede.
+- Reportes → Padrón y mesas: "Exportar padrón" y "Exportar asignación de sedes".
+- Cambios de sede: filtro por estado, sede preseleccionada si hay una sola
+  opción, botones masivos deshabilitados sin pendientes y popups que indican en
+  qué sedes se agregan y se quitan mesas. Al aprobar un cambio, una mesa
+  automática de origen que queda vacía (sin autoridades, participaciones ni
+  roles) se elimina; las mesas manuales se conservan.
 - Refinamiento visual: indicadores de configuración completa en verde y
   pendientes en amarillo. El ciclo se presenta mediante tarjetas con colores
   e iconos por etapa, conectadas de izquierda a derecha en escritorio y de

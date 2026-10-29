@@ -20,7 +20,7 @@ from apps.notificaciones.models import EnvioNotificacion
 from apps.notificaciones.services import notificar_eleccion_en_curso
 from apps.padron.models import ConfiguracionSedesClaustro, Elector, RegistroPadron, SolicitudCambioSede
 from apps.padron.services import (
-    estimar_mesas_adicionales_por_sede, registrar_emision_padron_imprimible,
+    estimar_impacto_mesas_por_sede, estimar_mesas_adicionales_por_sede, registrar_emision_padron_imprimible,
     resolver_solicitud_cambio_sede, resolver_solicitudes_pendientes,
 )
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
@@ -83,7 +83,16 @@ class CicloConfiguracionTests(TestCase):
         )
 
     def test_configuracion_en_curso_es_consultable_pero_post_bloqueado(self):
-        self.estado(Eleccion.Estado.ABIERTA)
+        self.verificar_configuracion_solo_lectura(Eleccion.Estado.EN_CURSO)
+
+    def test_configuracion_publicada_es_consultable_pero_post_bloqueado(self):
+        self.verificar_configuracion_solo_lectura(Eleccion.Estado.PUBLICADA)
+        respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))
+        self.assertContains(respuesta, "La configuración está en modo lectura.")
+        self.assertContains(respuesta, "Consultar datos")
+
+    def verificar_configuracion_solo_lectura(self, estado):
+        self.estado(estado)
         rutas = [
             ("editar-eleccion", (self.eleccion.pk,)),
             ("gestionar-alcances", (self.eleccion.pk,)),
@@ -109,7 +118,7 @@ class CicloConfiguracionTests(TestCase):
         self.assertEqual(self.eleccion.nombre, "Elección actual")
 
     def test_fechas_y_cambio_de_estado_siguen_habilitados_en_curso(self):
-        self.estado(Eleccion.Estado.ABIERTA)
+        self.estado(Eleccion.Estado.EN_CURSO)
         url = reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,))
         respuesta = self.client.get(url)
         self.assertEqual(respuesta.status_code, 200)
@@ -118,19 +127,19 @@ class CicloConfiguracionTests(TestCase):
         self.mesa.estado_escaneo = Mesa.EstadoEscaneo.PROCESADA
         self.mesa.save(update_fields=("estado_escaneo",))
         self.assertEqual(self.client.post(
-            reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {"estado": Eleccion.Estado.CERRADA},
+            reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {"estado": Eleccion.Estado.FINALIZADA},
         ).status_code, 302)
         self.eleccion.refresh_from_db()
-        self.assertEqual(self.eleccion.estado, Eleccion.Estado.CERRADA)
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.FINALIZADA)
 
     def test_transicion_bloqueada_se_informa_como_popup(self):
-        self.estado(Eleccion.Estado.ABIERTA)
+        self.estado(Eleccion.Estado.EN_CURSO)
         respuesta = self.client.post(
             reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)),
-            {"estado": Eleccion.Estado.CERRADA}, follow=True,
+            {"estado": Eleccion.Estado.FINALIZADA}, follow=True,
         )
         self.eleccion.refresh_from_db()
-        self.assertEqual(self.eleccion.estado, Eleccion.Estado.ABIERTA)
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.EN_CURSO)
         self.assertContains(respuesta, "data-popup-mensaje")
         self.assertContains(respuesta, 'data-popup-titulo="No se puede cambiar el estado"')
         self.assertContains(respuesta, "No se puede finalizar la elección con mesas pendientes de escaneo.")
@@ -159,7 +168,7 @@ class CicloConfiguracionTests(TestCase):
 
     def test_agregar_y_eliminar_claustros_solo_en_preparacion(self):
         otro = Claustro.objects.create(nombre="Docentes")
-        for estado in (Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
+        for estado in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO, Eleccion.Estado.FINALIZADA):
             with self.subTest(estado=estado):
                 self.estado(estado)
                 with self.assertRaisesMessage(ValueError, "En preparación"):
@@ -171,13 +180,14 @@ class CicloConfiguracionTests(TestCase):
                 }).status_code, 403)
 
     def test_seleccion_estima_y_aprueba_solo_las_solicitudes_marcadas(self):
-        self.estado(Eleccion.Estado.ABIERTA)
+        self.estado(Eleccion.Estado.EN_CURSO)
         seleccionada = self.solicitud()
         no_seleccionada = self.solicitud(self.crear_registro("40100002"))
         url = reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,))
         respuesta = self.client.get(url, {"accion": "estimar_seleccion", "solicitudes_ids": [seleccionada.pk]})
         self.assertEqual(respuesta.json(), {
-            "mesas_por_sede": {str(self.sedes[1].pk): 1}, "total": 1, "seleccionadas": 1,
+            "mesas_por_sede": {str(self.sedes[1].pk): 1}, "mesas_quitadas_por_sede": {},
+            "total": 1, "total_quitadas": 0, "seleccionadas": 1,
         })
         self.assertEqual(self.client.post(url, {
             "accion": "aprobar_seleccionadas", "solicitudes_ids": [seleccionada.pk],
@@ -189,7 +199,7 @@ class CicloConfiguracionTests(TestCase):
         self.assertEqual(EnvioNotificacion.objects.count(), 1)
 
     def test_seleccion_invalida_o_vacia_no_resuelve_ninguna_solicitud(self):
-        self.estado(Eleccion.Estado.PREPARADA)
+        self.estado(Eleccion.Estado.PUBLICADA)
         solicitud = self.solicitud()
         url = reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,))
         for ids in ([], [solicitud.pk, solicitud.pk + 10000], ["invalido"]):
@@ -208,7 +218,7 @@ class CicloConfiguracionTests(TestCase):
         }).status_code, 400)
 
     def test_emision_bloquea_todas_las_resoluciones_y_preserva_qr(self):
-        self.estado(Eleccion.Estado.ABIERTA)
+        self.estado(Eleccion.Estado.EN_CURSO)
         solicitud = self.solicitud(self.crear_registro("40100003"))
         registrar_emision_padron_imprimible(self.eleccion, self.usuario)
         self.registro.refresh_from_db()
@@ -231,7 +241,7 @@ class CicloConfiguracionTests(TestCase):
         )).status_code, 403)
 
     def test_estimacion_simula_movimientos_sucesivos_y_coincide_con_mesas_creadas(self):
-        self.estado(Eleccion.Estado.PREPARADA)
+        self.estado(Eleccion.Estado.PUBLICADA)
         segundo = self.crear_registro("40100004")
         mesa_destino = Mesa.objects.create(
             eleccion=self.eleccion, numero=2, sede=self.sedes[1],
@@ -249,6 +259,57 @@ class CicloConfiguracionTests(TestCase):
         resolver_solicitudes_pendientes(self.eleccion, usuario=self.usuario, accion="aprobar_todas")
         self.assertEqual(Mesa.objects.count() - previas, sum(impacto.values()))
 
+    def test_aprobar_cambio_quita_mesa_automatica_que_queda_vacia(self):
+        self.estado(Eleccion.Estado.PUBLICADA)
+        self.mesa.generada_automaticamente = True
+        self.mesa.save(update_fields=("generada_automaticamente",))
+        consulta = SolicitudCambioSede.objects.filter(pk=self.solicitud().pk)
+        impacto = estimar_impacto_mesas_por_sede(self.eleccion, consulta)
+        self.assertEqual(impacto, {"agregadas": {self.sedes[1].pk: 1}, "quitadas": {self.sedes[0].pk: 1}})
+        respuesta = self.client.get(reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,)))
+        self.assertContains(respuesta, "Se agregan: 1 mesa en Medrano.")
+        self.assertContains(respuesta, "Se quitan: 1 mesa en Campus.")
+        resolver_solicitudes_pendientes(self.eleccion, usuario=self.usuario, accion="aprobar_todas")
+        self.assertFalse(Mesa.objects.filter(pk=self.mesa.pk).exists())
+        self.assertEqual(list(Mesa.objects.values_list("sede", flat=True)), [self.sedes[1].pk])
+
+    def test_aprobar_cambio_conserva_mesa_manual_vacia(self):
+        self.estado(Eleccion.Estado.PUBLICADA)
+        self.solicitud()
+        resolver_solicitudes_pendientes(self.eleccion, usuario=self.usuario, accion="aprobar_todas")
+        self.assertTrue(Mesa.objects.filter(pk=self.mesa.pk).exists())
+
+    def test_resolucion_masiva_deshabilitada_sin_pendientes_y_filtro_por_estado(self):
+        self.estado(Eleccion.Estado.PUBLICADA)
+        solicitud = self.solicitud()
+        solicitud.estado = SolicitudCambioSede.Estado.RECHAZADA
+        solicitud.save(update_fields=("estado",))
+        url = reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,))
+        respuesta = self.client.get(url)
+        self.assertContains(respuesta, "No hay solicitudes pendientes para resolver.")
+        for texto in ("Aceptar todas sin límite de mesas nuevas", "Aceptar sin agregar mesas", "Rechazar todas"):
+            self.assertContains(respuesta, f"disabled>{texto}</button>")
+        self.assertEqual(list(self.client.get(url, {"estado": "pendiente"}).context["solicitudes"]), [])
+        self.assertEqual(list(self.client.get(url, {"estado": "rechazada"}).context["solicitudes"]), [solicitud])
+        self.assertEqual(self.client.get(url, {"estado": "otro"}).context["estado_filtro"], "")
+
+    def test_solicitud_preselecciona_sede_si_hay_una_sola_opcion(self):
+        from apps.padron.forms import FormularioSolicitudCambioSede
+
+        formulario = FormularioSolicitudCambioSede(registro_padron=self.registro)
+        self.assertEqual(formulario.fields["sede_destino"].initial, self.sedes[1].pk)
+        self.assertIsNone(formulario.fields["sede_destino"].empty_label)
+
+    def test_gestion_de_mesas_filtra_por_claustro_departamento_y_sede(self):
+        otra = Mesa.objects.create(
+            eleccion=self.eleccion, numero=2, sede=self.sedes[1], eleccion_claustro_departamento=self.alcance,
+        )
+        url = reverse("gestionar-mesas", args=(self.eleccion.pk,))
+        respuesta = self.client.get(url, {"sede": self.sedes[1].pk})
+        self.assertEqual([mesa.pk for mesa in respuesta.context["mesas"]], [otra.pk])
+        respuesta = self.client.get(url, {"claustro": self.configuracion.pk, "departamento": self.departamento.pk})
+        self.assertEqual({mesa.pk for mesa in respuesta.context["mesas"]}, {self.mesa.pk, otra.pk})
+        self.assertContains(respuesta, f"claustro={self.configuracion.pk}&amp;departamento={self.departamento.pk}")
     def test_inicio_admin_global_muestra_cuatro_cards_sin_acciones(self):
         respuesta = self.client.get(reverse("inicio-administrador-junta"))
         for titulo in ("Elección actual", "Justificativos pendientes", "Solicitudes de cambio de sede pendientes", "Participación"):
@@ -256,12 +317,12 @@ class CicloConfiguracionTests(TestCase):
         self.assertContains(respuesta, '<article class="option">', count=4)
         self.assertNotContains(respuesta, "Revisar solicitudes")
         self.assertNotContains(respuesta, '<a class="button')
-        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.estado = Eleccion.Estado.FINALIZADA
         self.eleccion.save(update_fields=("estado",))
         self.assertContains(self.client.get(reverse("inicio-administrador-junta")), "Crear elección")
 
     def test_codigo_departamento_mesa_en_mail_y_cards_elector_y_autoridad(self):
-        self.estado(Eleccion.Estado.ABIERTA)
+        self.estado(Eleccion.Estado.EN_CURSO)
         with patch("apps.notificaciones.services.enviar_notificacion"):
             notificar_eleccion_en_curso(self.eleccion)
         self.assertIn("K-001", EnvioNotificacion.objects.get().contenido)
@@ -280,7 +341,7 @@ class CicloConfiguracionTests(TestCase):
         peticion.user = self.usuario
         administrador = admin.site._registry[EleccionClaustro]
         self.assertTrue(administrador.has_change_permission(peticion, self.configuracion))
-        self.estado(Eleccion.Estado.ABIERTA)
+        self.estado(Eleccion.Estado.EN_CURSO)
         self.configuracion.eleccion = self.eleccion
         self.assertFalse(administrador.has_change_permission(peticion, self.configuracion))
         self.assertFalse(administrador.has_delete_permission(peticion, self.configuracion))
@@ -290,7 +351,7 @@ class CicloConfiguracionTests(TestCase):
             administrador.delete_model(peticion, self.configuracion)
 
     def test_participacion_del_inicio_solo_cuenta_votos_confirmados_en_mesas_procesadas(self):
-        self.estado(Eleccion.Estado.ABIERTA)
+        self.estado(Eleccion.Estado.EN_CURSO)
         segundo = self.crear_registro("40100005")
         AsignacionMesa.objects.create(registro_padron=segundo, mesa=self.mesa)
         self.mesa.estado_escaneo = Mesa.EstadoEscaneo.PROCESADA

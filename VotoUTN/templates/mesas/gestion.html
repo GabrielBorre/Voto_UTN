@@ -35,17 +35,46 @@
       <div><strong>Claustros con mesas</strong><span>{{ resumen.claustros }}</span></div>
       <div><strong>Sedes utilizadas</strong><span>{{ resumen.sedes }}</span></div>
     </div>
+    <br>
+    <form method="get" class="filtros-mesas" aria-label="Filtrar mesas">
+      <input type="hidden" name="ordenar" value="{{ ordenar }}">
+      <input type="hidden" name="direccion" value="{{ direccion }}">
+      <div class="field">
+        <label for="filtro-claustro">Claustro</label>
+        <select id="filtro-claustro" name="claustro">
+          <option value="">Todos</option>
+          {% for item in opciones_claustro %}<option value="{{ item.id }}"{% if filtros.claustro == item.id %} selected{% endif %}>{{ item.claustro }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="filtro-departamento">Departamento</label>
+        <select id="filtro-departamento" name="departamento">
+          <option value="">Todos</option>
+          {% for item in opciones_departamento %}<option value="{{ item.id }}"{% if filtros.departamento == item.id %} selected{% endif %}>{{ item }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="filtro-sede">Sede</label>
+        <select id="filtro-sede" name="sede">
+          <option value="">Todas</option>
+          {% for item in opciones_sede %}<option value="{{ item.id }}"{% if filtros.sede == item.id %} selected{% endif %}>{{ item.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="filtros-mesas-acciones">
+        <button class="button primary" type="submit">Filtrar</button>
+        {% if hay_filtros %}<a class="button light" href="?ordenar={{ ordenar }}&direccion={{ direccion }}">Limpiar filtros</a>{% endif %}
+      </div>
+    </form>
 
-    <div class="table-wrap">
-      <table>
+    <div class="table-wrap">      <table>
         <thead>
           <tr>
-            <th><a class="table-sort-link" href="?ordenar=claustro&direccion={% if ordenar == 'claustro' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Claustro{% if ordenar == 'claustro' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
-            <th><a class="table-sort-link" href="?ordenar=numero&direccion={% if ordenar == 'numero' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Número{% if ordenar == 'numero' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
-            <th><a class="table-sort-link" href="?ordenar=departamento&direccion={% if ordenar == 'departamento' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Departamento o alcance{% if ordenar == 'departamento' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
-            <th><a class="table-sort-link" href="?ordenar=sede&direccion={% if ordenar == 'sede' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Sede{% if ordenar == 'sede' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
-            <th><a class="table-sort-link" href="?ordenar=electores&direccion={% if ordenar == 'electores' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Cantidad de electores{% if ordenar == 'electores' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
-            <th><a class="table-sort-link" href="?ordenar=origen&direccion={% if ordenar == 'origen' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Origen{% if ordenar == 'origen' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?{% if querystring_filtros %}{{ querystring_filtros }}&{% endif %}ordenar=claustro&direccion={% if ordenar == 'claustro' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Claustro{% if ordenar == 'claustro' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?{% if querystring_filtros %}{{ querystring_filtros }}&{% endif %}ordenar=numero&direccion={% if ordenar == 'numero' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Número{% if ordenar == 'numero' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?{% if querystring_filtros %}{{ querystring_filtros }}&{% endif %}ordenar=departamento&direccion={% if ordenar == 'departamento' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Departamento o alcance{% if ordenar == 'departamento' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?{% if querystring_filtros %}{{ querystring_filtros }}&{% endif %}ordenar=sede&direccion={% if ordenar == 'sede' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Sede{% if ordenar == 'sede' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?{% if querystring_filtros %}{{ querystring_filtros }}&{% endif %}ordenar=electores&direccion={% if ordenar == 'electores' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Cantidad de electores{% if ordenar == 'electores' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
+            <th><a class="table-sort-link" href="?{% if querystring_filtros %}{{ querystring_filtros }}&{% endif %}ordenar=origen&direccion={% if ordenar == 'origen' and direccion == 'asc' %}desc{% else %}asc{% endif %}">Origen{% if ordenar == 'origen' %}{% if direccion == 'asc' %} ↑{% else %} ↓{% endif %}{% endif %}</a></th>
           </tr>
         </thead>
         <tbody>
@@ -78,7 +107,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="6" class="muted">Todavía no hay mesas creadas para esta elección.</td>
+              <td colspan="6" class="muted">{% if hay_filtros %}No hay mesas que coincidan con los filtros seleccionados.{% else %}Todavía no hay mesas creadas para esta elección.{% endif %}</td>
             </tr>
           {% endfor %}
         </tbody>

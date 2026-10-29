@@ -55,7 +55,7 @@ class FormularioEleccion(forms.ModelForm):
         if not commit:
             return eleccion
 
-        eleccion.estado = Eleccion.Estado.BORRADOR
+        eleccion.estado = Eleccion.Estado.EN_PREPARACION
         eleccion.habilitada = False
         eleccion.save(update_fields=("estado", "habilitada"))
 
@@ -202,10 +202,10 @@ class FormularioAlcanceSedes(forms.Form):
             for sede_id in nuevas:
                 EleccionClaustroDepartamentoSede.objects.get_or_create(eleccion_claustro_departamento=self.objeto, sede_id=sede_id)
             EleccionClaustroDepartamentoSede.objects.filter(eleccion_claustro_departamento=self.objeto, sede_id__in=removidas).delete()
-        from apps.padron.services import invalidar_asignaciones_sede_claustro
+        from apps.padron.services import calcular_asignaciones_sede_claustro
 
         eleccion_claustro = self.objeto if self.tipo == "claustro" else self.objeto.eleccion_claustro
-        invalidar_asignaciones_sede_claustro(eleccion_claustro)
+        calcular_asignaciones_sede_claustro(eleccion_claustro)
 
 
 class FormularioDepartamentosClaustro(forms.Form):
@@ -282,9 +282,9 @@ class FormularioDepartamentosClaustro(forms.Form):
             eleccion_claustro_departamento__in=removidas,
         ).delete()
         removidas.delete()
-        from apps.padron.services import invalidar_asignaciones_sede_claustro
+        from apps.padron.services import calcular_asignaciones_sede_claustro
 
-        invalidar_asignaciones_sede_claustro(self.eleccion_claustro)
+        calcular_asignaciones_sede_claustro(self.eleccion_claustro)
 
 
 class FormularioPrepararClaustro(forms.ModelForm):

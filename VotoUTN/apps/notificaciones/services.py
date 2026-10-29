@@ -152,7 +152,7 @@ def notificar_eleccion_en_curso(eleccion):
 @transaction.atomic
 def crear_notificaciones_ausentes_confirmadas(eleccion):
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
-    if eleccion.estado != Eleccion.Estado.ABIERTA:
+    if eleccion.estado != Eleccion.Estado.EN_CURSO:
         raise ValueError("Las notificaciones de ausentes solo se pueden confirmar durante una elección en curso.")
     if eleccion.notificaciones_ausentes_confirmadas_en:
         raise ValueError("Las notificaciones a ausentes ya fueron confirmadas para esta elección.")

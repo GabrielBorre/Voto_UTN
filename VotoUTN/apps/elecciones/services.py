@@ -12,7 +12,7 @@ from .models import (
 @transaction.atomic
 def agregar_claustro(eleccion, claustro):
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
-    if eleccion.estado != Eleccion.Estado.BORRADOR:
+    if eleccion.estado != Eleccion.Estado.EN_PREPARACION:
         raise ValueError("Solo se pueden agregar claustros en estado En preparación.")
     if not claustro.activo:
         raise ValueError("El claustro seleccionado no está activo.")
@@ -40,7 +40,7 @@ def eliminar_claustro(configuracion, usuario):
     try:
         with transaction.atomic():
             eleccion = Eleccion.objects.select_for_update().get(pk=configuracion.eleccion_id)
-            if eleccion.estado != Eleccion.Estado.BORRADOR:
+            if eleccion.estado != Eleccion.Estado.EN_PREPARACION:
                 raise ValueError("Solo se pueden eliminar claustros en estado En preparación.")
             identificador = configuracion.pk
             nombre = str(configuracion.claustro)
