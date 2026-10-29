@@ -387,7 +387,7 @@ def registrar_errores(importacion, errores):
 def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None):
     """Calcula y reemplaza, en una sola operación, las mesas de toda la elección."""
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
-    if eleccion.estado not in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA):
+    if eleccion.estado not in (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA):
         raise ValueError("Las mesas solo pueden recalcularse antes de abrir la elección.")
     claustros = list(EleccionClaustro.objects.filter(eleccion=eleccion).select_related("claustro").order_by("id"))
     if not claustros:
@@ -707,7 +707,7 @@ def eleccion_tiene_padron_emitido(eleccion):
 
 
 def validar_resolucion_cambios_sede(eleccion):
-    if eleccion.estado not in (Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA):
+    if eleccion.estado not in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO):
         raise ValueError("Solo se pueden resolver cambios de sede con la elección publicada o en curso.")
     if eleccion_tiene_padron_emitido(eleccion):
         raise ValueError("El padrón imprimible ya fue generado. Los cambios de sede están en modo lectura.")
@@ -716,7 +716,7 @@ def validar_resolucion_cambios_sede(eleccion):
 @transaction.atomic
 def registrar_emision_padron_imprimible(eleccion, usuario):
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
-    if eleccion.estado != Eleccion.Estado.ABIERTA:
+    if eleccion.estado != Eleccion.Estado.EN_CURSO:
         raise ValueError("El padrón imprimible solo se puede generar cuando la elección está en curso.")
     ahora = timezone.now()
     clausuros_emitidos = []
@@ -753,7 +753,7 @@ def registrar_emision_padron_imprimible(eleccion, usuario):
 
 @transaction.atomic
 def rehabilitar_cambios_padron(eleccion_claustro, usuario):
-    if eleccion_claustro.eleccion.estado not in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA):
+    if eleccion_claustro.eleccion.estado not in (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA):
         raise ValueError("No se pueden rehabilitar cambios de configuración con la elección en curso o finalizada.")
     ahora = timezone.now()
     emisiones = EmisionPadronImprimible.objects.select_for_update().filter(
@@ -864,11 +864,8 @@ def estado_eliminacion_padron_claustro(eleccion_claustro):
     ).values("id").distinct().count()
     bloqueos = []
 
-    if eleccion_claustro.eleccion.estado not in (
-        eleccion_claustro.eleccion.Estado.BORRADOR,
-        eleccion_claustro.eleccion.Estado.PREPARADA,
-    ):
-        bloqueos.append("La elección está abierta o cerrada; no se puede vaciar el padrón.")
+    if eleccion_claustro.eleccion.estado != eleccion_claustro.eleccion.Estado.EN_PREPARACION:
+        bloqueos.append("La elección ya no está en preparación; no se puede vaciar el padrón.")
     emision_vigente = cantidad_registros > 0 and claustro_tiene_emision_vigente(eleccion_claustro)
     if emision_vigente:
         bloqueos.append(
@@ -1109,8 +1106,64 @@ def calcular_asignaciones_sede_claustro(eleccion_claustro):
     return {"asignadas": len(asignaciones) - pendientes, "pendientes": pendientes}
 
 
+def recalcular_sedes_y_mesas_claustro(eleccion_claustro, *, usuario=None, request=None):
+    """Recalcula las sedes del claustro y, si es posible, las mesas de toda la elección.
+
+    Devuelve el resultado de sedes y un mensaje con el resultado de mesas. Si las
+    mesas no pueden recalcularse se conservan las anteriores y se informa el motivo.
+    """
+    resultado = calcular_asignaciones_sede_claustro(eleccion_claustro)
+    texto_sedes = f"Sedes recalculadas: {resultado['asignadas']} asignadas y {resultado['pendientes']} pendientes."
+    try:
+        resultado_mesas = calcular_mesas_automaticas_eleccion(
+            eleccion_claustro.eleccion,
+            usuario=usuario,
+            request=request,
+        )
+    except ValueError as error:
+        return resultado, False, f"{texto_sedes} Las mesas anteriores se conservaron: {error}"
+    return resultado, True, (
+        f"{texto_sedes} Mesas recalculadas para toda la elección: {resultado_mesas['mesas']} mesas y "
+        f"{resultado_mesas['electores']} electores."
+    )
+
+
+def resumen_asignaciones_sede_claustro(eleccion_claustro):
+    """Agrupa las asignaciones vigentes por sede y regla aplicada."""
+    filas = (
+        AsignacionSedePadron.objects.filter(
+            registro_padron__eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+            registro_padron__activo=True,
+        )
+        .values("estado", "sede__nombre", "regla_aplicada__orden", "regla_aplicada__campo",
+                "regla_aplicada__operador", "regla_aplicada__valor", "regla_aplicada_id")
+        .annotate(cantidad=Count("id"))
+        .order_by("estado", "sede__nombre", "regla_aplicada__orden")
+    )
+    campos = dict(ReglaSedeClaustro._meta.get_field("campo").choices)
+    operadores = dict(ReglaSedeClaustro._meta.get_field("operador").choices)
+    resumen = []
+    for fila in filas:
+        if fila["regla_aplicada_id"]:
+            criterio = (
+                f"la regla {fila['regla_aplicada__orden']} "
+                f"({campos.get(fila['regla_aplicada__campo'], fila['regla_aplicada__campo'])} "
+                f"{operadores.get(fila['regla_aplicada__operador'], fila['regla_aplicada__operador'])} "
+                f"{fila['regla_aplicada__valor']})"
+            )
+        else:
+            criterio = "ser la única sede habilitada de su departamento"
+        resumen.append({
+            "cantidad": fila["cantidad"],
+            "pendiente": fila["estado"] == AsignacionSedePadron.Estado.PENDIENTE,
+            "sede": fila["sede__nombre"],
+            "criterio": criterio,
+        })
+    return resumen
+
+
 def solicitudes_cambio_sede_habilitadas(eleccion):
-    if eleccion.estado != Eleccion.Estado.PREPARADA:
+    if eleccion.estado != Eleccion.Estado.PUBLICADA:
         return False
     if not eleccion.fecha_cierre_solicitudes_cambio_sede:
         return False
@@ -1118,6 +1171,11 @@ def solicitudes_cambio_sede_habilitadas(eleccion):
 
 
 def estimar_mesas_adicionales_por_sede(eleccion, solicitudes):
+    return estimar_impacto_mesas_por_sede(eleccion, solicitudes)["agregadas"]
+
+
+def estimar_impacto_mesas_por_sede(eleccion, solicitudes, permitir_crear=True):
+    """Simula la aprobación de las solicitudes y devuelve mesas agregadas y quitadas por sede."""
     solicitudes = solicitudes.select_related(
         "registro_padron__eleccion_claustro_departamento__eleccion_claustro",
     ).order_by("creada_en", "id")
@@ -1127,42 +1185,66 @@ def estimar_mesas_adicionales_por_sede(eleccion, solicitudes):
             "sede": mesa.sede_id,
             "numero": mesa.numero,
             "total": mesa.total,
+            "protegida": not mesa.generada_automaticamente or bool(
+                mesa.cantidad_autoridades or mesa.cantidad_participaciones or mesa.cantidad_roles
+            ),
         }
-        for mesa in Mesa.objects.filter(eleccion=eleccion).annotate(total=Count("asignaciones_padron"))
+        for mesa in Mesa.objects.filter(eleccion=eleccion).annotate(
+            total=Count("asignaciones_padron", distinct=True),
+            cantidad_autoridades=Count("autoridades", distinct=True),
+            cantidad_participaciones=Count("participaciones", distinct=True),
+            cantidad_roles=Count("asignaciones_rol", distinct=True),
+        )
     }
     asignaciones = dict(
         AsignacionMesa.objects.filter(mesa__eleccion=eleccion).values_list("registro_padron_id", "mesa_id")
     )
-    resultado = defaultdict(int)
+    numero_maximo = max((mesa["numero"] for mesa in mesas.values()), default=0)
+    agregadas = defaultdict(int)
+    quitadas = defaultdict(int)
     for solicitud in solicitudes:
         registro = solicitud.registro_padron
         if registro.qr_generado_en:
             continue
         capacidad = registro.eleccion_claustro_departamento.eleccion_claustro.maximo_votantes_por_mesa
         disponibles = [
-            mesa for mesa in mesas.values()
+            (clave, mesa) for clave, mesa in mesas.items()
             if mesa["alcance"] == registro.eleccion_claustro_departamento_id
             and mesa["sede"] == solicitud.sede_destino_id
             and (not capacidad or mesa["total"] < capacidad)
         ]
         if disponibles:
-            destino = min(disponibles, key=lambda mesa: (mesa["total"], mesa["numero"]))
+            clave_destino, destino = min(disponibles, key=lambda item: (item[1]["total"], item[1]["numero"]))
+        elif not permitir_crear:
+            continue
         else:
-            numero = max((mesa["numero"] for mesa in mesas.values()), default=0) + 1
+            numero_maximo += 1
+            clave_destino = -numero_maximo
             destino = {
                 "alcance": registro.eleccion_claustro_departamento_id,
                 "sede": solicitud.sede_destino_id,
-                "numero": numero,
+                "numero": numero_maximo,
                 "total": 0,
+                "protegida": False,
             }
-            mesas[-numero] = destino
-            resultado[solicitud.sede_destino_id] += 1
+            mesas[clave_destino] = destino
+            agregadas[solicitud.sede_destino_id] += 1
         origen_id = asignaciones.get(registro.pk)
-        if origen_id in mesas:
-            mesas[origen_id]["total"] -= 1
         destino["total"] += 1
-    return dict(resultado)
-
+        asignaciones[registro.pk] = clave_destino
+        if origen_id in mesas and origen_id != clave_destino:
+            origen = mesas[origen_id]
+            origen["total"] -= 1
+            if origen["total"] <= 0 and not origen["protegida"]:
+                del mesas[origen_id]
+                if origen_id < 0:
+                    agregadas[origen["sede"]] -= 1
+                else:
+                    quitadas[origen["sede"]] += 1
+    return {
+        "agregadas": {sede: cantidad for sede, cantidad in agregadas.items() if cantidad},
+        "quitadas": {sede: cantidad for sede, cantidad in quitadas.items() if cantidad},
+    }
 
 @transaction.atomic
 def resolver_solicitud_cambio_sede(solicitud, estado, usuario, observacion_resolucion=""):
@@ -1293,13 +1375,32 @@ def _aplicar_cambio_sede_en_registro(solicitud, permitir_crear_mesa=True):
     mesa, mesa_creada = _mesa_para_registro(registro, solicitud.sede_destino, permitir_crear=permitir_crear_mesa)
     if mesa is None:
         raise ValueError("No existe una mesa disponible en la sede solicitada.")
+    mesa_origen_id = AsignacionMesa.objects.filter(registro_padron=registro).values_list("mesa_id", flat=True).first()
     registro.sede = solicitud.sede_destino
     registro.save(update_fields=("sede",))
     AsignacionMesa.objects.update_or_create(
         registro_padron=registro,
         defaults={"mesa": mesa},
     )
+    if mesa_origen_id and mesa_origen_id != mesa.pk:
+        _quitar_mesa_si_quedo_vacia(mesa_origen_id)
     return mesa_creada
+
+
+def _quitar_mesa_si_quedo_vacia(mesa_id):
+    """Elimina la mesa automática de origen si el cambio de sede la dejó sin electores ni vínculos."""
+    mesa = Mesa.objects.filter(pk=mesa_id).annotate(
+        total=Count("asignaciones_padron", distinct=True),
+        cantidad_autoridades=Count("autoridades", distinct=True),
+        cantidad_participaciones=Count("participaciones", distinct=True),
+        cantidad_roles=Count("asignaciones_rol", distinct=True),
+    ).first()
+    if mesa is None or not mesa.generada_automaticamente:
+        return False
+    if mesa.total or mesa.cantidad_autoridades or mesa.cantidad_participaciones or mesa.cantidad_roles:
+        return False
+    mesa.delete()
+    return True
 
 
 def _mesa_para_registro(registro, sede_destino, permitir_crear):

@@ -32,6 +32,10 @@ class FormularioSolicitudCambioSede(forms.ModelForm):
             activa=True,
             elecciones_departamento_sede__eleccion_claustro_departamento=registro_padron.eleccion_claustro_departamento,
         ).exclude(pk=registro_padron.sede_id).distinct().order_by("nombre")
+        sedes_disponibles = list(self.fields["sede_destino"].queryset[:2])
+        if len(sedes_disponibles) == 1:
+            self.fields["sede_destino"].empty_label = None
+            self.fields["sede_destino"].initial = sedes_disponibles[0].pk
         self.fields["observacion"].required = False
 
     def save(self, commit=True):

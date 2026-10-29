@@ -16,11 +16,12 @@
         <p>Podés aprobar o rechazar todas las solicitudes pendientes.</p>
       </div>
     </div>
-    <form method="post" data-confirm="Se aprobarán todas las solicitudes y se crearán las mesas necesarias sin límite. ¿Continuar?">
+    {% if not pendientes %}<p class="muted" id="sin-solicitudes-pendientes">No hay solicitudes pendientes para resolver.</p>{% endif %}
+    <form method="post" data-confirm-title="Aceptar todas sin límite" data-confirm="Se aprobarán las {{ pendientes }} solicitudes pendientes.&#10;&#10;{{ detalle_impacto_todas }}&#10;&#10;¿Continuar?">
       {% csrf_token %}
       <input type="hidden" name="accion" value="aprobar_todas">
       <div class="footer-actions">
-        <button class="button primary">Aceptar todas sin límite de mesas nuevas</button>
+        <button class="button primary" {% if not pendientes %}disabled{% endif %}>Aceptar todas sin límite de mesas nuevas</button>
       </div>
     </form>
     <form method="post" id="formulario-aprobar-con-limite-mesas">
@@ -37,43 +38,39 @@
           {% if not pendientes %}disabled aria-describedby="sin-solicitudes-pendientes"{% endif %}
         >Aceptar con límite de mesas nuevas</button>
       </div>
-      {% if not pendientes %}
-      <small id="sin-solicitudes-pendientes">No hay solicitudes pendientes para resolver.</small>
-      {% endif %}
     </form>
-    <form method="post" data-confirm="Se aprobarán sin crear mesas nuevas. Las que no se puedan resolver quedarán rechazadas.">
+    <form method="post" data-confirm-title="Aceptar sin agregar mesas" data-confirm="Se aprobarán solo las solicitudes que entren en mesas existentes; las demás quedarán rechazadas.&#10;&#10;{{ detalle_impacto_sin_crear }}&#10;&#10;¿Continuar?">
       {% csrf_token %}
       <input type="hidden" name="accion" value="aprobar_sin_agregar_mesas">
       <div class="footer-actions">
-        <button class="button secondary">Aceptar sin agregar mesas</button>
+        <button class="button secondary" {% if not pendientes %}disabled{% endif %}>Aceptar sin agregar mesas</button>
       </div>
     </form>
-    <form method="post" data-confirm="Se rechazarán todas las solicitudes pendientes. ¿Continuar?">
+    <form method="post" data-confirm-title="Rechazar todas" data-confirm="Se rechazarán las {{ pendientes }} solicitudes pendientes.&#10;&#10;No se agregan ni se quitan mesas en ninguna sede.&#10;&#10;¿Continuar?">
       {% csrf_token %}
       <input type="hidden" name="accion" value="rechazar_todas">
       <div class="footer-actions">
-        <button class="button light">Rechazar todas</button>
+        <button class="button light" {% if not pendientes %}disabled{% endif %}>Rechazar todas</button>
       </div>
     </form>
-    <form method="post" id="aprobar-seleccionadas" data-confirm="Se aprobarán las solicitudes seleccionadas y se crearán las mesas necesarias. ¿Continuar?">
+    <form method="post" id="aprobar-seleccionadas" data-confirm-title="Aprobar seleccionadas" data-confirm="Se aprobarán las solicitudes seleccionadas. ¿Continuar?">
       {% csrf_token %}
       <input type="hidden" name="accion" value="aprobar_seleccionadas">
       <div class="footer-actions"><button class="button primary" id="boton-aprobar-seleccionadas" disabled>Aprobar seleccionadas (<span id="cantidad-seleccionadas">0</span>)</button></div>
     </form>
   </div>
-
   <div class="resolucion-masiva-mesas">
     <div class="section-title">
       <div>
         <h2>Mesas actuales por sede</h2>
-        <p>Mesas adicionales para las solicitudes seleccionadas: <strong id="total-mesas-seleccionadas">0</strong>.</p>
+        <p>Para las solicitudes seleccionadas se agregan <strong id="total-mesas-seleccionadas">0</strong> y se quitan <strong id="total-mesas-quitadas-seleccionadas">0</strong> mesas.</p>
         <p id="error-estimacion-mesas" class="error" role="alert" hidden></p>
       </div>
     </div>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Sede</th><th>Mesas actuales</th><th>Mesas adicionales estimadas</th></tr>
+          <tr><th>Sede</th><th>Mesas actuales</th><th>Mesas adicionales estimadas</th><th>Mesas que se quitan</th></tr>
         </thead>
         <tbody>
           {% for item in resumen_mesas_por_sede %}
@@ -81,9 +78,10 @@
             <td>{{ item.sede_nombre }}</td>
             <td>{{ item.mesas_actuales }}</td>
             <td data-estimacion-sede="{{ item.sede_id }}">0</td>
+            <td data-quitadas-sede="{{ item.sede_id }}" data-sede-nombre="{{ item.sede_nombre }}">0</td>
           </tr>
           {% empty %}
-          <tr><td colspan="3" class="muted">No hay sedes configuradas para esta elección.</td></tr>
+          <tr><td colspan="4" class="muted">No hay sedes configuradas para esta elección.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -100,6 +98,8 @@
       <strong>{{ mesas_nuevas_si_aceptar_todas }}</strong>
       {% if mesas_nuevas_si_aceptar_todas == 1 %}mesa nueva{% else %}mesas nuevas{% endif %}.
     </p>
+    <p class="detalle-impacto-mesas">{{ detalle_impacto_todas|linebreaksbr }}</p>
+    <p><small>Con un límite, las mesas agregadas y quitadas por sede serán como máximo las indicadas.</small></p>
     <div class="field">
       <label for="cantidad-maxima-mesas-nuevas">¿Cuál es la cantidad máxima de mesas nuevas que se pueden crear?</label>
       <input
@@ -121,7 +121,22 @@
 </dialog>
 {% endif %}
 
+</fieldset>
 <section class="card management-section">
+  <form method="get" class="filtros-solicitudes" aria-label="Filtrar solicitudes">
+    <div class="field">
+      <label for="filtro-estado-solicitud">Estado</label>
+      <select id="filtro-estado-solicitud" name="estado">
+        <option value="">Todos</option>
+        {% for valor, etiqueta in estados_filtro %}<option value="{{ valor }}"{% if estado_filtro == valor %} selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filtros-mesas-acciones">
+      <button class="button primary" type="submit">Filtrar</button>
+      {% if estado_filtro %}<a class="button light" href="?">Limpiar filtro</a>{% endif %}
+    </div>
+  </form>
+  <fieldset class="configuracion-campos" {% if solo_lectura %}disabled{% endif %}>
   <div class="table-wrap">
     <table>
       <thead>
@@ -154,15 +169,15 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="muted">No hay solicitudes para esta elección.</td></tr>
+        <tr><td colspan="7" class="muted">{% if estado_filtro %}No hay solicitudes con el estado seleccionado.{% else %}No hay solicitudes para esta elección.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  </fieldset>
 </section>
-</fieldset>
 {% endblock %}
 
 {% block scripts %}
-<script type="module" src="{% static 'js/solicitudes-cambio-sede.js' %}"></script>
+<script type="module" src="{% static 'js/solicitudes-cambio-sede.js' %}?v=20261026.1"></script>
 {% endblock %}

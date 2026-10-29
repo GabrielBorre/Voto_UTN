@@ -87,7 +87,7 @@ class InicioAutenticadoTests(TestCase):
             nombre="Elección cerrada",
             fecha_inicio=date(2026, 10, 1),
             fecha_fin=date(2026, 10, 2),
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
         )
         self.client.force_login(usuario)
 
@@ -116,7 +116,7 @@ class InicioAutenticadoTests(TestCase):
             nombre="Elección abierta",
             fecha_inicio=date(2026, 10, 1),
             fecha_fin=date(2026, 10, 2),
-            estado=Eleccion.Estado.ABIERTA,
+            estado=Eleccion.Estado.EN_CURSO,
         )
 
         respuesta = self.client.get(reverse("lista-elecciones"))
@@ -136,13 +136,13 @@ class InicioAutenticadoTests(TestCase):
             nombre="Elección preparatoria",
             fecha_inicio=date(2026, 9, 1),
             fecha_fin=date(2026, 9, 10),
-            estado=Eleccion.Estado.PREPARADA,
+            estado=Eleccion.Estado.PUBLICADA,
         )
         eleccion_cerrada = Eleccion.objects.create(
             nombre="Elección cerrada anterior",
             fecha_inicio=date(2026, 7, 1),
             fecha_fin=date(2026, 7, 5),
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
         )
         AsignacionRol.objects.create(
             usuario=usuario,
@@ -170,13 +170,13 @@ class InicioAutenticadoTests(TestCase):
             nombre="Elección cerrada más reciente",
             fecha_inicio=date(2026, 8, 1),
             fecha_fin=date(2026, 8, 10),
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
         )
         otra_eleccion_cerrada = Eleccion.objects.create(
             nombre="Elección cerrada anterior",
             fecha_inicio=date(2026, 7, 1),
             fecha_fin=date(2026, 7, 5),
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
         )
         AsignacionRol.objects.create(
             usuario=usuario,
@@ -229,7 +229,7 @@ class InicioAutenticadoTests(TestCase):
         )
         self.client.force_login(usuario)
 
-        for estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA):
+        for estado in (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO):
             with self.subTest(estado=estado):
                 eleccion = None
                 try:
@@ -240,7 +240,7 @@ class InicioAutenticadoTests(TestCase):
                         estado=estado,
                     )
                     respuesta = self.client.get(reverse("lista-elecciones"))
-                    if estado == Eleccion.Estado.ABIERTA:
+                    if estado == Eleccion.Estado.EN_CURSO:
                         self.assertNotContains(
                             respuesta,
                             "Debe haber una elección en curso para poder registrar participación.",

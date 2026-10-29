@@ -69,12 +69,12 @@ class JustificativosViewsTests(TestCase):
     def crear_elector_con_padrones(self):
         elector = Elector.objects.create(legajo="3001", nombre="Ana", apellido="Pérez", dni="32345678")
         registro_anterior = self.crear_registro_padron(elector, self.eleccion)
-        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.CERRADA)
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.FINALIZADA)
         eleccion_reciente = Eleccion.objects.create(
             nombre="Elección reciente",
             fecha_inicio=make_aware(datetime(2026, 9, 3, 8)),
             fecha_fin=make_aware(datetime(2026, 9, 3, 16)),
-            estado=Eleccion.Estado.PREPARADA,
+            estado=Eleccion.Estado.PUBLICADA,
             habilitada=True,
         )
         registro_reciente = self.crear_registro_padron(elector, eleccion_reciente)
@@ -97,7 +97,7 @@ class JustificativosViewsTests(TestCase):
         usuario, _, registro = self.crear_elector_con_padrones()
         self.client.force_login(usuario)
 
-        for estado in (Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA):
+        for estado in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO):
             with self.subTest(estado=estado):
                 Eleccion.objects.filter(pk=registro.eleccion_id).update(estado=estado)
 
@@ -111,7 +111,7 @@ class JustificativosViewsTests(TestCase):
 
     def test_presentacion_bloqueada_en_eleccion_en_preparacion(self):
         usuario, _, registro = self.crear_elector_con_padrones()
-        Eleccion.objects.filter(pk=registro.eleccion_id).update(estado=Eleccion.Estado.BORRADOR)
+        Eleccion.objects.filter(pk=registro.eleccion_id).update(estado=Eleccion.Estado.EN_PREPARACION)
         tipo = TipoJustificativo.objects.create(nombre="Enfermedad")
         self.client.force_login(usuario)
 
@@ -189,7 +189,7 @@ class JustificativosViewsTests(TestCase):
         from apps.parametros.models import Sede, Turno
 
         usuario, _, registro = self.crear_elector_con_padrones()
-        Eleccion.objects.filter(pk=registro.eleccion_id).update(estado=Eleccion.Estado.ABIERTA)
+        Eleccion.objects.filter(pk=registro.eleccion_id).update(estado=Eleccion.Estado.EN_CURSO)
         tipo = TipoJustificativo.objects.create(nombre="Motivo autoridad en curso")
         turno = Turno.objects.create(nombre="Tarde", hora_inicio="13:00", hora_fin="17:00")
         mesa = Mesa.objects.create(
@@ -297,7 +297,7 @@ class JustificativosViewsTests(TestCase):
         justificativo.resuelta_por = self.usuario
         justificativo.resuelta_en = make_aware(datetime(2026, 8, 4, 10))
         justificativo.save()
-        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.CERRADA)
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.FINALIZADA)
         self.client.force_login(self.usuario)
         url = reverse("resolver-justificativo", args=(justificativo.id,))
 

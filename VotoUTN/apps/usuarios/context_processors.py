@@ -1,5 +1,5 @@
 from apps.autoridades.models import AsignacionAutoridad
-from apps.elecciones.models import ESTADOS_ELECCION_NO_CERRADOS, Eleccion
+from apps.elecciones.models import ESTADOS_CONFIGURACION_SOLO_LECTURA, ESTADOS_ELECCION_NO_CERRADOS, Eleccion
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import (
     puede_administrar_elecciones,
@@ -54,7 +54,7 @@ def navegacion_por_rol(request):
         eleccion_justificativos = next(
             (e for e in en_curso if puede_revisar_justificativo(usuario, e)), None
         )
-        eleccion_cambio_sede = en_curso.filter(estado__in=(Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA)).first()
+        eleccion_cambio_sede = en_curso.filter(estado__in=(Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO)).first()
 
     coincidencia = request.resolver_match
     eleccion_configuracion = None
@@ -64,7 +64,7 @@ def navegacion_por_rol(request):
         modulo = coincidencia.func.__module__
         configuracion_solo_lectura = bool(
             eleccion_configuracion
-            and eleccion_configuracion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA)
+            and eleccion_configuracion.estado in ESTADOS_CONFIGURACION_SOLO_LECTURA
             and modulo in ("apps.elecciones.views", "apps.padron.views", "apps.autoridades.views", "apps.partidos.views")
             and coincidencia.url_name not in (
                 "configurar-eleccion", "gestionar-elecciones", "gestionar-fechas-administrativas",
@@ -86,7 +86,7 @@ def navegacion_por_rol(request):
         "nav_tiene_datos_elector": elector is not None,
         "nav_puede_ver_elecciones": puede_ver_elecciones,
         "nav_hay_eleccion_en_curso": puede_ver_elecciones
-        and Eleccion.objects.filter(estado=Eleccion.Estado.ABIERTA).exists(),
+        and Eleccion.objects.filter(estado=Eleccion.Estado.EN_CURSO).exists(),
         "nav_puede_gestionar_elecciones": puede_gestionar_elecciones,
         "nav_hay_eleccion_actual": puede_gestionar_elecciones
         and Eleccion.objects.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS).exists(),

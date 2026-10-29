@@ -50,7 +50,7 @@ class ValidacionPadronPDF:
 
 def validar_padron_para_pdf(eleccion) -> ValidacionPadronPDF:
     motivos = []
-    if eleccion.estado != Eleccion.Estado.ABIERTA:
+    if eleccion.estado != Eleccion.Estado.EN_CURSO:
         motivos.append("El padrón imprimible solo se puede generar cuando la elección está en curso.")
     padrones = RegistroPadron.objects.filter(eleccion=eleccion, activo=True)
     total = padrones.count()

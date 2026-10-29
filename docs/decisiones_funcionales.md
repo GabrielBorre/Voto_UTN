@@ -38,10 +38,10 @@
 - Las confirmaciones y avisos interactivos usan diálogos propios, y las
   operaciones demoradas muestran un indicador de procesamiento.
 
-- Puede existir como máximo una elección en estado borrador, preparada o abierta
-	en conjunto. Las elecciones cerradas pueden ser múltiples; mientras exista
-	una elección no cerrada no se permite crear otra.
-- Una elección cerrada queda en modo de consulta: no se pueden editar sus datos
+- Puede existir como máximo una elección en estado En preparación, Publicada o
+	En curso en conjunto. Las elecciones finalizadas pueden ser múltiples; mientras
+	exista una elección no finalizada no se permite crear otra.
+- Una elección finalizada queda en modo de consulta: no se pueden editar sus datos
   ni modificar sus alcances, fechas administrativas, padrón, mesas, autoridades,
   listas, candidaturas ni resoluciones de justificativos. El historial conserva el acceso de consulta; el
   dashboard por elección cerrada queda pendiente y no forma parte de esta entrega.
@@ -212,7 +212,7 @@ Reglas:
 - Para un elector cuyo departamento no tenga habilitada la sede destino de una regla, esa regla se omite y se evalúa la siguiente. No se reemplaza por una sede distinta.
 - Si ninguna regla aplicable coincide en un alcance con varias sedes, la asignación queda pendiente para revisión; no se elige una sede arbitrariamente.
 - El cálculo produce una asignación provisional por elector y no modifica «Sede donde cursa», ni genera listas o QR. Cambiar reglas o sedes invalida el cálculo previo; al volver a calcular las sedes, se recalculan automáticamente las mesas si todos los claustros están listos.
-- El padrón completo de un claustro puede vaciarse mediante confirmación explícita mientras la elección esté en borrador o preparada. Se eliminan sus registros y asignaciones calculadas, además de mesas automáticas que queden vacías. Las identidades de electores sin registros en otros padrones, candidaturas históricas ni perfiles de usuario también se eliminan, liberando sus DNI y legajos; se conservan las que siguen vinculadas a esos datos. Se mantienen el historial/archivos de importación y las mesas manuales. Las importaciones confirmadas de ese ciclo pasan a mostrarse como «Padrón eliminado»; las previsualizaciones y rechazos no cambian. La operación se bloquea ante emisiones QR o datos dependientes (participaciones, justificativos, autoridades o candidaturas) y queda auditada.
+- El padrón completo de un claustro puede vaciarse mediante confirmación explícita mientras la elección esté En preparación. Se eliminan sus registros y asignaciones calculadas, además de mesas automáticas que queden vacías. Las identidades de electores sin registros en otros padrones, candidaturas históricas ni perfiles de usuario también se eliminan, liberando sus DNI y legajos; se conservan las que siguen vinculadas a esos datos. Se mantienen el historial/archivos de importación y las mesas manuales. Las importaciones confirmadas de ese ciclo pasan a mostrarse como «Padrón eliminado»; las previsualizaciones y rechazos no cambian. La operación se bloquea ante emisiones QR o datos dependientes (participaciones, justificativos, autoridades o candidaturas) y queda auditada.
 
 ## Confirmación de notificaciones a ausentes
 

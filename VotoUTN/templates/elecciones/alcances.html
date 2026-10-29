@@ -6,7 +6,7 @@
   <p>{{ eleccion.nombre }}. Definí las sedes habilitadas para cada claustro y, cuando corresponda, sus departamentos.</p>
 </section>
 
-{% if eleccion.estado == 'borrador' %}
+{% if eleccion.estado == 'en_preparacion' %}
 <section class="card management-section">
   <h2>Agregar claustro</h2>
   <form method="post">
@@ -35,7 +35,7 @@
         <div class="scope-heading-actions">
           <span class="scope-count">{{ configuracion.sedes_habilitadas.count }} sede{{ configuracion.sedes_habilitadas.count|pluralize:"s" }} habilitada{{ configuracion.sedes_habilitadas.count|pluralize:"s" }}</span>
           <div class="scope-heading-buttons">
-            {% if eleccion.estado == 'borrador' %}
+            {% if eleccion.estado == 'en_preparacion' %}
             <form method="post" data-confirm="¿Eliminar este claustro de la elección? Si tiene datos vinculados, se conservará sin cambios.">
               {% csrf_token %}
               <input type="hidden" name="accion" value="eliminar_claustro">

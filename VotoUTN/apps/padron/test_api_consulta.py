@@ -23,7 +23,7 @@ class ConsultaPadronApiTests(TestCase):
             fecha_inicio=inicio,
             fecha_fin=inicio + timedelta(hours=8),
             habilitada=True,
-            estado=Eleccion.Estado.ABIERTA,
+            estado=Eleccion.Estado.EN_CURSO,
         )
         claustro = Claustro.objects.create(nombre="Estudiantes")
         departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
@@ -92,7 +92,7 @@ class ConsultaPadronApiTests(TestCase):
         self.assertEqual(respuesta.status_code, 400)
 
     def test_consulta_no_expone_padrones_de_elecciones_no_abiertas(self):
-        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.estado = Eleccion.Estado.FINALIZADA
         self.eleccion.save(update_fields=("estado",))
 
         respuesta = self.consultar("40123456")

@@ -236,7 +236,7 @@ class Command(BaseCommand):
                 "fecha_publicacion_padron_definitivo": inicio - timedelta(days=7),
                 "fecha_limite_justificacion_autoridades": fin + timedelta(days=3),
                 "fecha_limite_justificacion_electores": fin + timedelta(days=5),
-                "estado": Eleccion.Estado.PREPARADA,
+                "estado": Eleccion.Estado.PUBLICADA,
                 "habilitada": True,
                 "maximo_autoridades_por_mesa": 2,
             },

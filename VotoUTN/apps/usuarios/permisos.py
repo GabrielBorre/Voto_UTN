@@ -34,8 +34,8 @@ def puede_administrar_elecciones(usuario, eleccion=None):
 
 def puede_configurar_eleccion(usuario, eleccion, *, solo_consulta=False):
     return (
-        eleccion.estado != Eleccion.Estado.CERRADA
-        and (solo_consulta or eleccion.estado in (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA))
+        eleccion.estado != Eleccion.Estado.FINALIZADA
+        and (solo_consulta or eleccion.estado == Eleccion.Estado.EN_PREPARACION)
         and puede_administrar_elecciones(usuario, eleccion)
     )
 

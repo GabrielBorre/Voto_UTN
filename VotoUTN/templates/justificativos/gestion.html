@@ -97,7 +97,7 @@
   </section>
 </div>
 
-{% if eleccion.estado == 'cerrada' %}
+{% if eleccion.estado == 'finalizada' %}
 <nav class="section-navigation" aria-label="Navegación de la sección">
   <a class="button light" href="{% url 'dashboard-historial-eleccion' eleccion.id %}">Volver al dashboard</a>
 </nav>

@@ -39,7 +39,7 @@ def mis_justificativos(request):
         )
     estado_habilitado = bool(
         eleccion
-        and eleccion.estado in (Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA)
+        and eleccion.estado in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO)
     )
     formulario = FormularioJustificativo(
         request.POST or None,
@@ -109,7 +109,7 @@ def gestionar_justificativos(request, eleccion_id):
             "pestana": pestana,
             "estado": estado,
             "estados": JustificativoAusencia.Estado.choices,
-            "nav_en_historial": eleccion.estado == Eleccion.Estado.CERRADA,
+            "nav_en_historial": eleccion.estado == Eleccion.Estado.FINALIZADA,
         },
     )
 
@@ -159,7 +159,7 @@ def resolver_justificativo(request, justificativo_id):
     eleccion = justificativo.registro_padron.eleccion
     if not puede_revisar_justificativo(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para resolver este justificativo.")
-    if request.method == "POST" and eleccion.estado == Eleccion.Estado.CERRADA:
+    if request.method == "POST" and eleccion.estado == Eleccion.Estado.FINALIZADA:
         return HttpResponseForbidden("No se pueden modificar justificativos de elecciones del historial.")
     formulario = FormularioResolucionJustificativo(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
@@ -191,6 +191,6 @@ def resolver_justificativo(request, justificativo_id):
         {
             "justificativo": justificativo,
             "formulario": formulario,
-            "nav_en_historial": eleccion.estado == Eleccion.Estado.CERRADA,
+            "nav_en_historial": eleccion.estado == Eleccion.Estado.FINALIZADA,
         },
     )

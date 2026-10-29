@@ -4,15 +4,16 @@ from django.db import models
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 
 
-ESTADOS_ELECCION_NO_CERRADOS = ("borrador", "preparada", "abierta")
+ESTADOS_ELECCION_NO_CERRADOS = ("en_preparacion", "publicada", "en_curso")
+ESTADOS_CONFIGURACION_SOLO_LECTURA = ("publicada", "en_curso", "finalizada")
 
 
 class Eleccion(models.Model):
     class Estado(models.TextChoices):
-        BORRADOR = "borrador", "En preparación"
-        PREPARADA = "preparada", "Publicada"
-        ABIERTA = "abierta", "En curso"
-        CERRADA = "cerrada", "Finalizada"
+        EN_PREPARACION = "en_preparacion", "En preparación"
+        PUBLICADA = "publicada", "Publicada"
+        EN_CURSO = "en_curso", "En curso"
+        FINALIZADA = "finalizada", "Finalizada"
 
     nombre = models.CharField("nombre", max_length=180)
     fecha_inicio = models.DateField("fecha de inicio del proceso")
@@ -26,7 +27,7 @@ class Eleccion(models.Model):
     fecha_limite_justificacion_electores = models.DateField(null=True, blank=True)
     notificaciones_ausentes_confirmadas_en = models.DateTimeField(null=True, blank=True, editable=False)
     habilitada = models.BooleanField("habilitada", default=True)
-    estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.BORRADOR)
+    estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.EN_PREPARACION)
     maximo_autoridades_por_mesa = models.PositiveSmallIntegerField(default=3)
 
     class Meta:
@@ -78,24 +79,24 @@ class Eleccion(models.Model):
 
     def cambiar_estado(self, nuevo_estado):
         transiciones = {
-            self.Estado.BORRADOR: self.Estado.PREPARADA,
-            self.Estado.PREPARADA: self.Estado.ABIERTA,
-            self.Estado.ABIERTA: self.Estado.CERRADA,
+            self.Estado.EN_PREPARACION: self.Estado.PUBLICADA,
+            self.Estado.PUBLICADA: self.Estado.EN_CURSO,
+            self.Estado.EN_CURSO: self.Estado.FINALIZADA,
         }
         if transiciones.get(self.estado) != nuevo_estado:
             raise ValidationError("La transicion de estado solicitada no esta permitida.")
         self._validar_estado_unico(nuevo_estado)
         self.validar_configuracion()
-        if nuevo_estado == self.Estado.ABIERTA and not self.mesas.exists():
+        if nuevo_estado == self.Estado.EN_CURSO and not self.mesas.exists():
             raise ValidationError("La eleccion debe tener al menos una mesa antes de iniciarse.")
-        if nuevo_estado == self.Estado.PREPARADA:
+        if nuevo_estado == self.Estado.PUBLICADA:
             claustros_sin_padron = self.elecciones_claustro.exclude(
                 departamentos__registros_padron__activo=True
             )
             if claustros_sin_padron.exists():
                 raise ValidationError("Debe existir al menos una importación de padrón válida por cada claustro antes de publicar la elección.")
         self.estado = nuevo_estado
-        self.habilitada = nuevo_estado in (self.Estado.PREPARADA, self.Estado.ABIERTA)
+        self.habilitada = nuevo_estado in (self.Estado.PUBLICADA, self.Estado.EN_CURSO)
         self.save(update_fields=("estado", "habilitada"))
 
     def __str__(self):

@@ -64,7 +64,7 @@
                   {% csrf_token %}<input type="hidden" name="regla_id" value="{{ regla.id }}">
                   <button class="button light small" name="accion" value="mover-regla-subir" type="submit" {% if forloop.first %}disabled title="Ya es la primera regla"{% endif %}>↑ Subir</button>
                   <button class="button light small" name="accion" value="mover-regla-bajar" type="submit" {% if forloop.last %}disabled title="Ya es la última regla"{% endif %}>↓ Bajar</button>
-                  <button class="button danger small" name="accion" value="eliminar-regla" type="submit" data-confirm="¿Eliminar esta regla? El cálculo actual de sedes se invalidará.">Eliminar</button>
+                  <button class="button danger small" name="accion" value="eliminar-regla" type="submit" data-confirm="¿Eliminar esta regla? Las sedes y las mesas se recalcularán automáticamente.">Eliminar</button>
                 </form>
               </td>
             </tr>
@@ -112,10 +112,20 @@
 
   <section class="card management-section">
     <div class="section-title">
-      <div><h2>Resultado del cálculo</h2><p>El resultado corresponde al padrón activo actual. Al cambiar reglas o sedes, se invalida y debe calcularse nuevamente.</p></div>
-      <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="calcular"><button class="button primary" type="submit">Calcular asignaciones</button></form>
+      <div><h2>Resultado del cálculo</h2><p>Las sedes se calculan automáticamente al agregar, eliminar o reordenar reglas y al incorporar electores al padrón.</p></div>
     </div>
     {% if cantidad_total %}
+      <ul class="resumen-asignaciones">
+        {% for fila in resumen_asignaciones %}
+          {% if fila.pendiente %}
+            <li class="pendiente"><strong>{{ fila.cantidad }}</strong> electores quedaron <strong>sin sede</strong>: ninguna regla coincide con sus datos.</li>
+          {% else %}
+            <li><strong>{{ fila.cantidad }}</strong> electores se asignaron a la sede <strong>{{ fila.sede }}</strong> por {{ fila.criterio }}.</li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+      <details class="detalle-asignaciones"{% if request.GET.pagina or estado_filtro %} open{% endif %}>
+        <summary>Ver detalle por elector ({{ cantidad_asignadas }} asignados · {{ cantidad_pendientes }} pendientes)</summary>
       <div class="summary-grid compact-summary">
         <div>
           <strong>Con sede asignada</strong><span>{{ cantidad_asignadas }}</span>
@@ -127,7 +137,7 @@
         </div>
         <div>
           <strong>Total</strong><span>{{ cantidad_total }}</span>
-          <a class="button {% if not estado_filtro %}primary{% else %}light{% endif %} small" href="?" {% if not estado_filtro %}aria-current="page"{% endif %}>Ver todas</a>
+          <a class="button {% if not estado_filtro %}primary{% else %}light{% endif %} small" href="?pagina=1" {% if not estado_filtro %}aria-current="page"{% endif %}>Ver todas</a>
         </div>
       </div>
       {% if asignaciones %}
@@ -176,8 +186,9 @@
       {% else %}
         <p class="muted">No hay asignaciones que coincidan con este filtro.</p>
       {% endif %}
+      </details>
     {% else %}
-      <p class="muted">Todavía no hay un cálculo vigente para este claustro.</p>
+      <p class="muted">Todavía no hay electores en el padrón de este claustro para asignar sedes.</p>
     {% endif %}
   </section>
 </div>

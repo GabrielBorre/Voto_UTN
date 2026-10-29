@@ -69,7 +69,7 @@ class AuditoriaParticipacionTests(BaseAuditoriaElectoralTests):
             rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
             eleccion=self.eleccion,
         )
-        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.estado = Eleccion.Estado.EN_CURSO
         self.eleccion.habilitada = True
         self.eleccion.save(update_fields=("estado", "habilitada"))
 
@@ -134,7 +134,7 @@ class AuditoriaEleccionTests(BaseAuditoriaElectoralTests):
         self.crear_padron()
         respuesta = self.client.post(
             reverse("cambiar-estado-eleccion", args=(self.eleccion.id,)),
-            {"estado": Eleccion.Estado.PREPARADA},
+            {"estado": Eleccion.Estado.PUBLICADA},
             HTTP_HOST="127.0.0.1",
             REMOTE_ADDR="127.0.0.10",
             HTTP_USER_AGENT="Prueba",
@@ -145,7 +145,7 @@ class AuditoriaEleccionTests(BaseAuditoriaElectoralTests):
         self.assertEqual(evento.accion, "eleccion.cambio_estado")
         self.assertEqual(evento.entidad, "Eleccion")
         self.assertEqual(evento.entidad_id, str(self.eleccion.id))
-        self.assertEqual(evento.datos_anteriores["estado"], Eleccion.Estado.BORRADOR)
-        self.assertEqual(evento.datos_nuevos["estado"], Eleccion.Estado.PREPARADA)
+        self.assertEqual(evento.datos_anteriores["estado"], Eleccion.Estado.EN_PREPARACION)
+        self.assertEqual(evento.datos_nuevos["estado"], Eleccion.Estado.PUBLICADA)
         self.assertEqual(evento.ip, "127.0.0.10")
         self.assertEqual(evento.agente_usuario, "Prueba")

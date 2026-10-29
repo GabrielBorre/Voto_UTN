@@ -30,6 +30,8 @@
     {% endif %}
 
     <div class="report-actions">
+      <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'padron' %}">Exportar padrón</a>
+      <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'asignacion-sedes' %}">Exportar asignación de sedes</a>
       <a class="button secondary" href="{% url 'exportar-reporte' eleccion.id 'mesas' %}">Exportar mesas</a>
       {% if validacion_padron_pdf.apto %}
         <form method="post" action="{% url 'generar-padron-pdf' eleccion.id %}" data-download>{% csrf_token %}<button class="button primary" type="submit">Generar padrón imprimible</button></form>

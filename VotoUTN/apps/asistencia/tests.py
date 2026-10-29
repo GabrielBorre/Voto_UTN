@@ -90,7 +90,7 @@ class ServicioRegistroParticipacionEleccionTests(TestCase):
             nombre="Elección ajena",
             fecha_inicio=inicio,
             fecha_fin=fin,
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
         )
 
         claustro = Claustro.objects.create(nombre="Docentes")
@@ -184,7 +184,7 @@ class ModeloElectoralTests(TestCase):
             nombre="Elección 2",
             fecha_inicio=inicio,
             fecha_fin=fin,
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
         )
         claustro = Claustro.objects.create(nombre="Estudiantes")
         departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
@@ -216,7 +216,7 @@ class PermisosParticipacionTests(TestCase):
         self.assertTrue(puede_registrar_participacion(self.usuario, self.eleccion))
 
     def test_administrativo_global_puede_abrir_asistencia_de_cualquier_eleccion_activa(self):
-        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.estado = Eleccion.Estado.EN_CURSO
         self.eleccion.habilitada = True
         self.eleccion.save(update_fields=("estado", "habilitada"))
         AsignacionRol.objects.create(
@@ -252,7 +252,7 @@ class VistaCargaManualEscritorioTests(TestCase):
         )
 
     def test_la_vista_incluye_formulario_manual_y_escanner_movil(self):
-        self.eleccion.estado = Eleccion.Estado.ABIERTA
+        self.eleccion.estado = Eleccion.Estado.EN_CURSO
         self.eleccion.habilitada = True
         self.eleccion.save(update_fields=("estado", "habilitada"))
         self.client.force_login(self.usuario)
@@ -275,7 +275,7 @@ class GestionEleccionesTests(TestCase):
                 "nombre": "Eleccion de prueba",
                 "fecha_inicio": "2026-08-03",
                 "fecha_fin": "2026-08-03",
-                "estado": Eleccion.Estado.PREPARADA,
+                "estado": Eleccion.Estado.PUBLICADA,
                 "habilitada": "on",
                 "sedes": [self.sede.id],
                 "claustros": [self.claustro.id],
@@ -285,7 +285,7 @@ class GestionEleccionesTests(TestCase):
         self.assertTrue(formulario.is_valid(), formulario.errors)
         eleccion = formulario.save()
 
-        self.assertEqual(eleccion.estado, Eleccion.Estado.BORRADOR)
+        self.assertEqual(eleccion.estado, Eleccion.Estado.EN_PREPARACION)
         self.assertFalse(eleccion.habilitada)
         self.assertEqual(eleccion.elecciones_sede.count(), 1)
         self.assertEqual(eleccion.elecciones_claustro.count(), 1)
@@ -418,16 +418,16 @@ class CicloDeVidaEleccionTests(TestCase):
             elector=Elector.objects.create(dni="40180001", legajo="40180001", nombre="Elector ciclo"),
             eleccion=self.eleccion, eleccion_claustro_departamento=self.configuracion,
         )
-        self.eleccion.cambiar_estado(Eleccion.Estado.PREPARADA)
+        self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
         with self.assertRaises(ValidationError):
-            self.eleccion.cambiar_estado(Eleccion.Estado.ABIERTA)
+            self.eleccion.cambiar_estado(Eleccion.Estado.EN_CURSO)
 
         Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=self.sede)
-        self.eleccion.cambiar_estado(Eleccion.Estado.ABIERTA)
+        self.eleccion.cambiar_estado(Eleccion.Estado.EN_CURSO)
         self.eleccion.refresh_from_db()
         self.assertTrue(self.eleccion.habilitada)
 
-        self.eleccion.cambiar_estado(Eleccion.Estado.CERRADA)
+        self.eleccion.cambiar_estado(Eleccion.Estado.FINALIZADA)
         self.eleccion.refresh_from_db()
         self.assertFalse(self.eleccion.habilitada)
 

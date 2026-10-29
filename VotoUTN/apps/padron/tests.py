@@ -50,6 +50,7 @@ from apps.padron.services import (
     calcular_mesas_automaticas_eleccion,
     calcular_padrones_votacion,
     eliminar_padron_claustro,
+    recalcular_sedes_y_mesas_claustro,
     resolver_solicitud_cambio_sede,
     resolver_solicitudes_pendientes,
 )
@@ -115,7 +116,7 @@ class PadronViewsTests(TestCase):
         self.assertIn("padron_estudiantes_".encode(), respuesta_pdf["Content-Disposition"].encode())
 
     def test_eleccion_cerrada_bloquea_pantalla_y_configuracion_del_padron(self):
-        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.estado = Eleccion.Estado.FINALIZADA
         self.eleccion.save(update_fields=("estado",))
         self.client.force_login(self.usuario)
         ruta = reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id))
@@ -434,7 +435,11 @@ class PadronViewsTests(TestCase):
         )
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'class="card management-section"', count=3)
+        self.assertContains(respuesta, 'class="card management-section"', count=2)
+        self.assertContains(respuesta, '<details class="historial-importaciones"')
+        self.assertContains(respuesta, f'{reverse("gestionar-mesas", args=(self.eleccion.id,))}?claustro={self.eleccion_claustro.id}')
+        self.assertNotContains(respuesta, "Exportar padrón CSV")
+        self.assertNotContains(respuesta, "Calcular asignaciones")
         self.assertContains(respuesta, 'class="card management-section padron-management-card"')
         self.assertContains(respuesta, "estudiantes.csv")
         self.assertNotContains(respuesta, "docentes.csv")
@@ -533,21 +538,17 @@ class PadronViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 302)
         self.assertTrue(registro.asignacion_mesa.mesa.generada_automaticamente)
 
-    def test_calcular_sedes_recalcula_mesas_de_toda_la_eleccion(self):
+    def test_recalculo_automatico_asigna_sedes_y_mesas_de_toda_la_eleccion(self):
         elector = Elector.objects.create(legajo="99003", dni="49990003", nombre="Elector reglas")
         registro = RegistroPadron.objects.create(
             elector=elector,
             eleccion=self.eleccion,
             eleccion_claustro_departamento=self.configuracion,
         )
-        self.client.force_login(self.usuario)
 
-        respuesta = self.client.post(
-            reverse("configurar-sedes-claustro", args=(self.eleccion.id, self.eleccion_claustro.id)),
-            {"accion": "calcular"},
-        )
+        _resultado, mesas_ok, _detalle = recalcular_sedes_y_mesas_claustro(self.eleccion_claustro, usuario=self.usuario)
 
-        self.assertEqual(respuesta.status_code, 302)
+        self.assertTrue(mesas_ok)
         self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=registro).sede, self.sede)
         self.assertTrue(registro.asignacion_mesa.mesa.generada_automaticamente)
 
@@ -1233,7 +1234,29 @@ class AsignacionSedesClaustroTests(TestCase):
         self.assertEqual(regla_primera.orden, 1)
         self.assertEqual(regla_segunda.orden, 2)
 
-    def test_resultado_de_asignaciones_se_pagina_de_a_25_sin_alterar_totales(self):
+    def test_agregar_regla_recalcula_asignaciones_y_muestra_resumen(self):
+        usuario = get_user_model().objects.create_user(username="junta-regla-automatica")
+        AsignacionRol.objects.create(usuario=usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion)
+        self.client.force_login(usuario)
+        url = reverse("configurar-sedes-claustro", args=(self.eleccion.id, self.claustro.id))
+
+        respuesta = self.client.post(url, {
+            "orden": 1,
+            "campo": "nivel",
+            "operador": "igual",
+            "valor": "2",
+            "sede_destino": self.campus.pk,
+            "aplicar_a_todos": "on",
+        })
+
+        self.assertRedirects(respuesta, url, fetch_redirect_response=False)
+        self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=self.registro_a).sede, self.campus)
+        self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=self.registro_b).sede, self.campus)
+        pantalla = self.client.get(url)
+        self.assertContains(pantalla, "<strong>2</strong> electores se asignaron a la sede <strong>Campus</strong>")
+        self.assertNotContains(pantalla, 'value="calcular"')
+
+    def test_resultado_de_asignaciones_se_pagina_de_a_10_sin_alterar_totales(self):
         usuario = get_user_model().objects.create_user(username="junta-paginacion", password="clave")
         AsignacionRol.objects.create(
             usuario=usuario,
@@ -1281,12 +1304,16 @@ class AsignacionSedesClaustroTests(TestCase):
         url = reverse("configurar-sedes-claustro", args=(self.eleccion.id, self.claustro.id))
 
         primera_pagina = self.client.get(url)
-        segunda_pagina = self.client.get(url, {"pagina": 2})
+        segunda_pagina = self.client.get(url, {"pagina": 4})
         solo_pendientes = self.client.get(url, {"estado": "pendiente"})
 
-        self.assertEqual(primera_pagina.context["asignaciones"].paginator.per_page, 25)
-        self.assertEqual(len(primera_pagina.context["asignaciones"]), 25)
-        self.assertEqual(len(segunda_pagina.context["asignaciones"]), 7)
+        self.assertEqual(primera_pagina.context["asignaciones"].paginator.per_page, 10)
+        self.assertEqual(len(primera_pagina.context["asignaciones"]), 10)
+        self.assertEqual(len(segunda_pagina.context["asignaciones"]), 2)
+        resumen = primera_pagina.context["resumen_asignaciones"]
+        self.assertIn(30, [item["cantidad"] for item in resumen])
+        self.assertContains(primera_pagina, "<strong>30</strong> electores se asignaron a la sede")
+        self.assertContains(primera_pagina, "Campus")
         self.assertEqual(primera_pagina.context["cantidad_asignadas"], 30)
         self.assertEqual(primera_pagina.context["cantidad_pendientes"], 2)
         self.assertEqual(solo_pendientes.context["asignaciones"].paginator.count, 2)
@@ -1295,9 +1322,9 @@ class AsignacionSedesClaustroTests(TestCase):
             for item in solo_pendientes.context["asignaciones"]
         ))
         self.assertContains(primera_pagina, "Ver pendientes")
-        self.assertContains(primera_pagina, "32 registros · Página 1 de 2")
+        self.assertContains(primera_pagina, "32 registros · Página 1 de 4")
         self.assertContains(primera_pagina, 'aria-label="Ir a la página 2"')
-        self.assertContains(segunda_pagina, "Página 2 de 2")
+        self.assertContains(segunda_pagina, "Página 4 de 4")
 
     def crear_alcance(self, departamento, sedes):
         alcance = EleccionClaustroDepartamento.objects.create(
@@ -1409,7 +1436,7 @@ class EliminarPadronClaustroTests(TestCase):
             nombre="Elección de prueba",
             fecha_inicio=inicio,
             fecha_fin=inicio + timedelta(hours=8),
-            estado=Eleccion.Estado.PREPARADA,
+            estado=Eleccion.Estado.EN_PREPARACION,
         )
         self.sede = Sede.objects.create(nombre="Campus")
         departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
@@ -1501,7 +1528,7 @@ class EliminarPadronClaustroTests(TestCase):
             nombre="Elección anterior",
             fecha_inicio=inicio_anterior,
             fecha_fin=inicio_anterior + timedelta(hours=8),
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
         )
         claustro_anterior = EleccionClaustro.objects.create(
             eleccion=eleccion_anterior,
@@ -1530,6 +1557,15 @@ class EliminarPadronClaustroTests(TestCase):
 
         self.assertTrue(Elector.objects.filter(pk=self.elector.pk).exists())
         self.assertTrue(RegistroPadron.objects.filter(elector=self.elector, eleccion=eleccion_anterior).exists())
+
+    def test_no_elimina_con_eleccion_publicada(self):
+        self.eleccion.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion.save(update_fields=("estado",))
+
+        with self.assertRaisesMessage(ValueError, "ya no está en preparación"):
+            eliminar_padron_claustro(self.claustro, self.usuario)
+
+        self.assertTrue(RegistroPadron.objects.filter(pk=self.registro.pk).exists())
 
     def test_no_elimina_si_hay_qr_emitido(self):
         self.registro.qr_generado_en = make_aware(datetime(2026, 8, 4, 12))
@@ -1592,7 +1628,7 @@ class SolicitudCambioSedeTests(TestCase):
             nombre="Elección cambio de sede",
             fecha_inicio=inicio,
             fecha_fin=inicio + timedelta(hours=8),
-            estado=Eleccion.Estado.PREPARADA,
+            estado=Eleccion.Estado.PUBLICADA,
             fecha_cierre_solicitudes_cambio_sede=inicio.date() + timedelta(days=2),
             habilitada=True,
         )
