@@ -1,5 +1,7 @@
 import { BrowserQRCodeReader } from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
 
+const CANTIDAD_BANDAS = 30;
+
 export class PageQrScanner {
 
     reader = new BrowserQRCodeReader();
@@ -9,6 +11,8 @@ export class PageQrScanner {
     useNativeDetector = false;
     nativeDetector = null;
     lastReportedCount = 0;
+    indiceRegion = 0;
+    turnoDetectorNativo = true;
 
     constructor(video, canvas, onCode, onStatus) {
         this.video = video;
@@ -42,6 +46,8 @@ export class PageQrScanner {
     clear() {
         this.codes.clear();
         this.lastReportedCount = 0;
+        this.indiceRegion = 0;
+        this.turnoDetectorNativo = true;
     }
 
     async loop() {
@@ -61,19 +67,28 @@ export class PageQrScanner {
 
             if (!width || !height) return;
 
-            if (this.useNativeDetector) {
-                // El detector nativo puede leer directamente del tag video y detectar MÚLTIPLES QRs
-                const barcodes = await this.nativeDetector.detect(this.video);
-                for (const barcode of barcodes) {
-                    this.#processText(barcode.rawValue);
+            if (this.useNativeDetector && this.turnoDetectorNativo) {
+                this.turnoDetectorNativo = false;
+                try {
+                    const barcodes = await this.nativeDetector.detect(this.video);
+                    for (const barcode of barcodes) {
+                        this.#processText(barcode.rawValue);
+                    }
+                } catch (error) {
+                    console.warn("El detector nativo falló; se continúa el barrido con ZXing.", error);
+                    this.useNativeDetector = false;
                 }
             } else {
-                // Fallback con ZXing corrigiendo la relación de aspecto del Canvas
-                if (this.canvas.width !== width || this.canvas.height !== height) {
-                    this.canvas.width = width;
-                    this.canvas.height = height;
+                // Complementar el detector nativo aunque repita siempre los mismos QR.
+                if (this.indiceRegion === 0) {
+                    await this.decodeRegion(0, 0, width, height);
+                } else {
+                    const alto = Math.ceil(height / 12);
+                    const y = Math.round((height - alto) * (this.indiceRegion - 1) / (CANTIDAD_BANDAS - 1));
+                    await this.decodeRegion(0, y, width, alto);
                 }
-                await this.decodeRegion(0, 0, width, height);
+                this.indiceRegion = (this.indiceRegion + 1) % (CANTIDAD_BANDAS + 1);
+                this.turnoDetectorNativo = true;
             }
 
             if (this.codes.size !== this.lastReportedCount) {
@@ -91,6 +106,10 @@ export class PageQrScanner {
     }
 
     async decodeRegion(x, y, w, h) {
+        if (this.canvas.width !== w || this.canvas.height !== h) {
+            this.canvas.width = w;
+            this.canvas.height = h;
+        }
         this.ctx.drawImage(this.video, x, y, w, h, 0, 0, this.canvas.width, this.canvas.height);
         try {
             const result = await this.reader.decodeFromCanvas(this.canvas);
