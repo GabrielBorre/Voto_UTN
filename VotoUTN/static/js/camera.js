@@ -17,20 +17,22 @@ export class Camera {
                 "Este navegador no soporta acceso a la cámara."
             );
         }
+        const vertical = window.matchMedia("(orientation: portrait)").matches;
         const profiles = [
             {
                 video: {
                     facingMode: { ideal: "environment" },
-                    width: { ideal: 1280 }, // Priorizar 720p para mayor velocidad de procesamiento FPS[cite: 1]
-                    height: { ideal: 720 }
+                    width: { ideal: vertical ? 1080 : 1920 },
+                    height: { ideal: vertical ? 1920 : 1080 },
+                    resizeMode: { ideal: "none" }
                 },
                 audio: false
             },
             {
                 video: {
                     facingMode: { ideal: "environment" },
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 }
+                    width: { ideal: vertical ? 720 : 1280 },
+                    height: { ideal: vertical ? 1280 : 720 }
                 },
                 audio: false
             },
@@ -70,9 +72,8 @@ export class Camera {
         this.track = this.stream.getVideoTracks()[0];
         this.capabilities =
             this.track.getCapabilities?.() ?? {};
-        this.settings =
-            this.track.getSettings?.() ?? {};
         await this.#configureCamera();
+        this.settings = this.track.getSettings?.() ?? {};
         this.video.srcObject = this.stream;
         this.video.playsInline = true;
         this.video.muted = true;
@@ -92,9 +93,8 @@ export class Camera {
                 advanced
             });
         }
-        catch {
-            // Algunos dispositivos ignoran estas opciones.
-            // No afecta el funcionamiento.
+        catch (error) {
+            console.warn("No se pudo activar el enfoque continuo; se conserva el enfoque del dispositivo.", error);
         }
     }
     stop() {

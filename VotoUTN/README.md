@@ -14,7 +14,50 @@ static/js/              módulos ES6: camera, scanner, asistencia, api y ui
 
 La vista no conoce la persistencia: `AttendanceBatchAPIView` valida la petición y delega el caso de uso a `AttendanceService`. El modelo impone unicidad por elección/código, que protege también ante dos dispositivos concurrentes. La cámara, el procesamiento QR y la UI están desacoplados en módulos ES6.
 
-El lector toma frames continuamente y analiza las 20 celdas (20 × 1) de la hoja con BarcodeScanner. Los textos detectados se conservan en un `Set`, por lo que una lectura repetida no duplica la asistencia. Al confirmar una página se envía un lote al endpoint REST protegido por sesión y CSRF.
+El lector alterna la detección múltiple de la imagen completa con `BarcodeDetector`,
+cuando está disponible, y un barrido complementario con ZXing. El barrido se ejecuta
+aunque el detector nativo repita siempre los mismos códigos, sin requerir movimiento
+de la hoja. Con ZXing, que devuelve un QR por lectura, alterna la imagen completa
+con 30 bandas verticalmente solapadas, de arriba hacia abajo, sin deformar los
+recortes. Si el detector nativo falla, se informa en consola y se continúa con
+ZXing. Así puede acumular los 15 QR de una hoja fija, incluidos
+los extremos. Los textos detectados se conservan en un `Set`, por lo que una lectura
+repetida no duplica la asistencia. Al confirmar una página se envía un lote al
+endpoint REST protegido por sesión y CSRF.
+
+### Cámara y alineación de la hoja
+
+- Se solicita cámara trasera en Full HD, adaptada a la orientación inicial del
+  teléfono, con perfiles alternativos de 720p y resolución predeterminada.
+  Son preferencias: el navegador decide la resolución efectiva.
+- Se solicita enfoque continuo solamente si la cámara lo declara compatible.
+  Si el ajuste falla, se informa en la consola y se conserva el enfoque del equipo.
+- La vista muestra el encuadre completo, sin recortar sus extremos. La referencia
+  superior central permite alinear «Comprobante de emisión de voto». Deben quedar
+  visibles también el primer y el último QR.
+- El barrido de regiones es **digital**, no un barrido óptico de enfoque.
+  `pointsOfInterest` y `focusDistance` dependen del navegador y del hardware; no
+  permiten garantizar un barrido vertical de autofocus en todos los celulares.
+  No se fuerza enfoque manual ni zoom, que podrían empeorar la lectura.
+- Leer los 15 QR sin mover el teléfono requiere papel plano, cámara paralela,
+  distancia suficiente para encuadrar toda la columna, iluminación uniforme y
+  nitidez. No se puede garantizar esa lectura en todo dispositivo: debe probarse
+  con el teléfono y la hoja impresa reales.
+
+Referencia técnica: [Media Capture Image, W3C](https://w3c.github.io/mediacapture-image/).
+
+### Regresión del lector en navegador
+
+Desde esta carpeta, ejecutar `python -m http.server 8876 --bind 127.0.0.1` y abrir
+`http://127.0.0.1:8876/tests/frontend/escaner.html`. Requiere acceso al CDN de ZXing,
+igual que el escáner de producción. No solicita acceso a la cámara real.
+
+La prueba decodifica una imagen sintética fija de 1080 × 1920 con 15 QR únicos
+(`tests/frontend/hoja_15_qr.png`), comprueba ambos extremos, deduplicación, cobertura
+de las bandas, detección múltiple nativa simulada (incluido un detector estancado
+en los mismos 10 QR y otro que falla) y perfiles/enfoque de cámara simulados.
+El tiempo informado corresponde al equipo de prueba, no garantiza el
+rendimiento ni la nitidez de una cámara real.
 
 ## Inicio local (Windows / PowerShell)
 

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<title>Pruebas del escáner</title>
+<h1>Pruebas del escáner</h1>
+<pre id="resultados">Ejecutando…</pre>
+<script type="module">
+import { Camera } from "../../static/js/camera.js";
+import { PageQrScanner } from "../../static/js/scanner.js";
+
+const resultados = [];
+function verificar(condicion, mensaje) {
+    if (!condicion) throw new Error(mensaje);
+}
+async function prueba(nombre, ejecutar) {
+    try {
+        await ejecutar();
+        resultados.push({ nombre, correcto: true });
+    } catch (error) {
+        resultados.push({ nombre, correcto: false, error: error.message });
+    }
+}
+
+async function crearFuenteFija() {
+    const imagen = new Image();
+    imagen.src = "./hoja_15_qr.png";
+    await imagen.decode();
+    const fuente = document.createElement("canvas");
+    fuente.width = imagen.width;
+    fuente.height = imagen.height;
+    fuente.getContext("2d").drawImage(imagen, 0, 0);
+    fuente.videoWidth = imagen.width;
+    fuente.videoHeight = imagen.height;
+    return fuente;
+}
+
+await prueba("15 QR distintos de una imagen fija con ZXing, sin omitir extremos", async () => {
+    const fuente = await crearFuenteFija();
+    const lecturas = [];
+    const escaner = new PageQrScanner(fuente, document.createElement("canvas"), texto => lecturas.push(texto));
+    escaner.useNativeDetector = false;
+    const inicio = performance.now();
+    for (let indice = 0; indice < 62; indice++) await escaner.scanFrame();
+    verificar(escaner.codes.size === 15, `Se leyeron ${escaner.codes.size}/15: ${[...escaner.codes]}`);
+    verificar(lecturas.length === 15, "No deben notificarse duplicados.");
+    verificar(escaner.codes.has("V1.0101PRUEBA000001"), "Falta el QR superior.");
+    verificar(escaner.codes.has("V1.0101PRUEBA000015"), "Falta el QR inferior.");
+    resultados.push({ nombre: "Tiempo de dos barridos ZXing (ms)", valor: Math.round(performance.now() - inicio) });
+    escaner.clear();
+    verificar(escaner.codes.size === 0 && escaner.indiceRegion === 0, "Limpiar debe reiniciar el barrido.");
+});
+
+await prueba("Detector nativo estancado en 10 QR completa los 15 sin mover la imagen", async () => {
+    const fuente = await crearFuenteFija();
+    const lecturas = [];
+    const escaner = new PageQrScanner(fuente, document.createElement("canvas"), texto => lecturas.push(texto));
+    const primerosDiez = Array.from({ length: 10 }, (_, indice) => ({
+        rawValue: `V1.0101PRUEBA${String(indice + 1).padStart(6, "0")}`
+    }));
+    let llamadasNativas = 0;
+    escaner.useNativeDetector = true;
+    escaner.nativeDetector = { detect: async () => {
+        llamadasNativas++;
+        return primerosDiez;
+    } };
+    await escaner.scanFrame();
+    verificar(escaner.codes.size === 10, "La primera lectura nativa debe detenerse en 10.");
+    for (let indice = 0; indice < 123; indice++) await escaner.scanFrame();
+    verificar(escaner.codes.size === 15, `El barrido complementario solo obtuvo ${escaner.codes.size}/15.`);
+    verificar(lecturas.length === 15, "Las dos estrategias no deben duplicar notificaciones.");
+    verificar(llamadasNativas === 62, "Debe mantenerse la lectura nativa intercalada.");
+    verificar(escaner.codes.has("V1.0101PRUEBA000015"), "Debe recuperarse el QR inferior sin movimiento.");
+    escaner.clear();
+    verificar(escaner.indiceRegion === 0 && escaner.turnoDetectorNativo, "Limpiar debe reiniciar ambas estrategias.");
+});
+
+await prueba("Un fallo nativo no impide continuar con ZXing", async () => {
+    const fuente = await crearFuenteFija();
+    const escaner = new PageQrScanner(fuente, document.createElement("canvas"));
+    escaner.useNativeDetector = true;
+    escaner.nativeDetector = { detect: async () => { throw new Error("Detector no disponible"); } };
+    const advertir = console.warn;
+    const advertencias = [];
+    try {
+        console.warn = (...datos) => advertencias.push(datos);
+        for (let indice = 0; indice < 63; indice++) await escaner.scanFrame();
+        verificar(!escaner.useNativeDetector, "Debe desactivarse el detector que falla.");
+        verificar(advertencias.length === 1, "El fallo debe informarse una vez.");
+        verificar(escaner.codes.size === 15, "ZXing debe seguir leyendo la hoja completa.");
+    } finally {
+        console.warn = advertir;
+    }
+});
+
+await prueba("BarcodeDetector acumula varios QR y deduplica", async () => {
+    const escaner = new PageQrScanner(await crearFuenteFija(), document.createElement("canvas"));
+    escaner.useNativeDetector = true;
+    escaner.nativeDetector = { detect: async () => [{ rawValue: "A" }, { rawValue: "B" }, { rawValue: "A" }] };
+    escaner.decodeRegion = async () => {};
+    await escaner.scanFrame();
+    await escaner.scanFrame();
+    await escaner.scanFrame();
+    verificar(escaner.codes.size === 2, "Debe conservar ambos QR sin duplicarlos.");
+});
+
+await prueba("Las bandas cubren ambos extremos sin deformar la imagen", async () => {
+    const escaner = new PageQrScanner({ videoWidth: 1080, videoHeight: 1920 }, document.createElement("canvas"));
+    escaner.useNativeDetector = false;
+    const regiones = [];
+    escaner.decodeRegion = async (...region) => regiones.push(region);
+    for (let indice = 0; indice < 31; indice++) await escaner.scanFrame();
+    verificar(regiones[0].join() === "0,0,1080,1920", "Primero debe leerse la imagen completa.");
+    verificar(regiones[1][1] === 0, "Debe incluirse el borde superior.");
+    const ultima = regiones.at(-1);
+    verificar(ultima[1] + ultima[3] === 1920, "Debe incluirse el borde inferior.");
+    for (let indice = 2; indice < regiones.length; indice++) {
+        verificar(regiones[indice][1] < regiones[indice - 1][1] + regiones[indice - 1][3], "Las bandas deben solaparse.");
+    }
+    verificar(escaner.indiceRegion === 0, "El barrido debe repetirse.");
+});
+
+const descriptor = Object.getOwnPropertyDescriptor(navigator, "mediaDevices");
+const dispositivos = navigator.mediaDevices;
+try {
+    await prueba("Cámara Full HD, enfoque continuo y liberación de recursos", async () => {
+        let perfil;
+        let ajuste;
+        let detenciones = 0;
+        const pista = {
+            getCapabilities: () => ({ focusMode: ["continuous"] }),
+            getSettings: () => ({ width: 1080, height: 1920 }),
+            applyConstraints: async valor => { ajuste = valor; },
+            stop: () => { detenciones++; }
+        };
+        const flujo = { getVideoTracks: () => [pista], getTracks: () => [pista] };
+        Object.defineProperty(navigator, "mediaDevices", {
+            configurable: true, value: { getUserMedia: async valor => { perfil = valor; return flujo; } }
+        });
+        const camara = new Camera({ play: async () => {} });
+        await camara.start();
+        verificar(Math.max(perfil.video.width.ideal, perfil.video.height.ideal) === 1920, "Debe priorizarse Full HD.");
+        verificar(perfil.video.resizeMode.ideal === "none", "Debe preferirse captura sin recorte digital.");
+        verificar(ajuste.advanced[0].focusMode === "continuous", "Debe solicitarse enfoque continuo.");
+        camara.stop();
+        verificar(detenciones === 1 && camara.stream === null, "Debe liberarse la cámara.");
+    });
+
+    await prueba("Compatibilidad con resolución alternativa y sin controles de enfoque", async () => {
+        let intentos = 0;
+        const pista = { stop: () => {} };
+        const flujo = { getVideoTracks: () => [pista], getTracks: () => [pista] };
+        Object.defineProperty(navigator, "mediaDevices", {
+            configurable: true, value: { getUserMedia: async () => {
+                if (++intentos === 1) throw new DOMException("Resolución", "OverconstrainedError");
+                return flujo;
+            } }
+        });
+        const camara = new Camera({ play: async () => {} });
+        await camara.start();
+        verificar(intentos === 2, "Debe probarse el perfil alternativo.");
+        camara.stop();
+    });
+
+    await prueba("Un rechazo del enfoque se informa sin bloquear el video", async () => {
+        const advertir = console.warn;
+        const advertencias = [];
+        let reproducciones = 0;
+        const pista = {
+            getCapabilities: () => ({ focusMode: ["continuous"] }),
+            applyConstraints: async () => { throw new DOMException("Enfoque", "OverconstrainedError"); },
+            stop: () => {}
+        };
+        Object.defineProperty(navigator, "mediaDevices", {
+            configurable: true, value: { getUserMedia: async () => ({
+                getVideoTracks: () => [pista], getTracks: () => [pista]
+            }) }
+        });
+        const camara = new Camera({ play: async () => { reproducciones++; } });
+        try {
+            console.warn = (...datos) => advertencias.push(datos);
+            await camara.start();
+            verificar(advertencias.length === 1 && reproducciones === 1, "Debe advertir el fallo y abrir el video.");
+        } finally {
+            console.warn = advertir;
+            camara.stop();
+        }
+    });
+
+    await prueba("Permiso denegado produce un error explícito", async () => {
+        Object.defineProperty(navigator, "mediaDevices", {
+            configurable: true, value: { getUserMedia: async () => {
+                throw new DOMException("Permiso", "NotAllowedError");
+            } }
+        });
+        const camara = new Camera({ play: async () => {} });
+        let mensaje = "";
+        try {
+            await camara.start();
+        } catch (error) {
+            mensaje = error.message;
+        }
+        verificar(mensaje === "Permiso de cámara denegado.", "Debe informarse el permiso denegado.");
+        verificar(camara.stream === null, "No debe conservarse un flujo inexistente.");
+    });
+} finally {
+    if (descriptor) Object.defineProperty(navigator, "mediaDevices", descriptor);
+    else {
+        delete navigator.mediaDevices;
+        verificar(navigator.mediaDevices === dispositivos, "Debe restaurarse mediaDevices.");
+    }
+}
+
+globalThis.resultadosEscaner = resultados;
+document.querySelector("#resultados").textContent = JSON.stringify(resultados, null, 2);
+document.title = resultados.some(resultado => resultado.correcto === false) ? "ERROR: escáner" : "OK: escáner";
+</script>
+</html>
