@@ -4,7 +4,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from apps.elecciones.historial import construir_historial_electoral
+from apps.elecciones.historial_electores import construir_historial_electoral
 from apps.elecciones.models import Eleccion
 from apps.padron.models import Elector
 from apps.parametros.models import Claustro, Departamento, Sede

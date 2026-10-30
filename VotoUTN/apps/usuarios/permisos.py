@@ -10,10 +10,12 @@ ROLES_CON_PARTICIPACION = {
 
 
 def puede_consultar_historial_electoral(usuario, elector):
-    if not usuario.is_authenticated or elector is None:
+    if not usuario.is_authenticated:
         return False
     if getattr(usuario, "es_elector", False):
         return True
+    if elector is None:
+        return False
     roles = AsignacionRol.objects.filter(usuario=usuario, activo=True)
     return roles.filter(
         rol__in=(AsignacionRol.Rol.ELECTOR, AsignacionRol.Rol.AUTORIDAD_MESA),

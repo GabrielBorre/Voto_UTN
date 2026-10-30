@@ -13,6 +13,7 @@ from apps.justificativos.forms import FormularioJustificativo
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento
+from apps.usuarios.backend_auth import ElectorUser
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
@@ -31,7 +32,7 @@ class HistorialElectoralTests(TestCase):
         PerfilUsuario.objects.create(usuario=self.usuario, elector=self.elector)
         self.eleccion_abierta, self.registro_abierto, self.mesa_abierta = self.crear_registro(
             "Elección en curso",
-            Eleccion.Estado.ABIERTA,
+            Eleccion.Estado.EN_CURSO,
             numero=1,
         )
         AsignacionRol.objects.create(
@@ -48,7 +49,7 @@ class HistorialElectoralTests(TestCase):
             fecha_inicio=fecha,
             fecha_fin=fecha,
             estado=estado,
-            habilitada=estado == Eleccion.Estado.ABIERTA,
+            habilitada=estado == Eleccion.Estado.EN_CURSO,
         )
         claustro_eleccion = EleccionClaustro.objects.create(
             eleccion=eleccion,
@@ -103,7 +104,7 @@ class HistorialElectoralTests(TestCase):
         for nombre in ("Votó", "No registrado", "Pendiente", "Aprobado", "Rechazado", "Infractor"):
             elecciones[nombre] = self.crear_registro(
                 nombre,
-                Eleccion.Estado.CERRADA,
+                Eleccion.Estado.FINALIZADA,
                 numero=len(elecciones) + 2,
             )
 
@@ -207,7 +208,7 @@ class HistorialElectoralTests(TestCase):
     def test_solicitud_y_adjunto_solo_son_visibles_para_su_elector(self):
         eleccion, registro, _ = self.crear_registro(
             "Elección con justificativo",
-            Eleccion.Estado.CERRADA,
+            Eleccion.Estado.FINALIZADA,
             numero=2,
         )
         justificativo = self.crear_justificativo(registro, JustificativoAusencia.Estado.APROBADO)
@@ -246,3 +247,19 @@ class HistorialElectoralTests(TestCase):
             self.assertEqual(self.client.get(url_detalle).status_code, 404)
             self.assertEqual(self.client.get(url_documento).status_code, 404)
             self.assertEqual(self.client.get(url_media).status_code, 404)
+
+
+class HistorialElectoralElectorSinPadronTests(TestCase):
+    def test_elector_ausente_del_padron_puede_ver_historial_vacio(self):
+        usuario = ElectorUser("87654321")
+        self.client.force_login(
+            usuario,
+            backend="apps.usuarios.backend_auth.ElectorBackend",
+        )
+
+        respuesta = self.client.get(reverse("historial-electoral"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.context["historial"], [])
+        self.assertContains(respuesta, "No hay elecciones disponibles en tu historial.")
+        self.assertContains(respuesta, reverse("historial-electoral"))

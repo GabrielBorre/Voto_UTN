@@ -54,7 +54,7 @@ from apps.usuarios.permisos import (
     puede_crear_elecciones,
 )
 from apps.usuarios.models import AsignacionRol
-from .historial import construir_historial_electoral
+from .historial_electores import construir_historial_electoral
 
 MESAS_POR_PAGINA = 10
 

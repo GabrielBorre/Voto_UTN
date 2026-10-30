@@ -11,6 +11,8 @@
   de un registro implica que se presume que el elector votó.
 - El historial electoral se muestra a electores y autoridades de mesa, y cada
   persona solo consulta sus propios registros y justificativos.
+- Un elector autenticado puede acceder al historial aunque todavía no exista en
+  el padrón local; en ese caso se muestra vacío.
 - Mientras la elección está abierta, el historial muestra «En Curso» hasta que
   se habilite el período de justificación de electores.
 - Una vez habilitado el período, quien no tenga registro de ausencia figura

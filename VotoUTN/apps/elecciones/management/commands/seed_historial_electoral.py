@@ -14,7 +14,7 @@ from apps.elecciones.models import (
     EleccionClaustroSede,
     EleccionSede,
 )
-from apps.elecciones.historial import construir_historial_electoral
+from apps.elecciones.historial_electores import construir_historial_electoral
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.mesas.models import Mesa
 from apps.padron.models import Elector, RegistroPadron
