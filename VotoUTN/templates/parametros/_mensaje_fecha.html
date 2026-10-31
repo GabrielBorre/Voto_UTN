@@ -1,0 +1,20 @@
+<section class="card fecha-mensaje" data-config-mensaje>
+  <header class="fecha-mensaje-cabecera">
+    <div><h2>{{ titulo }}</h2><p class="muted">{{ descripcion }}</p></div>
+    <label class="fecha-interruptor" for="{{ habilitar.id_for_label }}">{{ habilitar }}<span>Habilitar</span></label>
+  </header>
+  {% for error in habilitar.errors %}<p class="error">{{ error }}</p>{% endfor %}
+  <div data-opciones-mensaje>
+    <div class="fecha-selector">
+      {% include "parametros/_campo.html" with campo=plantilla %}
+      <button type="button" class="button secondary" data-crear-plantilla="{{ plantilla.id_for_label }}">Crear plantilla</button>
+    </div>
+    <article class="fecha-preview" aria-live="polite" data-preview="{{ plantilla.id_for_label }}">
+      <span class="fecha-etiqueta">Vista previa del mensaje · datos de ejemplo</span>
+      <h3 data-asunto>Elegí una plantilla</h3>
+      <p data-contenido>Acá vas a ver el asunto y el contenido antes de guardar.</p>
+      <p class="muted" data-destinatarios></p>
+    </article>
+  </div>
+  <p class="muted" data-mensaje-inactivo hidden>No se ofrecerá este envío al configurar la elección.</p>
+</section>

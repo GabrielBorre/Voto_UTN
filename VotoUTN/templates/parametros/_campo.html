@@ -1,0 +1,7 @@
+<div class="field {% if campo.field.widget.input_type == 'checkbox' and not campo.field.widget.allow_multiple_selected %}field-checkbox{% endif %}">
+  {% if campo.field.widget.allow_multiple_selected %}<fieldset class="fecha-opciones"><legend>{{ campo.label }}</legend>{{ campo }}</fieldset>
+  {% elif campo.field.widget.input_type == 'checkbox' %}{{ campo }}<label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+  {% else %}<label for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{% endif %}
+  {% if campo.help_text %}<small class="muted">{{ campo.help_text }}</small>{% endif %}
+  {% for error in campo.errors %}<p class="error">{{ error }}</p>{% endfor %}
+</div>

@@ -1,7 +1,9 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import Http404, HttpResponseForbidden
+from django.http import Http404, HttpResponseForbidden, JsonResponse
+from django.db import transaction
+from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.auditoria.services import registrar_evento
@@ -27,6 +29,7 @@ from apps.parametros.forms import (
     FormularioTipoJustificativo,
     FormularioTurno,
     preparar_formulario_parametro,
+    FormularioPlantillaCalendario,
 )
 from apps.usuarios.permisos import puede_administrar_parametros
 
@@ -150,11 +153,35 @@ def editar_parametro(request, tipo, objeto_id=None):
         )
         messages.success(request, f"{configuracion['titulo'][:-1]} guardado correctamente.")
         return redirect("listar-parametros", tipo=tipo)
+    if tipo == "fechas-administrativas":
+        return render(request, "parametros/fecha_formulario.html", {
+            "formulario": formulario, "objeto": objeto,
+            "plantillas": list(PlantillaNotificacion.objects.filter(activa=True).exclude(categoria="transaccional").values("id", "nombre", "asunto", "contenido", "roles_destinatarios")),
+            "formulario_plantilla": preparar_formulario_parametro(FormularioPlantillaCalendario(prefix="nueva")),
+        })
     return render(
         request,
         "parametros/formulario.html",
         {"tipo": tipo, "titulo": configuracion["titulo"], "formulario": formulario, "objeto": objeto},
     )
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def crear_plantilla_calendario(request):
+    if not puede_administrar_parametros(request.user):
+        return HttpResponseForbidden("No tiene permiso para gestionar parámetros.")
+    formulario = FormularioPlantillaCalendario(request.POST, prefix="nueva")
+    if not formulario.is_valid():
+        return JsonResponse({"errores": formulario.errors.get_json_data()}, status=400)
+    plantilla = formulario.save()
+    registrar_evento(accion="crear_parametro", entidad=plantilla._meta.label,
+                    entidad_id=plantilla.pk, request=request, datos_nuevos=_datos_auditables(plantilla))
+    return JsonResponse({"plantilla": {
+        "id": plantilla.pk, "nombre": plantilla.nombre, "asunto": plantilla.asunto,
+        "contenido": plantilla.contenido, "roles_destinatarios": plantilla.roles_destinatarios,
+    }}, status=201)
 
 
 @login_required

@@ -4,6 +4,23 @@ En Parámetros generales > Fechas administrativas se define el estado, los
 destinatarios y las plantillas sugeridas. Mensaje principal y recordatorios se
 habilitan por separado. Las plantillas provienen del catálogo de mensajes.
 
+El editor agrupa datos, destinatarios, mensaje principal y recordatorios en
+tarjetas. Cada selector muestra asunto, contenido y destinatarios de la plantilla
+con datos de ejemplo. «Crear plantilla» abre un diálogo con vista previa en vivo
+y botones para insertar variables. El alta guarda en el catálogo y selecciona
+la plantilla sin recargar el formulario; hay que guardar la fecha para conservar
+esa selección. Cancelar la fecha no elimina una plantilla ya creada.
+
+El alta integrada exige los mismos permisos de parámetros, POST y CSRF; valida
+los campos y registra auditoría. Los errores mantienen abierto el diálogo y
+preservan los datos. La pantalla se adapta a escritorio y navegador móvil.
+
+Archivos del editor: se modifican `apps/parametros/forms.py`, `urls.py` y
+`views.py`; se crean `tests_plantilla_calendario.py`, las plantillas
+`parametros/fecha_formulario.html`, `_campo.html`, `_mensaje_fecha.html`,
+`static/css/fechas-administrativas.css` y `static/js/fecha-administrativa.js`
+(rutas relativas a `VotoUTN`). No requiere cambios de esquema ni elimina archivos.
+
 Al avanzar la elección, el modal explica qué cambia y presenta las definiciones
 del estado de destino. Marcar «Enviar mensaje», elegir fecha/hora y plantilla.
 Se pueden agregar varios recordatorios, cada uno con su propia plantilla.
@@ -97,5 +114,8 @@ mensaje nunca se usa como fecha de capacitación o cierre de trámite.
 
 No se eliminaron archivos existentes ni migraciones.
 
-Verificación: 370 pruebas aprobadas; `check`, `makemigrations --check`,
+Verificación: 375 pruebas aprobadas; `check`, `makemigrations --check`,
 `migrate --plan`, `git diff --check`, sintaxis JavaScript y Docker Compose correctos.
+Editor verificado en navegador de escritorio y a 390 px: vista previa, diálogo,
+selección de nueva plantilla y conservación del borrador (alta simulada en navegador;
+persistencia real validada en la base de pruebas).

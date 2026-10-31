@@ -2,6 +2,7 @@ from django import forms
 
 from apps.justificativos.models import TipoJustificativo
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
+from apps.notificaciones.forms import FormularioPlantillaNotificacion
 
 
 class FormularioTipoJustificativo(forms.ModelForm):
@@ -105,6 +106,19 @@ class FormularioFechaAdministrativa(forms.ModelForm):
             instancia.save()
             self.save_m2m()
         return instancia
+
+
+class FormularioPlantillaCalendario(FormularioPlantillaNotificacion):
+    class Meta(FormularioPlantillaNotificacion.Meta):
+        fields = ("nombre", "codigo", "asunto", "contenido", "roles_destinatarios", "claustros")
+        labels = {"roles_destinatarios": "Destinatarios", "claustros": "Limitar a claustros (opcional)"}
+        help_texts = {"codigo": "Identificador único, sin espacios.", "claustros": "Sin selección, se aplica a todos los claustros de la fecha."}
+
+    def save(self, commit=True):
+        self.instance.categoria = "calendario"
+        self.instance.permite_envio_manual = False
+        self.instance.activa = True
+        return super().save(commit=commit)
 
 
 def preparar_formulario_parametro(formulario):

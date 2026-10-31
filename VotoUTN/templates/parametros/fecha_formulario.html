@@ -1,0 +1,58 @@
+{% extends "gestion/base.html" %}{% load static %}
+{% block title %}{% if objeto %}Editar{% else %}Crear{% endif %} fecha administrativa | Junta Electoral UTN{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/fechas-administrativas.css' %}">
+<script type="module" src="{% static 'js/fecha-administrativa.js' %}"></script>
+{{ plantillas|json_script:"catalogo-plantillas" }}
+<section class="hero"><a class="fecha-volver" href="{% url 'listar-parametros' 'fechas-administrativas' %}">← Fechas administrativas</a>
+  <h1>{% if objeto %}{{ objeto.nombre }}{% else %}Nueva fecha administrativa{% endif %}</h1>
+  <p>Definí cuándo se ofrece esta fecha y qué mensajes puede enviar cada elección.</p>
+</section>
+<form method="post" id="fecha-administrativa" class="fecha-editor">
+  {% csrf_token %}{{ formulario.non_field_errors }}
+  <div class="fecha-columnas">
+    <section class="card">
+      <h2>Datos de la fecha</h2><p class="muted">El día y la hora de envío se eligen dentro de cada elección.</p>
+      {% include "parametros/_campo.html" with campo=formulario.nombre %}
+      {% include "parametros/_campo.html" with campo=formulario.codigo %}
+      {% include "parametros/_campo.html" with campo=formulario.estado_eleccion %}
+      {% include "parametros/_campo.html" with campo=formulario.descripcion %}
+      {% include "parametros/_campo.html" with campo=formulario.activa %}
+    </section>
+    <section class="card">
+      <h2>Destinatarios</h2><p class="muted">Las plantillas elegidas deben respetar estos destinatarios.</p>
+      {% include "parametros/_campo.html" with campo=formulario.roles_destinatarios %}
+      {% include "parametros/_campo.html" with campo=formulario.criterio_destinatarios %}
+      {% include "parametros/_campo.html" with campo=formulario.alcance_todos_claustros %}
+      {% include "parametros/_campo.html" with campo=formulario.claustros %}
+    </section>
+  </div>
+  <div class="fecha-columnas">
+    {% include "parametros/_mensaje_fecha.html" with titulo="Mensaje principal" descripcion="La comunicación inicial de esta fecha." habilitar=formulario.envia_mensaje plantilla=formulario.plantilla_mensaje %}
+    {% include "parametros/_mensaje_fecha.html" with titulo="Recordatorios" descripcion="Envíos adicionales, cada uno con su fecha y plantilla." habilitar=formulario.permite_recordatorios plantilla=formulario.plantilla_recordatorio %}
+  </div>
+  <p role="status" id="estado-plantilla" class="muted"></p>
+  <div class="fecha-acciones">
+    <span class="muted">Los cambios se aplican al guardar la fecha.</span>
+    <div><a class="button light" href="{% url 'listar-parametros' 'fechas-administrativas' %}">Cancelar</a><button class="button primary">Guardar fecha</button></div>
+  </div>
+</form>
+<dialog id="crear-plantilla-dialogo" class="fecha-dialogo" aria-labelledby="titulo-crear-plantilla">
+  <header class="fecha-mensaje-cabecera"><div><h2 id="titulo-crear-plantilla">Crear plantilla de mensaje</h2><p class="muted">Se guarda en el catálogo y queda seleccionada en esta fecha. No envía mensajes.</p></div><button type="button" class="button light" data-cerrar-plantilla aria-label="Cerrar">Cerrar</button></header>
+  <form id="crear-plantilla-form" action="{% url 'crear-plantilla-calendario' %}" method="post">
+    {% csrf_token %}<div role="alert" data-errores-plantilla tabindex="-1"></div>
+    <div class="fecha-dialogo-columnas"><div>
+    {% for campo in formulario_plantilla %}{% include "parametros/_campo.html" %}{% endfor %}
+    </div><aside class="fecha-dialogo-vista">
+    <article class="fecha-preview" aria-live="polite"><span class="fecha-etiqueta">Vista previa · datos de ejemplo</span><h3 data-nuevo-asunto></h3><p data-nuevo-contenido></p></article>
+    <div class="fecha-variables"><p>Insertar en el contenido:</p>
+      <button type="button" data-variable="nombre_destinatario">Nombre del destinatario</button>
+      <button type="button" data-variable="nombre_eleccion">Elección</button>
+      <button type="button" data-variable="nombre_fecha_administrativa">Fecha administrativa</button>
+      <button type="button" data-variable="url_accion">Enlace a la aplicación</button>
+    </div>
+    </aside></div>
+    <div class="fecha-acciones"><button type="button" class="button light" data-cerrar-plantilla>Cancelar</button><button class="button primary" data-guardar-plantilla>Crear y seleccionar</button></div>
+  </form>
+</dialog>
+{% endblock %}

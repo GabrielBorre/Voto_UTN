@@ -1,0 +1,46 @@
+.fecha-editor { display: grid; gap: 24px; }
+.fecha-columnas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.fecha-columnas > .card { margin: 0; min-width: 0; }
+.fecha-editor h2, .fecha-dialogo h2 { margin: 0 0 8px; }
+.fecha-editor .field, .fecha-dialogo .field { margin-top: 18px; }
+.fecha-editor .field > label, .fecha-dialogo .field > label { display: block; margin-bottom: 7px; font-weight: 600; }
+.fecha-editor .field-checkbox { display: flex; align-items: center; gap: 10px; }
+.fecha-editor .field-checkbox > label { margin-bottom: 0; }
+.fecha-editor input:not([type=checkbox]), .fecha-editor select, .fecha-editor textarea,
+.fecha-dialogo input:not([type=checkbox]), .fecha-dialogo select, .fecha-dialogo textarea { width: 100%; box-sizing: border-box; }
+.fecha-mensaje-cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.fecha-mensaje-cabecera p { margin: 0; }
+.fecha-interruptor { display: flex; align-items: center; gap: 8px; white-space: nowrap; cursor: pointer; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 24px; background: #f8fafc; }
+.fecha-interruptor input { width: 18px; height: 18px; accent-color: #164c8a; }
+.fecha-interruptor:has(input:checked) { background: #eaf3ff; border-color: #7baddc; color: #164c8a; }
+.fecha-selector { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 20px; }
+.fecha-selector .field { flex: 1; min-width: 0; margin-bottom: 0; }
+.fecha-selector button { flex-shrink: 0; }
+.fecha-preview { border: 1px solid #dce5ef; border-radius: 12px; padding: 20px; background: #f8fafc; overflow-wrap: anywhere; }
+.fecha-preview h3 { font-size: 1.05rem; margin: 12px 0; }
+.fecha-preview p { white-space: pre-wrap; line-height: 1.65; margin-bottom: 0; }
+.fecha-etiqueta { color: #506680; font-size: .8rem; }
+.fecha-acciones { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 0; border-top: 1px solid #dce5ef; }
+.fecha-acciones > div { display: flex; gap: 12px; }
+.fecha-volver { display: inline-block; margin-bottom: 14px; color: white; text-underline-offset: 4px; }
+.fecha-opciones { border: 0; padding: 0; margin: 0; min-width: 0; }
+.fecha-opciones legend { font-weight: 600; margin-bottom: 10px; font-size: .9rem; }
+.fecha-opciones > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.fecha-opciones > div > div { margin: 0; padding: 0; border: 0; background: transparent; }
+.fecha-opciones label { display: flex; align-items: center; gap: 9px; height: 100%; box-sizing: border-box; padding: 10px !important; border: 1px solid #dce5ef; border-radius: 8px; font-weight: 400 !important; cursor: pointer; }
+.fecha-opciones label:has(input:checked) { background: #edf4fc; border-color: #9abbe0; }
+.fecha-opciones input { accent-color: #164c8a; flex-shrink: 0; }
+.fecha-dialogo { width: min(1000px, calc(100% - 32px)); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow-y: auto; padding: 28px; border: 0; border-radius: 18px; color: #1c2d45; box-shadow: 0 24px 64px #10233d40; }
+.fecha-dialogo-columnas { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
+.fecha-dialogo-columnas > * { min-width: 0; }
+.fecha-dialogo-vista { position: sticky; top: 0; align-self: start; margin-top: 18px; }
+.fecha-dialogo::backdrop { background: #10233d99; }
+.fecha-dialogo .fecha-acciones { position: sticky; bottom: -28px; margin: 24px -28px -28px; padding: 16px 28px; background: white; z-index: 1; }
+.fecha-variables { margin: 20px 0; }
+.fecha-variables button { background: #edf4fc; border: 1px solid #c8dbee; border-radius: 20px; padding: 7px 11px; margin: 0 6px 8px 0; color: #164c8a; cursor: pointer; }
+.fecha-editor [hidden], .fecha-dialogo [hidden] { display: none !important; }
+.fecha-editor :focus-visible, .fecha-dialogo :focus-visible { outline: 3px solid #6da6e2; outline-offset: 3px; }
+@media (max-width: 900px) { .fecha-columnas { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .fecha-dialogo-columnas { grid-template-columns: 1fr; } .fecha-dialogo-vista { position: static; } }
+@media (max-width: 520px) { .fecha-selector, .fecha-acciones { flex-direction: column; align-items: stretch; } .fecha-acciones > div { justify-content: flex-end; } .fecha-dialogo { padding: 20px; } .fecha-opciones > div { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .fecha-dialogo .fecha-acciones { bottom: -20px; margin-inline: -20px; margin-bottom: -20px; padding: 16px 20px; } }

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.parametros.views import (
+    crear_plantilla_calendario,
     cambiar_estado_parametro,
     editar_comunicacion_fecha,
     editar_parametro,
@@ -14,6 +15,7 @@ from apps.parametros.views import (
 
 
 urlpatterns = [
+    path("gestion/parametros/calendario/plantillas/crear/", crear_plantilla_calendario, name="crear-plantilla-calendario"),
     path("gestion/parametros/", gestionar_parametros, name="gestionar-parametros"),
     path("gestion/parametros/puestos-a-elegir/", gestionar_catalogos_candidaturas, name="catalogos-candidaturas"),
     path("gestion/parametros/<str:tipo>/", listar_parametros, name="listar-parametros"),
