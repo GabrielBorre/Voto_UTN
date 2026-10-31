@@ -27,7 +27,8 @@ from apps.padron.models import RegistroPadron
 PAGINA = portrait(legal)
 ANCHO_PAGINA, ALTO_PAGINA = PAGINA
 MARGEN = 10 * mm
-ANCHO_TABLA = ANCHO_PAGINA - 2 * MARGEN
+MARGEN_DERECHO_TABLA = 5 * mm
+ANCHO_TABLA = ANCHO_PAGINA - MARGEN - MARGEN_DERECHO_TABLA
 ELECTORES_POR_PAGINA = 15
 LADO_QR_ELECTOR = 22 * mm
 ANCHO_COLUMNA_QR = 19 * mm
@@ -112,7 +113,7 @@ def _agrupar_padrones_por_mesa(eleccion):
             "elector",
             "sede",
             "asignacion_mesa__mesa__sede",
-            "asignacion_mesa__mesa__eleccion_claustro_departamento__eleccion_claustro",
+            "asignacion_mesa__mesa__eleccion_claustro_departamento__eleccion_claustro__claustro",
             "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
         )
         .order_by("elector__nombre", "elector__legajo")
@@ -179,7 +180,7 @@ def _construir_espacio_firma(rotulo, ancho, alto):
 
 
 def _dibujar_encabezado(c, eleccion, mesa):
-    y = ALTO_PAGINA - MARGEN
+    y = ALTO_PAGINA - MARGEN + 10
 
     c.drawImage(
         ImageReader(str(LOGO_UTN)),
@@ -196,21 +197,22 @@ def _dibujar_encabezado(c, eleccion, mesa):
     sede_nombre = mesa.sede.nombre if mesa.sede_id else "Sin sede"
     configuracion = mesa.eleccion_claustro_departamento
     departamento = configuracion.departamento if configuracion and configuracion.departamento_id else None
-    lineas = [
-        f"Elección: {eleccion.nombre}",
-        f"Departamento: {departamento.nombre if departamento else 'Sin departamento'}",
+    lineas = [f"Elección: {eleccion.nombre}"]
+    if departamento:
+        lineas.append(f"Departamento: {departamento.nombre}")
+    lineas.extend([
         f"Fecha de votación: {fecha_votacion.strftime('%d/%m/%Y')}",
         f"Sede: {sede_nombre}    Mesa: {mesa.codigo}",
-    ]
+    ])
     c.setFont("Helvetica", 7.5)
     y_info = y - 4 * mm
     for linea in lineas:
-        c.drawRightString(ANCHO_PAGINA - MARGEN, y_info, linea)
+        c.drawRightString(ANCHO_PAGINA - MARGEN + 14, y_info, linea)
         y_info -= 3.6 * mm
 
     linea_y = y - 20 * mm
     c.setLineWidth(0.8)
-    c.line(MARGEN, linea_y, ANCHO_PAGINA - MARGEN, linea_y)
+    c.line(MARGEN, linea_y, ANCHO_PAGINA - MARGEN + 14, linea_y)
     return linea_y - 3 * mm
 
 
@@ -270,7 +272,7 @@ def _construir_troquel(eleccion, mesa, registro, alto_fila):
 
 
 def _construir_tabla(eleccion, mesa, lote, numero_inicial, alto_fila):
-    encabezados = ["N.\u00ba", "DNI", "Apellido y nombre", "Firma", "Comprobante de emisión de voto"]
+    encabezados = ["N.\u00ba", "DNI", "Apellido/s, Nombre/s", "Firma del elector", "Comprobante de voto"]
     filas = [encabezados]
     for offset, registro in enumerate(lote):
         numero_orden = numero_inicial + offset
@@ -278,7 +280,7 @@ def _construir_tabla(eleccion, mesa, lote, numero_inicial, alto_fila):
             str(numero_orden),
             registro.elector.dni,
             Paragraph(_formatear_apellido_y_nombre(registro.elector), ESTILO_CELDA),
-            _construir_espacio_firma("Firma del votante", COL_FIRMA - 12, alto_fila),
+            _construir_espacio_firma("Elector", COL_FIRMA - 12, alto_fila),
             _construir_troquel(eleccion, mesa, registro, alto_fila),
         ])
 
@@ -294,6 +296,8 @@ def _construir_tabla(eleccion, mesa, lote, numero_inicial, alto_fila):
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, 0), 8),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("ALIGN", (2, 0), (2, 0), "LEFT"),
         ("ALIGN", (0, 0), (0, -1), "CENTER"),
         ("ALIGN", (1, 0), (1, -1), "CENTER"),
         ("BACKGROUND", (4, 1), (4, -1), colors.white),
@@ -312,10 +316,11 @@ def _dibujar_caratula(c, eleccion, mesa):
     y = _dibujar_encabezado(c, eleccion, mesa)
     centro = ANCHO_PAGINA / 2
     configuracion = mesa.eleccion_claustro_departamento
+    claustro = configuracion.eleccion_claustro.claustro if configuracion else None
     departamento = configuracion.departamento if configuracion and configuracion.departamento_id else None
 
     c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(centro, y - 22 * mm, "INFORMACIÓN DE MESA")
+    c.drawCentredString(centro, y - 20 * mm, "INFORMACIÓN DE MESA")
 
     c.setFont("Helvetica", 13)
     y_dato = y - 40 * mm
@@ -323,19 +328,23 @@ def _dibujar_caratula(c, eleccion, mesa):
         f"Elección: {eleccion.nombre}",
         f"Fecha de votación: {_fecha_votacion_mesa(eleccion, mesa).strftime('%d/%m/%Y')}",
         f"Sede: {mesa.sede.nombre if mesa.sede_id else 'Sin sede'}",
-        f"Departamento: {departamento.nombre if departamento else 'Sin departamento'}",
     ]
+    if departamento:
+        datos.append(f"Departamento: {departamento.nombre}")
     for linea in datos:
         c.drawCentredString(centro, y_dato, linea)
         y_dato -= 8 * mm
 
     c.setFont("Helvetica", 12)
-    c.drawCentredString(centro, y_dato - 10 * mm, "Código de mesa")
-    c.setFont("Helvetica-Bold", 44)
-    c.drawCentredString(centro, y_dato - 26 * mm, mesa.codigo)
+    c.setFont("Helvetica-Bold", 30)
+    c.drawCentredString(centro, y_dato - 10 * mm, f"CLAUSTRO {(claustro.nombre if claustro else 'Sin claustro').upper()}")
+    c.setFont("Helvetica", 12)
+    c.drawCentredString(centro, y_dato - 27 * mm, "Código de mesa")
+    c.setFont("Helvetica-Bold", 60)
+    c.drawCentredString(centro, y_dato - 47 * mm, mesa.codigo)
 
     lado_qr = 90 * mm
-    y_qr = y_dato - 36 * mm - lado_qr
+    y_qr = y_dato - 57 * mm - lado_qr
     payload = ServicioRegistroParticipacion.generar_codigo_qr_mesa(eleccion_id=eleccion.id, mesa_numero=mesa.numero)
     _generar_qr_vectorial(payload, lado_qr).drawOn(c, centro - lado_qr / 2, y_qr)
     c.setFont("Helvetica", 10)
