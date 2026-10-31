@@ -6,6 +6,11 @@
 <pre id="resultados">Ejecutando…</pre>
 <script type="module">
 import { Camera } from "../../static/js/camera.js";
+import {
+    ESPERA_SIN_NUEVOS_MS,
+    INTERVALO_REENFOQUE_MS,
+    ReactivadorCamara
+} from "../../static/js/reactivacion-camara.js";
 import { PageQrScanner } from "../../static/js/scanner.js";
 
 const resultados = [];
@@ -13,6 +18,7 @@ function verificar(condicion, mensaje) {
     if (!condicion) throw new Error(mensaje);
 }
 async function prueba(nombre, ejecutar) {
+    globalThis.pruebaEnCurso = nombre;
     try {
         await ejecutar();
         resultados.push({ nombre, correcto: true });
@@ -109,7 +115,7 @@ await prueba("Las bandas cubren ambos extremos sin deformar la imagen", async ()
     const regiones = [];
     escaner.decodeRegion = async (...region) => regiones.push(region);
     for (let indice = 0; indice < 31; indice++) await escaner.scanFrame();
-    verificar(regiones[0].join() === "0,0,1080,1920", "Primero debe leerse la imagen completa.");
+    verificar(regiones[0].slice(0, 4).join() === "0,0,1080,1920", "Primero debe leerse la imagen completa.");
     verificar(regiones[1][1] === 0, "Debe incluirse el borde superior.");
     const ultima = regiones.at(-1);
     verificar(ultima[1] + ultima[3] === 1920, "Debe incluirse el borde inferior.");
@@ -117,6 +123,110 @@ await prueba("Las bandas cubren ambos extremos sin deformar la imagen", async ()
         verificar(regiones[indice][1] < regiones[indice - 1][1] + regiones[indice - 1][3], "Las bandas deben solaparse.");
     }
     verificar(escaner.indiceRegion === 0, "El barrido debe repetirse.");
+});
+
+await prueba("Cada vuelta del barrido varía alto y escala sin perder los extremos", async () => {
+    const escaner = new PageQrScanner({ videoWidth: 1080, videoHeight: 1920 }, document.createElement("canvas"));
+    escaner.useNativeDetector = false;
+    const regiones = [];
+    escaner.decodeRegion = async (...region) => regiones.push(region);
+    for (let indice = 0; indice < 93; indice++) await escaner.scanFrame();
+    const vueltas = [regiones.slice(0, 31), regiones.slice(31, 62), regiones.slice(62, 93)];
+    const firmas = vueltas.map(vuelta => `${vuelta[1][3]}x${vuelta[1][4]}`);
+    verificar(new Set(firmas).size === 3, `Las vueltas deben diferir: ${firmas}`);
+    for (const vuelta of vueltas) {
+        verificar(vuelta[0][4] <= 1, "La imagen completa no debe ampliarse.");
+        verificar(vuelta[1][1] === 0 && vuelta.at(-1)[1] + vuelta.at(-1)[3] === 1920, "Cada vuelta debe cubrir ambos extremos.");
+    }
+    verificar(escaner.indiceVariante === 0, "Las variantes deben repetirse.");
+    escaner.indiceVariante = 2;
+    escaner.clear();
+    verificar(escaner.indiceVariante === 0 && escaner.indiceVentanaNativa === 0, "Limpiar debe reiniciar las variantes.");
+});
+
+await prueba("El detector nativo alterna cuadro completo y ventanas de toda la altura", async () => {
+    const fuente = await crearFuenteFija();
+    const lienzo = document.createElement("canvas");
+    const escaner = new PageQrScanner(fuente, lienzo);
+    const entradas = [];
+    escaner.useNativeDetector = true;
+    escaner.nativeDetector = { detect: async entrada => {
+        entradas.push(entrada === fuente ? "completo" : `${entrada.width}x${entrada.height}`);
+        return [];
+    } };
+    escaner.decodeRegion = async () => {};
+    for (let indice = 0; indice < 12; indice++) await escaner.scanFrame();
+    verificar(entradas[0] === "completo" && entradas.slice(1).every(e => e === "1080x576"), `Entradas: ${entradas}`);
+    const espera = performance.now();
+    escaner.nativeDetector = { detect: async () => [{ rawValue: "A" }] };
+    escaner.turnoDetectorNativo = true;
+    await escaner.scanFrame();
+    escaner.turnoDetectorNativo = true;
+    escaner.ultimaDeteccionAt = 0;
+    await escaner.scanFrame();
+    verificar(escaner.ultimaDeteccionAt >= espera, "Una lectura repetida debe indicar que la hoja sigue a la vista.");
+});
+
+await prueba("El reactivador reenfoca dos veces como máximo si la hoja sigue estancada", async () => {
+    let tiempo = 1000;
+    const acciones = [];
+    const escaner = { ultimaDeteccionAt: tiempo };
+    const camara = { reenfocar: async () => { acciones.push("reenfocar"); return true; } };
+    let activo = true;
+    const reactivador = new ReactivadorCamara(camara, escaner, () => activo, () => tiempo);
+    const avanzar = async ms => {
+        tiempo += ms;
+        escaner.ultimaDeteccionAt = tiempo;
+        await reactivador.revisar();
+    };
+    reactivador.notificarCodigoNuevo();
+    await reactivador.revisar();
+    await avanzar(ESPERA_SIN_NUEVOS_MS - 1);
+    verificar(acciones.length === 0, "No debe actuar mientras hay lecturas nuevas recientes.");
+    await avanzar(1);
+    await avanzar(INTERVALO_REENFOQUE_MS - 1);
+    verificar(acciones.length === 1, "Debe respetar el intervalo entre reenfoques.");
+    for (let indice = 0; indice < 6; indice++) await avanzar(INTERVALO_REENFOQUE_MS);
+    verificar(acciones.length === 2, `Reenfoques: ${acciones.length}`);
+    reactivador.notificarCodigoNuevo();
+    await avanzar(ESPERA_SIN_NUEVOS_MS);
+    verificar(acciones.length === 3, "Un QR nuevo debe reiniciar los intentos.");
+    tiempo += INTERVALO_REENFOQUE_MS * 2;
+    await reactivador.revisar();
+    activo = false;
+    await avanzar(INTERVALO_REENFOQUE_MS);
+    verificar(acciones.length === 3, "No debe actuar sin hoja a la vista ni fuera del escaneo.");
+});
+
+await prueba("Sin reenfoque disponible o ante un fallo se desactiva sin afectar la cámara", async () => {
+    const variantes = [
+        async () => false,
+        async () => { throw new DOMException("Enfoque", "OverconstrainedError"); }
+    ];
+    for (const reenfocar of variantes) {
+        let tiempo = 0;
+        let llamadas = 0;
+        const escaner = { ultimaDeteccionAt: 0 };
+        const camara = { reenfocar: async () => { llamadas++; return reenfocar(); } };
+        const reactivador = new ReactivadorCamara(camara, escaner, () => true, () => tiempo);
+        const advertir = console.warn;
+        try {
+            console.warn = () => {};
+            for (let indice = 0; indice < 5; indice++) {
+                tiempo += INTERVALO_REENFOQUE_MS;
+                reactivador.notificarCodigoNuevo();
+                tiempo += ESPERA_SIN_NUEVOS_MS;
+                escaner.ultimaDeteccionAt = tiempo;
+                await reactivador.revisar();
+                tiempo += ESPERA_SIN_NUEVOS_MS;
+                escaner.ultimaDeteccionAt = tiempo;
+                await reactivador.revisar();
+            }
+        } finally {
+            console.warn = advertir;
+        }
+        verificar(llamadas === 1, `Debe intentarse una sola vez: ${llamadas}`);
+    }
 });
 
 const descriptor = Object.getOwnPropertyDescriptor(navigator, "mediaDevices");
@@ -143,6 +253,63 @@ try {
         verificar(ajuste.advanced[0].focusMode === "continuous", "Debe solicitarse enfoque continuo.");
         camara.stop();
         verificar(detenciones === 1 && camara.stream === null, "Debe liberarse la cámara.");
+    });
+
+    await prueba("Reenfoque puntual vuelve al enfoque continuo sin zoom ni reinicio", async () => {
+        const ajustes = [];
+        let capacidades = { focusMode: ["continuous", "single-shot"] };
+        let perfil;
+        const pista = {
+            getCapabilities: () => capacidades,
+            applyConstraints: async valor => { ajustes.push(valor.advanced[0].focusMode); },
+            stop: () => {}
+        };
+        Object.defineProperty(navigator, "mediaDevices", {
+            configurable: true, value: { getUserMedia: async valor => {
+                perfil = valor;
+                return { getVideoTracks: () => [pista], getTracks: () => [pista] };
+            } }
+        });
+        const esperas = [];
+        const camara = new Camera({ play: async () => {} }, async ms => { esperas.push(ms); });
+        await camara.start();
+        verificar(!("zoom" in perfil.video), "No debe solicitarse zoom.");
+        ajustes.length = 0;
+        verificar(await camara.reenfocar(), "Debe reenfocarse.");
+        verificar(ajustes.join() === "single-shot,continuous" && esperas.length === 1, `Ajustes: ${ajustes}`);
+        camara.stop();
+        verificar(!(await camara.reenfocar()), "Sin cámara no debe ajustarse nada.");
+        capacidades = { focusMode: ["continuous"] };
+        await camara.start();
+        verificar(!(await camara.reenfocar()), "Sin enfoque puntual debe informar que no está disponible.");
+        verificar(camara.reiniciar === undefined && camara.sacudirImagen === undefined, "No debe existir reinicio ni pulso de zoom.");
+        camara.stop();
+    });
+
+    await prueba("Si el reenfoque falla igual se restaura el enfoque continuo", async () => {
+        const ajustes = [];
+        const pista = {
+            getCapabilities: () => ({ focusMode: ["continuous", "single-shot"] }),
+            applyConstraints: async valor => {
+                ajustes.push(valor.advanced[0].focusMode);
+                if (valor.advanced[0].focusMode === "single-shot") throw new DOMException("Enfoque", "OverconstrainedError");
+            },
+            stop: () => {}
+        };
+        Object.defineProperty(navigator, "mediaDevices", {
+            configurable: true, value: { getUserMedia: async () => ({ getVideoTracks: () => [pista], getTracks: () => [pista] }) }
+        });
+        const camara = new Camera({ play: async () => {} }, async () => {});
+        await camara.start();
+        ajustes.length = 0;
+        let fallo = false;
+        try {
+            await camara.reenfocar();
+        } catch {
+            fallo = true;
+        }
+        verificar(fallo && ajustes.join() === "single-shot,continuous", `Ajustes: ${ajustes}`);
+        camara.stop();
     });
 
     await prueba("Compatibilidad con resolución alternativa y sin controles de enfoque", async () => {

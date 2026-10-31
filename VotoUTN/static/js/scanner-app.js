@@ -1,4 +1,5 @@
 import { Camera } from "./camera.js";
+import { ReactivadorCamara } from "./reactivacion-camara.js";
 import { PageQrScanner } from "./scanner.js";
 import { gestionarMesa, submitManualAttendance, submitPage } from "./asistencia.js";
 import {
@@ -152,6 +153,7 @@ const scanner = new PageQrScanner(
         setRegisterButtonLabel(mesaActual.codigo, mesaVisibleCount);
 
         restartAutoRegisterTimer();
+        reactivador.notificarCodigoNuevo();
         setStatus("Detectando codigos... manten la hoja estable.");
     },
     status => {
@@ -159,6 +161,12 @@ const scanner = new PageQrScanner(
             setStatus(status);
         }
     }
+);
+
+const reactivador = new ReactivadorCamara(
+    camera,
+    scanner,
+    () => phase === "scanning" && scanner.running && !isSubmitting
 );
 
 const registerButton = document.querySelector("#register-page");
@@ -293,6 +301,7 @@ async function startCamera() {
         await camera.start();
         scanner.start();
         cameraStarted = true;
+        reactivador.iniciar();
         setStatus(phase === "scanning" ? `Mesa ${mesaActual.codigo}: escaneá la hoja completa del padrón.` : "Escaneá el QR de la mesa.");
     }
     catch (error) {
@@ -582,6 +591,7 @@ function volverASeleccionDeMesa() {
 
 function stopAll() {
     stopAutoRegisterTimer();
+    reactivador.detener();
     scanner.stop();
     camera.stop();
     cameraStarted = false;
