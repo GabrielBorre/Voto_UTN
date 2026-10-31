@@ -106,7 +106,8 @@ con consulta del nombre antes del guardado y revalidación del padrón al confir
 - Integrar Keycloak mediante OIDC y validar criptograficamente los JWT.
 - Incorporar gestion web completa de usuarios y asignaciones de rol.
 - Configurar y verificar el proveedor real de correo electronico.
-- Implementar el calendario por eleccion y el motor de programacion/envio automatico.
+- Calendario por estado: implementados catálogo, modal de transición,
+  programación por elección y worker Docker. Ver `docs/calendario_administrativo.md`.
 - Implementar los flujos de cambio de sede, cambio de turno, justificaciones y capacitacion que consumiran las plantillas estandar.
 - Ejecutar una auditoria visual integral de las pantallas y sus maquetas.
 - Preparar configuracion, observabilidad y seguridad para produccion.

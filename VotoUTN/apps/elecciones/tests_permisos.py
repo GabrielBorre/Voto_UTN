@@ -262,32 +262,17 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         )
 
     def test_configura_las_fechas_administrativas_en_la_eleccion(self):
-        definicion = FechaAdministrativa.objects.create(
-            codigo="publicacion-padron-prueba",
-            nombre="Publicacion de padron",
-            roles_destinatarios=[FechaAdministrativa.RolDestinatario.ELECTOR],
-        )
-
-        respuesta = self.client.post(
-            reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),
-            {
-                f"fecha_{definicion.pk}_seleccionada": "on",
-                f"fecha_{definicion.pk}_valor": self.eleccion_asignada.fecha_inicio.isoformat(),
-            },
-        )
-
-        self.assertRedirects(
-            respuesta,
-            reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),
-            fetch_redirect_response=False,
-        )
-        self.assertTrue(
-            FechaAdministrativaEleccion.objects.filter(
-                eleccion=self.eleccion_asignada,
-                fecha_administrativa=definicion,
-                fecha=self.eleccion_asignada.fecha_inicio,
-            ).exists()
-        )
+        from apps.notificaciones.models import MensajeProgramado, PlantillaNotificacion
+        plantilla = PlantillaNotificacion.objects.create(codigo="prueba", nombre="Prueba", asunto="Hola", contenido="Mensaje", roles_destinatarios=["elector"])
+        definicion = FechaAdministrativa.objects.create(codigo="prueba", nombre="Prueba", estado_eleccion="en_preparacion", envia_mensaje=True, plantilla_mensaje=plantilla, roles_destinatarios=["elector"])
+        respuesta = self.client.post(reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)), {
+            "mensajes-TOTAL_FORMS": "1", "mensajes-INITIAL_FORMS": "0",
+            "mensajes-0-fecha_administrativa": definicion.pk, "mensajes-0-plantilla": plantilla.pk,
+            "mensajes-0-programado_para": (timezone.localdate()+timedelta(days=2)).isoformat()+"T12:00",
+            "mensajes-0-habilitado": "on",
+        })
+        self.assertRedirects(respuesta, reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)), fetch_redirect_response=False)
+        self.assertTrue(MensajeProgramado.objects.filter(eleccion=self.eleccion_asignada, fecha_administrativa=definicion, habilitado=True).exists())
 
     def test_la_configuracion_enlaza_un_panel_independiente_de_fechas(self):
         respuesta = self.client.get(

@@ -85,6 +85,9 @@ class Eleccion(models.Model):
         }
         if transiciones.get(self.estado) != nuevo_estado:
             raise ValidationError("La transicion de estado solicitada no esta permitida.")
+        from django.utils import timezone
+        if self.mensajes_programados.filter(estado_eleccion=self.estado, habilitado=True, procesado_en__isnull=True, programado_para__gt=timezone.now()).exists():
+            raise ValidationError("Hay mensajes futuros pendientes en el estado actual. Reprográmelos o desactívelos antes de avanzar.")
         self._validar_estado_unico(nuevo_estado)
         self.validar_configuracion()
         if nuevo_estado == self.Estado.EN_CURSO and not self.mesas.exists():

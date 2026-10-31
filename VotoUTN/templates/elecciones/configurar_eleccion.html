@@ -1,6 +1,7 @@
 {% extends "gestion/base.html" %}
 {% block title %}Configurar elección | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
+{% load static %}<script type="module" src="{% static 'js/calendario.js' %}"></script>
 <section class="hero">
   <h1>Configurar elección</h1>
   <p>{{ eleccion.nombre }} · {{ eleccion.get_estado_display }}</p>
@@ -12,11 +13,18 @@
       <h2>Una elección, cuatro etapas</h2>
     </div>
     {% if siguiente_estado %}
-    <form class="ciclo-accion" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" data-confirm-title="{{ siguiente_estado.1 }}" data-confirm-accept="{{ siguiente_estado.1 }}" data-confirm="{{ siguiente_estado.2 }}&#10;&#10;¿Querés continuar?">
-      {% csrf_token %}
-      <input type="hidden" name="estado" value="{{ siguiente_estado.0 }}">
-      <button class="button primary" type="submit">{{ siguiente_estado.1 }} <span aria-hidden="true">&rarr;</span></button>
-    </form>
+    <button class="button primary" type="button" data-abrir-calendario>{{ siguiente_estado.1 }}</button>
+    <dialog id="modal-calendario" style="max-width:960px;width:90%;max-height:90vh;overflow:auto;border:0;border-radius:12px;padding:24px">
+      <h2>{{ siguiente_estado.1 }}</h2>
+      <p>Estás a punto de avanzar desde {{ eleccion.get_estado_display }} al siguiente estado.</p>
+      <h3>Qué se habilita y qué se bloquea</h3><p>{{ siguiente_estado.2 }}</p>
+      <form method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">
+        {% csrf_token %}<input type="hidden" name="estado" value="{{ siguiente_estado.0 }}">
+        {% include "elecciones/_calendario.html" %}
+        <button type="button" class="button light" data-cerrar-calendario>Cancelar</button>
+        <button class="button primary">Guardar fechas y avanzar</button>
+      </form>
+    </dialog>
     {% endif %}
   </div>
   <ol class="linea-tiempo-eleccion" aria-label="Estados de la elección en orden de avance">

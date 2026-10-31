@@ -600,6 +600,13 @@ detalle de errores.
 
 ### 10.8 Notificaciones
 
+Para el calendario administrativo, la configuración vigente se asocia al estado
+de la elección, no a eventos ni duraciones. Cada transición permite elegir
+mensajes y recordatorios opcionales, con fecha/hora y plantilla independientes.
+Los futuros pendientes bloquean el avance; las nuevas fechas deben ser desde
+mañana. Estas fechas no cierran trámites automáticamente. Ver
+`docs/calendario_administrativo.md` para operación y compatibilidad histórica.
+
 - Separá la definición reutilizable de una notificación de cada envío a un destinatario concreto.
 
 - PlantillaNotificacion o ConfiguracionNotificacion, sin destinatario, debe contener como mínimo:

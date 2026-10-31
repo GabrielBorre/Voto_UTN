@@ -90,3 +90,6 @@ AUTHENTICATION_BACKENDS = [
 KEYCLOAK_URL_INTERNO = os.getenv("KEYCLOAK_URL_INTERNO", "http://localhost:8080")
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "FRBA")
 KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "VOTOUTN")
+
+# URL pública para enlaces generados por el worker sin request HTTP.
+VOTO_PUBLIC_URL = os.getenv("VOTO_PUBLIC_URL", "https://localhost:8443")

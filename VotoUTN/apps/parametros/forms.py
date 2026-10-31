@@ -61,14 +61,23 @@ class FormularioFechaAdministrativa(forms.ModelForm):
     class Meta:
         model = FechaAdministrativa
         fields = (
-            "codigo", "nombre", "descripcion", "modalidad_sugerida", "duracion_sugerida_dias",
+            "codigo", "nombre", "descripcion", "estado_eleccion", "envia_mensaje", "plantilla_mensaje", "permite_recordatorios", "plantilla_recordatorio",
             "roles_destinatarios", "alcance_todos_claustros", "claustros",
-            "criterio_destinatarios", "evento_disparador_sugerido", "activa",
+            "criterio_destinatarios", "activa",
         )
         widgets = {"descripcion": forms.Textarea(attrs={"rows": 3})}
+        labels = {
+            "estado_eleccion": "Estado de la elección",
+            "envia_mensaje": "Habilitar mensaje principal",
+            "permite_recordatorios": "Habilitar recordatorios",
+            "plantilla_mensaje": "Plantilla sugerida del mensaje",
+            "plantilla_recordatorio": "Plantilla sugerida de los recordatorios",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for nombre in ("plantilla_mensaje", "plantilla_recordatorio"):
+            self.fields[nombre].queryset = self.fields[nombre].queryset.filter(activa=True).exclude(categoria="transaccional")
         if self.instance.pk:
             self.fields["roles_destinatarios"].initial = self.instance.roles_destinatarios
         for nombre in ("roles_destinatarios", "claustros"):
@@ -79,6 +88,12 @@ class FormularioFechaAdministrativa(forms.ModelForm):
 
     def clean(self):
         datos = super().clean()
+        for flag, campo in (("envia_mensaje", "plantilla_mensaje"), ("permite_recordatorios", "plantilla_recordatorio")):
+            plantilla = datos.get(campo)
+            if datos.get(flag) and not plantilla:
+                self.add_error(campo, "Seleccione una plantilla para este envío.")
+            if plantilla and (not plantilla.activa or not set(plantilla.roles_destinatarios).issubset(datos.get("roles_destinatarios", []))):
+                self.add_error(campo, "Seleccione una plantilla activa compatible con los destinatarios.")
         if not datos.get("alcance_todos_claustros") and not datos.get("claustros"):
             self.add_error("claustros", "Seleccione al menos un claustro o marque todos los claustros.")
         return datos

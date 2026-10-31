@@ -12,9 +12,24 @@
 
 - En estado **En curso** la configuración se conserva consultable, pero no
   modificable desde las pantallas ni sus endpoints. Las excepciones son las
-  fechas administrativas existentes, la emisión del padrón imprimible y el
-  avance a Finalizada. No se incorpora por ahora la solicitud de fechas al
-  cambiar de estado ni una nueva clasificación de fechas por estado.
+  programación de mensajes administrativos, la emisión del padrón imprimible y el
+  avance a Finalizada.
+- Las fechas administrativas pertenecen a un estado y programan mensajes, sin
+  cerrar trámites ni cambiar el estado automáticamente. Al avanzar se muestran
+  las restricciones del nuevo estado y se configuran sus envíos opcionales.
+- Un envío habilitado, no procesado y futuro del estado actual impide avanzar.
+  Puede desactivarse; toda nueva fecha o modificación de un envío habilitado
+  debe ser desde mañana, según la zona horaria local. El historial procesado
+  no se edita. Los envíos vencidos pueden procesarse después de avanzar.
+- Cada mensaje y recordatorio tiene fecha/hora y plantilla propia. Los avisos
+  directos de publicación e inicio se reemplazan por estas programaciones;
+  se conservan las notificaciones transaccionales y la confirmación de ausentes.
+- Asignación estándar: Publicada incluye padrones, cambios de turno y
+  capacitación; En curso incluye justificaciones. En preparación y Finalizada
+  no tienen definiciones estándar. El catálogo permite personalizarlas.
+- Para autoridades, una designación rechazada no acredita ausencia. El criterio
+  de ausencia confirmada usa justificativos de autoridad aprobados, que son la
+  evidencia disponible; no se infiere asistencia a partir del voto.
 - Solo se pueden agregar o quitar claustros en **En preparación**. Los nuevos
   heredan las sedes de la elección; eliminar un claustro con datos vinculados
   se rechaza sin borrar padrones ni modificar sus alcances.

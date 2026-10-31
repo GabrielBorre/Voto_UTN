@@ -68,6 +68,12 @@ class Departamento(models.Model):
 
 
 class FechaAdministrativa(models.Model):
+    ESTADOS = (("en_preparacion", "En preparación"), ("publicada", "Publicada"), ("en_curso", "En curso"), ("finalizada", "Finalizada"))
+    estado_eleccion = models.CharField(max_length=16, choices=ESTADOS, default="publicada")
+    envia_mensaje = models.BooleanField(default=False)
+    permite_recordatorios = models.BooleanField(default=False)
+    plantilla_mensaje = models.ForeignKey("notificaciones.PlantillaNotificacion", on_delete=models.PROTECT, null=True, blank=True, related_name="fechas_mensaje")
+    plantilla_recordatorio = models.ForeignKey("notificaciones.PlantillaNotificacion", on_delete=models.PROTECT, null=True, blank=True, related_name="fechas_recordatorio")
     class ModalidadSugerida(models.TextChoices):
         FECHA_UNICA = "fecha_unica", "Fecha unica"
         RANGO = "rango", "Rango de fechas"

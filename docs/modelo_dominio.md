@@ -9,10 +9,16 @@
 - `FechaAdministrativa`
 - `TipoJustificativo`
 
-`FechaAdministrativa` es una definición reutilizable con código estable,
-modalidad y duración sugeridas, roles, alcance de claustros, criterio de
-destinatarios y evento sugerido. La fecha concreta por elección continúa en
-`FechaAdministrativaEleccion`.
+`FechaAdministrativa` es una definición reutilizable con código, nombre,
+estado de elección, roles, alcance de claustros, criterio de destinatarios y
+plantillas sugeridas para mensaje y recordatorios, habilitables por separado.
+Los campos antiguos de evento/duración se conservan únicamente por compatibilidad.
+
+`MensajeProgramado` asocia elección, definición, estado al configurar, plantilla,
+fecha/hora, tipo de envío y habilitación. Registra procesamiento y último error.
+El worker materializa los mensajes en una transacción y conserva el contenido
+en `EnvioNotificacion`. Un error de generación revierte el lote y permite reintentar.
+`FechaAdministrativaEleccion` conserva fechas históricas sin generar envíos nuevos.
 
 `Departamento` tendrá como mínimo:
 

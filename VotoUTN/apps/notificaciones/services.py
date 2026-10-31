@@ -275,7 +275,14 @@ def crear_envios(plantilla, eleccion=None):
 
 def procesar_envios_pendientes():
     procesados = 0
-    for envio in EnvioNotificacion.objects.filter(estado=EnvioNotificacion.Estado.PENDIENTE).select_related("destinatario", "elector"):
-        enviar_notificacion(envio)
-        procesados += 1
+    ids = EnvioNotificacion.objects.filter(estado=EnvioNotificacion.Estado.PENDIENTE).values_list("pk", flat=True)
+    for pk in list(ids):
+        with transaction.atomic():
+            envio = EnvioNotificacion.objects.select_for_update(skip_locked=True).filter(
+                pk=pk, estado=EnvioNotificacion.Estado.PENDIENTE,
+            ).first()
+            if envio is None:
+                continue
+            enviar_notificacion(envio)
+            procesados += 1
     return procesados

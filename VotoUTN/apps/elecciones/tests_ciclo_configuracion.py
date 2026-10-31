@@ -123,11 +123,11 @@ class CicloConfiguracionTests(TestCase):
         respuesta = self.client.get(url)
         self.assertEqual(respuesta.status_code, 200)
         self.assertFalse(respuesta.context["configuracion_solo_lectura"])
-        self.assertEqual(self.client.post(url, {}).status_code, 302)
+        self.assertEqual(self.client.post(url, {"mensajes-TOTAL_FORMS": "0", "mensajes-INITIAL_FORMS": "0"}).status_code, 302)
         self.mesa.estado_escaneo = Mesa.EstadoEscaneo.PROCESADA
         self.mesa.save(update_fields=("estado_escaneo",))
         self.assertEqual(self.client.post(
-            reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {"estado": Eleccion.Estado.FINALIZADA},
+            reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {"estado": Eleccion.Estado.FINALIZADA, "mensajes-TOTAL_FORMS": "0", "mensajes-INITIAL_FORMS": "0"},
         ).status_code, 302)
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.FINALIZADA)
@@ -136,7 +136,7 @@ class CicloConfiguracionTests(TestCase):
         self.estado(Eleccion.Estado.EN_CURSO)
         respuesta = self.client.post(
             reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)),
-            {"estado": Eleccion.Estado.FINALIZADA}, follow=True,
+            {"estado": Eleccion.Estado.FINALIZADA, "mensajes-TOTAL_FORMS": "0", "mensajes-INITIAL_FORMS": "0"}, follow=True,
         )
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.EN_CURSO)

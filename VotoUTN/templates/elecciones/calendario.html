@@ -1,0 +1,13 @@
+{% extends "gestion/base.html" %}{% load static %}
+{% block content %}
+<script type="module" src="{% static 'js/calendario.js' %}"></script>
+<section class="hero"><h1>Mensajes programados</h1><p>{{ eleccion.nombre }} · {{ eleccion.get_estado_display }}</p></section>
+<form id="formulario-fechas-administrativas" method="post" {% if estado_destino %}action="{% url 'cambiar-estado-eleccion' eleccion.id %}"{% endif %}>
+{% csrf_token %}{% if estado_destino %}<input type="hidden" name="estado" value="{{ estado_destino }}">{% endif %}
+{% include "elecciones/_calendario.html" %}
+<div class="section-actions form-card-actions"><button form="formulario-fechas-administrativas" class="button primary">{% if estado_destino %}Guardar y avanzar{% else %}Guardar fechas administrativas{% endif %}</button>
+<a class="button light" href="{% url 'configurar-eleccion' eleccion.id %}">Volver a configuración</a></div>
+</form>
+<h2>Historial</h2><ul>{% for mensaje in historial %}<li>{{ mensaje.fecha_administrativa }} — {{ mensaje.programado_para }} — {{ mensaje.plantilla }}</li>{% empty %}<li>No hay envíos procesados.</li>{% endfor %}</ul>
+{% if fechas_anteriores %}<details><summary>Fechas anteriores conservadas</summary><ul>{% for fecha in fechas_anteriores %}<li>{{ fecha.fecha_administrativa }}: {{ fecha.fecha }}</li>{% endfor %}</ul><p>Estas fechas no generan envíos automáticos. Configurá los mensajes arriba.</p></details>{% endif %}
+{% endblock %}

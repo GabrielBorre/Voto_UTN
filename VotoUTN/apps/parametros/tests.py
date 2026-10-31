@@ -87,7 +87,7 @@ class CatalogosEstandarTests(TestCase):
         self.assertEqual(Turno.objects.count(), 3)
         self.assertEqual(Departamento.objects.count(), 10)
         self.assertEqual(FechaAdministrativa.objects.count(), 6)
-        self.assertEqual(PlantillaNotificacion.objects.count(), 26)
+        self.assertEqual(PlantillaNotificacion.objects.count(), 38)
         self.assertEqual(OrganoElectivo.objects.count(), 3)
         self.assertEqual(CargoElectivo.objects.count(), 3)
         self.assertEqual(TipoJustificativo.objects.count(), 0)
@@ -105,7 +105,7 @@ class CatalogosEstandarTests(TestCase):
 
         call_command("cargar_parametros_estandar", stdout=StringIO())
 
-        self.assertEqual(PlantillaNotificacion.objects.count(), 26)
+        self.assertEqual(PlantillaNotificacion.objects.count(), 38)
         self.assertEqual(OrganoElectivo.objects.count(), 3)
         self.assertEqual(CargoElectivo.objects.count(), 3)
         self.assertEqual(ids, {codigo: pk for codigo, pk in PlantillaNotificacion.objects.values_list("codigo", "pk")})
@@ -115,16 +115,16 @@ class CatalogosEstandarTests(TestCase):
 
 
 class ValidacionesCatalogosTests(TestCase):
-    def test_fecha_por_duracion_exige_cantidad_de_dias(self):
+    def test_fecha_con_mensaje_exige_plantilla(self):
         formulario = FormularioFechaAdministrativa(data={
-            "codigo": "periodo", "nombre": "Periodo", "modalidad_sugerida": "duracion",
+            "codigo": "periodo", "nombre": "Periodo", "estado_eleccion": "publicada", "envia_mensaje": "on",
             "roles_destinatarios": [FechaAdministrativa.RolDestinatario.ELECTOR],
             "alcance_todos_claustros": "on", "criterio_destinatarios": "todos_en_alcance",
             "activa": "on",
         })
 
         self.assertFalse(formulario.is_valid())
-        self.assertIn("duracion_sugerida_dias", formulario.errors)
+        self.assertIn("plantilla_mensaje", formulario.errors)
 
     def test_plantilla_rechaza_variables_desconocidas(self):
         plantilla = PlantillaNotificacion(

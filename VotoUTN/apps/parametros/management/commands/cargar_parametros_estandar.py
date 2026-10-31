@@ -225,6 +225,9 @@ class Command(BaseCommand):
                     comunicacion=comunicacion, prioridad=prioridad,
                 )
 
+        from apps.parametros.calendario_estandar import cargar_calendario
+        cargar_calendario(FechaAdministrativa, PlantillaNotificacion)
+
         self.stdout.write(self.style.SUCCESS(
             f"Parámetros estándar cargados. Creados: {conteo['creados']}. Actualizados: {conteo['actualizados']}."
         ))

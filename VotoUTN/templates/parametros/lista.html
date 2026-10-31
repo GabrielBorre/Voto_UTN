@@ -35,7 +35,7 @@
           <th>Nombre</th>
           {% if tiene_codigo %}<th>Código</th>{% endif %}
           {% if es_claustro %}<th>Abreviatura</th><th>Organización</th>{% endif %}
-          {% if es_fecha %}<th>Roles destinatarios</th>{% endif %}
+          {% if es_fecha %}<th>Estado de elección</th><th>Roles destinatarios</th>{% endif %}
           {% if es_turno %}<th>Horario</th>{% endif %}
           {% if es_plantilla %}<th>Categoría</th>{% endif %}
           {% if es_cargo %}<th>Órgano</th>{% endif %}
@@ -52,7 +52,7 @@
               <td>{{ objeto.abreviatura|default:"—" }}</td>
               <td>{{ objeto.get_organizacion_departamentos_display }}</td>
             {% endif %}
-            {% if es_fecha %}<td>{{ objeto.roles_destinatarios_display }}</td>{% endif %}
+            {% if es_fecha %}<td>{{ objeto.get_estado_eleccion_display }}</td><td>{{ objeto.roles_destinatarios_display }}</td>{% endif %}
             {% if es_turno %}<td>{{ objeto.hora_inicio|time:"H:i" }} - {{ objeto.hora_fin|time:"H:i" }}</td>{% endif %}
             {% if es_plantilla %}<td>{{ objeto.get_categoria_display }}</td>{% endif %}
             {% if es_cargo %}<td>{{ objeto.organo.nombre }}</td>{% endif %}
@@ -65,7 +65,6 @@
             </td>
             <td class="actions">
               <a class="button light small" href="{% url 'editar-parametro' tipo objeto.id %}">Editar</a>
-              {% if es_fecha %}<a class="button light small" href="{% url 'comunicaciones-fecha' objeto.id %}">Comunicaciones</a>{% endif %}
               {% if es_plantilla %}<a class="button light small" href="{% url 'previsualizar-plantilla' objeto.id %}">Vista previa</a>{% endif %}
               <form class="inline-form" method="post" action="{% url 'cambiar-estado-parametro' tipo objeto.id %}">
                 {% csrf_token %}

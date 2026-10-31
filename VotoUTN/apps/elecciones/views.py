@@ -16,9 +16,9 @@ from .forms import (
     FormularioDepartamentosClaustro,
     FormularioEleccion,
     FormularioEditarEleccion,
-    FormularioFechasAdministrativasEleccion,
 )
 from .services import agregar_claustro, eliminar_claustro
+from .calendario_forms import formulario_calendario, guardar_calendario
 from .models import (
     ESTADOS_CONFIGURACION_SOLO_LECTURA,
     ESTADOS_ELECCION_NO_CERRADOS,
@@ -43,8 +43,6 @@ from apps.justificativos.models import JustificativoAusencia
 from apps.notificaciones.services import (
     crear_notificaciones_ausentes_confirmadas,
     enviar_notificacion,
-    notificar_eleccion_en_curso,
-    notificar_eleccion_publicada,
 )
 from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import (
@@ -372,6 +370,7 @@ def configurar_eleccion(request, eleccion_id):
                 for indice, (codigo, ayuda) in enumerate(estados)
             ],
             "siguiente_estado": siguiente_estado,
+            "calendario": formulario_calendario(eleccion, siguiente_estado[0]) if siguiente_estado else None,
             "pendientes_configuracion": pendientes_configuracion,
             "padrones_pendientes": padrones_pendientes,
             "alcances_pendientes": alcances_pendientes,
@@ -380,7 +379,7 @@ def configurar_eleccion(request, eleccion_id):
             "cantidad_mesas": eleccion.mesas.count(),
             "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),
             "cantidad_partidos": ParticipacionPartido.objects.filter(eleccion=eleccion, activa=True).count(),
-            "cantidad_fechas_administrativas": eleccion.fechas_administrativas.count(),
+            "cantidad_fechas_administrativas": eleccion.mensajes_programados.filter(habilitado=True).count(),
         },
     )
 
@@ -390,23 +389,18 @@ def gestionar_fechas_administrativas(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion) or eleccion.estado == Eleccion.Estado.FINALIZADA:
         return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
-    formulario_fechas = FormularioFechasAdministrativasEleccion(
-        request.POST if request.method == "POST" else None,
-        eleccion=eleccion,
-    )
-    if request.method == "POST" and formulario_fechas.is_valid():
-        formulario_fechas.guardar()
-        messages.success(request, "Las fechas administrativas fueron actualizadas.")
-        return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
-    return render(
-        request,
-        "elecciones/fechas_administrativas.html",
-        {
-            "eleccion": eleccion,
-            "formulario_fechas": formulario_fechas,
-            "fechas_administrativas": contexto_fechas_administrativas(formulario_fechas),
-        },
-    )
+    with transaction.atomic():
+        eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+        if eleccion.estado == Eleccion.Estado.FINALIZADA:
+            return HttpResponseForbidden("La elección ya está finalizada.")
+        calendario = formulario_calendario(eleccion, eleccion.estado, request.POST if request.method == "POST" else None)
+        if request.method == "POST" and calendario.is_valid():
+            guardar_calendario(calendario, eleccion, eleccion.estado)
+            registrar_evento(accion="eleccion.calendario", entidad="Eleccion", entidad_id=eleccion.pk, eleccion=eleccion, usuario=request.user, request=request)
+            messages.success(request, "Los mensajes fueron programados.")
+            return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.pk)
+    return render(request, "elecciones/calendario.html", {"eleccion": eleccion, "calendario": calendario, "historial": eleccion.mensajes_programados.filter(procesado_en__isnull=False), "fechas_anteriores": eleccion.fechas_administrativas.select_related("fecha_administrativa")})
+
 
 
 @login_required
@@ -500,10 +494,11 @@ ETIQUETA_POPUP_TRANSICION = "popup transicion-bloqueada"
 
 
 @login_required
+@transaction.atomic
 def cambiar_estado_eleccion(request, eleccion_id):
     if request.method != "POST":
         raise Http404()
-    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    eleccion = get_object_or_404(Eleccion.objects.select_for_update(), pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion) or eleccion.estado == Eleccion.Estado.FINALIZADA:
         return HttpResponseForbidden("No tiene permiso para cambiar esta eleccion.")
     nuevo_estado = request.POST.get("estado")
@@ -523,15 +518,15 @@ def cambiar_estado_eleccion(request, eleccion_id):
         if hay_mesas_pendientes:
             messages.error(request, "No se puede finalizar la elección con mesas pendientes de escaneo.", extra_tags=ETIQUETA_POPUP_TRANSICION)
             return redirect("gestionar-elecciones")
+    calendario = formulario_calendario(eleccion, nuevo_estado, request.POST)
+    if not calendario.is_valid():
+        return render(request, "elecciones/calendario.html", {"eleccion": eleccion, "calendario": calendario, "estado_destino": nuevo_estado}, status=400)
     try:
         eleccion.cambiar_estado(nuevo_estado)
     except ValidationError as error:
         messages.error(request, " ".join(error.messages), extra_tags=ETIQUETA_POPUP_TRANSICION)
     else:
-        if nuevo_estado == Eleccion.Estado.PUBLICADA:
-            notificar_eleccion_publicada(eleccion)
-        elif nuevo_estado == Eleccion.Estado.EN_CURSO:
-            notificar_eleccion_en_curso(eleccion)
+        guardar_calendario(calendario, eleccion, nuevo_estado)
         registrar_evento(
             accion="eleccion.cambio_estado",
             entidad="Eleccion",

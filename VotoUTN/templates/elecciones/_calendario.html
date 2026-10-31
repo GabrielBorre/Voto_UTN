@@ -1,0 +1,12 @@
+<section data-calendario>
+  {{ calendario.plantillas_sugeridas|json_script:"plantillas-calendario" }}
+  <h3>Definir fechas de mensajes</h3>
+  <ul>{% for fecha in calendario.definiciones %}<li>{{ fecha.nombre }} — mensaje: {{ fecha.envia_mensaje|yesno:"Sí,No" }}; recordatorios: {{ fecha.permite_recordatorios|yesno:"Sí,No" }}</li>{% empty %}<li>No hay fechas administrativas configuradas para este estado.</li>{% endfor %}</ul>
+  <p>Agregá los mensajes que quieras habilitar para este estado. Cada envío puede tener su plantilla y sus recordatorios. Las fechas nuevas deben ser desde mañana.</p>
+  {{ calendario.management_form }}{{ calendario.non_form_errors }}
+  <div data-mensajes>
+    {% for formulario in calendario %}<fieldset data-mensaje class="card" style="padding:16px;margin-bottom:12px">{{ formulario.as_p }}{% if formulario.instance.error %}<p role="alert">Error del último intento: {{ formulario.instance.error }}</p>{% endif %}</fieldset>{% endfor %}
+  </div>
+  <template data-mensaje-vacio><fieldset data-mensaje class="card" style="padding:16px;margin-bottom:12px">{{ calendario.empty_form.as_p }}</fieldset></template>
+  <button type="button" class="button light" data-agregar-mensaje>Agregar mensaje o recordatorio</button>
+</section>

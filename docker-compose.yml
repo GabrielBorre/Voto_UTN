@@ -74,6 +74,27 @@ services:
       mailpit:
         condition: service_started
 
+  calendario:
+    build:
+      context: ./VotoUTN
+    env_file:
+      - ./VotoUTN/.env
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - EMAIL_HOST=mailpit
+    volumes:
+      - ./VotoUTN:/app
+    command: sh -c "until python manage.py migrate --check; do sleep 5; done; python manage.py procesar_calendario --continuo"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_started
+      mailpit:
+        condition: service_started
+
   proxy:
     image: caddy:2.10.2
     container_name: voto_utn_proxy

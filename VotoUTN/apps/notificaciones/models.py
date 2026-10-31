@@ -5,6 +5,7 @@ from django.db import models
 
 from apps.elecciones.models import Eleccion
 from apps.parametros.models import Claustro, FechaAdministrativa
+from .calendario_models import MensajeProgramado
 
 
 class PlantillaNotificacion(models.Model):

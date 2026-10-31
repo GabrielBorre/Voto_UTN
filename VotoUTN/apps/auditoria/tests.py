@@ -134,7 +134,7 @@ class AuditoriaEleccionTests(BaseAuditoriaElectoralTests):
         self.crear_padron()
         respuesta = self.client.post(
             reverse("cambiar-estado-eleccion", args=(self.eleccion.id,)),
-            {"estado": Eleccion.Estado.PUBLICADA},
+            {"estado": Eleccion.Estado.PUBLICADA, "mensajes-TOTAL_FORMS": "0", "mensajes-INITIAL_FORMS": "0"},
             HTTP_HOST="127.0.0.1",
             REMOTE_ADDR="127.0.0.10",
             HTTP_USER_AGENT="Prueba",
