@@ -14,12 +14,16 @@ static/js/              módulos ES6: camera, scanner, asistencia, api y ui
 
 La vista no conoce la persistencia: `AttendanceBatchAPIView` valida la petición y delega el caso de uso a `AttendanceService`. El modelo impone unicidad por elección/código, que protege también ante dos dispositivos concurrentes. La cámara, el procesamiento QR y la UI están desacoplados en módulos ES6.
 
-El lector alterna la detección múltiple de la imagen completa con `BarcodeDetector`,
-cuando está disponible, y un barrido complementario con ZXing. El barrido se ejecuta
+El lector alterna la detección múltiple con `BarcodeDetector`, cuando está disponible,
+y un barrido complementario con ZXing. El detector nativo recorre la imagen completa y
+cinco ventanas superpuestas (30 % del alto cada una), de modo que los QR pequeños ocupan
+más superficie. El barrido se ejecuta
 aunque el detector nativo repita siempre los mismos códigos, sin requerir movimiento
 de la hoja. Con ZXing, que devuelve un QR por lectura, alterna la imagen completa
 con 30 bandas verticalmente solapadas, de arriba hacia abajo, sin deformar los
-recortes. Si el detector nativo falla, se informa en consola y se continúa con
+recortes. Cada vuelta cambia el alto y la escala de las bandas (1/12 a escala 1,
+1/9 reducida a 0,75 y 1/16 ampliada a 1,5), lo que simula digitalmente el pequeño
+cambio de muestreo que produce mover la hoja. Si el detector nativo falla, se informa en consola y se continúa con
 ZXing. Así puede acumular los 15 QR de una hoja fija, incluidos
 los extremos. Los textos detectados se conservan en un `Set`, por lo que una lectura
 repetida no duplica la asistencia. Al confirmar una página se envía un lote al
@@ -38,7 +42,13 @@ endpoint REST protegido por sesión y CSRF.
 - El barrido de regiones es **digital**, no un barrido óptico de enfoque.
   `pointsOfInterest` y `focusDistance` dependen del navegador y del hardware; no
   permiten garantizar un barrido vertical de autofocus en todos los celulares.
-  No se fuerza enfoque manual ni zoom, que podrían empeorar la lectura.
+  No se fija enfoque manual ni se modifica el zoom, que podrían empeorar la lectura.
+- Reenfoque ante estancamiento (`reactivacion-camara.js`): si durante el escaneo
+  de electores la hoja sigue a la vista (se leen QR ya conocidos) pero pasan 1,2 s
+  sin QR nuevos, se pide un reenfoque puntual (`single-shot`) durante 0,45 s y se
+  vuelve al enfoque continuo. Se hacen como máximo dos intentos, separados por
+  2,5 s; un QR nuevo reinicia los intentos. Si la cámara no admite enfoque puntual
+  o rechaza el ajuste, se desactiva sin interrumpir el video. No se reinicia la cámara.
 - Leer los 15 QR sin mover el teléfono requiere papel plano, cámara paralela,
   distancia suficiente para encuadrar toda la columna, iluminación uniforme y
   nitidez. No se puede garantizar esa lectura en todo dispositivo: debe probarse
@@ -54,8 +64,11 @@ igual que el escáner de producción. No solicita acceso a la cámara real.
 
 La prueba decodifica una imagen sintética fija de 1080 × 1920 con 15 QR únicos
 (`tests/frontend/hoja_15_qr.png`), comprueba ambos extremos, deduplicación, cobertura
-de las bandas, detección múltiple nativa simulada (incluido un detector estancado
-en los mismos 10 QR y otro que falla) y perfiles/enfoque de cámara simulados.
+de las bandas y de sus variantes, ventanas del detector nativo, detección múltiple
+nativa simulada (incluido un detector estancado en los mismos 10 QR y otro que falla),
+el reenfoque ante estancamiento con reloj simulado y perfiles/enfoque de cámara
+simulados. La pestaña debe estar visible: los
+navegadores pueden suspender la decodificación de imágenes en pestañas ocultas.
 El tiempo informado corresponde al equipo de prueba, no garantiza el
 rendimiento ni la nitidez de una cámara real.
 

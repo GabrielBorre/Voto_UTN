@@ -1,10 +1,13 @@
+const DURACION_REENFOQUE_MS = 450;
+
 export class Camera {
     stream = null;
     track = null;
     capabilities = {};
     settings = {};
-    constructor(video) {
+    constructor(video, esperar = ms => new Promise(resolve => window.setTimeout(resolve, ms))) {
         this.video = video;
+        this.esperar = esperar;
     }
     async start() {
         if (!window.isSecureContext) {
@@ -96,6 +99,17 @@ export class Camera {
         catch (error) {
             console.warn("No se pudo activar el enfoque continuo; se conserva el enfoque del dispositivo.", error);
         }
+    }
+    /* Pide un reenfoque puntual, como al mover levemente la hoja, y vuelve al enfoque continuo. */
+    async reenfocar() {
+        if (!this.track?.applyConstraints || !this.capabilities.focusMode?.includes?.("single-shot")) return false;
+        try {
+            await this.track.applyConstraints({ advanced: [{ focusMode: "single-shot" }] });
+            await this.esperar(DURACION_REENFOQUE_MS);
+        } finally {
+            if (this.track) await this.#configureCamera();
+        }
+        return true;
     }
     stop() {
         this.stream
