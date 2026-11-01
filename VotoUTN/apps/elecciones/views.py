@@ -67,7 +67,7 @@ def historial_electoral(request):
         return HttpResponseForbidden("No tiene permiso para consultar el historial electoral.")
     return render(
         request,
-        "elecciones/historial_electoral.html",
+        "elecciones/historial_electoral_elector.html",
         {"historial": construir_historial_electoral(elector)},
     )
 
@@ -316,7 +316,11 @@ def historial_elecciones(request):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para consultar el historial.")
     elecciones = Eleccion.objects.filter(estado=Eleccion.Estado.FINALIZADA)
-    return render(request, "elecciones/historial_elecciones.html", {"elecciones": elecciones})
+    return render(
+        request,
+        "elecciones/historial_elecciones_administrador_junta.html",
+        {"elecciones": elecciones},
+    )
 
 
 @login_required
