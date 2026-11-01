@@ -1,13 +1,7 @@
+import {ejemplo, iniciarEditor} from './editor-plantilla.js';
 const catalogo = JSON.parse(document.querySelector('#catalogo-plantillas').textContent);
 const dialogo = document.querySelector('#crear-plantilla-dialogo');
 const formulario = document.querySelector('#crear-plantilla-form');
-const ejemplos = {
-  nombre_destinatario: 'María Pérez', nombre_eleccion: 'Elecciones UTN',
-  nombre_fecha_administrativa: 'Publicación del padrón', url_accion: 'https://voto.ejemplo.edu.ar',
-  sede: 'Campus', mesa: 'K-001', turno: 'Mañana', horario_turno: '08:00 - 13:00',
-  claustros: 'Estudiantes', fecha_votacion: '15/11/2026',
-};
-const ejemplo = (texto) => texto.replace(/\{(\w+)\}/g, (original, nombre) => ejemplos[nombre] ?? original);
 const etiquetas = {elector: 'Electores', autoridad_mesa: 'Autoridades de mesa', administrador_junta: 'Administradores de junta', administrativo_junta: 'Administrativos de junta'};
 let destino;
 let enviando = false;
@@ -33,12 +27,7 @@ document.querySelectorAll('[data-config-mensaje]').forEach((seccion) => {
   mostrarPlantilla(selector);
 });
 
-function previsualizarNueva() {
-  formulario.querySelector('[data-nuevo-asunto]').textContent = ejemplo(formulario.elements['nueva-asunto'].value) || 'Asunto del mensaje';
-  formulario.querySelector('[data-nuevo-contenido]').textContent = ejemplo(formulario.elements['nueva-contenido'].value) || 'Escribí el contenido para verlo acá.';
-}
-formulario.addEventListener('input', previsualizarNueva);
-previsualizarNueva();
+const previsualizarNueva = iniciarEditor(formulario);
 
 document.querySelectorAll('[data-crear-plantilla]').forEach((boton) => {
   boton.addEventListener('click', () => {
@@ -53,15 +42,6 @@ document.querySelectorAll('[data-crear-plantilla]').forEach((boton) => {
 });
 document.querySelectorAll('[data-cerrar-plantilla]').forEach((boton) => boton.addEventListener('click', () => { if (!enviando) dialogo.close(); }));
 dialogo.addEventListener('cancel', (evento) => { if (enviando) evento.preventDefault(); });
-formulario.querySelectorAll('[data-variable]').forEach((boton) => {
-  boton.addEventListener('click', () => {
-    const campo = formulario.elements['nueva-contenido'];
-    campo.setRangeText(`{${boton.dataset.variable}}`, campo.selectionStart, campo.selectionEnd, 'end');
-    campo.focus();
-    previsualizarNueva();
-  });
-});
-
 formulario.addEventListener('submit', async (evento) => {
   evento.preventDefault();
   if (enviando) return;

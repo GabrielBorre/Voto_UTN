@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from django import forms
 
 from apps.elecciones.models import Eleccion
@@ -16,7 +18,7 @@ class FormularioPlantillaNotificacion(forms.ModelForm):
     class Meta:
         model = PlantillaNotificacion
         fields = (
-            "codigo", "nombre", "categoria", "descripcion", "asunto", "contenido",
+            "nombre", "categoria", "asunto", "contenido",
             "roles_destinatarios", "claustros", "permite_envio_manual", "activa",
         )
         widgets = {"contenido": forms.Textarea(attrs={"rows": 5})}
@@ -28,6 +30,8 @@ class FormularioPlantillaNotificacion(forms.ModelForm):
 
     def save(self, commit=True):
         instancia = super().save(commit=False)
+        if not instancia.codigo:
+            instancia.codigo = "plantilla-" + uuid4().hex
         instancia.roles_destinatarios = self.cleaned_data["roles_destinatarios"]
         if commit:
             instancia.save()

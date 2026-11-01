@@ -1,0 +1,15 @@
+    <div class="fecha-dialogo-columnas"><div>
+    {% include "parametros/_campo.html" with campo=formulario_editor.nombre %}
+    {% include "parametros/_campo.html" with campo=formulario_editor.asunto %}
+    {% include "parametros/_campo.html" with campo=formulario_editor.contenido %}
+    {% include "parametros/_campo.html" with campo=formulario_editor.roles_destinatarios %}
+    {% include "parametros/_campo.html" with campo=formulario_editor.claustros %}
+    </div><aside class="fecha-dialogo-vista">
+    <article class="fecha-preview" aria-live="polite"><span class="fecha-etiqueta">Vista previa · datos de ejemplo</span><h3 data-nuevo-asunto></h3><p data-nuevo-contenido></p></article>
+    <div class="fecha-variables"><p>Insertar en el contenido:</p>
+      <button type="button" data-variable="nombre_destinatario">Nombre del destinatario</button>
+      <button type="button" data-variable="nombre_eleccion">Elección</button>
+      <button type="button" data-variable="nombre_fecha_administrativa">Fecha administrativa</button>
+      <button type="button" data-variable="url_accion">Enlace a la aplicación</button>
+    </div>
+    </aside></div>

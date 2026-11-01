@@ -14,9 +14,7 @@
     <section class="card">
       <h2>Datos de la fecha</h2><p class="muted">El día y la hora de envío se eligen dentro de cada elección.</p>
       {% include "parametros/_campo.html" with campo=formulario.nombre %}
-      {% include "parametros/_campo.html" with campo=formulario.codigo %}
       {% include "parametros/_campo.html" with campo=formulario.estado_eleccion %}
-      {% include "parametros/_campo.html" with campo=formulario.descripcion %}
       {% include "parametros/_campo.html" with campo=formulario.activa %}
     </section>
     <section class="card">
@@ -41,17 +39,7 @@
   <header class="fecha-mensaje-cabecera"><div><h2 id="titulo-crear-plantilla">Crear plantilla de mensaje</h2><p class="muted">Se guarda en el catálogo y queda seleccionada en esta fecha. No envía mensajes.</p></div><button type="button" class="button light" data-cerrar-plantilla aria-label="Cerrar">Cerrar</button></header>
   <form id="crear-plantilla-form" action="{% url 'crear-plantilla-calendario' %}" method="post">
     {% csrf_token %}<div role="alert" data-errores-plantilla tabindex="-1"></div>
-    <div class="fecha-dialogo-columnas"><div>
-    {% for campo in formulario_plantilla %}{% include "parametros/_campo.html" %}{% endfor %}
-    </div><aside class="fecha-dialogo-vista">
-    <article class="fecha-preview" aria-live="polite"><span class="fecha-etiqueta">Vista previa · datos de ejemplo</span><h3 data-nuevo-asunto></h3><p data-nuevo-contenido></p></article>
-    <div class="fecha-variables"><p>Insertar en el contenido:</p>
-      <button type="button" data-variable="nombre_destinatario">Nombre del destinatario</button>
-      <button type="button" data-variable="nombre_eleccion">Elección</button>
-      <button type="button" data-variable="nombre_fecha_administrativa">Fecha administrativa</button>
-      <button type="button" data-variable="url_accion">Enlace a la aplicación</button>
-    </div>
-    </aside></div>
+    {% include "parametros/_editor_plantilla.html" with formulario_editor=formulario_plantilla %}
     <div class="fecha-acciones"><button type="button" class="button light" data-cerrar-plantilla>Cancelar</button><button class="button primary" data-guardar-plantilla>Crear y seleccionar</button></div>
   </form>
 </dialog>

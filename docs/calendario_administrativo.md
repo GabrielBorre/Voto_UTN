@@ -15,6 +15,19 @@ El alta integrada exige los mismos permisos de parámetros, POST y CSRF; valida
 los campos y registra auditoría. Los errores mantienen abierto el diálogo y
 preservan los datos. La pantalla se adapta a escritorio y navegador móvil.
 
+Fechas y plantillas se identifican por nombre en los formularios y listados;
+no se solicita código ni descripción. Los códigos internos se generan al crear
+y se conservan al editar para no romper referencias; las descripciones históricas
+también se mantienen. No se requiere migración de esquema.
+
+El catálogo de Plantillas de mensajes usa el mismo editor al crear y editar:
+asunto, contenido, destinatarios, vista previa e inserción de variables. Mantiene
+las opciones de categoría, envío manual y activación. Comparte
+`templates/parametros/_editor_plantilla.html` y `static/js/editor-plantilla.js`
+con el diálogo; su página es `templates/parametros/plantilla_formulario.html`.
+También se actualizan los formularios de notificaciones, los de parámetros,
+sus vistas y las pruebas `tests_plantilla_calendario.py`.
+
 Archivos del editor: se modifican `apps/parametros/forms.py`, `urls.py` y
 `views.py`; se crean `tests_plantilla_calendario.py`, las plantillas
 `parametros/fecha_formulario.html`, `_campo.html`, `_mensaje_fecha.html`,
@@ -114,8 +127,15 @@ mensaje nunca se usa como fecha de capacitación o cierre de trámite.
 
 No se eliminaron archivos existentes ni migraciones.
 
-Verificación: 375 pruebas aprobadas; `check`, `makemigrations --check`,
+Verificación: 378 pruebas aprobadas en una base PostgreSQL nueva; `check`, `makemigrations --check`,
 `migrate --plan`, `git diff --check`, sintaxis JavaScript y Docker Compose correctos.
 Editor verificado en navegador de escritorio y a 390 px: vista previa, diálogo,
 selección de nueva plantilla y conservación del borrador (alta simulada en navegador;
 persistencia real validada en la base de pruebas).
+
+Incidencia preexistente encontrada al reutilizar la base de pruebas: los QR
+reservan dos caracteres base 36 para la elección y dejan de validar desde el
+ID 1296. Se reprodujo con el servicio de QR sin cambiar su código (1295 valida;
+1296 no). La verificación del editor se realiza también sobre una base nueva.
+La ampliación del formato QR queda fuera de esta mejora de interfaz y requiere
+mantener compatibilidad con los padrones ya impresos.

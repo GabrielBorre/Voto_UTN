@@ -46,9 +46,9 @@ PARAMETROS = {
     },
     "departamentos": {"modelo": Departamento, "formulario": FormularioDepartamento, "titulo": "Departamentos", "estado": "activo", "codigo": True},
     "turnos": {"modelo": Turno, "formulario": FormularioTurno, "titulo": "Turnos", "estado": "activo", "codigo": False, "es_turno": True},
-    "fechas-administrativas": {"modelo": FechaAdministrativa, "formulario": FormularioFechaAdministrativa, "titulo": "Fechas administrativas", "estado": "activa", "codigo": True, "es_fecha": True},
+    "fechas-administrativas": {"modelo": FechaAdministrativa, "formulario": FormularioFechaAdministrativa, "titulo": "Fechas administrativas", "estado": "activa", "codigo": False, "es_fecha": True},
     "tipos-justificativo": {"modelo": TipoJustificativo, "formulario": FormularioTipoJustificativo, "titulo": "Tipos de justificativo", "estado": "activo", "codigo": False},
-    "plantillas-mensajes": {"modelo": PlantillaNotificacion, "formulario": FormularioPlantillaNotificacion, "titulo": "Plantillas de mensajes", "estado": "activa", "codigo": True, "es_plantilla": True},
+    "plantillas-mensajes": {"modelo": PlantillaNotificacion, "formulario": FormularioPlantillaNotificacion, "titulo": "Plantillas de mensajes", "estado": "activa", "codigo": False, "es_plantilla": True},
     "organos-electivos": {"modelo": OrganoElectivo, "formulario": FormularioOrganoElectivo, "titulo": "Órganos o cuerpos", "estado": "activo", "codigo": False, "grupo": "puestos"},
     "puestos-electivos": {"modelo": CargoElectivo, "formulario": FormularioCargoElectivo, "titulo": "Puestos a elegir", "estado": "activo", "codigo": False, "grupo": "puestos", "es_cargo": True},
 }
@@ -159,6 +159,8 @@ def editar_parametro(request, tipo, objeto_id=None):
             "plantillas": list(PlantillaNotificacion.objects.filter(activa=True).exclude(categoria="transaccional").values("id", "nombre", "asunto", "contenido", "roles_destinatarios")),
             "formulario_plantilla": preparar_formulario_parametro(FormularioPlantillaCalendario(prefix="nueva")),
         })
+    if tipo == "plantillas-mensajes":
+        return render(request, "parametros/plantilla_formulario.html", {"formulario": formulario, "objeto": objeto})
     return render(
         request,
         "parametros/formulario.html",

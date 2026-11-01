@@ -13,7 +13,7 @@ class PlantillaDesdeFechaTests(TestCase):
         self.client.force_login(self.usuario)
         self.url = reverse("crear-plantilla-calendario")
         self.datos = {
-            "nueva-nombre": "Aviso personalizado", "nueva-codigo": "aviso-personalizado",
+            "nueva-nombre": "Aviso personalizado",
             "nueva-asunto": "Aviso de {nombre_eleccion}",
             "nueva-contenido": "Hola {nombre_destinatario}",
             "nueva-roles_destinatarios": ["elector"],
@@ -28,7 +28,7 @@ class PlantillaDesdeFechaTests(TestCase):
         self.assertTrue(plantilla.activa)
         self.assertTrue(EventoAuditoria.objects.filter(entidad=plantilla._meta.label, entidad_id=plantilla.pk).exists())
         respuesta = self.client.post(reverse("crear-parametro", args=("fechas-administrativas",)), {
-            "codigo": "fecha", "nombre": "Fecha", "estado_eleccion": "publicada",
+            "nombre": "Fecha", "estado_eleccion": "publicada",
             "envia_mensaje": "on", "plantilla_mensaje": plantilla.pk,
             "roles_destinatarios": ["elector"], "alcance_todos_claustros": "on",
             "criterio_destinatarios": "todos_en_alcance", "activa": "on",
@@ -70,3 +70,43 @@ class PlantillaDesdeFechaTests(TestCase):
         self.assertContains(respuesta, 'id="crear-plantilla-dialogo"')
         self.assertIn("plantilla_mensaje", respuesta.context["formulario"].errors)
         self.assertFalse(FechaAdministrativa.objects.exists())
+
+    def test_catalogo_crea_sin_codigo_con_editor_compartido(self):
+        url = reverse("crear-parametro", args=("plantillas-mensajes",))
+        respuesta = self.client.get(url)
+        self.assertTemplateUsed(respuesta, "parametros/plantilla_formulario.html")
+        self.assertContains(respuesta, "data-editor-plantilla")
+        self.assertNotContains(respuesta, 'name="codigo"')
+        self.assertNotContains(respuesta, 'name="descripcion"')
+        datos = {nombre.removeprefix("nueva-"): valor for nombre, valor in self.datos.items()}
+        datos.update(categoria="calendario", activa="on")
+        self.assertEqual(self.client.post(url, datos).status_code, 302)
+        plantilla = PlantillaNotificacion.objects.get()
+        self.assertTrue(plantilla.codigo)
+        codigo = plantilla.codigo
+        plantilla.descripcion = "Descripción histórica"
+        plantilla.save()
+        datos["nombre"] = "Nombre actualizado"
+        self.assertEqual(self.client.post(reverse("editar-parametro", args=("plantillas-mensajes", plantilla.pk)), datos).status_code, 302)
+        plantilla.refresh_from_db()
+        self.assertEqual(plantilla.codigo, codigo)
+        self.assertEqual(plantilla.descripcion, "Descripción histórica")
+
+    def test_fecha_conserva_codigo_y_descripcion_al_editar(self):
+        fecha = FechaAdministrativa.objects.create(nombre="Anterior", codigo="referencia-estable", descripcion="Histórica", roles_destinatarios=["elector"])
+        url = reverse("editar-parametro", args=("fechas-administrativas", fecha.pk))
+        respuesta = self.client.get(url)
+        for campo in ("codigo", "descripcion"):
+            self.assertNotIn(campo, respuesta.context["formulario"].fields)
+        respuesta = self.client.post(url, {"nombre": "Nuevo nombre", "estado_eleccion": "publicada", "roles_destinatarios": ["elector"], "alcance_todos_claustros": "on", "criterio_destinatarios": "todos_en_alcance", "activa": "on"})
+        self.assertEqual(respuesta.status_code, 302)
+        fecha.refresh_from_db()
+        self.assertEqual(fecha.nombre, "Nuevo nombre")
+        self.assertEqual(fecha.codigo, "referencia-estable")
+        self.assertEqual(fecha.descripcion, "Histórica")
+
+    def test_dialogo_no_pide_codigo_ni_descripcion(self):
+        respuesta = self.client.get(reverse("crear-parametro", args=("fechas-administrativas",)))
+        self.assertNotContains(respuesta, 'name="nueva-codigo"')
+        self.assertNotContains(respuesta, 'name="nueva-descripcion"')
+        self.assertContains(respuesta, 'name="nueva-nombre"')

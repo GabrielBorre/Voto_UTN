@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from django import forms
 
 from apps.justificativos.models import TipoJustificativo
@@ -62,11 +64,10 @@ class FormularioFechaAdministrativa(forms.ModelForm):
     class Meta:
         model = FechaAdministrativa
         fields = (
-            "codigo", "nombre", "descripcion", "estado_eleccion", "envia_mensaje", "plantilla_mensaje", "permite_recordatorios", "plantilla_recordatorio",
+            "nombre", "estado_eleccion", "envia_mensaje", "plantilla_mensaje", "permite_recordatorios", "plantilla_recordatorio",
             "roles_destinatarios", "alcance_todos_claustros", "claustros",
             "criterio_destinatarios", "activa",
         )
-        widgets = {"descripcion": forms.Textarea(attrs={"rows": 3})}
         labels = {
             "estado_eleccion": "Estado de la elección",
             "envia_mensaje": "Habilitar mensaje principal",
@@ -101,6 +102,8 @@ class FormularioFechaAdministrativa(forms.ModelForm):
 
     def save(self, commit=True):
         instancia = super().save(commit=False)
+        if not instancia.codigo:
+            instancia.codigo = "fecha-" + uuid4().hex
         instancia.roles_destinatarios = self.cleaned_data["roles_destinatarios"]
         if commit:
             instancia.save()
@@ -110,9 +113,9 @@ class FormularioFechaAdministrativa(forms.ModelForm):
 
 class FormularioPlantillaCalendario(FormularioPlantillaNotificacion):
     class Meta(FormularioPlantillaNotificacion.Meta):
-        fields = ("nombre", "codigo", "asunto", "contenido", "roles_destinatarios", "claustros")
+        fields = ("nombre", "asunto", "contenido", "roles_destinatarios", "claustros")
         labels = {"roles_destinatarios": "Destinatarios", "claustros": "Limitar a claustros (opcional)"}
-        help_texts = {"codigo": "Identificador único, sin espacios.", "claustros": "Sin selección, se aplica a todos los claustros de la fecha."}
+        help_texts = {"claustros": "Sin selección, se aplica a todos los claustros de la fecha."}
 
     def save(self, commit=True):
         self.instance.categoria = "calendario"
