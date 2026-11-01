@@ -22,11 +22,11 @@
   <p>
     <strong>Estado:</strong>
     {% if justificativo.estado == "pendiente" %}
-    <span class="pill warn request-status">Pendiente de Revisión</span>
+    <span class="pill warn request-status"><span aria-hidden="true">⏳</span>&nbsp;Pendiente de Revisión</span>
     {% elif justificativo.estado == "aprobado" %}
-    <span class="pill ok request-status">Inasistencia Justificada</span>
+    <span class="pill ok request-status"><span aria-hidden="true">✔</span>&nbsp;Inasistencia Justificada</span>
     {% else %}
-    <span class="pill danger request-status">Infractor - Justificación Rechazada</span>
+    <span class="pill danger request-status"><span aria-hidden="true">❌</span>&nbsp;Infractor - Justificación Rechazada</span>
     {% endif %}
   </p>
   <p><strong>Elección:</strong> {{ justificativo.registro_padron.eleccion.nombre }}</p>

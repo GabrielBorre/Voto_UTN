@@ -20,6 +20,10 @@
   vertical-align: middle;
 }
 
+.historial-electoral__table .request-status {
+  white-space: nowrap;
+}
+
 .historial-electoral__empty {
   color: var(--muted);
   text-align: center;

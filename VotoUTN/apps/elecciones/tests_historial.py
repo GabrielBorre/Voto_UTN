@@ -150,6 +150,19 @@ class HistorialElectoralTests(TestCase):
         })
         self.assertContains(respuesta, "El período de justificación está habilitado.")
         self.assertContains(respuesta, "Historial Electoral")
+        for estado in (
+            "Voto Emitido",
+            "En Curso - Voto No Registrado",
+            "Pendiente de Revisión",
+            "Inasistencia Justificada",
+            "Infractor - Justificación Rechazada",
+            "Infractor",
+        ):
+            self.assertContains(respuesta, estado)
+        self.assertContains(respuesta, '<span aria-hidden="true">✔</span>', count=2)
+        self.assertContains(respuesta, '<span aria-hidden="true">❌</span>', count=2)
+        self.assertContains(respuesta, '<span aria-hidden="true">⏳</span>', count=1)
+        self.assertContains(respuesta, '<span aria-hidden="true">⚠</span>', count=1)
 
     def test_eleccion_publicada_aparece_con_situacion_en_curso(self):
         self.eleccion_abierta.estado = Eleccion.Estado.PUBLICADA

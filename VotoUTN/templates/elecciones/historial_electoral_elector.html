@@ -35,7 +35,16 @@
           <td>
             <span class="pill {{ item.clase_estado }} request-status"
               {% if item.ayuda_estado %}title="{{ item.ayuda_estado }}"{% endif %}>
-              {{ item.estado }}
+              {% if item.estado == "Voto Emitido" or item.estado == "Inasistencia Justificada" %}
+              <span aria-hidden="true">✔</span>
+              {% elif item.estado == "Infractor - Justificación Rechazada" or item.estado == "Infractor" %}
+              <span aria-hidden="true">❌</span>
+              {% elif item.estado == "Pendiente de Revisión" %}
+              <span aria-hidden="true">⏳</span>
+              {% elif item.estado == "En Curso - Voto No Registrado" %}
+              <span aria-hidden="true">⚠</span>
+              {% endif %}
+              &nbsp;{{ item.estado }}
             </span>
           </td>
           <td>
