@@ -22,11 +22,31 @@ class FormularioPlantillaNotificacion(forms.ModelForm):
             "roles_destinatarios", "claustros", "permite_envio_manual", "activa",
         )
         widgets = {"contenido": forms.Textarea(attrs={"rows": 5})}
+        labels = {
+            "categoria": "¿Para qué se usará?",
+            "permite_envio_manual": "También permitir envíos manuales",
+            "activa": "Plantilla disponible",
+        }
+        help_texts = {
+            "categoria": "Para las fechas administrativas, elegí Mensajes de fechas y recordatorios.",
+            "permite_envio_manual": "Permite elegir esta plantilla en la pantalla de envío manual de notificaciones.",
+            "activa": "Una plantilla desactivada no se ofrece para nuevos envíos.",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             self.fields["roles_destinatarios"].initial = self.instance.roles_destinatarios
+        if "categoria" in self.fields:
+            self.fields["categoria"].choices = (
+                ("calendario", "Mensajes de fechas y recordatorios"),
+                ("jornada", "Avisos de la jornada electoral"),
+                ("transaccional", "Respuestas a solicitudes"),
+                ("manual", "Mensajes generales"),
+            )
+            if not self.instance.pk:
+                self.initial["categoria"] = "calendario"
+                self.initial["permite_envio_manual"] = False
 
     def save(self, commit=True):
         instancia = super().save(commit=False)

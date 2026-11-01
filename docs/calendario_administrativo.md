@@ -28,6 +28,13 @@ con el diálogo; su página es `templates/parametros/plantilla_formulario.html`.
 También se actualizan los formularios de notificaciones, los de parámetros,
 sus vistas y las pruebas `tests_plantilla_calendario.py`.
 
+En el catálogo, «Opciones de envío» explica dónde se puede usar el mensaje.
+Las plantillas nuevas proponen mensajes de fechas y recordatorios, con envío
+manual desmarcado. Editar una existente conserva su categoría y permisos.
+Los formularios de parámetros se sirven sin caché para evitar versiones viejas
+al volver a abrirlos. Se actualizaron las etiquetas y ayudas del formulario de
+notificaciones, la página de plantilla, la vista de parámetros y sus pruebas.
+
 Archivos del editor: se modifican `apps/parametros/forms.py`, `urls.py` y
 `views.py`; se crean `tests_plantilla_calendario.py`, las plantillas
 `parametros/fecha_formulario.html`, `_campo.html`, `_mensaje_fecha.html`,

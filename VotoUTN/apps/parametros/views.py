@@ -4,6 +4,7 @@ from django.db.models import Q
 from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.db import transaction
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.auditoria.services import registrar_evento
@@ -134,6 +135,7 @@ def listar_parametros(request, tipo):
 
 
 @login_required
+@never_cache
 def editar_parametro(request, tipo, objeto_id=None):
     if not puede_administrar_parametros(request.user):
         return HttpResponseForbidden("No tiene permiso para gestionar parametros.")

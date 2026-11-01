@@ -14,7 +14,8 @@
     {% include "parametros/_editor_plantilla.html" with formulario_editor=formulario %}
   </section>
   <section class="card">
-    <h2>Uso de la plantilla</h2>
+    <h2>Opciones de envío</h2>
+    <p class="muted">Acá elegís dónde estará disponible este mensaje. El envío se configura después.</p>
     {% include "parametros/_campo.html" with campo=formulario.categoria %}
     {% include "parametros/_campo.html" with campo=formulario.permite_envio_manual %}
     {% include "parametros/_campo.html" with campo=formulario.activa %}

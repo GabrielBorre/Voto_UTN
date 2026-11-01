@@ -75,6 +75,9 @@ class PlantillaDesdeFechaTests(TestCase):
         url = reverse("crear-parametro", args=("plantillas-mensajes",))
         respuesta = self.client.get(url)
         self.assertTemplateUsed(respuesta, "parametros/plantilla_formulario.html")
+        self.assertEqual(respuesta.context["formulario"].initial["categoria"], "calendario")
+        self.assertFalse(respuesta.context["formulario"].initial["permite_envio_manual"])
+        self.assertIn("no-store", respuesta.headers["Cache-Control"])
         self.assertContains(respuesta, "data-editor-plantilla")
         self.assertNotContains(respuesta, 'name="codigo"')
         self.assertNotContains(respuesta, 'name="descripcion"')
@@ -91,6 +94,12 @@ class PlantillaDesdeFechaTests(TestCase):
         plantilla.refresh_from_db()
         self.assertEqual(plantilla.codigo, codigo)
         self.assertEqual(plantilla.descripcion, "Descripción histórica")
+        plantilla.categoria = "manual"
+        plantilla.permite_envio_manual = True
+        plantilla.save()
+        respuesta = self.client.get(reverse("editar-parametro", args=("plantillas-mensajes", plantilla.pk)))
+        self.assertEqual(respuesta.context["formulario"].initial["categoria"], "manual")
+        self.assertTrue(respuesta.context["formulario"].initial["permite_envio_manual"])
 
     def test_fecha_conserva_codigo_y_descripcion_al_editar(self):
         fecha = FechaAdministrativa.objects.create(nombre="Anterior", codigo="referencia-estable", descripcion="Histórica", roles_destinatarios=["elector"])
