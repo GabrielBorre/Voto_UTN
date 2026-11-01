@@ -151,6 +151,45 @@ class HistorialElectoralTests(TestCase):
         self.assertContains(respuesta, "El período de justificación está habilitado.")
         self.assertContains(respuesta, "Historial Electoral")
 
+    def test_eleccion_publicada_aparece_con_situacion_en_curso(self):
+        self.eleccion_abierta.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion_abierta.save(update_fields=("estado",))
+        self.habilitar_periodo(self.eleccion_abierta)
+        self.registrar_no_voto(self.registro_abierto, self.mesa_abierta)
+        justificativo = self.crear_justificativo(
+            self.registro_abierto,
+            JustificativoAusencia.Estado.APROBADO,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("historial-electoral"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        historial = {
+            item["eleccion"].pk: item["estado"]
+            for item in respuesta.context["historial"]
+        }
+        self.assertEqual(historial[self.eleccion_abierta.pk], "En Curso")
+        self.assertEqual(
+            respuesta.context["historial"][0]["justificativo"],
+            justificativo,
+        )
+        self.assertContains(respuesta, "En Curso")
+
+    def test_eleccion_en_curso_mantiene_situacion_en_curso_durante_justificativos(self):
+        self.habilitar_periodo(self.eleccion_abierta)
+        self.registrar_no_voto(self.registro_abierto, self.mesa_abierta)
+        self.crear_justificativo(self.registro_abierto, JustificativoAusencia.Estado.APROBADO)
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("historial-electoral"))
+
+        historial = {
+            item["eleccion"].pk: item["estado"]
+            for item in respuesta.context["historial"]
+        }
+        self.assertEqual(historial[self.eleccion_abierta.pk], "En Curso")
+
     def test_formulario_solo_habilita_justificacion_electoral_en_periodo_y_con_ausencia(self):
         formulario = FormularioJustificativo(registro_padron=self.registro_abierto)
         self.assertNotIn(

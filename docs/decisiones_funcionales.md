@@ -15,8 +15,10 @@
   el padrón local; en ese caso se muestra vacío.
 - El inicio del elector muestra la información de la elección únicamente cuando
   está Publicada o En curso. Una elección En preparación no debe ser visible allí.
-- Mientras la elección está abierta, el historial muestra «En Curso» hasta que
-  se habilite el período de justificación de electores.
+- Las elecciones Publicadas y En curso aparecen en el historial electoral y
+  muestran «En Curso» como situación, aun cuando exista participación o un
+  justificativo. Al finalizar la elección se aplican los estados de participación
+  y justificativos detallados a continuación.
 - Una vez habilitado el período, quien no tenga registro de ausencia figura
   como «Voto Emitido» y quien tenga registro de ausencia como «En Curso - Voto
   No Registrado». Un justificativo pendiente figura como «Pendiente de
