@@ -17,14 +17,26 @@
       {% if registro.asignacion_autoridad %}
       <div class="option">
         <h3>Desempeño como Autoridad de Mesa</h3>
-        <p><strong>Mesa:</strong> {{ registro.asignacion_autoridad.mesa.codigo|default:"Sin asignar" }}</p>
+        <p><strong>Mesa:</strong>
+          {% if registro.eleccion.estado == "en_curso" %}
+            {{ registro.asignacion_autoridad.mesa.codigo|default:"Sin asignar" }}
+          {% else %}
+            Será asignada próximamente
+          {% endif %}
+        </p>
         <p><strong>Sede:</strong> {{ registro.asignacion_autoridad.mesa.sede|default:"Sin asignar" }}</p>
         <p><strong>Turno de trabajo:</strong> {{ registro.asignacion_autoridad.turno|default:"Sin asignar" }}</p>
       </div>
       {% endif %}
       <div class="option">
         <h3>Mesa y sede de votación</h3>
-        <p><strong>Mesa:</strong> {{ registro.asignacion_mesa.mesa.codigo|default:"Sin asignar" }}</p>
+        <p><strong>Mesa:</strong>
+          {% if registro.eleccion.estado == "en_curso" %}
+            {{ registro.asignacion_mesa.mesa.codigo|default:"Sin asignar" }}
+          {% else %}
+            Será asignada próximamente
+          {% endif %}
+        </p>
         <p><strong>Sede:</strong> {{ registro.sede|default:"Sin asignar" }}</p>
       </div>
       <div class="option">

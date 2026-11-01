@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from apps.autoridades.models import AsignacionAutoridad
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
-from apps.mesas.models import Mesa
+from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Turno
 from apps.usuarios.backend_auth import ElectorUser
@@ -354,13 +354,15 @@ class InicioElectorTests(TestCase):
     def test_muestra_rol_autoridad_para_asignacion_de_eleccion_publicada(self):
         self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
         self.eleccion_en_curso.save(update_fields=("estado",))
-        self.crear_asignacion_autoridad(self.registro_en_curso)
+        asignacion = self.crear_asignacion_autoridad(self.registro_en_curso)
         self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
 
         respuesta = self.client.get(reverse("inicio-autenticado"))
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertContains(respuesta, "Será asignada próximamente")
+        self.assertNotContains(respuesta, asignacion.mesa.codigo)
         self.assertTrue(respuesta.context["nav_es_autoridad"])
 
     def test_muestra_rol_elector_para_asignacion_de_eleccion_en_preparacion(self):
@@ -475,15 +477,29 @@ class InicioElectorTests(TestCase):
     def test_muestra_eleccion_publicada_en_inicio_del_elector(self):
         self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
         self.eleccion_en_curso.save(update_fields=("estado",))
+        mesa = Mesa.objects.create(eleccion=self.eleccion_en_curso, numero=23)
+        AsignacionMesa.objects.create(registro_padron=self.registro_en_curso, mesa=mesa)
 
         respuesta = self.client.get(reverse("inicio-autenticado"))
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, self.eleccion_en_curso.nombre)
+        self.assertContains(respuesta, "Será asignada próximamente")
+        self.assertNotContains(respuesta, mesa.codigo)
         self.assertEqual(
             [registro.eleccion_id for registro in respuesta.context["registros"]],
             [self.eleccion_en_curso.pk],
         )
+
+    def test_muestra_mesa_asignada_cuando_la_eleccion_esta_en_curso(self):
+        mesa = Mesa.objects.create(eleccion=self.eleccion_en_curso, numero=23)
+        AsignacionMesa.objects.create(registro_padron=self.registro_en_curso, mesa=mesa)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, mesa.codigo)
+        self.assertNotContains(respuesta, "Será asignada próximamente")
 
     def test_muestra_aviso_y_enlace_al_historial_si_no_hay_elecciones_en_curso(self):
         self.eleccion_en_curso.estado = Eleccion.Estado.FINALIZADA
