@@ -109,7 +109,7 @@ def inicio_autenticado(request):
     if es_elector or es_autoridad_asignada:
         elector = elector_de_identidad(request.user)
         eleccion_en_curso = Eleccion.objects.filter(
-            estado__in=ESTADOS_ELECCION_NO_CERRADOS,
+            estado__in=(Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO),
         ).order_by("-fecha_inicio", "-id").first()
         registros = RegistroPadron.objects.none()
         if elector is not None and eleccion_en_curso is not None:

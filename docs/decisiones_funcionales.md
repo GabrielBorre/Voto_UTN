@@ -13,6 +13,8 @@
   persona solo consulta sus propios registros y justificativos.
 - Un elector autenticado puede acceder al historial aunque todavía no exista en
   el padrón local; en ese caso se muestra vacío.
+- El inicio del elector muestra la información de la elección únicamente cuando
+  está Publicada o En curso. Una elección En preparación no debe ser visible allí.
 - Mientras la elección está abierta, el historial muestra «En Curso» hasta que
   se habilite el período de justificación de electores.
 - Una vez habilitado el período, quien no tenga registro de ausencia figura

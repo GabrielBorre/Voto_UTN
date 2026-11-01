@@ -281,7 +281,7 @@ class InicioElectorTests(TestCase):
         self.departamento = Departamento.objects.create(nombre="Departamento inicio", codigo="INI")
         self.eleccion_en_curso = self.crear_eleccion(
             "Elección en curso",
-            Eleccion.Estado.PREPARADA,
+            Eleccion.Estado.EN_CURSO,
         )
         self.crear_registro(self.eleccion_en_curso)
         self.client.force_login(
@@ -315,7 +315,7 @@ class InicioElectorTests(TestCase):
     def test_muestra_solo_el_registro_de_la_eleccion_en_curso(self):
         eleccion_cerrada = self.crear_eleccion(
             "Elección cerrada anterior",
-            Eleccion.Estado.CERRADA,
+            Eleccion.Estado.FINALIZADA,
         )
         self.crear_registro(eleccion_cerrada)
 
@@ -333,7 +333,7 @@ class InicioElectorTests(TestCase):
         self.eleccion_en_curso.registros_padron.all().delete()
         eleccion_cerrada = self.crear_eleccion(
             "Elección cerrada anterior",
-            Eleccion.Estado.CERRADA,
+            Eleccion.Estado.FINALIZADA,
         )
         self.crear_registro(eleccion_cerrada)
 
@@ -346,8 +346,33 @@ class InicioElectorTests(TestCase):
         )
         self.assertNotContains(respuesta, "Sin elecciones en curso")
 
+    def test_no_muestra_eleccion_en_preparacion_en_inicio_del_elector(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.EN_PREPARACION
+        self.eleccion_en_curso.save(update_fields=("estado",))
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertNotContains(respuesta, self.eleccion_en_curso.nombre)
+        self.assertContains(respuesta, "Sin elecciones en curso")
+        self.assertIsNone(respuesta.context["eleccion_en_curso"])
+        self.assertFalse(respuesta.context["registros"].exists())
+
+    def test_muestra_eleccion_publicada_en_inicio_del_elector(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, self.eleccion_en_curso.nombre)
+        self.assertEqual(
+            [registro.eleccion_id for registro in respuesta.context["registros"]],
+            [self.eleccion_en_curso.pk],
+        )
+
     def test_muestra_aviso_y_enlace_al_historial_si_no_hay_elecciones_en_curso(self):
-        self.eleccion_en_curso.estado = Eleccion.Estado.CERRADA
+        self.eleccion_en_curso.estado = Eleccion.Estado.FINALIZADA
         self.eleccion_en_curso.save(update_fields=("estado",))
 
         respuesta = self.client.get(reverse("inicio-autenticado"))
