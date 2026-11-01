@@ -52,6 +52,7 @@ from apps.usuarios.permisos import (
     puede_administrar_elecciones,
     puede_configurar_eleccion,
     puede_crear_elecciones,
+    es_autoridad_en_eleccion_publicada_o_en_curso,
 )
 from apps.usuarios.models import AsignacionRol
 from .historial_electores import construir_historial_electoral
@@ -98,6 +99,7 @@ def contexto_fechas_administrativas(formulario):
 def inicio_autenticado(request):
     es_elector = getattr(request.user, "es_elector", False)
     es_autoridad_asignada = False
+    elector = elector_de_identidad(request.user)
     if not es_elector:
         roles_persona = AsignacionRol.objects.filter(
             usuario=request.user,
@@ -106,8 +108,16 @@ def inicio_autenticado(request):
         )
         es_elector = roles_persona.filter(rol=AsignacionRol.Rol.ELECTOR).exists()
         es_autoridad_asignada = roles_persona.filter(rol=AsignacionRol.Rol.AUTORIDAD_MESA).exists()
-    if es_elector or es_autoridad_asignada:
-        elector = elector_de_identidad(request.user)
+    tiene_historial_autoridad = (
+        elector is not None
+        and AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists()
+    )
+    if (
+        es_elector
+        or es_autoridad_asignada
+        or es_autoridad_en_eleccion_publicada_o_en_curso(elector)
+        or tiene_historial_autoridad
+    ):
         eleccion_en_curso = Eleccion.objects.filter(
             estado__in=(Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO),
         ).order_by("-fecha_inicio", "-id").first()
@@ -126,7 +136,7 @@ def inicio_autenticado(request):
                 "asignacion_autoridad__turno",
                 "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
             )
-        es_autoridad = AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists() if elector is not None else False
+        es_autoridad = es_autoridad_en_eleccion_publicada_o_en_curso(elector)
         return render(
             request,
             "elecciones/inicio_elector.html",

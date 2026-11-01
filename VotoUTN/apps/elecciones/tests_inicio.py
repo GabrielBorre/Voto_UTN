@@ -1,15 +1,17 @@
-from datetime import date
+from datetime import date, time
 from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.autoridades.models import AsignacionAutoridad
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
+from apps.mesas.models import Mesa
 from apps.padron.models import Elector, RegistroPadron
-from apps.parametros.models import Claustro, Departamento
+from apps.parametros.models import Claustro, Departamento, Turno
 from apps.usuarios.backend_auth import ElectorUser
-from apps.usuarios.models import AsignacionRol
+from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
 class InicioAutenticadoTests(TestCase):
@@ -283,7 +285,7 @@ class InicioElectorTests(TestCase):
             "Elección en curso",
             Eleccion.Estado.EN_CURSO,
         )
-        self.crear_registro(self.eleccion_en_curso)
+        self.registro_en_curso = self.crear_registro(self.eleccion_en_curso)
         self.client.force_login(
             ElectorUser(self.elector.dni),
             backend="apps.usuarios.backend_auth.ElectorBackend",
@@ -311,6 +313,118 @@ class InicioElectorTests(TestCase):
             eleccion=eleccion,
             eleccion_claustro_departamento=alcance,
         )
+
+    def crear_asignacion_autoridad(self, registro):
+        mesa = Mesa.objects.create(eleccion=registro.eleccion, numero=1)
+        turno = Turno.objects.create(
+            nombre=f"Turno autoridad {registro.eleccion_id}",
+            hora_inicio=time(8),
+            hora_fin=time(12),
+        )
+        asignador = get_user_model().objects.create_user(
+            username=f"asignador-autoridad-{registro.eleccion_id}",
+        )
+        return AsignacionAutoridad.objects.create(
+            registro_padron=registro,
+            mesa=mesa,
+            turno=turno,
+            asignada_por=asignador,
+        )
+
+    def iniciar_sesion_local_con_rol_autoridad(self, eleccion):
+        usuario = get_user_model().objects.create_user(username=f"autoridad-{eleccion.pk}")
+        PerfilUsuario.objects.create(usuario=usuario, elector=self.elector)
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            rol=AsignacionRol.Rol.AUTORIDAD_MESA,
+            eleccion=eleccion,
+        )
+        self.client.force_login(usuario)
+
+    def test_muestra_rol_autoridad_para_asignacion_de_eleccion_en_curso(self):
+        self.crear_asignacion_autoridad(self.registro_en_curso)
+        self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertTrue(respuesta.context["nav_es_autoridad"])
+
+    def test_muestra_rol_autoridad_para_asignacion_de_eleccion_publicada(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+        self.crear_asignacion_autoridad(self.registro_en_curso)
+        self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertTrue(respuesta.context["nav_es_autoridad"])
+
+    def test_muestra_rol_elector_para_asignacion_de_eleccion_en_preparacion(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.FINALIZADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+        eleccion_en_preparacion = self.crear_eleccion(
+            "Elección en preparación",
+            Eleccion.Estado.EN_PREPARACION,
+        )
+        registro = self.crear_registro(eleccion_en_preparacion)
+        self.crear_asignacion_autoridad(registro)
+        self.iniciar_sesion_local_con_rol_autoridad(eleccion_en_preparacion)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Elector</b>")
+        self.assertNotContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertFalse(respuesta.context["nav_es_autoridad"])
+
+    def test_asignacion_rechazada_no_muestra_rol_autoridad(self):
+        asignacion = self.crear_asignacion_autoridad(self.registro_en_curso)
+        asignacion.estado = AsignacionAutoridad.Estado.RECHAZADA
+        asignacion.save(update_fields=("estado",))
+        self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Elector</b>")
+        self.assertNotContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertFalse(respuesta.context["nav_es_autoridad"])
+
+    def test_muestra_rol_elector_cuando_solo_tiene_asignaciones_historicas(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.FINALIZADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+        registro = self.eleccion_en_curso.registros_padron.get(elector=self.elector)
+        self.crear_asignacion_autoridad(registro)
+        self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Elector</b>")
+        self.assertNotContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertFalse(respuesta.context["nav_es_autoridad"])
+        self.assertIsNone(respuesta.context["eleccion_en_curso"])
+
+    def test_asignacion_de_eleccion_anterior_no_muestra_rol_autoridad_en_la_actual(self):
+        eleccion_anterior = self.crear_eleccion(
+            "Elección anterior",
+            Eleccion.Estado.FINALIZADA,
+        )
+        registro_anterior = self.crear_registro(eleccion_anterior)
+        self.crear_asignacion_autoridad(registro_anterior)
+        self.iniciar_sesion_local_con_rol_autoridad(eleccion_anterior)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Elector</b>")
+        self.assertNotContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertContains(respuesta, self.eleccion_en_curso.nombre)
+        self.assertFalse(respuesta.context["nav_es_autoridad"])
 
     def test_muestra_solo_el_registro_de_la_eleccion_en_curso(self):
         eleccion_cerrada = self.crear_eleccion(

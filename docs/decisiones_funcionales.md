@@ -133,6 +133,9 @@ Ejemplo: `Sistemas de Información` / `K`.
 ## Autoridades
 
 - Una autoridad de mesa es también un elector.
+- El rol visible de Autoridad de Mesa requiere una asignación no rechazada en
+  una elección Publicada o En curso. Las asignaciones de elecciones en
+  preparación o finalizadas no modifican el rol visible de Elector.
 - No se crea una identidad duplicada.
 - Debe existir previamente como elector.
 - Debe pertenecer al padrón de la elección.
