@@ -26,7 +26,7 @@ class APIVistaConsultaPadron(APIView):
             RegistroPadron.objects.filter(
                 activo=True,
                 eleccion__habilitada=True,
-                eleccion__estado=Eleccion.Estado.ABIERTA,
+                eleccion__estado=Eleccion.Estado.EN_CURSO,
             )
             .filter(Q(elector__dni=codigo) | Q(elector__legajo=codigo))
             .select_related(

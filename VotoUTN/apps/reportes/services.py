@@ -1,10 +1,13 @@
 import csv
 
 from django.http import Http404, HttpResponse
+from django.db.models import Case, IntegerField, Value, When
 
 from apps.asistencia.models import RegistroParticipacion
 from apps.autoridades.models import AsignacionAutoridad
 from apps.justificativos.models import JustificativoAusencia
+from apps.mesas.models import Mesa
+from apps.padron.models import AsignacionSedePadron
 
 
 def valor_csv(valor):
@@ -31,7 +34,7 @@ def exportar_reporte_eleccion(eleccion, tipo):
             "eleccion_claustro_departamento__departamento",
             "eleccion_claustro_departamento__eleccion_claustro__claustro",
             "asignacion_mesa__mesa",
-        ):
+        ).order_by("elector__dni", "id"):
             escritor.writerow(
                 [
                     valor_csv(valor)
@@ -44,6 +47,34 @@ def exportar_reporte_eleccion(eleccion, tipo):
                         registro.eleccion_claustro_departamento.departamento,
                         registro.sede,
                         getattr(getattr(registro, "asignacion_mesa", None), "mesa", None),
+                    )
+                ]
+            )
+    elif tipo == "asignacion-sedes":
+        escritor.writerow(("dni", "legajo", "nombre", "claustro", "departamento", "sede_asignada", "estado", "regla"))
+        for asignacion in AsignacionSedePadron.objects.filter(
+            registro_padron__eleccion=eleccion,
+            registro_padron__activo=True,
+        ).select_related(
+            "sede",
+            "regla_aplicada",
+            "registro_padron__elector",
+            "registro_padron__eleccion_claustro_departamento__departamento",
+            "registro_padron__eleccion_claustro_departamento__eleccion_claustro__claustro",
+        ).order_by("registro_padron__elector__dni", "id"):
+            registro = asignacion.registro_padron
+            escritor.writerow(
+                [
+                    valor_csv(valor)
+                    for valor in (
+                        registro.elector.dni,
+                        registro.elector.legajo,
+                        registro.elector.nombre_completo,
+                        registro.eleccion_claustro_departamento.eleccion_claustro.claustro,
+                        registro.eleccion_claustro_departamento.departamento,
+                        asignacion.sede,
+                        asignacion.get_estado_display(),
+                        f"Regla {asignacion.regla_aplicada.orden}" if asignacion.regla_aplicada_id else "Automática",
                     )
                 ]
             )
@@ -65,7 +96,13 @@ def exportar_reporte_eleccion(eleccion, tipo):
             )
     elif tipo == "autoridades":
         escritor.writerow(("nombre", "legajo", "mesa", "turno", "estado", "asignada_en"))
-        for item in AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).select_related("registro_padron__elector", "mesa", "turno"):
+        for item in AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).select_related(
+            "registro_padron__elector", "mesa", "turno",
+        ).order_by(
+            "mesa__numero", "turno__hora_inicio",
+            Case(When(tipo=AsignacionAutoridad.Tipo.TITULAR, then=Value(0)), default=Value(1), output_field=IntegerField()),
+            "orden_suplencia", "registro_padron__elector__apellido", "registro_padron__elector__nombre",
+        ):
             escritor.writerow(
                 (
                     valor_csv(item.registro_padron.elector.nombre_completo),
@@ -108,6 +145,28 @@ def exportar_reporte_eleccion(eleccion, tipo):
         for error in eleccion.importaciones_padron.prefetch_related("errores").all():
             for detalle in error.errores.all():
                 escritor.writerow([valor_csv(valor) for valor in (error.nombre_archivo, detalle.fila, detalle.campo, detalle.mensaje)])
+    elif tipo == "infractores":
+        escritor.writerow(("elector", "legajo", "dni", "sede", "mesa", "estado_justificativo"))
+        ausentes = eleccion.registros_padron.filter(
+            activo=True,
+            asignacion_mesa__mesa__estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
+            participaciones__isnull=True,
+        ).select_related("elector", "sede", "asignacion_mesa__mesa").distinct()
+        for registro in ausentes:
+            justificativos = JustificativoAusencia.objects.filter(registro_padron=registro)
+            if justificativos.filter(estado=JustificativoAusencia.Estado.APROBADO).exists():
+                continue
+            estado_justificativo = "rechazado" if justificativos.filter(estado=JustificativoAusencia.Estado.RECHAZADO).exists() else "sin_justificativo"
+            escritor.writerow(
+                (
+                    valor_csv(registro.elector.nombre_completo),
+                    valor_csv(registro.elector.legajo),
+                    valor_csv(registro.elector.dni),
+                    valor_csv(registro.sede),
+                    valor_csv(getattr(getattr(registro, "asignacion_mesa", None), "mesa", "")),
+                    estado_justificativo,
+                )
+            )
     else:
         raise Http404()
 

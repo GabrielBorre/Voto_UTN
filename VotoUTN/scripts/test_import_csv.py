@@ -9,7 +9,7 @@ from apps.parametros.models import Departamento, Sede
 from apps.padron.services import validar_csv_padron
 
 # Crear recursos mínimos para la prueba
-eleccion = Eleccion.objects.create(nombre='Elec Test', estado=Eleccion.Estado.BORRADOR)
+eleccion = Eleccion.objects.create(nombre='Elec Test', estado=Eleccion.Estado.EN_PREPARACION)
 claustro = EleccionClaustro.objects.create(eleccion=eleccion, nombre='Claustro Test')
 
 departamento = Departamento.objects.create(codigo='DEP1', nombre='Departamento 1', activo=True)

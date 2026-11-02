@@ -53,11 +53,14 @@ Incluye CSV, previsualizacion, validacion, confirmacion, errores e historial.
 ### Etapa 7 - Autoridades de mesa
 **Estado:** flujo actualizado completado en la rama del issue 62
 
-La actualización sustituye la asignación manual mesa por mesa por una nómina
-única por claustro, cupos por turno, distribución de titulares/suplentes,
-propuesta confirmable de cambio de sede con recálculo de mesas y validación
-contra sede/turno de cursada. La gestión de ausencias justificadas y la
-promoción automática de suplentes siguen siendo etapas posteriores.
+El flujo permite sorteo, selección por archivo o nómina común por claustro, con
+cupos por turno y edición manual desde cada mesa. La nómina se calcula y
+previsualiza antes de confirmarse; conserva las designaciones existentes y
+permite reordenar padrones y mesas según las opciones de movilidad. Incluye
+promoción de suplentes al confirmar la Junta un reemplazo, independientemente
+del justificativo. El plan completo de continuidad, las decisiones
+C/C y las verificaciones están en [plan_autoridades_tres_modos.md](plan_autoridades_tres_modos.md).
+El detalle de uso y archivos está en `docs/autoridades_modalidades.md`.
 
 ### Etapa 8 - Justificativos
 **Estado:** completada
@@ -114,3 +117,10 @@ con consulta del nombre antes del guardado y revalidación del padrón al confir
 - Implementar los flujos de cambio de sede, cambio de turno, justificaciones y capacitacion que consumiran las plantillas estandar.
 - Ejecutar una auditoria visual integral de las pantallas y sus maquetas.
 - Preparar configuracion, observabilidad y seguridad para produccion.
+
+## Actualizacion de autoridades - 28 de octubre de 2026
+
+- Se retira la modalidad Planilla de asignaciones y se migra su configuración histórica a Sorteo, conservando las asignaciones persistidas.
+- Se agrega en Nómina la opción «Votar en mesa distinta», limitada a otra mesa de la misma sede y a turnos disponibles. Esta opción no reacomoda el padrón ni altera las mesas electorales.
+- Se conserva separada la opción anterior de reacomodar el padrón y el cambio de sede. Ambas reglas de reacomodo no se combinan con «Votar en mesa distinta».
+- La migración conserva los valores de reacomodo y cambio de sede existentes y agrega el nuevo indicador desactivado.

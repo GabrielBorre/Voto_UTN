@@ -32,8 +32,8 @@ destinatarios y evento sugerido. La fecha concreta por elección continúa en
 - `Mesa`
 
 Regla de unicidad del ciclo de vida: como máximo una `Eleccion` puede estar en
-estado `borrador`, `preparada` o `abierta` considerando esos estados como un
-único grupo. Puede haber varias elecciones `cerrada`.
+estado `en_preparacion`, `publicada` o `en_curso` considerando esos estados como un
+único grupo. Puede haber varias elecciones `finalizada`.
 
 ### Relaciones conceptuales
 
@@ -155,6 +155,12 @@ la previsualización, errores, advertencias, usuario y confirmación de cada CSV
 - `VarianteComunicacionFechaAdministrativa`
 - `EnvioNotificacion`
 
+`EnvioNotificacion` conserva una copia del asunto y contenido renderizados para
+correo y web. Requiere un destinatario local (`auth.User`) o un `Elector`, sin
+obligar a crear usuarios locales para identidades de Keycloak. Ambas relaciones
+usan `PROTECT` para conservar el destinatario y la trazabilidad histórica. La
+lectura interna es independiente del resultado del envío de correo.
+
 La comunicación define referencia temporal, desplazamiento y hora sugerida. Sus
 variantes enlazan plantillas por prioridad y por un criterio adicional
 controlado. Esta estructura es configuración reutilizable: no ejecuta todavía
@@ -203,3 +209,16 @@ preservar los permisos asociados a los modelos existentes.
 - `CandidaturaAutoridad` representa la nómina de elegibles e incluye exclusión explícita para no volver a seleccionar a un elector.
 - `AsignacionAutoridad` conserva mesa, turno y estado, y añade tipo titular/suplente y orden de suplencia.
 - Las asignaciones usan al mismo `RegistroPadron`; no crean un segundo elector ni una identidad local automática.
+- `ConfiguracionAutoridades` guarda por claustro el modo (`nomina` o `aleatorio`) y tres opciones: reacomodar titulares, asignar una autoridad a una mesa de votación distinta dentro de la misma sede, y permitir cambio de sede.
+- `CandidaturaAutoridad` conserva opcionalmente mesa, turno, tipo y orden elegidos manualmente. La selección se valida contra el padrón activo y los cupos.
+- `AsignacionMesa.autoridad_al_final` identifica el bloque final del padrón en los reacomodos ya confirmados. La opción «Votar en mesa distinta» no modifica esta asignación ni la firma QR.
+- `CandidaturaAutoridad.mesa_traslado` y `turno_traslado` conservan el destino laboral confirmado. El flujo de nómina puede además actualizar el padrón electoral al confirmar la propuesta.
+- En nómina, «Votar en mesa distinta» permite asignar autoridad en otra mesa de
+  la misma sede, sin cambiar la mesa electoral. «Permitir cambio de mesa» sigue
+  reordenando el padrón para que titulares voten donde trabajan; «Permitir
+  cambio de sede» conserva esa regla y puede actualizar `AsignacionSedePadron`,
+  mientras `RegistroPadron.sede` sigue siendo la sede de cursada. Las propuestas
+  conservan las asignaciones existentes y se rechazan si cambió el estado desde
+  la previsualización.
+- `AsignacionAutoridad.reemplazo_confirmado_en`, `reemplazo_confirmado_por` y `reemplazada_por` registran la confirmación operativa independiente y evitan promociones duplicadas.
+- `JustificativoAusencia.reemplazo_procesado_en` se conserva por compatibilidad con la migración existente; las nuevas resoluciones documentales no producen reemplazos.

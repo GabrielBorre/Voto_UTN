@@ -7,18 +7,18 @@
       {% if modo_historial %}
       <a class="button hero-boton" href="{% url 'gestionar-justificativos' eleccion_actual.pk %}">Justificativos</a>
       {% else %}
-      {% if elecciones.count > 1 %}
-      <form method="get" class="inline-form">
-        <label class="visually-hidden" for="filtro-eleccion">Elección</label>
-        <select id="filtro-eleccion" name="eleccion" class="hero-selector" data-autoenviar>
-          {% for eleccion in elecciones %}<option value="{{ eleccion.pk }}"{% if eleccion.pk == eleccion_actual.pk %} selected{% endif %}>{{ eleccion.nombre }}</option>{% endfor %}
-        </select>
-      </form>
-      {% endif %}
       <a class="button hero-boton" href="{% url 'escanear' eleccion_actual.pk %}">Carga manual de inasistencia</a>
       {% endif %}
       <a class="button hero-boton" href="#historial-participacion">Historial de participación</a>
       <a class="button hero-boton-secundario" href="{% url 'historial-elecciones' %}">Volver</a>
+      {% if puede_confirmar_notificaciones_ausentes %}
+      <form method="post" action="{% url 'confirmar-notificaciones-ausentes' eleccion_actual.pk %}" data-confirm="El escaneo de todas las mesas está confirmado. ¿Querés notificar a los electores registrados como ausentes?">
+        {% csrf_token %}
+        <button class="button hero-boton" type="submit">Confirmar escaneo y notificar ausentes</button>
+      </form>
+      {% elif eleccion_actual.notificaciones_ausentes_confirmadas_en %}
+      <p class="muted">Notificaciones a ausentes confirmadas el {{ eleccion_actual.notificaciones_ausentes_confirmadas_en|date:'d/m/Y H:i' }}.</p>
+      {% endif %}
     </div>
   </section>
 

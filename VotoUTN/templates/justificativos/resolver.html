@@ -1,11 +1,16 @@
 {% extends "gestion/base.html" %}
 
-{% block title %}Revisar justificativo | {{ justificativo.registro_padron.eleccion.nombre }}{% endblock %}
+{% block title %}{% if nav_en_historial %}Consultar{% else %}Revisar{% endif %} justificativo | {{ justificativo.registro_padron.eleccion.nombre }}{% endblock %}
 
 {% block content %}
 <section class="hero">
-  <h1>Revisar justificativo</h1>
-  <p>{{ justificativo.registro_padron.eleccion.nombre }}. Revisá la solicitud antes de registrar su resolución.</p>
+  {% if nav_en_historial %}
+    <h1>Consultar justificativo</h1>
+    <p>{{ justificativo.registro_padron.eleccion.nombre }} está en el historial. Esta solicitud solo puede consultarse.</p>
+  {% else %}
+    <h1>Revisar justificativo</h1>
+    <p>{{ justificativo.registro_padron.eleccion.nombre }}. Revisá la solicitud antes de registrar su resolución.</p>
+  {% endif %}
 </section>
 
 <section class="card form-card">
@@ -46,28 +51,49 @@
     </div>
   </div>
 
-  <div class="section-title">
-    <div>
-      <h2>Resolución</h2>
-      <p>Seleccioná el resultado y agregá una observación cuando sea necesario.</p>
-    </div>
-  </div>
-
-  <form id="formulario-resolucion-justificativo" method="post">
-    {% csrf_token %}
-    {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
-    {% for field in formulario %}
-      <div class="field">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+  {% if nav_en_historial %}
+    <div class="section-title">
+      <div>
+        <h2>Resolución registrada</h2>
+        {% if justificativo.resuelta_en %}
+          <p>{{ justificativo.resuelta_en|date:"d/m/Y H:i" }}{% if justificativo.resuelta_por %} por {{ justificativo.resuelta_por }}{% endif %}</p>
+        {% else %}
+          <p>Sin resolución registrada.</p>
+        {% endif %}
       </div>
-    {% endfor %}
-  </form>
+    </div>
+    {% if justificativo.observacion_resolucion %}
+      <div class="request-summary-item full-width">
+        <span>Observación de la resolución</span>
+        <div>{{ justificativo.observacion_resolucion|linebreaksbr }}</div>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="section-title">
+      <div>
+        <h2>Resolución</h2>
+        <p>Seleccioná el resultado y agregá una observación cuando sea necesario.</p>
+      </div>
+    </div>
+
+    <form id="formulario-resolucion-justificativo" method="post">
+      {% csrf_token %}
+      {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+      {% for field in formulario %}
+        <div class="field">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+    </form>
+  {% endif %}
 </section>
 
 <div class="section-actions form-card-actions">
-  <button class="button primary" type="submit" form="formulario-resolucion-justificativo">Guardar resolución</button>
+  {% if not nav_en_historial %}
+    <button class="button primary" type="submit" form="formulario-resolucion-justificativo">Guardar resolución</button>
+  {% endif %}
   <a class="button light" href="{% url 'gestionar-justificativos' justificativo.registro_padron.eleccion.id %}">Volver a justificativos</a>
 </div>
 {% endblock %}

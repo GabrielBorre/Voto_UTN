@@ -21,7 +21,7 @@
         <p><strong>{{ resumen.mesas }}</strong> mesas</p>
         <p><strong>{{ resumen.candidatos }}</strong> candidatos cargados</p>
         <p><strong>{{ resumen.asignadas }}</strong> autoridades asignadas</p>
-        <p><strong>{{ resumen.pendientes }}</strong> pendientes de confirmación</p>
+        <p><strong>{{ resumen.rechazadas }}</strong> asignaciones rechazadas</p>
       </div>
       <a class="button secondary" href="{% url 'gestionar-autoridades-claustro' eleccion.id resumen.eleccion_claustro.id %}">Gestionar claustro</a>
     </article>

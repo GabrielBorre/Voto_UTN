@@ -8,9 +8,11 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError
 from django.db.models import Count
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.timezone import make_aware
 from PIL import Image
 
@@ -23,6 +25,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamentoSede,
     EleccionSede,
     EleccionClaustroTurno,
+    EleccionClaustroSede,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.forms import FormularioArchivoPadron, FormularioReglaSedeClaustro
@@ -41,16 +44,22 @@ from apps.padron.models import (
     RegistroPadron,
     ReglaAsignacionSede,
     ReglaSedeClaustro,
+    SolicitudCambioSede,
 )
 from apps.padron.services import (
     calcular_asignaciones_sede_claustro,
     calcular_mesas_automaticas_eleccion,
     calcular_padrones_votacion,
     eliminar_padron_claustro,
+    recalcular_sedes_y_mesas_claustro,
+    resolver_solicitud_cambio_sede,
+    resolver_solicitudes_pendientes,
+
+    invalidar_mesas_automaticas_alcance,
 )
 from apps.partidos.models import CargoElectivo, OrganoElectivo, PuestoEleccion
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
-from apps.usuarios.models import AsignacionRol
+from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
 class PadronViewsTests(TestCase):
@@ -78,11 +87,39 @@ class PadronViewsTests(TestCase):
         self.assertTemplateUsed(respuesta, "padron/cargar.html")
         self.assertContains(
             respuesta,
-            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+            '<a class="active" href="/gestion/elecciones/">Configurar elección</a>',
         )
 
+    def test_exportar_padron_csv_y_pdf_desde_gestion_se_limita_al_claustro(self):
+        otro_claustro = Claustro.objects.create(nombre="Docentes")
+        otro_alcance = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=otro_claustro)
+        otro_departamento = Departamento.objects.create(nombre="Industrial", codigo="I")
+        otro_configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=otro_alcance, departamento=otro_departamento,
+        )
+        for dni, alcance in (("40200000", self.configuracion), ("40100000", self.configuracion), ("40300000", otro_configuracion)):
+            elector = Elector.objects.create(dni=dni, legajo=f"L{dni}", nombre="Nombre", apellido="Prueba")
+            RegistroPadron.objects.create(
+                elector=elector,
+                eleccion=self.eleccion,
+                eleccion_claustro_departamento=alcance,
+            )
+        self.client.force_login(self.usuario)
+        ruta = reverse("exportar-padron-claustro", args=(self.eleccion.id, self.eleccion_claustro.id, "csv"))
+        respuesta_csv = self.client.get(ruta)
+        contenido_csv = respuesta_csv.content.decode("utf-8-sig")
+        self.assertIn("40100000", contenido_csv)
+        self.assertIn("40200000", contenido_csv)
+        self.assertNotIn("40300000", contenido_csv)
+
+        respuesta_pdf = self.client.get(ruta.replace("csv", "pdf"))
+        self.assertEqual(respuesta_pdf.status_code, 200)
+        self.assertEqual(respuesta_pdf["Content-Type"], "application/pdf")
+        self.assertTrue(respuesta_pdf.content.startswith(b"%PDF"))
+        self.assertIn("padron_estudiantes_".encode(), respuesta_pdf["Content-Disposition"].encode())
+
     def test_eleccion_cerrada_bloquea_pantalla_y_configuracion_del_padron(self):
-        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.estado = Eleccion.Estado.FINALIZADA
         self.eleccion.save(update_fields=("estado",))
         self.client.force_login(self.usuario)
         ruta = reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id))
@@ -401,7 +438,11 @@ class PadronViewsTests(TestCase):
         )
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'class="card management-section"', count=3)
+        self.assertContains(respuesta, 'class="card management-section"', count=2)
+        self.assertContains(respuesta, '<details class="historial-importaciones"')
+        self.assertContains(respuesta, f'{reverse("gestionar-mesas", args=(self.eleccion.id,))}?claustro={self.eleccion_claustro.id}')
+        self.assertNotContains(respuesta, "Exportar padrón CSV")
+        self.assertNotContains(respuesta, "Calcular asignaciones")
         self.assertContains(respuesta, 'class="card management-section padron-management-card"')
         self.assertContains(respuesta, "estudiantes.csv")
         self.assertNotContains(respuesta, "docentes.csv")
@@ -466,7 +507,7 @@ class PadronViewsTests(TestCase):
             set(self.eleccion_claustro.sedes_habilitadas.values_list("id", flat=True)),
             sedes_anteriores,
         )
-        self.assertFalse(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).exists())
+        self.assertTrue(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).exists())
 
     def test_cambiar_maximo_recalcula_mesas_si_todas_las_sedes_estan_asignadas(self):
         administrador = get_user_model().objects.create_user(username="admin-maximo-mesas")
@@ -500,8 +541,22 @@ class PadronViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 302)
         self.assertTrue(registro.asignacion_mesa.mesa.generada_automaticamente)
 
-    def test_calcular_sedes_recalcula_mesas_de_toda_la_eleccion(self):
+    def test_recalculo_automatico_asigna_sedes_y_mesas_de_toda_la_eleccion(self):
         elector = Elector.objects.create(legajo="99003", dni="49990003", nombre="Elector reglas")
+        registro = RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+        )
+
+        _resultado, mesas_ok, _detalle = recalcular_sedes_y_mesas_claustro(self.eleccion_claustro, usuario=self.usuario)
+
+        self.assertTrue(mesas_ok)
+        self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=registro).sede, self.sede)
+        self.assertTrue(registro.asignacion_mesa.mesa.generada_automaticamente)
+
+    def test_accion_calcular_retirada_no_recalcula_sedes(self):
+        elector = Elector.objects.create(legajo="99004", dni="49990004", nombre="Elector sin recalculo")
         registro = RegistroPadron.objects.create(
             elector=elector,
             eleccion=self.eleccion,
@@ -515,8 +570,8 @@ class PadronViewsTests(TestCase):
         )
 
         self.assertEqual(respuesta.status_code, 302)
-        self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=registro).sede, self.sede)
-        self.assertTrue(registro.asignacion_mesa.mesa.generada_automaticamente)
+        self.assertFalse(AsignacionSedePadron.objects.filter(registro_padron=registro).exists())
+        self.assertFalse(AsignacionMesa.objects.filter(registro_padron=registro).exists())
 
     def test_autoguardado_persiste_fecha_y_maximo_sin_pulsar_el_boton(self):
         administrador = get_user_model().objects.create_user(username="autoguardado-padron")
@@ -593,6 +648,23 @@ class PadronViewsTests(TestCase):
         self.assertGreaterEqual(len(lineas), 2)
         self.assertEqual(lineas[0], "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde cursa,Turno,Nivel")
         self.assertEqual(lineas[1], "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,Mañana,1")
+        tipos = {fila.split(",")[1] for fila in lineas[1:]}
+        self.assertTrue({"DNI", "CUIL", "CUIT", "PAS"}.issubset(tipos))
+
+    def test_importacion_acepta_tipos_documento_definidos_y_rechaza_otros(self):
+        from apps.padron.services import validar_csv_padron
+
+        for tipo, documento in (("CUIL", "20301234567"), ("CUIT", "27301234569"), ("PAS", "A123456")):
+            contenido = (
+                "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n"
+                f"{documento},{tipo},legajo-{tipo},Nombre,Prueba,K,{tipo.lower()}@frba.utn.edu.ar\n"
+            ).encode()
+            resultado = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
+            self.assertNotIn("tipo_documento", [campo for _, campo, _ in resultado.errores])
+
+        contenido = b"DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,PASAPORTE,legajo-x,Nombre,Prueba,K,x@frba.utn.edu.ar\n"
+        resultado = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
+        self.assertIn("tipo_documento", [campo for _, campo, _ in resultado.errores])
 
     def test_validar_csv_padron_mapea_departamento_principal_correctamente(self):
         contenido = (
@@ -630,6 +702,45 @@ class PadronViewsTests(TestCase):
         validacion_repeticion = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
         self.assertFalse(validacion_repeticion.errores)
         self.assertEqual(validacion_repeticion.cantidad_existentes, 1)
+
+    def test_confirmar_importacion_recupera_identidad_creada_en_paralelo(self):
+        from apps.padron.services import confirmar_importacion
+
+        contenido = (
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Departamento Principal\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,K\n"
+        ).encode("utf-8")
+        elector = Elector.objects.create(
+            dni="40123456", legajo="2024001", nombre="Juan", apellido="Perez"
+        )
+        importacion = ImportacionPadron.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro=self.eleccion_claustro,
+            archivo=SimpleUploadedFile("padron.csv", contenido, content_type="text/csv"),
+            nombre_archivo="padron.csv",
+            huella_archivo=__import__("hashlib").sha256(contenido).hexdigest(),
+            usuario=self.usuario,
+        )
+        filtro_original = Elector.objects.filter
+        cantidad_consultas = 0
+
+        def filtro_con_creacion_concurrente(**criterios):
+            nonlocal cantidad_consultas
+            cantidad_consultas += 1
+            # Simula que otra confirmación inserta la identidad justo después
+            # de nuestras búsquedas iniciales y antes del INSERT.
+            if cantidad_consultas <= 2:
+                return Elector.objects.none()
+            return filtro_original(**criterios)
+
+        with (
+            patch.object(Elector.objects, "filter", side_effect=filtro_con_creacion_concurrente),
+            patch.object(Elector.objects, "create", side_effect=IntegrityError("legajo único")),
+        ):
+            cantidad = confirmar_importacion(importacion)
+
+        self.assertEqual(cantidad, 1)
+        self.assertEqual(importacion.eleccion.registros_padron.get().elector, elector)
 
     def test_validar_csv_padron_acepta_dni_numerico_de_excel(self):
         contenido = (
@@ -773,6 +884,34 @@ class CalculoMesasAutomaticasEleccionTests(TestCase):
             2,
         )
 
+    def test_calculo_asigna_automaticamente_alcances_con_una_sola_sede(self):
+        registro = self.crear_elector("15", self.alcance_a, asignar_sede=False)
+
+        resultado = calcular_mesas_automaticas_eleccion(self.eleccion)
+
+        asignacion_sede = AsignacionSedePadron.objects.get(registro_padron=registro)
+        self.assertEqual(asignacion_sede.sede, self.sede_electoral)
+        self.assertEqual(asignacion_sede.estado, AsignacionSedePadron.Estado.ASIGNADA)
+        self.assertEqual(resultado["electores"], 1)
+        self.assertTrue(AsignacionMesa.objects.filter(registro_padron=registro).exists())
+
+    def test_cambio_de_sedes_puede_invalidar_mesas_automaticas_obsoletas(self):
+        registro = self.crear_elector("16", self.alcance_a)
+        mesa = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=1,
+            eleccion_claustro_departamento=self.alcance_a,
+            sede=self.sede_electoral,
+            generada_automaticamente=True,
+        )
+        AsignacionMesa.objects.create(registro_padron=registro, mesa=mesa)
+
+        cantidad = invalidar_mesas_automaticas_alcance(self.claustro_a)
+
+        self.assertEqual(cantidad, 1)
+        self.assertFalse(Mesa.objects.filter(pk=mesa.pk).exists())
+        self.assertFalse(AsignacionMesa.objects.filter(registro_padron=registro).exists())
+
     def test_reparte_el_remanente_entre_las_dos_ultimas_mesas(self):
         self.claustro_a.maximo_votantes_por_mesa = 50
         self.claustro_a.save(update_fields=("maximo_votantes_por_mesa",))
@@ -838,20 +977,17 @@ class CalculoMesasAutomaticasEleccionTests(TestCase):
         self.assertEqual(resultado["mesas"], 2)
         self.assertEqual(AsignacionMesa.objects.filter(registro_padron__in=registros).count(), 3)
 
-    def test_elector_sin_sede_asignada_impide_el_calculo_completo(self):
-        self.crear_elector("30", self.alcance_a, asignar_sede=False)
-        mesa_anterior = Mesa.objects.create(
-            eleccion=self.eleccion,
-            numero=1,
-            eleccion_claustro_departamento=self.alcance_a,
-            sede=self.sede_electoral,
-            generada_automaticamente=True,
+    def test_elector_sin_asignacion_previa_se_asigna_si_su_alcance_tiene_una_sede(self):
+        registro = self.crear_elector("30", self.alcance_a, asignar_sede=False)
+
+        resultado = calcular_mesas_automaticas_eleccion(self.eleccion)
+
+        self.assertEqual(resultado["electores"], 1)
+        self.assertEqual(
+            AsignacionSedePadron.objects.get(registro_padron=registro).sede,
+            self.sede_electoral,
         )
-
-        with self.assertRaisesMessage(ValueError, "sin sede electoral asignada"):
-            calcular_mesas_automaticas_eleccion(self.eleccion)
-
-        self.assertTrue(Mesa.objects.filter(pk=mesa_anterior.pk).exists())
+        self.assertTrue(AsignacionMesa.objects.filter(registro_padron=registro).exists())
 
 
 class FormularioArchivoPadronTests(TestCase):
@@ -1144,6 +1280,36 @@ class AsignacionSedesClaustroTests(TestCase):
             respuesta.context["formulario"].fields["alcances_especificos"].widget.__class__.__name__,
             "CheckboxSelectMultiple",
         )
+        self.assertNotContains(respuesta, "Calcular asignaciones")
+
+    def test_eliminar_regla_compacta_prioridades_y_recalcula_sedes_y_mesas(self):
+        usuario = get_user_model().objects.create_user(username="junta-regla-automatica", password="clave")
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.claustro.maximo_votantes_por_mesa = 20
+        self.claustro.save(update_fields=("maximo_votantes_por_mesa",))
+        regla_inicial = self.crear_regla(3, "nivel", "2", self.medrano)
+        regla_restante = self.crear_regla(4, "nivel", "2", self.campus)
+        self.client.force_login(usuario)
+        url = reverse("configurar-sedes-claustro", args=(self.eleccion.id, self.claustro.id))
+
+        respuesta = self.client.post(url, {
+            "accion": "eliminar-regla",
+            "regla_id": regla_inicial.id,
+        })
+
+        self.assertRedirects(respuesta, url)
+        regla_restante.refresh_from_db()
+        self.assertEqual(regla_restante.orden, 1)
+        self.assertFalse(ReglaSedeClaustro.objects.filter(pk=regla_inicial.pk).exists())
+        for registro in (self.registro_a, self.registro_b):
+            asignacion = AsignacionSedePadron.objects.get(registro_padron=registro)
+            self.assertEqual(asignacion.sede, self.campus)
+            self.assertEqual(asignacion.regla_aplicada, regla_restante)
+        self.assertEqual(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).count(), 2)
 
     def test_reglas_se_pueden_reordenar_hacia_arriba_y_abajo(self):
         usuario = get_user_model().objects.create_user(username="junta-reorden-reglas", password="clave")
@@ -1183,7 +1349,29 @@ class AsignacionSedesClaustroTests(TestCase):
         self.assertEqual(regla_primera.orden, 1)
         self.assertEqual(regla_segunda.orden, 2)
 
-    def test_resultado_de_asignaciones_se_pagina_de_a_25_sin_alterar_totales(self):
+    def test_agregar_regla_recalcula_asignaciones_y_muestra_resumen(self):
+        usuario = get_user_model().objects.create_user(username="junta-regla-automatica")
+        AsignacionRol.objects.create(usuario=usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion)
+        self.client.force_login(usuario)
+        url = reverse("configurar-sedes-claustro", args=(self.eleccion.id, self.claustro.id))
+
+        respuesta = self.client.post(url, {
+            "orden": 1,
+            "campo": "nivel",
+            "operador": "igual",
+            "valor": "2",
+            "sede_destino": self.campus.pk,
+            "aplicar_a_todos": "on",
+        })
+
+        self.assertRedirects(respuesta, url, fetch_redirect_response=False)
+        self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=self.registro_a).sede, self.campus)
+        self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=self.registro_b).sede, self.campus)
+        pantalla = self.client.get(url)
+        self.assertContains(pantalla, "<strong>2</strong> electores se asignaron a la sede <strong>Campus</strong>")
+        self.assertNotContains(pantalla, 'value="calcular"')
+
+    def test_resultado_de_asignaciones_se_pagina_de_a_10_sin_alterar_totales(self):
         usuario = get_user_model().objects.create_user(username="junta-paginacion", password="clave")
         AsignacionRol.objects.create(
             usuario=usuario,
@@ -1231,12 +1419,16 @@ class AsignacionSedesClaustroTests(TestCase):
         url = reverse("configurar-sedes-claustro", args=(self.eleccion.id, self.claustro.id))
 
         primera_pagina = self.client.get(url)
-        segunda_pagina = self.client.get(url, {"pagina": 2})
+        segunda_pagina = self.client.get(url, {"pagina": 4})
         solo_pendientes = self.client.get(url, {"estado": "pendiente"})
 
-        self.assertEqual(primera_pagina.context["asignaciones"].paginator.per_page, 25)
-        self.assertEqual(len(primera_pagina.context["asignaciones"]), 25)
-        self.assertEqual(len(segunda_pagina.context["asignaciones"]), 7)
+        self.assertEqual(primera_pagina.context["asignaciones"].paginator.per_page, 10)
+        self.assertEqual(len(primera_pagina.context["asignaciones"]), 10)
+        self.assertEqual(len(segunda_pagina.context["asignaciones"]), 2)
+        resumen = primera_pagina.context["resumen_asignaciones"]
+        self.assertIn(30, [item["cantidad"] for item in resumen])
+        self.assertContains(primera_pagina, "<strong>30</strong> electores se asignaron a la sede")
+        self.assertContains(primera_pagina, "Campus")
         self.assertEqual(primera_pagina.context["cantidad_asignadas"], 30)
         self.assertEqual(primera_pagina.context["cantidad_pendientes"], 2)
         self.assertEqual(solo_pendientes.context["asignaciones"].paginator.count, 2)
@@ -1245,9 +1437,9 @@ class AsignacionSedesClaustroTests(TestCase):
             for item in solo_pendientes.context["asignaciones"]
         ))
         self.assertContains(primera_pagina, "Ver pendientes")
-        self.assertContains(primera_pagina, "32 registros · Página 1 de 2")
+        self.assertContains(primera_pagina, "32 registros · Página 1 de 4")
         self.assertContains(primera_pagina, 'aria-label="Ir a la página 2"')
-        self.assertContains(segunda_pagina, "Página 2 de 2")
+        self.assertContains(segunda_pagina, "Página 4 de 4")
 
     def crear_alcance(self, departamento, sedes):
         alcance = EleccionClaustroDepartamento.objects.create(
@@ -1359,7 +1551,7 @@ class EliminarPadronClaustroTests(TestCase):
             nombre="Elección de prueba",
             fecha_inicio=inicio,
             fecha_fin=inicio + timedelta(hours=8),
-            estado=Eleccion.Estado.PREPARADA,
+            estado=Eleccion.Estado.EN_PREPARACION,
         )
         self.sede = Sede.objects.create(nombre="Campus")
         departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
@@ -1451,7 +1643,7 @@ class EliminarPadronClaustroTests(TestCase):
             nombre="Elección anterior",
             fecha_inicio=inicio_anterior,
             fecha_fin=inicio_anterior + timedelta(hours=8),
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
         )
         claustro_anterior = EleccionClaustro.objects.create(
             eleccion=eleccion_anterior,
@@ -1480,6 +1672,15 @@ class EliminarPadronClaustroTests(TestCase):
 
         self.assertTrue(Elector.objects.filter(pk=self.elector.pk).exists())
         self.assertTrue(RegistroPadron.objects.filter(elector=self.elector, eleccion=eleccion_anterior).exists())
+
+    def test_no_elimina_con_eleccion_publicada(self):
+        self.eleccion.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion.save(update_fields=("estado",))
+
+        with self.assertRaisesMessage(ValueError, "ya no está en preparación"):
+            eliminar_padron_claustro(self.claustro, self.usuario)
+
+        self.assertTrue(RegistroPadron.objects.filter(pk=self.registro.pk).exists())
 
     def test_no_elimina_si_hay_qr_emitido(self):
         self.registro.qr_generado_en = make_aware(datetime(2026, 8, 4, 12))
@@ -1533,3 +1734,255 @@ class EliminarPadronClaustroTests(TestCase):
             reverse("previsualizar-padron", args=(self.eleccion.id, self.claustro.id)),
         )
         self.assertFalse(RegistroPadron.objects.filter(pk=self.registro.pk).exists())
+
+
+class SolicitudCambioSedeTests(TestCase):
+    def setUp(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        self.eleccion = Eleccion.objects.create(
+            nombre="Elección cambio de sede",
+            fecha_inicio=inicio,
+            fecha_fin=inicio + timedelta(hours=8),
+            estado=Eleccion.Estado.PUBLICADA,
+            fecha_cierre_solicitudes_cambio_sede=inicio.date() + timedelta(days=2),
+            habilitada=True,
+        )
+        self.sede_origen = Sede.objects.create(nombre="Campus")
+        self.sede_destino = Sede.objects.create(nombre="Medrano")
+        claustro = Claustro.objects.create(nombre="Estudiantes")
+        turno = Turno.objects.create(nombre="Mañana", hora_inicio=time(8), hora_fin=time(12))
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
+        EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede_origen)
+        EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede_destino)
+        self.eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion,
+            claustro=claustro,
+            maximo_votantes_por_mesa=100,
+        )
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=turno)
+        EleccionClaustroSede.objects.create(eleccion_claustro=self.eleccion_claustro, sede=self.sede_origen)
+        EleccionClaustroSede.objects.create(eleccion_claustro=self.eleccion_claustro, sede=self.sede_destino)
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=self.eleccion_claustro,
+            departamento=departamento,
+        )
+        EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=alcance, sede=self.sede_origen)
+        EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=alcance, sede=self.sede_destino)
+        elector = Elector.objects.create(dni="40111222", legajo="L40111222", nombre="Ada", apellido="Lovelace")
+        self.registro = RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=alcance,
+            sede=self.sede_origen,
+        )
+        self.mesa_origen = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=1,
+            eleccion_claustro_departamento=alcance,
+            sede=self.sede_origen,
+        )
+        AsignacionMesa.objects.create(registro_padron=self.registro, mesa=self.mesa_origen)
+        self.usuario = get_user_model().objects.create_user(username="admin-cambio-sede")
+        self.usuario_elector = get_user_model().objects.create_user(username="elector-cambio-sede")
+        PerfilUsuario.objects.create(usuario=self.usuario_elector, elector=self.registro.elector)
+
+    def test_aprobar_solicitud_cambia_sede_y_reasigna_mesa(self):
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+
+        resolver_solicitud_cambio_sede(solicitud, SolicitudCambioSede.Estado.APROBADA, self.usuario)
+
+        self.registro.refresh_from_db()
+        solicitud.refresh_from_db()
+        self.assertEqual(self.registro.sede, self.sede_destino)
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.APROBADA)
+        self.assertEqual(self.registro.asignacion_mesa.mesa.sede, self.sede_destino)
+
+    def test_elector_solo_puede_registrar_una_solicitud_por_eleccion(self):
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate() + timedelta(days=2)
+        self.eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
+        self.client.force_login(self.usuario_elector)
+        url = reverse("mis-solicitudes-cambio-sede")
+
+        primera = self.client.post(
+            url,
+            {"sede_destino": self.sede_destino.id, "observacion": "Primera solicitud"},
+            follow=True,
+        )
+        segunda = self.client.post(
+            url,
+            {"sede_destino": self.sede_destino.id, "observacion": "Segunda solicitud"},
+            follow=True,
+        )
+
+        self.assertEqual(primera.status_code, 200)
+        self.assertEqual(segunda.status_code, 200)
+        self.assertEqual(
+            SolicitudCambioSede.objects.filter(registro_padron=self.registro).count(),
+            1,
+        )
+        self.assertContains(segunda, "Ya registraste una solicitud de cambio de sede para esta elección.")
+
+    def test_mis_solicitudes_oculta_formulario_cuando_ya_existe_una_solicitud(self):
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate() + timedelta(days=2)
+        self.eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
+        SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        self.client.force_login(self.usuario_elector)
+
+        respuesta = self.client.get(reverse("mis-solicitudes-cambio-sede"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Ya registraste una solicitud de cambio de sede para esta elección.")
+        self.assertNotContains(respuesta, "Sede solicitada")
+
+    def test_aprobar_sin_agregar_mesas_rechaza_si_no_hay_mesa_disponible(self):
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        Mesa.objects.filter(eleccion=self.eleccion, sede=self.sede_destino).delete()
+
+        resultado = resolver_solicitudes_pendientes(
+            self.eleccion,
+            usuario=self.usuario,
+            accion="aprobar_sin_agregar_mesas",
+        )
+
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.RECHAZADA)
+        self.assertEqual(resultado["rechazadas"], 1)
+
+    def test_aprobar_con_maximo_total_deja_pendientes_las_que_requieren_mesas_excedentes(self):
+        self.eleccion_claustro.maximo_votantes_por_mesa = 1
+        self.eleccion_claustro.save(update_fields=("maximo_votantes_por_mesa",))
+        segunda_persona = Elector.objects.create(
+            dni="40111223",
+            legajo="L40111223",
+            nombre="Grace",
+            apellido="Hopper",
+        )
+        segundo_registro = RegistroPadron.objects.create(
+            elector=segunda_persona,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.registro.eleccion_claustro_departamento,
+            sede=self.sede_origen,
+        )
+        solicitudes = [
+            SolicitudCambioSede.objects.create(
+                registro_padron=registro,
+                sede_origen=self.sede_origen,
+                sede_destino=self.sede_destino,
+            )
+            for registro in (self.registro, segundo_registro)
+        ]
+
+        resultado = resolver_solicitudes_pendientes(
+            self.eleccion,
+            usuario=self.usuario,
+            accion="aprobar_con_maximo_mesas",
+            maximo_mesas_nuevas=1,
+        )
+
+        solicitudes[0].refresh_from_db()
+        solicitudes[1].refresh_from_db()
+        self.assertEqual(solicitudes[0].estado, SolicitudCambioSede.Estado.APROBADA)
+        self.assertEqual(solicitudes[1].estado, SolicitudCambioSede.Estado.PENDIENTE)
+        self.assertEqual(resultado["aprobadas"], 1)
+        self.assertEqual(resultado["pendientes"], 1)
+        self.assertEqual(Mesa.objects.filter(eleccion=self.eleccion, sede=self.sede_destino).count(), 1)
+
+    def test_maximo_total_de_mesas_rechaza_entrada_negativa(self):
+        with self.assertRaisesMessage(ValueError, "no puede ser negativo"):
+            resolver_solicitudes_pendientes(
+                self.eleccion,
+                usuario=self.usuario,
+                accion="aprobar_con_maximo_mesas",
+                maximo_mesas_nuevas=-1,
+            )
+
+    def test_gestion_muestra_cantidad_actual_de_mesas_por_sede(self):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(
+            reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.id,))
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        resumen = {
+            item["sede_nombre"]: item["mesas_actuales"]
+            for item in respuesta.context["resumen_mesas_por_sede"]
+        }
+        self.assertEqual(resumen, {"Campus": 1, "Medrano": 0})
+        self.assertEqual(respuesta.context["mesas_nuevas_si_aceptar_todas"], 1)
+        self.assertContains(respuesta, "Aceptar con límite de mesas nuevas")
+        self.assertNotContains(respuesta, "Aceptar con límite por sede")
+        self.assertContains(respuesta, "id=\"dialogo-limite-mesas\"")
+        self.assertContains(respuesta, "Mesas actuales por sede")
+        self.assertContains(respuesta, "resolucion-masiva-layout")
+
+    def test_boton_limite_de_mesas_se_muestra_deshabilitado_sin_solicitudes_pendientes(self):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(
+            reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.id,))
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(
+            respuesta,
+            '<button class="button secondary" type="button" id="abrir-dialogo-limite-mesas" '
+            'aria-haspopup="dialog" aria-controls="dialogo-limite-mesas" '
+            'disabled aria-describedby="sin-solicitudes-pendientes">Aceptar con límite de mesas nuevas</button>',
+            html=True,
+        )
+        self.assertContains(respuesta, "No hay solicitudes pendientes para resolver.")
+
+    def test_resolucion_con_maximo_no_acepta_un_valor_vacio(self):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.id,)),
+            {"accion": "aprobar_con_maximo_mesas", "maximo_mesas_nuevas": ""},
+        )
+
+        solicitud.refresh_from_db()
+        self.assertRedirects(
+            respuesta,
+            reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.id,)),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.PENDIENTE)
+        self.assertFalse(Mesa.objects.filter(eleccion=self.eleccion, sede=self.sede_destino).exists())

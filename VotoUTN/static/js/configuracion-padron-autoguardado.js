@@ -1,4 +1,5 @@
 document.querySelectorAll("[data-autoguardar-configuracion]").forEach((formulario) => {
+  if (formulario.closest("fieldset:disabled")) return;
   const estado = formulario.querySelector("[data-autosave-status]");
   const controles = Array.from(formulario.querySelectorAll("input, select, textarea"))
     .filter((control) => control.name !== "csrfmiddlewaretoken");
@@ -31,6 +32,8 @@ document.querySelectorAll("[data-autoguardar-configuracion]").forEach((formulari
     if (!formulario.reportValidity()) return Promise.resolve(false);
 
     const revisionEnviada = revision;
+    let guardadoExitoso = false;
+    const terminarCarga = window.VotoUTN.iniciarCarga("Guardando configuración…");
     estado.textContent = "Guardando…";
     guardadoEnCurso = fetch(formulario.action || window.location.href, {
       method: "POST",
@@ -42,6 +45,7 @@ document.querySelectorAll("[data-autoguardar-configuracion]").forEach((formulari
       .then(async (respuesta) => {
         if (!respuesta.ok) throw new Error("No se pudo guardar la configuración.");
         const contenido = await respuesta.json().catch(() => ({}));
+        guardadoExitoso = true;
         if (revision === revisionEnviada) {
           cambiosPendientes = false;
           estado.textContent = contenido.mensaje || "Configuración guardada automáticamente.";
@@ -55,8 +59,9 @@ document.querySelectorAll("[data-autoguardar-configuracion]").forEach((formulari
         return false;
       })
       .finally(() => {
+        terminarCarga();
         guardadoEnCurso = null;
-        if (cambiosPendientes && !temporizador) {
+        if (guardadoExitoso && cambiosPendientes && !temporizador) {
           temporizador = window.setTimeout(() => {
             temporizador = null;
             guardar();
@@ -96,8 +101,8 @@ document.querySelectorAll("[data-autoguardar-configuracion]").forEach((formulari
     evento.preventDefault();
     window.clearTimeout(temporizador);
     temporizador = null;
-    guardar().then((guardado) => {
-      if (guardado || window.confirm("No se pudieron guardar los cambios. ¿Querés salir igualmente?")) {
+    guardar().then(async (guardado) => {
+      if (guardado || await window.VotoUTN.confirmar("No se pudieron guardar los cambios. ¿Querés salir igualmente?")) {
         window.location.assign(destino.href);
       }
     });

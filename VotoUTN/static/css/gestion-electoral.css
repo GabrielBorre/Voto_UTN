@@ -18,6 +18,279 @@
     box-sizing: border-box;
 }
 
+.ciclo-electoral {
+    background: linear-gradient(145deg, #fff, #f4f7fc);
+}
+
+.ciclo-encabezado,
+.ciclo-pie {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.ciclo-antetitulo {
+    color: var(--azul-700);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.ciclo-encabezado h2 {
+    margin: 2px 0 2px;
+    font-size: 20px;
+}
+
+.ciclo-encabezado p,
+.ciclo-pie p {
+    color: var(--muted);
+    margin: 0;
+}
+
+.ciclo-accion {
+    margin: 0;
+}
+
+.ciclo-guia-vertical {
+    display: none;
+}
+
+.linea-tiempo-eleccion {
+    display: flex;
+    flex-direction: row;
+    gap: 32px;
+    padding: 10px 4px 6px;
+    margin: 6px 0 4px;
+    list-style: none;
+}
+
+.linea-tiempo-eleccion .etapa-electoral {
+    --etapa-color: #855400;
+    --etapa-fondo: #fff7df;
+    --etapa-borde: #eccc80;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    background: linear-gradient(155deg, #fff, var(--etapa-fondo));
+    color: var(--etapa-color);
+    border: 1px solid var(--etapa-borde);
+    border-top: 4px solid var(--etapa-color);
+    border-radius: 14px;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, .04);
+}
+
+.linea-tiempo-eleccion .fase-pasada {
+    --etapa-color: #2e7d4f;
+    --etapa-fondo: #eef7f1;
+    --etapa-borde: #b9dcc6;
+}
+
+.linea-tiempo-eleccion .fase-actual {
+    --etapa-color: #0b8a3e;
+    --etapa-fondo: #d6f5e1;
+    --etapa-borde: #5fc58a;
+    background: linear-gradient(155deg, #f4fff8, #c9f0d7);
+}
+
+.linea-tiempo-eleccion .fase-futura {
+    --etapa-color: #6b7686;
+    --etapa-fondo: #f2f4f7;
+    --etapa-borde: #d5dae1;
+}
+
+.linea-tiempo-eleccion .fase-futura h3,
+.linea-tiempo-eleccion .fase-futura .etapa-resumen {
+    color: #6b7686;
+}
+.etapa-electoral:not(:last-child)::after {
+    content: "\2192";
+    position: absolute;
+    right: -30px;
+    top: 34px;
+    width: 26px;
+    text-align: center;
+    color: #8090a7;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.linea-tiempo-eleccion .estado-actual {
+    border-color: var(--etapa-color);
+    box-shadow: 0 0 0 2px var(--etapa-color), 0 12px 24px rgba(15, 23, 42, .12);
+    transform: translateY(-3px);
+}
+
+.etapa-cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.etapa-etiquetas {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+}
+
+.estado-numero {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.etapa-icono {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    background: var(--etapa-fondo);
+    border: 1px solid var(--etapa-borde);
+}
+
+.etapa-icono svg {
+    width: 18px !important;
+    height: 18px !important;
+    max-width: 18px !important;
+}
+
+.linea-tiempo-eleccion .etapa-electoral h3 {
+    color: var(--etapa-color);
+    font-size: 16px;
+    margin: 6px 0 2px;
+    line-height: 1.2;
+}
+
+.etapa-electoral .etapa-resumen {
+    color: #536175;
+    font-size: 12px;
+    line-height: 1.35;
+    margin: 0;
+}
+
+.etapa-indicador {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: var(--etapa-color);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.etapa-punto,
+.ciclo-pie-punto {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.ciclo-pie {
+    padding-top: 8px;
+    border-top: 1px solid var(--borde);
+}
+
+.ciclo-pie p {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    font-size: 13px;
+}
+
+.ciclo-pie-punto,
+.ciclo-pie strong {
+    color: var(--azul-900);
+}
+
+.estado-ayuda {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: -1px;
+    right: -1px;
+    z-index: 3;
+    padding: 10px;
+    background: var(--azul-900);
+    color: white;
+    border-radius: 6px;
+    box-shadow: var(--sombra);
+}
+
+.etapa-electoral:hover .estado-ayuda,
+.etapa-electoral:focus .estado-ayuda {
+    display: block;
+}
+
+@media (max-width: 1000px) {
+    .linea-tiempo-eleccion {
+        gap: 24px;
+    }
+
+    .linea-tiempo-eleccion .etapa-electoral {
+        padding: 10px;
+    }
+
+    .etapa-electoral:not(:last-child)::after {
+        right: -24px;
+        width: 22px;
+    }
+}
+
+@media (max-width: 760px) {
+    .linea-tiempo-eleccion {
+        flex-direction: column;
+        gap: 26px;
+        padding-left: 30px;
+    }
+
+    .linea-tiempo-eleccion .etapa-electoral {
+        padding: 10px 14px;
+    }
+
+    .etapa-electoral:not(:last-child)::after {
+        content: "\2193";
+        left: -28px;
+        right: auto;
+        top: auto;
+        bottom: -24px;
+    }
+
+    .linea-tiempo-eleccion .estado-actual {
+        transform: none;
+    }
+
+    .estado-ayuda {
+        left: 0;
+        right: 0;
+    }
+
+    .ciclo-guia-horizontal {
+        display: none;
+    }
+
+    .ciclo-guia-vertical {
+        display: inline;
+    }
+}
+
 .gestion-electoral {
     margin: 0;
     background: var(--fondo);
@@ -85,6 +358,55 @@
 
 .userbox b {
     color: var(--azul-900);
+}
+
+.topbar-usuario {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.campana-notificaciones {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: none;
+    color: var(--azul-900);
+    background: var(--azul-100);
+    border: 1px solid #d3e3fa;
+    border-radius: 50%;
+    text-decoration: none;
+}
+
+.campana-notificaciones:hover,
+.campana-notificaciones.activa {
+    color: #fff;
+    background: var(--azul-900);
+    border-color: var(--azul-900);
+}
+
+.campana-notificaciones:focus-visible {
+    outline: 3px solid var(--azul-500);
+    outline-offset: 2px;
+}
+
+.campana-indicador {
+    position: absolute;
+    top: -5px;
+    right: -6px;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: var(--rojo-utn);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 15px;
+    text-align: center;
 }
 
 .gestion-nav {
@@ -331,6 +653,232 @@
 
 .management-panel .choice-field>.checkbox-list {
     margin-top: 8px;
+}
+
+.autoridades-modo-form {
+    display: grid;
+    gap: 18px;
+}
+
+.autoridades-mode-options {
+    display: grid;
+    gap: 12px;
+    max-width: 780px;
+}
+
+.autoridades-mode-options[hidden],
+.autoridades-mode-copy[hidden],
+[data-entrada-nomina][hidden] {
+    display: none !important;
+}
+
+.turno-cupos[hidden] {
+    display: none !important;
+}
+
+[data-boton-aplicar][hidden],
+[data-boton-recalcular][hidden] {
+    display: none !important;
+}
+
+.autoridades-option-check {
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    gap: 13px;
+    margin: 0;
+    padding: 14px 16px;
+    text-align: left;
+}
+
+.autoridades-option-check input[type="checkbox"] {
+    accent-color: var(--azul-900);
+    flex: 0 0 20px;
+    height: 20px;
+    margin: 0;
+    width: 20px;
+}
+
+.autoridades-option-check span {
+    display: grid;
+    gap: 4px;
+}
+
+.autoridades-option-check small {
+    color: #596273;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.autoridades-mode-description {
+    display: grid;
+    gap: 14px;
+    margin: 20px 0 6px;
+}
+
+.autoridades-mode-copy {
+    background: #f5f8fc;
+    border: 1px solid #d8e2ef;
+    border-left: 4px solid var(--azul-900);
+    border-radius: 9px;
+    line-height: 1.7;
+    padding: 17px 20px;
+}
+
+.autoridades-mode-common {
+    border-top: 1px solid var(--borde);
+    display: grid;
+    gap: 6px;
+    line-height: 1.6;
+    margin: 0 !important;
+    padding: 14px 4px 0;
+}
+
+.filtros-asignaciones {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, 1fr)) auto;
+    align-items: end;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.filtros-asignaciones .field {
+    margin: 0;
+}
+
+.filtros-asignaciones-acciones,
+.mesa-detalle-acciones {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mesas-asignaciones-tabla {
+    min-width: 720px;
+}
+
+.mesas-asignaciones-tabla > tbody > .mesa-fila-resumen > td,
+.mesas-asignaciones-tabla > tbody > .mesa-fila-resumen > th {
+    padding: 7px 10px;
+    vertical-align: middle;
+    font-size: 13px;
+}
+
+.mesa-grupo {
+    border-bottom: 2px solid var(--borde);
+}
+
+.mesa-fila-resumen > th {
+    color: var(--texto);
+    background: transparent;
+    white-space: nowrap;
+}
+
+.mesa-cupo {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.mesa-resumen-acciones {
+    display: grid;
+    justify-items: start;
+    gap: 5px;
+    font-size: 12px;
+}
+
+.mesa-resumen-acciones button {
+    white-space: nowrap;
+}
+
+.mesa-fila-detalle[hidden] {
+    display: none;
+}
+
+.mesas-asignaciones-tabla > tbody > .mesa-fila-detalle > td {
+    padding: 0;
+}
+
+.cupo-completo { color: #256029; }
+.cupo-pendiente { color: #a51d2d; font-weight: 700; }
+.cupo-excedido { color: #825600; font-weight: 700; }
+
+.mesa-detalle {
+    padding: 12px 14px 16px;
+    background: #fcfdff;
+}
+
+.mesa-detalle-acciones {
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.management-panel .management-section .mesa-detalle .table-wrap {
+    margin-top: 0;
+}
+
+.mesa-autoridades-tabla th,
+.mesa-autoridades-tabla td {
+    padding: 8px 10px;
+    font-size: 13px;
+    vertical-align: top;
+}
+
+.mesa-autoridades-tabla .reemplazo-detalle {
+    display: block;
+    margin-top: 4px;
+}
+
+@media (max-width: 760px) {
+    .filtros-asignaciones { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 440px) {
+    .filtros-asignaciones { grid-template-columns: 1fr; }
+}
+
+.autoridades-lista-detalle {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.autoridades-lista-detalle>li {
+    border-bottom: 1px solid var(--borde);
+    line-height: 1.55;
+    padding: 10px 0;
+}
+
+.autoridades-lista-detalle>li:first-child {
+    padding-top: 0;
+}
+
+.autoridades-lista-detalle>li:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.autoridades-lista-detalle .pill {
+    margin-left: 8px;
+}
+
+.autoridades-lista-detalle form {
+    margin-top: 8px;
+}
+
+.authority-candidate-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.authority-candidate-actions form {
+    margin: 0;
 }
 
 [data-regla-sede-form] .rule-departments-field {
@@ -1066,6 +1614,47 @@ th a.table-sort-link:focus-visible {
     margin-top: 22px;
 }
 
+.resolucion-masiva-layout {
+    display: grid;
+    gap: 28px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.resolucion-masiva-layout .section-title {
+    margin-top: 0;
+}
+
+.resolucion-masiva-layout .footer-actions {
+    justify-content: flex-start;
+    margin-top: 12px;
+}
+
+.resolucion-masiva-mesas .table-wrap {
+    margin-top: 16px;
+}
+
+.dialogo-limite-mesas {
+    border: 1px solid var(--borde);
+    border-radius: 16px;
+    box-shadow: 0 18px 60px rgb(15 23 42 / 28%);
+    max-width: 560px;
+    padding: 24px;
+    width: calc(100% - 32px);
+}
+
+.dialogo-limite-mesas::backdrop {
+    background: rgb(15 23 42 / 55%);
+}
+
+.dialogo-limite-mesas h2 {
+    color: var(--azul-900);
+    margin: 0 0 14px;
+}
+
+.dialogo-limite-mesas p {
+    line-height: 1.5;
+}
+
 .checkbox-list {
     display: grid;
     gap: 9px;
@@ -1490,7 +2079,8 @@ table td:last-child {
 
     .row,
     .checkbox-grid,
-    .gestion-form-grid {
+    .gestion-form-grid,
+    .resolucion-masiva-layout {
         grid-template-columns: 1fr;
     }
 
@@ -1543,4 +2133,128 @@ table td:last-child {
         font-size: 12px;
         padding: 4px 8px;
     }
+}
+
+.configuration-grid .option > h2 {
+    margin-bottom: 6px;
+}
+
+.configuration-grid .option > h2 + .pill {
+    align-self: flex-start;
+    margin-bottom: 10px;
+}
+
+.hero-acciones-arriba {
+    align-items: flex-start;
+    flex-wrap: nowrap;
+}
+
+.hero-acciones-arriba > div:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.hero-acciones-arriba .hero-botones {
+    flex: none;
+}
+
+@media (max-width: 640px) {
+    .hero-acciones-arriba {
+        flex-wrap: wrap;
+    }
+}
+
+.gestion-padron-fila {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.gestion-padron-fila .compact-summary {
+    flex: 1 1 220px;
+    margin: 0;
+}
+
+.acciones-apiladas {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.gestion-padron-fila .acciones-apiladas {
+    margin-left: auto;
+}
+
+.historial-importaciones,
+.detalle-asignaciones {
+    margin-top: 16px;
+    border: 1px solid #dfe5ee;
+    border-radius: 12px;
+    background: #fafbfd;
+}
+
+.historial-importaciones > summary,
+.detalle-asignaciones > summary {
+    cursor: pointer;
+    padding: 12px 16px;
+    font-weight: 700;
+    color: var(--azul-900);
+}
+
+.historial-importaciones[open] > summary,
+.detalle-asignaciones[open] > summary {
+    border-bottom: 1px solid #dfe5ee;
+}
+
+.historial-importaciones > :not(summary),
+.detalle-asignaciones > :not(summary) {
+    margin: 12px 16px;
+}
+
+.resumen-asignaciones {
+    margin: 12px 0 0;
+    padding-left: 20px;
+}
+
+.resumen-asignaciones li {
+    margin-bottom: 6px;
+}
+
+.filtros-mesas,
+.filtros-solicitudes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.filtros-mesas .field,
+.filtros-solicitudes .field {
+    min-width: 180px;
+    margin: 0;
+}
+
+.filtros-mesas-acciones {
+    display: flex;
+    gap: 8px;
+}
+
+.detalle-impacto-mesas {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f1f6ff;
+    color: var(--azul-900);
+}
+/* Edicion manual por cupo de mesa */
+.seleccion-manual-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; align-items: start; }
+.seleccion-manual-ancha { grid-column: 1 / -1; }
+#id_registro { min-height: 12rem; }
+#seleccion-manual-form .field { min-width: 0; }
+@media (max-width: 640px) {
+  .seleccion-manual-campos { grid-template-columns: 1fr; }
+  .seleccion-manual-ancha { grid-column: auto; }
 }

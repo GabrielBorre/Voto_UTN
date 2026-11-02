@@ -11,7 +11,7 @@ from apps.mesas.models import Mesa
 from apps.padron.models import RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede
 from apps.usuarios.models import AsignacionRol
-from apps.usuarios.permisos import ROLES_CON_PARTICIPACION
+from apps.usuarios.permisos import ROLES_CON_PARTICIPACION, puede_administrar_elecciones
 
 
 ESTADOS_ESCANEO = tuple(Mesa.EstadoEscaneo.values)
@@ -61,10 +61,7 @@ def seleccionar_eleccion_actual(elecciones, eleccion_id=None):
 def _mesas_del_alcance(usuario, eleccion):
     """Replica el alcance de puede_registrar_participacion para no mostrar mesas ajenas."""
     mesas = Mesa.objects.filter(eleccion=eleccion)
-    es_administrador_sistema = AsignacionRol.objects.filter(
-        usuario=usuario, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA
-    ).exists()
-    if usuario.is_superuser or es_administrador_sistema:
+    if puede_administrar_elecciones(usuario, eleccion):
         return mesas, False
     asignaciones = AsignacionRol.objects.filter(
         usuario=usuario, activo=True, rol__in=ROLES_CON_PARTICIPACION, eleccion=eleccion
@@ -109,10 +106,7 @@ MAXIMO_ELECCIONES_HISTORIAL = 12
 
 def _elecciones_para_historial(usuario):
     elecciones = Eleccion.objects.all()
-    es_administrador_sistema = AsignacionRol.objects.filter(
-        usuario=usuario, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA
-    ).exists()
-    if usuario.is_superuser or es_administrador_sistema:
+    if puede_administrar_elecciones(usuario):
         return elecciones
     return elecciones.filter(
         asignaciones_rol__usuario=usuario,

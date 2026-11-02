@@ -7,16 +7,20 @@ from django.db.models import Count, Q
 from django.http import HttpResponseForbidden
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from .forms import (
+    FormularioAgregarClaustro,
     FormularioAlcanceSedes,
     FormularioDepartamentosClaustro,
     FormularioEleccion,
     FormularioEditarEleccion,
     FormularioFechasAdministrativasEleccion,
 )
+from .services import agregar_claustro, eliminar_claustro
 from .models import (
+    ESTADOS_CONFIGURACION_SOLO_LECTURA,
     ESTADOS_ELECCION_NO_CERRADOS,
     Eleccion,
     EleccionClaustro,
@@ -30,11 +34,24 @@ from apps.asistencia.dashboard import (
 )
 from apps.autoridades.models import AsignacionAutoridad
 from apps.auditoria.services import registrar_evento
+from apps.mesas.models import Mesa
 from apps.partidos.models import ParticipacionPartido
-from apps.padron.models import RegistroPadron
+from apps.padron.models import RegistroPadron, SolicitudCambioSede
 from apps.parametros.models import Claustro
-from apps.padron.services import rehabilitar_cambios_padron as servicio_rehabilitar_cambios_padron
+from apps.padron.services import (
+    calcular_asignaciones_sede_claustro,
+    invalidar_mesas_automaticas_alcance,
+    calcular_mesas_automaticas_eleccion,
+    recalcular_asignaciones_sede_y_mesas,
+    rehabilitar_cambios_padron as servicio_rehabilitar_cambios_padron,
+)
 from apps.justificativos.models import JustificativoAusencia
+from apps.notificaciones.services import (
+    crear_notificaciones_ausentes_confirmadas,
+    enviar_notificacion,
+    notificar_eleccion_en_curso,
+    notificar_eleccion_publicada,
+)
 from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import (
     elecciones_con_participacion,
@@ -49,7 +66,10 @@ MESAS_POR_PAGINA = 10
 
 def contexto_formulario_eleccion(formulario, incluir_parametros=False):
     contexto = {
-        "campos_generales": [formulario[nombre] for nombre in ("nombre", "fecha_inicio", "fecha_fin")],
+        "campos_generales": [
+            formulario[nombre]
+            for nombre in ("nombre", "fecha_inicio", "fecha_fin", "fecha_cierre_solicitudes_cambio_sede")
+        ],
     }
     if incluir_parametros:
         contexto["campos_parametros"] = [formulario[nombre] for nombre in ("sedes", "claustros")]
@@ -88,7 +108,9 @@ def inicio_autenticado(request):
                 "eleccion_claustro_departamento__eleccion_claustro",
                 "sede",
                 "asignacion_autoridad__mesa__sede",
+                "asignacion_autoridad__mesa__eleccion_claustro_departamento__departamento",
                 "asignacion_autoridad__turno",
+                "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
             )
         es_autoridad = AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists() if elector is not None else False
         return render(request, "elecciones/inicio_elector.html", {"registros": registros, "es_autoridad": es_autoridad})
@@ -105,7 +127,7 @@ def inicio_autenticado(request):
     ).exists():
         return redirect("inicio-administrativo-junta")
     if puede_administrar_elecciones(request.user):
-        return redirect("gestionar-elecciones")
+        return redirect("inicio-administrador-junta")
     return redirect("lista-elecciones")
 
 
@@ -136,21 +158,19 @@ def inicio_administrativo_junta(request):
 
 @login_required
 def inicio_administrador_junta(request):
-    roles = AsignacionRol.objects.filter(
-        usuario=request.user,
-        activo=True,
-        rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
-    ).exclude(eleccion__isnull=True)
-    if not roles.exists():
+    if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para acceder al panel de administrador de junta.")
-    elecciones = Eleccion.objects.filter(asignaciones_rol__in=roles).distinct()
+    elecciones = Eleccion.objects.all()
     eleccion_actual = elecciones.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS).order_by("-fecha_inicio", "-id").first()
-    if eleccion_actual is None:
-        eleccion_actual = elecciones.filter(estado=Eleccion.Estado.CERRADA).order_by("-fecha_inicio", "-id").first()
     solicitudes_pendientes = JustificativoAusencia.objects.filter(
-        registro_padron__eleccion__in=elecciones,
+        registro_padron__eleccion=eleccion_actual,
         estado=JustificativoAusencia.Estado.PENDIENTE,
     ).count()
+    cambios_pendientes = SolicitudCambioSede.objects.filter(
+        registro_padron__eleccion=eleccion_actual,
+        estado=SolicitudCambioSede.Estado.PENDIENTE,
+    ).count()
+    dashboard = construir_dashboard(request.user, eleccion_actual, FiltrosDashboard()) if eleccion_actual else None
     return render(
         request,
         "gestion/inicio_administrador_junta.html",
@@ -158,6 +178,8 @@ def inicio_administrador_junta(request):
             "eleccion_actual": eleccion_actual,
             "cantidad_elecciones": elecciones.count(),
             "solicitudes_pendientes": solicitudes_pendientes,
+            "cambios_pendientes": cambios_pendientes,
+            "dashboard": dashboard,
         },
     )
 
@@ -166,7 +188,7 @@ def inicio_administrador_junta(request):
 def listar_elecciones(request):
     elecciones = elecciones_con_participacion(request.user)
     hay_eleccion_en_curso = Eleccion.objects.filter(
-        estado__in=ESTADOS_ELECCION_NO_CERRADOS,
+        estado=Eleccion.Estado.EN_CURSO,
     ).exists()
     contexto = {
         "elecciones": elecciones,
@@ -186,7 +208,57 @@ def listar_elecciones(request):
             pagina_mesas=Paginator(dashboard["mesas"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
             querystring_paginacion=parametros.urlencode(),
         )
+        puede_confirmar_ausentes = (
+            puede_administrar_elecciones(request.user, eleccion_actual)
+            and eleccion_actual.estado == Eleccion.Estado.EN_CURSO
+            and eleccion_actual.notificaciones_ausentes_confirmadas_en is None
+            and eleccion_actual.mesas.exists()
+            and not eleccion_actual.mesas.exclude(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA).exists()
+        )
+        contexto["puede_confirmar_notificaciones_ausentes"] = puede_confirmar_ausentes
     return render(request, "elecciones/list.html", contexto)
+
+
+@login_required
+def confirmar_notificaciones_ausentes(request, eleccion_id):
+    if request.method != "POST":
+        raise Http404()
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("Solo el administrador de junta puede confirmar las notificaciones a ausentes.")
+    try:
+        envios = crear_notificaciones_ausentes_confirmadas(eleccion)
+    except ValueError as error:
+        messages.error(request, str(error))
+        return redirect(f"{reverse('lista-elecciones')}?eleccion={eleccion.pk}")
+
+    enviados = sum(enviar_notificacion(envio) for envio in envios)
+    registrar_evento(
+        accion="eleccion.notificaciones_ausentes_confirmadas",
+        entidad="Eleccion",
+        entidad_id=eleccion.pk,
+        eleccion=eleccion,
+        usuario=request.user,
+        request=request,
+        datos_nuevos={
+            "notificaciones_creadas": len(envios),
+            "correos_enviados": enviados,
+            "correos_no_enviados": len(envios) - enviados,
+        },
+    )
+    if not envios:
+        messages.success(request, "Escaneo confirmado: no se registraron ausentes para notificar.")
+    elif enviados == len(envios):
+        messages.success(request, f"Se notificó a {len(envios)} electores ausentes por correo y en la aplicación.")
+    else:
+        messages.warning(
+            request,
+            f"Se generaron notificaciones para {len(envios)} ausentes. "
+            f"Correos enviados: {enviados}; con error: {len(envios) - enviados}. "
+            "Las notificaciones permanecen disponibles en la aplicación.",
+        )
+    return redirect(f"{reverse('lista-elecciones')}?eleccion={eleccion.pk}")
+
 
 def index(request):
     return render(request, "elecciones/index.html")
@@ -196,8 +268,10 @@ def index(request):
 def gestionar_elecciones(request):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para gestionar elecciones.")
-    estados_gestionables = (Eleccion.Estado.BORRADOR, Eleccion.Estado.PREPARADA, Eleccion.Estado.ABIERTA)
+    estados_gestionables = (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO)
     elecciones = Eleccion.objects.filter(estado__in=estados_gestionables)
+    if elecciones.exists():
+        return configurar_eleccion(request, elecciones.first().pk)
     return render(
         request,
         "elecciones/gestion_lista.html",
@@ -209,7 +283,7 @@ def gestionar_elecciones(request):
 def historial_elecciones(request):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para consultar el historial.")
-    elecciones = Eleccion.objects.filter(estado=Eleccion.Estado.CERRADA)
+    elecciones = Eleccion.objects.filter(estado=Eleccion.Estado.FINALIZADA)
     return render(request, "elecciones/historial_elecciones.html", {"elecciones": elecciones})
 
 
@@ -217,7 +291,7 @@ def historial_elecciones(request):
 def dashboard_historial_eleccion(request, eleccion_id):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para consultar el historial.")
-    eleccion = get_object_or_404(Eleccion, pk=eleccion_id, estado=Eleccion.Estado.CERRADA)
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id, estado=Eleccion.Estado.FINALIZADA)
     filtros = FiltrosDashboard.desde_parametros(request.GET)
     dashboard = construir_dashboard(request.user, eleccion, filtros)
     parametros = request.GET.copy()
@@ -240,13 +314,74 @@ def dashboard_historial_eleccion(request, eleccion_id):
 @login_required
 def configurar_eleccion(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion, solo_consulta=True):
         return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
+    pendientes_configuracion = []
+    try:
+        eleccion.validar_configuracion()
+    except ValidationError as error:
+        pendientes_configuracion = error.messages
+    estados = [
+        (Eleccion.Estado.EN_PREPARACION, "Se configuran sedes, claustros, padrones, mesas y autoridades."),
+        (Eleccion.Estado.PUBLICADA, "Se reciben cambios de sede y justificativos. No se permiten modificaciones en la configuración."),
+        (Eleccion.Estado.EN_CURSO, "Se permite generar el padron imprimible y el registro de participación."),
+        (Eleccion.Estado.FINALIZADA, "Las resoluciones de justificativos quedan bloqueadas. Se permite la consulta histórica."),
+    ]
+    siguiente_estado = {
+        Eleccion.Estado.EN_PREPARACION: (
+            Eleccion.Estado.PUBLICADA,
+            "Publicar elección",
+            "Al publicarla, la configuración queda en modo lectura, no se pueden agregar ni quitar claustros "
+            "y se habilitan las solicitudes de cambio de sede y la carga de justificativos.",
+        ),
+        Eleccion.Estado.PUBLICADA: (
+            Eleccion.Estado.EN_CURSO,
+            "Iniciar elección",
+            "Al iniciarla, se habilita el registro de participación y la emisión del padrón imprimible. "
+            "La configuración sigue en modo lectura.",
+        ),
+        Eleccion.Estado.EN_CURSO: (
+            Eleccion.Estado.FINALIZADA,
+            "Finalizar elección",
+            "Al finalizarla, se cierra el registro de participación y la elección pasa al historial "
+            "como consulta. No se podrán hacer más cambios.",
+        ),
+    }.get(eleccion.estado)
+    indice_actual = [codigo for codigo, _ in estados].index(eleccion.estado)
+    claustros = eleccion.elecciones_claustro.all()
+    alcances_pendientes = (
+        not eleccion.elecciones_sede.exists()
+        or not claustros.exists()
+        or claustros.filter(Q(sedes_habilitadas__isnull=True) | Q(departamentos__isnull=True)).exists()
+        or EleccionClaustroDepartamento.objects.filter(
+            eleccion_claustro__eleccion=eleccion, sedes_habilitadas__isnull=True,
+        ).exists()
+    )
+    padrones_pendientes = (
+        not claustros.exists()
+        or claustros.exclude(departamentos__registros_padron__activo=True).exists()
+        or claustros.filter(Q(fecha_votacion__isnull=True) | Q(maximo_votantes_por_mesa__isnull=True)).exists()
+    )
+    autoridades_pendientes = eleccion.mesas.filter(autoridades__isnull=True).exists() or not eleccion.mesas.exists()
     return render(
         request,
         "elecciones/configurar_eleccion.html",
         {
             "eleccion": eleccion,
+            "linea_tiempo": [
+                {
+                    "codigo": codigo,
+                    "nombre": Eleccion.Estado(codigo).label,
+                    "ayuda": ayuda,
+                    "fase": "pasada" if indice < indice_actual else "actual" if indice == indice_actual else "futura",
+                }
+                for indice, (codigo, ayuda) in enumerate(estados)
+            ],
+            "siguiente_estado": siguiente_estado,
+            "pendientes_configuracion": pendientes_configuracion,
+            "padrones_pendientes": padrones_pendientes,
+            "alcances_pendientes": alcances_pendientes,
+            "autoridades_pendientes": autoridades_pendientes,
             "cantidad_padrones": eleccion.registros_padron.count(),
             "cantidad_mesas": eleccion.mesas.count(),
             "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),
@@ -259,10 +394,10 @@ def configurar_eleccion(request, eleccion_id):
 @login_required
 def gestionar_fechas_administrativas(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion):
+    if not puede_administrar_elecciones(request.user, eleccion) or eleccion.estado == Eleccion.Estado.FINALIZADA:
         return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
     formulario_fechas = FormularioFechasAdministrativasEleccion(
-        request.POST or None,
+        request.POST if request.method == "POST" else None,
         eleccion=eleccion,
     )
     if request.method == "POST" and formulario_fechas.is_valid():
@@ -308,15 +443,15 @@ def crear_eleccion(request):
                     eleccion=eleccion,
                     defaults={"activo": True},
                 )
-        messages.success(request, "La eleccion fue creada y quedo configurada.")
-        return redirect("configurar-eleccion", eleccion_id=eleccion.id)
+        messages.success(request, "La elección fue creada. Completá las sedes y departamentos de sus claustros antes de continuar.")
+        return redirect("gestionar-alcances", eleccion_id=eleccion.id)
     return render(request, "elecciones/formulario_eleccion.html", {"formulario": formulario, **contexto_formulario_eleccion(formulario, incluir_parametros=True)})
 
 
 @login_required
 def preparar_eleccion(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion, solo_consulta=True):
         return HttpResponseForbidden("No tiene permiso para preparar esta eleccion.")
     claustros = eleccion.elecciones_claustro.select_related("claustro").prefetch_related(
         "departamentos__departamento",
@@ -334,7 +469,7 @@ def preparar_eleccion(request, eleccion_id):
 @login_required
 def preparar_claustro(request, eleccion_id, claustro_id):
     eleccion_claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion_claustro.eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion_claustro.eleccion, solo_consulta=True):
         return HttpResponseForbidden("No tiene permiso para preparar este claustro.")
     return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
 
@@ -342,7 +477,7 @@ def preparar_claustro(request, eleccion_id, claustro_id):
 @login_required
 def rehabilitar_cambios_padron(request, eleccion_id, claustro_id):
     eleccion_claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
-    if not puede_administrar_elecciones(request.user, eleccion_claustro.eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion_claustro.eleccion):
         return HttpResponseForbidden("No tiene permiso para rehabilitar cambios de padrón.")
     if request.method == "POST":
         servicio_rehabilitar_cambios_padron(eleccion_claustro, request.user)
@@ -355,10 +490,10 @@ def rehabilitar_cambios_padron(request, eleccion_id, claustro_id):
 @login_required
 def editar_eleccion(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para editar esta eleccion.")
-    if eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
-        return HttpResponseForbidden("No se puede editar una eleccion abierta o cerrada.")
+    if request.method == "POST" and eleccion.estado in ESTADOS_CONFIGURACION_SOLO_LECTURA:
+        return HttpResponseForbidden("No se puede editar una eleccion publicada, en curso o finalizada.")
     formulario = FormularioEditarEleccion(request.POST or None, instance=eleccion)
     if request.method == "POST" and formulario.is_valid():
         formulario.save()
@@ -367,20 +502,42 @@ def editar_eleccion(request, eleccion_id):
     return render(request, "elecciones/editar_eleccion.html", {"eleccion": eleccion, "formulario": formulario, **contexto_formulario_eleccion(formulario)})
 
 
+ETIQUETA_POPUP_TRANSICION = "popup transicion-bloqueada"
+
+
 @login_required
 def cambiar_estado_eleccion(request, eleccion_id):
     if request.method != "POST":
         raise Http404()
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion):
+    if not puede_administrar_elecciones(request.user, eleccion) or eleccion.estado == Eleccion.Estado.FINALIZADA:
         return HttpResponseForbidden("No tiene permiso para cambiar esta eleccion.")
     nuevo_estado = request.POST.get("estado")
     estado_anterior = eleccion.estado
+    if nuevo_estado == Eleccion.Estado.FINALIZADA:
+        hay_justificativos_pendientes = JustificativoAusencia.objects.filter(
+            registro_padron__eleccion=eleccion,
+            estado=JustificativoAusencia.Estado.PENDIENTE,
+        ).exists()
+        if hay_justificativos_pendientes:
+            messages.error(request, "No se puede finalizar la elección con justificativos pendientes.", extra_tags=ETIQUETA_POPUP_TRANSICION)
+            return redirect("gestionar-elecciones")
+        hay_mesas_pendientes = Mesa.objects.filter(
+            eleccion=eleccion,
+            estado_escaneo__in=(Mesa.EstadoEscaneo.PENDIENTE, Mesa.EstadoEscaneo.EN_PROCESO),
+        ).exists()
+        if hay_mesas_pendientes:
+            messages.error(request, "No se puede finalizar la elección con mesas pendientes de escaneo.", extra_tags=ETIQUETA_POPUP_TRANSICION)
+            return redirect("gestionar-elecciones")
     try:
         eleccion.cambiar_estado(nuevo_estado)
     except ValidationError as error:
-        messages.error(request, error.messages[0])
+        messages.error(request, " ".join(error.messages), extra_tags=ETIQUETA_POPUP_TRANSICION)
     else:
+        if nuevo_estado == Eleccion.Estado.PUBLICADA:
+            notificar_eleccion_publicada(eleccion)
+        elif nuevo_estado == Eleccion.Estado.EN_CURSO:
+            notificar_eleccion_en_curso(eleccion)
         registrar_evento(
             accion="eleccion.cambio_estado",
             entidad="Eleccion",
@@ -391,20 +548,48 @@ def cambiar_estado_eleccion(request, eleccion_id):
             datos_anteriores={"estado": estado_anterior},
             datos_nuevos={"estado": eleccion.estado, "habilitada": eleccion.habilitada},
         )
-        messages.success(request, f"La eleccion quedo {eleccion.get_estado_display().lower()}.")
+        messages.success(request, f"La elección quedó {eleccion.get_estado_display().lower()}.")
     return redirect("gestionar-elecciones")
 
 
 @login_required
 def gestionar_alcances(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
+    formulario = FormularioAgregarClaustro(
+        request.POST if request.method == "POST" and request.POST.get("accion") == "agregar_claustro" else None,
+        eleccion=eleccion,
+    )
+    if request.method == "POST":
+        if eleccion.estado != Eleccion.Estado.EN_PREPARACION:
+            return HttpResponseForbidden("Solo se pueden agregar o eliminar claustros en estado En preparación.")
+        accion = request.POST.get("accion")
+        if accion == "agregar_claustro" and formulario.is_valid():
+            try:
+                agregar_claustro(eleccion, formulario.cleaned_data["claustro"])
+            except ValueError as error:
+                messages.error(request, str(error))
+            else:
+                messages.success(request, "El claustro fue agregado y heredó las sedes de la elección.")
+            return redirect("gestionar-alcances", eleccion_id=eleccion.pk)
+        if accion == "eliminar_claustro":
+            configuracion = get_object_or_404(EleccionClaustro, pk=request.POST.get("claustro_id"), eleccion=eleccion)
+            try:
+                eliminar_claustro(configuracion, request.user)
+            except ValueError as error:
+                messages.error(request, str(error))
+            else:
+                messages.success(request, "El claustro fue eliminado de la elección.")
+            return redirect("gestionar-alcances", eleccion_id=eleccion.pk)
+        if accion not in ("agregar_claustro", "eliminar_claustro"):
+            messages.error(request, "La acción solicitada no es válida.")
     return render(
         request,
         "elecciones/alcances.html",
         {
             "eleccion": eleccion,
+            "formulario_agregar_claustro": formulario,
             "claustros": eleccion.elecciones_claustro.select_related("claustro").prefetch_related(
                 "sedes_habilitadas__sede",
                 "departamentos__departamento",
@@ -417,10 +602,10 @@ def gestionar_alcances(request, eleccion_id):
 @login_required
 def gestionar_departamentos_claustro(request, eleccion_id, claustro_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
-    if eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
-        return HttpResponseForbidden("No se pueden modificar alcances en una eleccion abierta o cerrada.")
+    if request.method == "POST" and eleccion.estado in ESTADOS_CONFIGURACION_SOLO_LECTURA:
+        return HttpResponseForbidden("No se pueden modificar alcances en una eleccion publicada, en curso o finalizada.")
     eleccion_claustro = get_object_or_404(
         EleccionClaustro.objects.select_related("claustro"),
         pk=claustro_id,
@@ -438,7 +623,23 @@ def gestionar_departamentos_claustro(request, eleccion_id, claustro_id):
     )
     if request.method == "POST" and formulario.is_valid():
         formulario.guardar()
-        messages.success(request, "Los departamentos habilitados fueron actualizados.")
+        resultado = recalcular_asignaciones_sede_y_mesas(
+            eleccion_claustro,
+            usuario=request.user,
+            request=request,
+        )
+        if resultado["error_mesas"]:
+            messages.warning(
+                request,
+                "Los departamentos habilitados se actualizaron. "
+                f"Las sedes quedaron recalculadas ({resultado['sedes']['pendientes']} pendientes), "
+                f"pero las mesas no pudieron actualizarse: {resultado['error_mesas']}",
+            )
+        else:
+            messages.success(
+                request,
+                "Los departamentos, las asignaciones de sede y las mesas se actualizaron automáticamente.",
+            )
         return redirect("gestionar-alcances", eleccion_id=eleccion.id)
     return render(
         request,
@@ -454,10 +655,10 @@ def gestionar_departamentos_claustro(request, eleccion_id, claustro_id):
 @login_required
 def editar_alcance_sedes(request, eleccion_id, tipo, objeto_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion):
+    if not puede_configurar_eleccion(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para gestionar esta eleccion.")
-    if eleccion.estado in (Eleccion.Estado.ABIERTA, Eleccion.Estado.CERRADA):
-        return HttpResponseForbidden("No se pueden modificar alcances en una eleccion abierta o cerrada.")
+    if request.method == "POST" and eleccion.estado in ESTADOS_CONFIGURACION_SOLO_LECTURA:
+        return HttpResponseForbidden("No se pueden modificar alcances en una eleccion publicada, en curso o finalizada.")
     if tipo == "claustro":
         objeto = get_object_or_404(EleccionClaustro, pk=objeto_id, eleccion=eleccion)
         titulo = f"Sedes de {objeto.claustro}"
@@ -469,6 +670,51 @@ def editar_alcance_sedes(request, eleccion_id, tipo, objeto_id):
     formulario = FormularioAlcanceSedes(request.POST or None, eleccion=eleccion, objeto=objeto, tipo=tipo)
     if request.method == "POST" and formulario.is_valid():
         formulario.guardar()
-        messages.success(request, "Las sedes habilitadas fueron actualizadas.")
+        if not formulario.cambio_sedes:
+            messages.info(request, "No hubo cambios en las sedes habilitadas.")
+            return redirect("gestionar-alcances", eleccion_id=eleccion.id)
+        claustros_afectados = (
+            [objeto]
+            if tipo == "claustro"
+            else [objeto.eleccion_claustro]
+        )
+        resultados_sedes = [
+            calcular_asignaciones_sede_claustro(claustro)
+            for claustro in claustros_afectados
+        ]
+        pendientes = sum(resultado["pendientes"] for resultado in resultados_sedes)
+        try:
+            resultado_mesas = calcular_mesas_automaticas_eleccion(
+                eleccion,
+                usuario=request.user,
+                request=request,
+            )
+        except ValueError as error:
+            alcance_mesas = None if tipo == "claustro" else [objeto]
+            try:
+                mesas_invalidadas = invalidar_mesas_automaticas_alcance(
+                    claustros_afectados[0],
+                    alcances=alcance_mesas,
+                )
+            except ValueError as bloqueo:
+                messages.error(
+                    request,
+                    "Las sedes se actualizaron, pero no se pudieron recalcular las mesas "
+                    f"({error}). Las mesas vinculadas se conservaron: {bloqueo}",
+                )
+            else:
+                messages.warning(
+                    request,
+                    "Las sedes habilitadas se actualizaron. Hay "
+                    f"{pendientes} electores con sede pendiente, por lo que se quitaron "
+                    f"{mesas_invalidadas} mesas automÃ¡ticas obsoletas del alcance. "
+                    "Configure reglas y vuelva a calcular para generarlas.",
+                )
+        else:
+            messages.success(
+                request,
+                "Las sedes habilitadas se actualizaron; se revisaron sus asignaciones "
+                f"({pendientes} pendientes) y se recalcularon {resultado_mesas['mesas']} mesas.",
+            )
         return redirect("gestionar-alcances", eleccion_id=eleccion.id)
     return render(request, "elecciones/editar_alcance.html", {"eleccion": eleccion, "titulo": titulo, "formulario": formulario})

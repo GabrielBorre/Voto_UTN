@@ -7,16 +7,32 @@
 </section>
 
 <section class="toolbar">
+  {% if eleccion_actual %}
   <article class="option">
     <h2>Elección actual</h2>
-    <p><strong>{% if eleccion_actual %}{{ eleccion_actual.get_estado_display }}{% else %}Sin elección asignada{% endif %}</strong></p>
-    {% if eleccion_actual %}<p class="muted">{{ eleccion_actual.nombre }}</p>{% endif %}
+    <p><strong>{{ eleccion_actual.get_estado_display }}</strong></p>
+    <p class="muted">{{ eleccion_actual.nombre }}</p>
   </article>
   <article class="option">
     <h2>Justificativos pendientes</h2>
     <p><strong>{{ solicitudes_pendientes }}</strong></p>
-    <a class="button secondary" href="{% url 'bandeja-justificativos' %}">Revisar solicitudes</a>
   </article>
+  <article class="option">
+    <h2>Solicitudes de cambio de sede pendientes</h2>
+    <p><strong>{{ cambios_pendientes }}</strong></p>
+  </article>
+  <article class="option">
+    <h2>Participación</h2>
+    <p><strong>{{ dashboard.electores_participaron }} ({{ dashboard.electores_participaron_pct|floatformat:1 }} %)</strong></p>
+    <p class="muted">Participación confirmada sobre {{ dashboard.electores_en_mesas_escaneadas }} electores de mesas procesadas.</p>
+  </article>
+  {% else %}
+  <article class="option">
+    <h2>Nueva elección</h2>
+    <p>No hay una elección actual.</p>
+    <a class="button primary" href="{% url 'crear-eleccion' %}">Crear elección</a>
+  </article>
+  {% endif %}
 </section>
 
 {% endblock %}

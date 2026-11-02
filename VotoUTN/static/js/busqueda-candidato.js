@@ -1,5 +1,8 @@
+import { iniciarCarga } from "./interfaz.js";
+
 // La consulta es informativa: el servidor vuelve a validar el padrón al guardar.
 document.querySelectorAll('form[data-busqueda-candidato]').forEach((formulario) => {
+  if (formulario.closest("fieldset:disabled")) return;
   const tipo = formulario.elements.namedItem('tipo_documento');
   const documento = formulario.elements.namedItem('documento');
   const nombre = formulario.elements.namedItem('nombre_padron');
@@ -15,6 +18,7 @@ document.querySelectorAll('form[data-busqueda-candidato]').forEach((formulario) 
     const datos = new FormData();
     datos.set('tipo_documento', tipo.value);
     datos.set('documento', documento.value);
+    const terminarCarga = iniciarCarga("Buscando en el padrón…");
     try {
       const respuesta = await fetch(formulario.dataset.busquedaCandidato, {
         method: 'POST', body: datos, signal: solicitud.signal,
@@ -33,6 +37,8 @@ document.querySelectorAll('form[data-busqueda-candidato]').forEach((formulario) 
       if (error.name !== 'AbortError' && versionConsulta === version) {
         estado.textContent = 'No se pudo consultar el padrón. Volvé a intentar.';
       }
+    } finally {
+      terminarCarga();
     }
   }
 

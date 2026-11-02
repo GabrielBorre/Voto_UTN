@@ -18,7 +18,11 @@
     <div class="section-title">
       <div>
         <h2>Solicitudes recibidas</h2>
-        <p>Las solicitudes pendientes pueden aprobarse o rechazarse dejando una observación de resolución.</p>
+        {% if nav_en_historial %}
+          <p>Elección en el historial: los justificativos y sus resoluciones están disponibles solo para consulta.</p>
+        {% else %}
+          <p>Las solicitudes pendientes pueden aprobarse o rechazarse dejando una observación de resolución.</p>
+        {% endif %}
       </div>
     </div>
 
@@ -36,7 +40,7 @@
       <input type="hidden" name="pestana" value="{{ pestana }}">
       <div class="field">
         <label for="filtro-estado">Estado</label>
-        <select id="filtro-estado" name="estado" onchange="this.form.submit()">
+        <select id="filtro-estado" name="estado" onchange="this.form.requestSubmit()">
           <option value="">Todos</option>
           {% for valor, etiqueta in estados %}<option value="{{ valor }}"{% if estado == valor %} selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
         </select>
@@ -79,7 +83,7 @@
                 {% endif %}
               </td>
               <td class="actions">
-                <a class="button secondary small" href="{% url 'resolver-justificativo' item.id %}">Revisar</a>
+                <a class="button secondary small" href="{% url 'resolver-justificativo' item.id %}">{% if nav_en_historial %}Consultar{% else %}Revisar{% endif %}</a>
               </td>
             </tr>
           {% empty %}
@@ -93,7 +97,7 @@
   </section>
 </div>
 
-{% if eleccion.estado == 'cerrada' %}
+{% if eleccion.estado == 'finalizada' %}
 <nav class="section-navigation" aria-label="Navegación de la sección">
   <a class="button light" href="{% url 'dashboard-historial-eleccion' eleccion.id %}">Volver al dashboard</a>
 </nav>

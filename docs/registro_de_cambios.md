@@ -2,6 +2,94 @@
 
 Este documento registra cambios aplicados al proyecto. Describe los archivos y el efecto de cada cambio; no reemplaza el historial de Git ni las migraciones de Django.
 
+## Nitidez del padrón imprimible
+
+- Troqueles con fondo blanco, sin sombreado gris.
+- QR de electores ampliados de 14 a 18 mm, con margen blanco de cuatro módulos.
+- Los QR del PDF se dibujan como vectores negros sobre blanco, incluidos los de
+  las carátulas: no dependen de la resolución de un PNG ni se pixelan al ampliar.
+- Ajuste del espacio interno del troquel para conservar las firmas y los
+  15 electores por hoja sin invadir las columnas contiguas.
+- Línea de firma de autoridad de mesa acortada 2 mm a la izquierda y 2 mm
+  a la derecha mediante márgenes simétricos explícitos, sin modificar la firma
+  del votante ni el tamaño del QR.
+- Se conservan el contenido firmado, la mesa, los identificadores y las marcas
+  de emisión. No se modifican modelos ni migraciones.
+- Pruebas de fondo blanco, tamaño, margen, correspondencia de la matriz QR,
+  contenido firmado y ausencia de imágenes rasterizadas en el QR.
+
+## Ciclo electoral, configuración y resolución seleccionada
+
+- Estados de elección con códigos nuevos (`en_preparacion`, `publicada`,
+  `en_curso`, `finalizada`). La migración `elecciones/0029` renombra los datos
+  existentes (`borrador`, `preparada`, `abierta`, `cerrada`) y recrea la
+  restricción de una única elección no finalizada, con reversión.
+- La configuración queda en modo lectura también en Publicada: solo En
+  preparación permite modificarla (incluye calcular mesas y vaciar padrones).
+- Línea de tiempo: estados pasados en un verde, actual en un verde destacado y
+  posteriores en gris. El popup de cambio de estado describe qué ocurre en el
+  siguiente estado. Las etiquetas de las cards se muestran debajo del título.
+- Padrón: historial de importaciones desplegable dentro de "Cargar padrón",
+  botón azul "Configurar asignación de sedes" sobre "Vaciar padrón" y acceso a
+  "Ver mesas" filtrado por claustro desde el encabezado. Se quitan las
+  exportaciones CSV/PDF del padrón y "Ver mesas" de Padrones.
+- Asignación de sedes automática al agregar, eliminar o reordenar reglas y al
+  confirmar importaciones (sin botón "Calcular asignaciones"). Se muestra un
+  resumen por sede y regla; el detalle por elector es desplegable, de a 10.
+- "Ver mesas" filtra por claustro, departamento y sede.
+- Reportes → Padrón y mesas: "Exportar padrón" y "Exportar asignación de sedes".
+- Cambios de sede: filtro por estado, sede preseleccionada si hay una sola
+  opción, botones masivos deshabilitados sin pendientes y popups que indican en
+  qué sedes se agregan y se quitan mesas. Al aprobar un cambio, una mesa
+  automática de origen que queda vacía (sin autoridades, participaciones ni
+  roles) se elimina; las mesas manuales se conservan.
+- Refinamiento visual: indicadores de configuración completa en verde y
+  pendientes en amarillo. El ciclo se presenta mediante tarjetas con colores
+  e iconos por etapa, conectadas de izquierda a derecha en escritorio y de
+  arriba hacia abajo en móvil, con el estado actual destacado y ayudas
+  accesibles por foco o cursor. No se modifican transiciones ni permisos.
+- El botón de avance de estado se ubica en el encabezado del ciclo. Cuando una
+  regla impide la transición, el motivo se informa con un popup propio de la
+  aplicación (con aviso en página como alternativa sin JavaScript).
+- La pestaña "Notificaciones" se reemplaza por una campanita a la izquierda del
+  rol del usuario, en todos los roles, con indicador rojo de no leídas. Sigue
+  visible en móvil aunque se oculte el bloque de usuario.
+- La pestaña "Configurar elección" se muestra grisada y deshabilitada cuando no
+  hay una elección actual (En preparación, Publicada o En curso).
+- Configuración actual directa desde el menú, línea de tiempo con estado
+  destacado y ayudas breves, e indicadores de configuración pendiente.
+- Inicio de junta global con elección actual, justificativos pendientes,
+  cambios de sede pendientes y participación confirmada. Sin elección actual
+  ofrece crearla; la creación continúa por Sedes y departamentos.
+- Alta/baja de claustros en preparación, con herencia de sedes y rechazo
+  transaccional de bajas que afectarían datos vinculados.
+- Permisos de configuración: consulta en curso y bloqueo de POST, con las
+  excepciones acordadas de fechas administrativas, transición de estado y
+  padrón imprimible. Se conserva el acceso histórico previo de finalizadas.
+- Emisión imprimible solo en curso; emisión y resolución de cambios coordinan
+  el bloqueo de la elección para preservar los QR. Reimpresiones conservan
+  identificadores, marcas de emisión y número de mesa.
+- Selección de solicitudes pendientes, estimación por sede sin duplicar las
+  reglas en JavaScript y aprobación exclusiva de las seleccionadas. Después
+  de imprimir quedan bloqueadas las resoluciones individuales y masivas.
+- Código de mesa con departamento en avisos y tarjetas del elector y autoridad.
+- Diálogos propios y throbber compartido para operaciones demoradas. Se retiró
+  la leyenda de estados de la presentación de justificativos sin ampliar permisos.
+- Nuevas pruebas de invariantes y regresiones en elecciones y reportes;
+  expectativas de navegación y redirecciones ajustadas en suites relacionadas.
+  No se modificaron modelos ni se requieren nuevas migraciones.
+- Por indicación expresa, no se implementó pedir fechas en la transición de
+  estado ni reasignarlas a estados.
+- Verificación: 342 pruebas correctas en PostgreSQL de pruebas aislado; check,
+  detección de migraciones y plan de migraciones sin pendientes. También se
+  verificaron en Chromium selección, confirmaciones, controles en lectura,
+  diálogo de límite y disposición móvil de la línea de tiempo.
+- Observación ajena a esta entrega: al reutilizar repetidamente la base de
+  pruebas con `--keepdb`, los IDs superaron 1295. El formato QR previo reserva
+  dos caracteres base36 para elección y mesa y no admite correctamente IDs
+  mayores al parsearlos. No se cambió ese contrato ni su comportamiento;
+  la validación final se ejecutó en una base de pruebas nueva y aislada.
+
 ## Etapa 0 - Auditoria y estabilizacion
 
 Fecha de cierre: 2026-08-02
@@ -87,6 +175,64 @@ Fecha de cierre: 2026-08-03
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 6 pruebas correctas.
 - No se pudo ejecutar una comprobacion estatica con Node.js porque Node no esta instalado en el entorno.
+
+## Ajuste funcional - Estados de eleccion y cambio de sede
+
+Fecha de cierre: 2026-10-19
+
+### Estados y reglas de ciclo de vida
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/elecciones/models.py` | Se mantuvieron los valores tecnicos de estado para compatibilidad (`borrador`, `preparada`, `abierta`, `cerrada`) y se actualizaron sus etiquetas visibles a `En preparación`, `Publicada`, `En curso` y `Finalizada`. Se agregó `fecha_cierre_solicitudes_cambio_sede`. |
+| `VotoUTN/apps/elecciones/views.py` | Se incorporaron validaciones para finalizar elección (sin justificativos pendientes y sin mesas pendientes de escaneo), y envío de notificaciones al publicar e iniciar elección. |
+| `VotoUTN/apps/elecciones/migrations/0026_eleccion_fecha_cierre_solicitudes_cambio_sede.py` | Migración aditiva para la nueva fecha de cierre de solicitudes de cambio de sede. |
+| `VotoUTN/apps/elecciones/migrations/0027_alter_eleccion_estado.py` | Migración de actualización de `choices` del campo `estado` para reflejar los nuevos nombres funcionales. |
+
+### Flujo de solicitud de cambio de sede
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/apps/padron/models.py` | Se agregó `SolicitudCambioSede` con estados `pendiente/aprobada/rechazada`, trazabilidad de resolución y restricción de única solicitud pendiente por registro de padrón. |
+| `VotoUTN/apps/padron/services.py` | Se agregaron servicios para resolver solicitudes individuales y masivas (aprobar/rechazar, con o sin creación de mesas, y con límite de mesas por sede). |
+| `VotoUTN/apps/padron/views.py` | Se incorporaron vistas para `mis-solicitudes-cambio-sede` (elector) y `gestionar-solicitudes-cambio-sede` (junta), incluyendo validaciones de período y notificación al resolver. |
+| `VotoUTN/apps/padron/urls.py` | Se registraron rutas nuevas para solicitud y gestión de cambios de sede. |
+| `VotoUTN/apps/padron/migrations/0011_solicitudcambiosede.py` | Migración de creación de `SolicitudCambioSede` y su constraint de unicidad parcial. |
+| `VotoUTN/templates/padron/mis_solicitudes_cambio_sede.html` | Nueva pantalla para que el elector solicite cambio de sede y consulte historial de solicitudes. |
+| `VotoUTN/templates/padron/gestion_solicitudes_cambio_sede.html` | Nueva pantalla para gestión masiva e individual de solicitudes desde administración de junta. |
+
+### Navegación y reportes
+
+| Ruta | Cambio aplicado |
+| --- | --- |
+| `VotoUTN/templates/gestion/_nav.html` | Se agregó acceso a gestión de solicitudes de cambio de sede para administración y acceso para electores a sus solicitudes. |
+| `VotoUTN/apps/reportes/services.py` | Se agregó exportación CSV de infractores (ausentes sin justificativo aprobado). |
+| `VotoUTN/apps/reportes/views.py` y `VotoUTN/templates/reportes/gestion.html` | Se habilitó la exportación de infractores solo para elecciones finalizadas y sin justificativos pendientes. |
+
+### Verificaciones
+
+- `python manage.py check`: correcto.
+- `python manage.py makemigrations --check`: sin cambios pendientes.
+- `python manage.py test apps.elecciones apps.padron.tests apps.justificativos.tests`: correcto (114 pruebas).
+
+## Límite total de mesas en la resolución de cambios de sede
+
+La pantalla de administración muestra las mesas actuales por sede y una estimación de mesas adicionales. Se agregó una resolución masiva con un máximo total ingresado por el administrador; las solicitudes que superen el límite quedan pendientes. La asignación ahora busca una mesa con capacidad disponible antes de crear una nueva, respetando el máximo de electores por mesa del claustro.
+
+La acción «Aceptar con límite de mesas nuevas» ahora abre un diálogo con la cantidad estimada de mesas que se crearían si se aceptaran todas las solicitudes y solicita el máximo total antes de continuar. El resumen por sede queda junto a las acciones en escritorio y se apila en pantallas angostas.
+Además, cada elector ahora puede registrar una sola solicitud de cambio de sede por elección: si ya existe una solicitud para esa elección, se bloquea una nueva carga y se informa en pantalla.
+
+Archivos modificados:
+
+- `VotoUTN/apps/padron/services.py`
+- `VotoUTN/apps/padron/views.py`
+- `VotoUTN/apps/padron/tests.py`
+- `VotoUTN/templates/padron/gestion_solicitudes_cambio_sede.html`
+- `VotoUTN/static/js/solicitudes-cambio-sede.js`
+- `VotoUTN/static/css/gestion-electoral.css`
+- `VotoUTN/templates/gestion/base.html`
+- `docs/decisiones_funcionales.md`
+- `docs/registro_de_cambios.md`
 
 ## Etapa 2 - Modelo electoral base
 
@@ -697,3 +843,321 @@ Fecha de implementación: 2026-09-27
 - `python manage.py makemigrations --check`: sin cambios pendientes.
 - `python manage.py migrate --plan`: sin operaciones pendientes.
 - `python manage.py test`: 125 pruebas correctas.
+
+## Confirmación de notificaciones a ausentes
+
+Fecha de implementación: 2026-10-19
+
+- El tablero ofrece al administrador de junta una acción confirmable cuando todas las mesas están procesadas.
+- El servidor vuelve a validar permisos, estado de elección y procesamiento de todas las mesas; rechaza confirmaciones repetidas.
+- Se generan notificaciones web para electores activos registrados como ausentes mediante escaneo de QR. Se intenta el envío por correo y se informa el resultado sin ocultar los avisos web cuando falla el correo.
+- La confirmación, el usuario y los totales de notificación/correo quedan registrados en la elección y en auditoría.
+- `elecciones.0028_eleccion_notificaciones_ausentes_confirmadas_en` agrega el marcador de confirmación sin alterar datos existentes.
+- Se agregaron pruebas para confirmar que no se notifica antes de procesar todas las mesas, para la autorización exclusiva de junta y para la idempotencia del envío.
+
+## Autoridades: tres modos y decisiones C/C
+
+Fecha: 2026-10-23.
+
+Se integró la base local de modos aleatorio por mesa, manual por mesa y nómina
+común con las decisiones confirmadas: reacomodo mínimo optativo de titulares
+y reemplazo confirmado por la Junta independiente del justificativo.
+Los traslados confirmados modifican el destino laboral, no el padrón electoral.
+Los suplentes conservan su mesa al promoverse. La confirmación registra usuario,
+fecha y reemplazante y es idempotente; sin suplente queda vacante visible.
+
+El alcance completo, archivos, dependencias, comandos y pasos de revisión están
+en [plan_autoridades_tres_modos.md](plan_autoridades_tres_modos.md), que es el punto
+de entrada para retomar este trabajo sin historial de conversación.
+
+Verificaciones en PostgreSQL del contenedor: 335 pruebas de la suite completa
+correctas, seguidas por 63 pruebas de autoridades correctas después de los ajustes
+finales. `check`, `makemigrations --check` y `migrate --plan` correctos; aplicada
+`autoridades.0007_traslados_y_reemplazos_independientes`. No hubo eliminaciones,
+commit ni push. Revisión visual del usuario pendiente antes del commit.
+
+## Autoridades: sorteo completo y conservación de asignaciones
+
+Fecha: 2026-10-23.
+
+Se corrigió el conteo duplicado de un mismo titular en varios cupos de una mesa
+y turno. «Sortear todas las mesas» conserva cada asignación válida una sola vez,
+incluidas las selecciones manuales. «Recalcular» solicita confirmación y reemplaza
+todo el plantel desde cero; la limpieza de destinos manuales y traslados laborales
+se realiza en el servicio, en la misma transacción que el cálculo y el guardado.
+La operación conserva las reglas de elegibilidad y puede volver a elegir a las
+mismas personas por azar.
+
+El emparejamiento usa caminos aumentantes iterativos, con prioridad de un titular
+por mesa/turno, titulares restantes y suplentes. Se sortean personas y cupos de
+igual prioridad. Se verifican unicidad de personas y coincidencia exacta entre
+la solución y las filas persistidas. La auditoría identifica completar/recalcular,
+las asignaciones anteriores/resultantes y las vacantes. Los mensajes distinguen
+la falta de combinaciones compatibles de la limitación de conservar asignaciones.
+La baja explícita de un titular vuelve a promover al primer suplente compatible;
+esa acción es independiente de completar cupos con el botón Sortear.
+
+Archivos modificados en esta corrección:
+
+- `VotoUTN/apps/autoridades/distribucion.py`: cálculo, recálculo, validaciones,
+  consulta conjunta de candidatos electorales, auditoría y promoción por baja.
+- `VotoUTN/apps/autoridades/views.py`: conexión de ambas acciones con el servicio
+  y mensajes de cobertura.
+- `VotoUTN/templates/autoridades/gestion_claustro.html`: explicación de las acciones
+  y actualización de versión del JavaScript. Se publicaron los estáticos y se
+  comprobó por HTTP que el servidor entrega la versión actual sin confirmación doble.
+- `VotoUTN/apps/autoridades/tests_distribucion.py`: regresiones, recálculo desde
+  cero, conservación, reversión ante errores, restricciones, desempate entre turnos
+  y comparación exhaustiva de cobertura en grafos pequeños; cadena de 1100 plazas
+  para verificar que no depende del límite de recursión.
+- `VotoUTN/apps/autoridades/tests.py`: expectativas actualizadas al flujo de aplicar
+  distribución después de configurar turnos y a los controles vigentes.
+- `docs/decisiones_funcionales.md`, `docs/autoridades_modalidades.md` y este registro:
+  comportamiento confirmado y documentación de continuidad.
+
+Esta corrección no crea ni elimina archivos ni cambia modelos o migraciones.
+
+Verificaciones finales en PostgreSQL del contenedor:
+
+- `python manage.py check`: sin problemas.
+- `python manage.py makemigrations --check`: sin cambios.
+- `python manage.py migrate --plan`: sin migraciones pendientes.
+- `python manage.py test --keepdb --noinput`: **348 pruebas correctas**.
+- `git diff --check`: sin errores; únicamente avisos de finales de línea CRLF.
+- Estático servido por HTTP: respuesta 200 y contenido idéntico al archivo fuente.
+
+## Autoridades: eliminar todas las asignaciones del claustro
+
+Fecha: 2026-10-24.
+
+Se agregó al final del detalle un botón de eliminación con confirmación. Deja
+vacías las asignaciones del claustro actual sin ejecutar otro sorteo. El servicio
+elimina sus roles de autoridad y limpia las selecciones manuales/de planilla,
+destinos laborales y marcas de autoridad al final del padrón; conserva electores,
+mesas de votación, nómina, exclusiones y configuración. Respeta los bloqueos por
+estado electoral, QR y avisos de ausencia, y registra las asignaciones anteriores
+en `autoridades.asignaciones_eliminadas` dentro de la misma transacción.
+
+Archivos modificados:
+
+- `VotoUTN/apps/autoridades/distribucion.py`: servicio atómico con permisos,
+  alcance por claustro, limpieza de dependencias y auditoría.
+- `VotoUTN/apps/autoridades/views.py`: acción POST que exige confirmación explícita.
+- `VotoUTN/templates/autoridades/gestion_claustro.html`: botón al pie, CSRF y aviso
+  integrado en el formulario, independiente del JavaScript estático.
+- `docs/decisiones_funcionales.md`, `docs/autoridades_modalidades.md` y este registro:
+  alcance y comportamiento para futuras sesiones.
+
+Archivo creado: `VotoUTN/apps/autoridades/tests_eliminar_asignaciones.py`, con
+ocho pruebas de confirmación, alcance, conservación del padrón/configuración,
+permisos/CSRF, bloqueos, reversión ante fallos e idempotencia.
+No se eliminan archivos ni se modifican modelos o migraciones.
+
+Verificación de la eliminación: ocho pruebas específicas y **356 pruebas de la
+suite completa correctas**. `check`, `makemigrations --check` y `migrate --plan`
+sin problemas ni operaciones pendientes.
+
+## Autoridades: tabla compacta y filtros del listado
+
+Fecha: 2026-10-24.
+
+Se mantiene el formato de tabla pedido por el usuario. Se separan Mesa,
+Departamento, Sede, Turno, Titulares, Suplentes y Autoridades; se agrupan las filas
+de turno bajo cada mesa y los cupos se muestran como «1 de 2». El detalle de
+personas se abre/cierra debajo de cada grupo, con indicadores accesibles y sin
+recargar la página. Se conservan el orden titular/suplente y las acciones de
+confirmar reemplazo.
+
+Se agregan filtros GET combinables por departamento, sede y cobertura. Validan
+opciones dentro del claustro, muestran un estado vacío cuando no hay coincidencias
+y conservan filtros al paginar hasta 25 mesas. El ancla de filtros/paginación
+lleva al listado. No modifican asignaciones ni el alcance de las acciones globales.
+
+Archivos modificados: `VotoUTN/apps/autoridades/forms.py`,
+`VotoUTN/apps/autoridades/views.py`,
+`VotoUTN/templates/autoridades/gestion_claustro.html`,
+`VotoUTN/templates/gestion/base.html`,
+`VotoUTN/static/css/gestion-electoral.css`,
+`VotoUTN/static/js/explicacion-modo-autoridades.js`,
+`docs/decisiones_funcionales.md`, `docs/autoridades_modalidades.md` y este registro.
+Se crea `VotoUTN/apps/autoridades/tests_vista_mesas.py` con seis pruebas de
+agrupación, columnas, filtros, paginación, límites del claustro y reemplazos.
+No se eliminan archivos ni se requieren migraciones.
+
+Verificación: **362 pruebas correctas** en la suite completa, más las seis pruebas
+del listado repetidas tras el ajuste final de columnas. Comprobaciones de Django
+y migraciones correctas. Se comprobó la apertura/cierre del detalle con Node, y
+CSS/JavaScript publicados con versión nueva y verificados por HTTP (200 y contenido
+idéntico al fuente).
+
+## Autoridades: restaurar nómina común y títulos sin numeración
+
+Fecha: 2026-10-25.
+
+Se vuelve a ofrecer «Nómina común» en el selector, con carga de personas manual
+o por archivo y controles para permitir propuestas de cambio de sede y reacomodar
+titulares. Al aplicar el modo se guardan las opciones, se auditan y se distribuye
+la nómina. Desactivar los cambios de sede limpia los destinos laborales confirmados
+y vuelve a distribuir dentro de la sede electoral, sin modificar el padrón.
+La planilla conserva la validación de pertenencia a la mesa indicada: una fila
+seleccionada inválida impide aplicar todo el archivo.
+
+Se retiran los prefijos numéricos de «Turnos y cupos» y «Modo de elección».
+
+Archivos modificados en esta tarea:
+
+- `VotoUTN/apps/autoridades/forms.py`, `views.py` y `distribucion.py`.
+- `VotoUTN/templates/autoridades/gestion_claustro.html`.
+- `VotoUTN/static/js/explicacion-modo-autoridades.js`.
+- `VotoUTN/apps/autoridades/tests.py`, `tests_distribucion.py` y `tests_traslados.py`.
+- `docs/decisiones_funcionales.md`, `docs/autoridades_modalidades.md` y este registro.
+
+No se crean ni eliminan archivos en esta tarea ni se requieren migraciones.
+
+Verificación final: **369 pruebas correctas** en PostgreSQL. `check`,
+`makemigrations --check` y `migrate --plan` sin problemas ni operaciones pendientes.
+JavaScript validado con Node, publicado y comprobado por HTTP (200 y contenido
+idéntico al fuente). `git diff --check` sin errores de espacios.
+
+## Autoridades: pantalla común y nómina por archivo (en curso)
+
+Fecha: 2026-10-25.
+
+Se compacta la pantalla de nómina con la misma estructura de turnos, modo y
+tabla de mesas utilizada por los otros modos. Se retira la carga manual de la
+nómina y se integra su archivo CSV/XLSX en el formulario del modo. «Cargar nómina»
+guarda opciones, importa y distribuye atómicamente, sin un paso de cálculo
+separado. Las cargas agregan personas a la nómina vigente sin duplicarlas ni
+levantar exclusiones existentes. Cambiar opciones de una nómina ya cargada o
+guardar sus turnos/cupos dispara la distribución automáticamente.
+
+El resumen separa titulares, suplentes y personas de la nómina sin asignar de
+los cupos vacantes. La comparación entre opciones está pendiente de definir el
+alcance de cambio de sede automático y cambio de mesa con el usuario; todavía
+no se muestra una estimación. Las reglas existentes de esos movimientos siguen
+vigentes mientras se resuelven esas preguntas.
+
+Se crean `VotoUTN/apps/autoridades/nomina.py` y `tests_nomina.py`. Se modifican
+`forms.py`, `views.py`, `services.py`, `distribucion.py`, `tests.py` y
+`tests_distribucion.py` de autoridades, su plantilla `gestion_claustro.html` y
+`static/js/explicacion-modo-autoridades.js`, además de este registro. No se
+eliminan archivos ni se cambian modelos o migraciones.
+
+Verificación parcial: `check`, `makemigrations --check` y `migrate --plan`
+correctos. La suite de 375 pruebas detectó únicamente una expectativa antigua
+que exigía calcular después de cambiar turnos; se actualizó al flujo automático.
+Luego pasaron las 57 pruebas de turnos, distribución y nueva carga de nómina.
+JavaScript validado con Node y publicado con contenido verificado por HTTP 200.
+La tarea completa sigue pendiente de las definiciones necesarias para los escenarios.
+
+## Integración de develop del 27 de octubre de 2026
+
+Se integra `origin/develop` hasta `d96e638e` en `feat/62-autoridades-de-mesa`
+mediante el commit de merge `b1385d66`. Incluye diez commits nuevos de estados
+electorales, solicitudes de cambio de sede, notificaciones y exportación de padrón.
+El trabajo local previo se recupera sin publicarlo ni incorporarlo al commit
+de integración. Se conserva el respaldo completo en el stash
+`7bc2a782291e6a20e6fa5f07e0411f85d619c6e3`.
+
+Se crean las migraciones de unión `elecciones/0029_merge_20261027_1450.py` y
+`padron/0013_merge_20261027_1450.py`, sin alterar migraciones anteriores. Se
+aplican las migraciones pendientes en la base de desarrollo PostgreSQL.
+
+La resolución combina las pruebas de tipo de documento con turno de cursada;
+conserva el recálculo de sedes y mesas, los servicios de autoridades y la creación
+atómica de notificaciones al resolver justificativos. Archivos con resolución
+manual: `apps/padron/{services,tests,views}.py`, `apps/justificativos/views.py`,
+`templates/gestion/base.html`, `templates/padron/configurar_sedes_claustro.html`,
+`docs/decisiones_funcionales.md` y este registro.
+
+Se ajustan `apps/autoridades/reemplazos.py` y `views.py` para permitir el reemplazo
+operativo durante la elección abierta sin habilitar cambios de configuración.
+Se verifica su endpoint en `tests_reemplazos.py`; se actualizan las expectativas
+de `tests_eliminar_asignaciones.py` y `apps/elecciones/tests_permisos.py` al nuevo
+bloqueo de edición y acceso a crear elecciones desde Inicio. No se eliminan
+archivos locales ni se hace push. Los cambios previos de nómina siguen sujetos
+a las definiciones funcionales pendientes documentadas arriba.
+
+Verificación final: **425 pruebas correctas**. `check` sin problemas,
+`makemigrations --check` sin cambios y `migrate --plan` sin operaciones pendientes.
+Sin archivos en conflicto ni errores en `git diff --check`; los 24 archivos
+nuevos del respaldo se recuperaron. Estáticos actualizados y web con HTTP 200.
+
+## Autoridades: cálculo previo de reordenamiento de padrón (en curso)
+
+Se desarrolla el cálculo sin escritura del reordenamiento: reserva los titulares
+al final de su mesa de trabajo y distribuye el resto en orden alfabético, hasta
+el máximo por mesa. Informa mesas existentes, propuestas y sobrantes por claustro,
+departamento y sede; conserva la identidad de los electores y no modifica datos.
+Los traslados no pueden cambiar de claustro o departamento. Se confirmó que se
+conserva la restricción para quien cursa en su sede electoral de origen.
+
+Se crean `apps/autoridades/reordenamiento_padron.py` y
+`apps/autoridades/tests_reordenamiento_padron.py`; no se cambian modelos ni se
+requieren migraciones. El cálculo todavía no está conectado a la interfaz ni a la
+confirmación. Está pendiente la decisión sobre crear una mesa nueva cuando la
+nómina no alcance para cubrir sus autoridades, además de completar el flujo de
+confirmación, las comprobaciones de concurrencia y las pruebas integradas.
+
+Verificación parcial: 7 pruebas específicas y **432 pruebas correctas** en la
+suite completa. `check`, `makemigrations --check` y `migrate --plan` correctos;
+sin migraciones pendientes. El cálculo aún no está disponible en pantalla.
+
+## Autoridades: propuesta confirmable y conservación de asignaciones
+
+Fecha: 2026-10-27.
+
+Se conectó el cálculo previo de nómina con la pantalla. La propuesta conserva
+autoridades y roles existentes, compara mesa propia, misma sede y cambio de sede,
+e informa titulares, suplentes, personas sin asignar y mesas agregadas o quitadas
+por claustro, departamento y sede. Se puede cancelar; confirmar revalida el estado
+de la elección y aplica la propuesta atómicamente. Se registran los movimientos.
+
+El reordenamiento ubica titulares al final de su mesa de trabajo, distribuye al
+resto por apellido y nombre y conserva los suplentes ya asignados y mesas con
+datos protegidos. Una mesa nueva puede quedar con cupos vacantes; cargas posteriores
+los completan sin reemplazar las designaciones existentes. El cambio de sede se
+restringe al mismo claustro y departamento y no se traslada a quien cursa en su
+sede electoral de origen. Una solicitud de cambio de sede pendiente bloquea su
+traslado hasta resolverla. Los QR emitidos y las ausencias siguen protegiendo el
+padrón frente a cambios. La regeneración automática de mesas se bloquea cuando
+existen autoridades asignadas para no borrar su designación.
+
+La selección manual deja de aparecer como modo y está disponible desde cada mesa
+en todos los modos. Los caminos anteriores de carga y cambio de sede no pueden
+eludir la previsualización. «Recalcular» y «Eliminar todas las asignaciones» son
+acciones explícitas con confirmación y conservan sus efectos documentados.
+
+Archivos creados: `apps/autoridades/reordenamiento_padron.py` y
+`apps/autoridades/tests_reordenamiento_padron.py`. Archivos modificados:
+`apps/autoridades/{distribucion,forms,nomina,seleccion_manual,services,views}.py`,
+`apps/autoridades/{tests,tests_distribucion,tests_nomina,tests_reemplazos,tests_traslados}.py`,
+`apps/padron/services.py`, `templates/autoridades/{gestion_claustro,seleccionar_mesa}.html`,
+`static/js/explicacion-modo-autoridades.js`, `docs/autoridades_modalidades.md`,
+`docs/decisiones_funcionales.md`, `docs/modelo_dominio.md`,
+`docs/plan_implementacion.md` y este registro. Las rutas de aplicación y estáticos
+son relativas a `VotoUTN/`. No se eliminan archivos ni se agregan migraciones.
+
+Verificación final: **456 pruebas correctas** en la suite completa, más tres
+pruebas repetidas sobre la pantalla y la conservación de sedes. `check` sin
+problemas, `makemigrations --check` sin cambios y `migrate --plan` sin
+operaciones pendientes. JavaScript validado y publicado; inicio y estático
+respondieron HTTP 200. `git diff --check` sin errores.
+
+## Nómina: autoridad en mesa de votación distinta
+
+Fecha: 2026-10-28.
+
+Se retira Planilla de asignaciones del selector; la edición manual sigue desde el
+detalle de cada mesa. Nómina agrega «Votar en mesa distinta»: asigna a la persona
+a otra mesa de la misma sede, en un turno configurado que no se superponga con su
+cursada, y conserva intacta su mesa de votación. Es excluyente con el reacomodo
+previo del padrón y el cambio de sede. El reacomodo anterior y sus previsualizaciones
+se mantienen disponibles con su opción original.
+
+La migración nueva conserva asignaciones, normaliza los modos históricos Planilla
+y selección manual a Sorteo, y agrega la opción nueva apagada. Cambios en modelos,
+formularios, distribución, previsualización, plantilla, JavaScript, documentación
+y pruebas. Archivos principales: `VotoUTN/apps/autoridades/migrations/0009_nomina_mesa_distinta_sin_planilla.py`,
+`VotoUTN/apps/autoridades/{models,forms,distribucion,nomina,views}.py` y
+`VotoUTN/templates/autoridades/gestion_claustro.html`.

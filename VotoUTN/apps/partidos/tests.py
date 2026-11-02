@@ -88,7 +88,7 @@ class CandidatoTests(PartidosBaseTests):
             nombre="Otra eleccion",
             fecha_inicio=inicio,
             fecha_fin=inicio + timedelta(hours=8),
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
         )
         otro_alcance = EleccionClaustro.objects.create(
             eleccion=otra_eleccion,
@@ -233,7 +233,7 @@ class PartidosViewsTests(PartidosBaseTests):
         self.assertTemplateUsed(respuesta, "partidos/gestion.html")
         self.assertContains(
             respuesta,
-            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+            '<a class="active" href="/gestion/elecciones/">Configurar elección</a>',
         )
         self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
         self.assertContains(respuesta, "Volver a configuración", count=1)
@@ -595,7 +595,7 @@ class PartidosEleccionCerradaTests(PartidosBaseTests):
         self.client.force_login(self.usuario)
 
     def test_eleccion_cerrada_bloquea_las_pantallas_de_configuracion_de_candidaturas(self):
-        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.estado = Eleccion.Estado.FINALIZADA
         self.eleccion.save(update_fields=("estado",))
 
         rutas = (

@@ -12,8 +12,10 @@ from .models import (
     FechaAdministrativaEleccion,
 )
 from apps.mesas.models import Mesa
+from apps.padron.models import RegistroPadron
 from apps.padron.services import claustro_tiene_emision_vigente
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede
+from .services import agregar_claustro
 
 
 class FormularioEleccion(forms.ModelForm):
@@ -26,15 +28,18 @@ class FormularioEleccion(forms.ModelForm):
             "nombre",
             "fecha_inicio",
             "fecha_fin",
+            "fecha_cierre_solicitudes_cambio_sede",
         )
         labels = {
             "nombre": "Nombre de la elección",
             "fecha_inicio": "Inicio del proceso electoral",
             "fecha_fin": "Fin del proceso electoral",
+            "fecha_cierre_solicitudes_cambio_sede": "Cierre de solicitudes de cambio de sede",
         }
         widgets = {
             "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
             "fecha_fin": forms.DateInput(attrs={"type": "date"}),
+            "fecha_cierre_solicitudes_cambio_sede": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -51,7 +56,7 @@ class FormularioEleccion(forms.ModelForm):
         if not commit:
             return eleccion
 
-        eleccion.estado = Eleccion.Estado.BORRADOR
+        eleccion.estado = Eleccion.Estado.EN_PREPARACION
         eleccion.habilitada = False
         eleccion.save(update_fields=("estado", "habilitada"))
 
@@ -60,32 +65,19 @@ class FormularioEleccion(forms.ModelForm):
             [EleccionSede(eleccion=eleccion, sede=sede) for sede in sedes]
         )
         for claustro in self.cleaned_data["claustros"]:
-            eleccion_claustro = EleccionClaustro.objects.create(
-                eleccion=eleccion,
-                claustro=claustro,
-                organizacion_departamentos=claustro.organizacion_departamentos,
-            )
-            EleccionClaustroSede.objects.bulk_create(
-                [EleccionClaustroSede(eleccion_claustro=eleccion_claustro, sede=sede) for sede in sedes]
-            )
-            if (
-                claustro.organizacion_departamentos
-                == Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO
-            ):
-                alcance = EleccionClaustroDepartamento.objects.create(
-                    eleccion_claustro=eleccion_claustro,
-                    departamento=None,
-                )
-                EleccionClaustroDepartamentoSede.objects.bulk_create(
-                    [
-                        EleccionClaustroDepartamentoSede(
-                            eleccion_claustro_departamento=alcance,
-                            sede=sede,
-                        )
-                        for sede in sedes
-                    ]
-                )
+            agregar_claustro(eleccion, claustro)
         return eleccion
+
+
+class FormularioAgregarClaustro(forms.Form):
+    claustro = forms.ModelChoiceField(queryset=Claustro.objects.none(), label="Claustro")
+
+    def __init__(self, *args, eleccion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["claustro"].queryset = Claustro.objects.filter(activo=True).exclude(
+            elecciones_claustro__eleccion=eleccion,
+        )
+        self.fields["claustro"].widget.attrs["class"] = "form-control"
 
 
 class FormularioFechasAdministrativasEleccion(forms.Form):
@@ -190,8 +182,15 @@ class FormularioAlcanceSedes(forms.Form):
             mesas = Mesa.objects.filter(eleccion_claustro_departamento__eleccion_claustro=self.objeto, sede_id__in=removidas)
         else:
             mesas = Mesa.objects.filter(eleccion_claustro_departamento=self.objeto, sede_id__in=removidas)
-        if mesas.exists():
-            raise forms.ValidationError("No se puede quitar una sede utilizada por mesas existentes.")
+        if RegistroPadron.objects.filter(
+            eleccion=self.eleccion,
+            qr_generado_en__isnull=False,
+        ).exists():
+            raise forms.ValidationError("No se pueden cambiar sedes después de emitir QR.")
+        if mesas.filter(generada_automaticamente=False).exists():
+            raise forms.ValidationError("No se puede quitar una sede utilizada por mesas manuales.")
+        if mesas.filter(Q(participaciones__isnull=False) | Q(autoridades__isnull=False)).exists():
+            raise forms.ValidationError("No se puede quitar una sede de mesas vinculadas a participaciones o autoridades.")
         return sedes
 
     @transaction.atomic
@@ -200,6 +199,9 @@ class FormularioAlcanceSedes(forms.Form):
         actuales = set(self.fields["sedes"].initial)
         nuevas = seleccionadas - actuales
         removidas = actuales - seleccionadas
+        self.cambio_sedes = bool(nuevas or removidas)
+        if not self.cambio_sedes:
+            return False
         if self.tipo == "claustro":
             for sede_id in nuevas:
                 EleccionClaustroSede.objects.get_or_create(eleccion_claustro=self.objeto, sede_id=sede_id)
@@ -211,10 +213,11 @@ class FormularioAlcanceSedes(forms.Form):
             for sede_id in nuevas:
                 EleccionClaustroDepartamentoSede.objects.get_or_create(eleccion_claustro_departamento=self.objeto, sede_id=sede_id)
             EleccionClaustroDepartamentoSede.objects.filter(eleccion_claustro_departamento=self.objeto, sede_id__in=removidas).delete()
-        from apps.padron.services import invalidar_asignaciones_sede_claustro
+        from apps.padron.services import calcular_asignaciones_sede_claustro
 
         eleccion_claustro = self.objeto if self.tipo == "claustro" else self.objeto.eleccion_claustro
-        invalidar_asignaciones_sede_claustro(eleccion_claustro)
+        calcular_asignaciones_sede_claustro(eleccion_claustro)
+        return True
 
 
 class FormularioDepartamentosClaustro(forms.Form):
@@ -291,9 +294,9 @@ class FormularioDepartamentosClaustro(forms.Form):
             eleccion_claustro_departamento__in=removidas,
         ).delete()
         removidas.delete()
-        from apps.padron.services import invalidar_asignaciones_sede_claustro
+        from apps.padron.services import calcular_asignaciones_sede_claustro
 
-        invalidar_asignaciones_sede_claustro(self.eleccion_claustro)
+        calcular_asignaciones_sede_claustro(self.eleccion_claustro)
 
 
 class FormularioPrepararClaustro(forms.ModelForm):

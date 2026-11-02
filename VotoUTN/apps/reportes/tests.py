@@ -1,13 +1,15 @@
 import re
-from datetime import datetime, time, timedelta
 from io import BytesIO
+from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.timezone import make_aware
+from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
 from reportlab.pdfgen.canvas import Canvas
 
 from apps.asistencia.services import ServicioRegistroParticipacion
@@ -43,12 +45,18 @@ from apps.reportes.services_boletas_pdf import (
     validar_boletas_pdf,
 )
 from apps.reportes.services_pdf import (
+    ALTO_PAGINA,
+    ANCHO_COLUMNA_QR,
+    ANCHO_TABLA,
+    COL_TROQUEL,
     ELECTORES_POR_PAGINA,
+    LADO_QR_ELECTOR,
+    MARGEN,
     _agrupar_padrones_por_mesa,
     _construir_tabla,
     _construir_troquel,
     _dibujar_caratula,
-    _generar_imagen_qr,
+    _generar_qr_vectorial,
     generar_padron_pdf,
     validar_padron_para_pdf,
 )
@@ -101,7 +109,7 @@ class ReportesViewsTests(TestCase):
         self.assertContains(respuesta, "disabled")
         self.assertContains(
             respuesta,
-            '<a class="active" href="/gestion/elecciones/">Gestionar elecciones</a>',
+            '<a class="active" href="/gestion/elecciones/">Configurar elección</a>',
         )
         self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
         self.assertContains(respuesta, "Volver a configuración", count=1)
@@ -114,6 +122,19 @@ class ReportesViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta["Content-Type"], "text/csv; charset=utf-8")
         self.assertIn('filename="padron_', respuesta["Content-Disposition"])
+
+    def test_reportes_exporta_padron_y_asignacion_de_sedes(self):
+        self.client.force_login(self.usuario)
+
+        pantalla = self.client.get(reverse("gestionar-reportes", args=(self.eleccion.id,)))
+        respuesta = self.client.get(reverse("exportar-reporte", args=(self.eleccion.id, "asignacion-sedes")))
+
+        self.assertContains(pantalla, "Exportar padrón")
+        self.assertContains(pantalla, "Exportar asignación de sedes")
+        self.assertContains(pantalla, reverse("exportar-reporte", args=(self.eleccion.id, "asignacion-sedes")))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn('filename="asignacion-sedes_', respuesta["Content-Disposition"])
+        self.assertIn("sede_asignada", respuesta.content.decode("utf-8-sig"))
 
     def test_generar_boletas_pdf_sin_candidatos_redirige_con_mensaje(self):
         self.client.force_login(self.usuario)
@@ -134,7 +155,10 @@ class ReportesViewsTests(TestCase):
 class PadronPDFTests(TestCase):
     def setUp(self):
         inicio = make_aware(datetime(2026, 8, 3, 8))
-        self.eleccion = Eleccion.objects.create(nombre="Eleccion Oficio", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8))
+        self.eleccion = Eleccion.objects.create(
+            nombre="Eleccion Oficio", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8),
+            estado=Eleccion.Estado.EN_CURSO,
+        )
         self.sede = Sede.objects.create(nombre="Campus Central")
         self.turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
         self.claustro = Claustro.objects.create(nombre="Estudiantes")
@@ -209,15 +233,49 @@ class PadronPDFTests(TestCase):
         registro.elector.apellido = "Gomez"
         registro.elector.nombre = "Maria Elena"
 
-        with (
-            patch("apps.reportes.services_pdf._generar_imagen_qr", return_value=b"qr"),
-            patch("apps.reportes.services_pdf.ImagenPDF", return_value="qr-image"),
-            patch("apps.reportes.services_pdf._construir_espacio_firma", return_value="firma"),
-        ):
-            troquel = _construir_troquel(self.eleccion, self.mesa, registro, 20)
+        troquel = _construir_troquel(self.eleccion, self.mesa, registro, 20)
 
         texto_troquel = troquel._cellvalues[0][1]
         self.assertEqual(texto_troquel._cellvalues[0][0].text, "Gomez, Maria Elena")
+
+    @override_settings(CLAVE_FIRMA_QR="clave-de-prueba-qr")
+    def test_qr_vectorial_conserva_payload_y_margen_de_cuatro_modulos(self):
+        import qrcode
+        from qrcode.constants import ERROR_CORRECT_M
+
+        registro = self.crear_electores(1)[0]
+        with patch("apps.reportes.services_pdf._generar_qr_vectorial", wraps=_generar_qr_vectorial) as generar:
+            troquel = _construir_troquel(self.eleccion, self.mesa, registro, 21 * mm)
+
+        payload, lado = generar.call_args.args
+        self.assertEqual(
+            ServicioRegistroParticipacion.parsear_codigo_qr(payload),
+            (self.eleccion.id, self.mesa.numero, registro.identificador_qr),
+        )
+        referencia = qrcode.QRCode(error_correction=ERROR_CORRECT_M, border=4)
+        referencia.add_data(payload)
+        referencia.make(fit=True)
+        matriz = referencia.get_matrix()
+        modulo = lado / len(matriz)
+        dibujo = troquel._cellvalues[0][0]
+        fondo, trazado = dibujo.contents
+        self.assertEqual(fondo.fillColor, colors.white)
+        self.assertEqual(trazado.fillColor, colors.black)
+        coordenadas = []
+        for fila, modulos in enumerate(matriz):
+            for columna, oscuro in enumerate(modulos):
+                if oscuro:
+                    x = columna * modulo
+                    y = lado - (fila + 1) * modulo
+                    coordenadas.extend([x, y, x + modulo, y, x + modulo, y + modulo, x, y + modulo])
+        self.assertEqual(trazado.points, coordenadas)
+        self.assertGreaterEqual(min(trazado.points), 4 * modulo - 1e-8)
+        self.assertLessEqual(max(trazado.points), lado - 4 * modulo + 1e-8)
+        buffer = BytesIO()
+        lienzo = Canvas(buffer, pageCompression=0)
+        dibujo.drawOn(lienzo, 0, 0)
+        lienzo.save()
+        self.assertNotIn(b"/Subtype /Image", buffer.getvalue())
 
     def test_genera_pdf_con_exactamente_15_electores(self):
         self.crear_electores(ELECTORES_POR_PAGINA)
@@ -262,7 +320,7 @@ class PadronPDFTests(TestCase):
     def test_la_caratula_incluye_un_qr_de_mesa_firmado(self):
         self.crear_electores(1)
 
-        with patch("apps.reportes.services_pdf._generar_imagen_qr", wraps=_generar_imagen_qr) as generar:
+        with patch("apps.reportes.services_pdf._generar_qr_vectorial", wraps=_generar_qr_vectorial) as generar:
             _dibujar_caratula(Canvas(BytesIO()), self.eleccion, self.mesa)
 
         payload = generar.call_args.args[0]
@@ -331,19 +389,46 @@ class PadronPDFTests(TestCase):
         mensajes = [str(mensaje) for mensaje in respuesta.context["messages"]]
         self.assertTrue(any("mesa" in mensaje for mensaje in mensajes))
 
-    def test_rehabilitar_invalida_la_emision_y_los_qr_anteriores(self):
+    def test_no_se_puede_rehabilitar_una_emision_en_curso(self):
         registros = self.crear_electores(1)
         identificador_anterior = registros[0].identificador_qr
         self.client.login(username="admin-reportes", password="clave")
         self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.id,)))
 
-        rehabilitar_cambios_padron(self.eleccion_claustro, self.usuario)
+        with self.assertRaisesMessage(ValueError, "No se pueden rehabilitar"):
+            rehabilitar_cambios_padron(self.eleccion_claustro, self.usuario)
 
         registros[0].refresh_from_db()
-        self.assertEqual(EmisionPadronImprimible.objects.get().estado, "invalidada")
-        self.assertIsNone(registros[0].qr_generado_en)
-        self.assertIsNone(registros[0].numero_mesa_qr)
-        self.assertNotEqual(registros[0].identificador_qr, identificador_anterior)
+        self.assertEqual(EmisionPadronImprimible.objects.get().estado, "vigente")
+        self.assertIsNotNone(registros[0].qr_generado_en)
+        self.assertEqual(registros[0].numero_mesa_qr, self.mesa.numero)
+        self.assertEqual(registros[0].identificador_qr, identificador_anterior)
+
+    def test_pdf_solo_se_puede_generar_en_curso(self):
+        self.crear_electores(1)
+        self.client.force_login(self.usuario)
+        for estado in (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA, Eleccion.Estado.FINALIZADA):
+            with self.subTest(estado=estado):
+                self.eleccion.estado = estado
+                self.eleccion.save(update_fields=("estado",))
+                self.assertFalse(validar_padron_para_pdf(self.eleccion).apto)
+                with self.assertRaisesMessage(ValueError, "en curso"):
+                    generar_padron_pdf(self.eleccion)
+                respuesta = self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.pk,)))
+                self.assertEqual(respuesta.status_code, 302)
+                self.assertFalse(EmisionPadronImprimible.objects.exists())
+
+    def test_reimpresion_preserva_los_qr_y_la_emision_vigente(self):
+        registro = self.crear_electores(1)[0]
+        self.client.force_login(self.usuario)
+        url = reverse("generar-padron-pdf", args=(self.eleccion.pk,))
+        self.assertEqual(self.client.post(url).status_code, 200)
+        registro.refresh_from_db()
+        marcas = (registro.identificador_qr, registro.qr_generado_en, registro.numero_mesa_qr)
+        self.assertEqual(self.client.post(url).status_code, 200)
+        registro.refresh_from_db()
+        self.assertEqual((registro.identificador_qr, registro.qr_generado_en, registro.numero_mesa_qr), marcas)
+        self.assertEqual(EmisionPadronImprimible.objects.count(), 1)
 
 
 class BoletasPDFTests(TestCase):

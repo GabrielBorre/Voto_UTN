@@ -20,7 +20,7 @@ class PlantillaNotificacion(models.Model):
         "horario_turno", "fecha_votacion", "url_accion", "fecha_capacitacion",
         "hora_capacitacion", "lugar_capacitacion", "fecha_presentacion",
         "estado_solicitud", "observacion_resolucion", "sede_solicitada",
-        "turno_solicitado",
+        "turno_solicitado", "tipo_ausencia",
     }
 
     codigo = models.SlugField(max_length=100, unique=True)
@@ -140,7 +140,8 @@ class EnvioNotificacion(models.Model):
 
     plantilla = models.ForeignKey(PlantillaNotificacion, on_delete=models.PROTECT, related_name="envios")
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="envios_notificacion", null=True, blank=True)
-    destinatario = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="notificaciones")
+    destinatario = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="notificaciones", null=True, blank=True)
+    elector = models.ForeignKey("padron.Elector", on_delete=models.PROTECT, related_name="notificaciones", null=True, blank=True)
     asunto = models.CharField(max_length=180)
     contenido = models.TextField()
     estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.PENDIENTE)
@@ -152,3 +153,9 @@ class EnvioNotificacion(models.Model):
     class Meta:
         db_table = "elecciones_envionotificacion"
         ordering = ("-creada_en",)
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(destinatario__isnull=False) | models.Q(elector__isnull=False),
+                name="notificacion_con_destinatario",
+            ),
+        ]

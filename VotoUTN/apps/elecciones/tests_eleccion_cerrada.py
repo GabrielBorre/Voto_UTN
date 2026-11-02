@@ -27,7 +27,7 @@ class CargaEleccionCerradaDemoTests(TestCase):
 
         self.assertEqual(eleccion.fecha_inicio, date(2024, 3, 15))
         self.assertEqual(eleccion.fecha_fin, date(2024, 11, 20))
-        self.assertEqual(eleccion.estado, Eleccion.Estado.CERRADA)
+        self.assertEqual(eleccion.estado, Eleccion.Estado.FINALIZADA)
         self.assertFalse(eleccion.habilitada)
         self.assertEqual(Eleccion.objects.filter(nombre="Eleccion 2024 demo").count(), 1)
         self.assertEqual(eleccion.elecciones_sede.count(), 1)
@@ -49,7 +49,7 @@ class EleccionCerradaAdminTests(TestCase):
             nombre="Eleccion cerrada admin de prueba",
             fecha_inicio=fecha - timedelta(days=2),
             fecha_fin=fecha - timedelta(days=1),
-            estado=Eleccion.Estado.CERRADA,
+            estado=Eleccion.Estado.FINALIZADA,
             habilitada=False,
         )
         self.sede = Sede.objects.create(nombre="Sede cerrada admin de prueba")

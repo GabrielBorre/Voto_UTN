@@ -10,7 +10,7 @@ from django.utils.timezone import make_aware
 
 from apps.autoridades.forms import FormularioAsignacionAutoridad
 from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
-from apps.autoridades.services import asignar_autoridad, confirmar_cambio_sede_para_autoridad, proponer_cambios_sede, redistribuir_autoridades, validar_csv_autoridades
+from apps.autoridades.services import asignar_autoridad, confirmar_cambio_sede_para_autoridad, importar_autoridades, proponer_cambios_sede, redistribuir_autoridades, responder_asignacion, validar_csv_autoridades
 from apps.elecciones.models import (
     Eleccion,
     EleccionClaustro,
@@ -20,6 +20,7 @@ from apps.elecciones.models import (
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import AsignacionSedePadron, Elector, RegistroPadron
+from apps.padron.services import calcular_mesas_automaticas_eleccion
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.usuarios.backend_auth import ElectorBackend, ElectorUser
 from apps.usuarios.models import AsignacionRol
@@ -68,11 +69,76 @@ class AutoridadesViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "autoridades/gestion_claustro.html")
         self.assertContains(respuesta, "Autoridades de Estudiantes vistas")
-        self.assertContains(respuesta, 'class="card management-section"', count=6)
+        self.assertContains(respuesta, "<h2>Turnos y cupos</h2>", html=True)
+        self.assertContains(respuesta, "<h2>Modo de elección</h2>", html=True)
+        self.assertContains(respuesta, "Asignaciones registradas")
         self.assertContains(respuesta, reverse("gestionar-autoridades", args=(self.eleccion.id,)))
+        self.assertContains(respuesta, 'name="aplicar-modo"')
+        self.assertNotContains(respuesta, "Confirmar cambio</button>")
+        self.assertNotContains(respuesta, "Recalcular distribución")
+
+    def test_reincorporar_candidato_no_lo_excluye_del_padron_electoral(self):
+        self.client.force_login(self.usuario)
+        sede = Sede.objects.create(nombre="Medrano")
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=self.eleccion_claustro,
+            departamento=departamento,
+        )
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=alcance,
+            sede=sede,
+        )
+        elector = Elector.objects.create(dni="40123456", legajo="D001", nombre="Ada", apellido="Lovelace")
+        registro = RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=alcance,
+        )
+        candidatura = CandidaturaAutoridad.objects.create(
+            registro_padron=registro,
+            cargada_por=self.usuario,
+            excluida=True,
+        )
+        ruta = reverse("gestionar-autoridades-claustro", args=(self.eleccion.id, self.eleccion_claustro.id))
+
+        respuesta = self.client.post(
+            ruta,
+            {"quitar-candidato": "1", "candidatura_id": candidatura.id},
+            follow=True,
+        )
+
+        candidatura.refresh_from_db()
+        self.assertFalse(candidatura.excluida)
+        self.assertTrue(registro.activo)
+        self.assertContains(respuesta, "Elector reincorporado a la nómina de autoridades")
+
+    def test_nomina_rechaza_carga_manual_y_conserva_la_persona_existente(self):
+        self.client.force_login(self.usuario)
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=self.eleccion_claustro,
+            departamento=departamento,
+        )
+        elector = Elector.objects.create(dni="40123456", legajo="D001", nombre="Ada", apellido="Lovelace")
+        registro = RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=alcance,
+        )
+        CandidaturaAutoridad.objects.create(registro_padron=registro, cargada_por=self.usuario)
+
+        respuesta = self.client.post(
+            reverse("gestionar-autoridades-claustro", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            {"agregar-candidato": "1", "manual-busqueda": "Ada"},
+            follow=True,
+        )
+
+        self.assertContains(respuesta, "La nómina común se carga con el archivo de nómina.")
+        self.assertEqual(CandidaturaAutoridad.objects.filter(registro_padron=registro).count(), 1)
 
     def test_eleccion_cerrada_bloquea_la_configuracion_de_autoridades(self):
-        self.eleccion.estado = Eleccion.Estado.CERRADA
+        self.eleccion.estado = Eleccion.Estado.FINALIZADA
         self.eleccion.save(update_fields=("estado",))
         self.client.force_login(self.usuario)
 
@@ -105,7 +171,7 @@ class AutoridadesViewsTests(TestCase):
         self.assertEqual(respuesta["Content-Type"], "text/csv; charset=utf-8")
         contenido = respuesta.content.decode("utf-8-sig")
         self.assertIn("Tipo documento,Documento,Legajo", contenido)
-        self.assertIn("DNI,40123456,2024001", contenido)
+        self.assertNotIn("Mesa,Tipo documento", contenido)
 
 
 class AutoridadesImportTests(TestCase):
@@ -134,6 +200,52 @@ class AutoridadesImportTests(TestCase):
         self.assertEqual(errores, [])
         self.assertEqual(filas[0]["dni"], "40123456")
         self.assertEqual(filas[0]["legajo"], "2024001")
+
+    def test_importar_csv_informa_candidatos_ya_cargados_y_preserva_su_exclusion(self):
+        candidatura = CandidaturaAutoridad.objects.create(
+            registro_padron=self.registro,
+            cargada_por=get_user_model().objects.create_user(username="cargador-duplicado"),
+            excluida=True,
+        )
+        contenido = b"DNI,Legajo\n40123456,2024001\n"
+
+        creadas, ya_cargadas, errores, pendiente = importar_autoridades(
+            contenido,
+            self.eleccion_claustro,
+            candidatura.cargada_por,
+        )
+
+        candidatura.refresh_from_db()
+        self.assertEqual((creadas, ya_cargadas, errores, pendiente), (0, 1, [], None))
+        self.assertTrue(candidatura.excluida)
+
+    def test_importar_csv_deja_pendiente_la_confirmacion(self):
+        self.registro.sede = None
+        self.registro.save(update_fields=("sede",))
+        mesa = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=1,
+            eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede,
+        )
+        AsignacionMesa.objects.create(registro_padron=self.registro, mesa=mesa)
+        turno = Turno.objects.create(nombre="Turno importacion", hora_inicio=time(8), hora_fin=time(13))
+        EleccionClaustroTurno.objects.create(
+            eleccion_claustro=self.eleccion_claustro,
+            turno=turno,
+            titulares_por_mesa=1,
+        )
+        usuario = get_user_model().objects.create_user(username="cargador-automatico")
+
+        creadas, ya_cargadas, errores, pendiente = importar_autoridades(
+            b"DNI,Legajo\n40123456,2024001\n",
+            self.eleccion_claustro,
+            usuario,
+        )
+
+        self.assertEqual((creadas, ya_cargadas, errores), (1, 0, []))
+        self.assertIn("confirmá", pendiente)
+        self.assertFalse(AsignacionAutoridad.objects.filter(registro_padron=self.registro).exists())
 
     def test_validar_csv_autoridades_acepta_alias_mail_mayusculas(self):
         contenido = b"DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n40123456,2024001,Juan,Perez,K,juan@frba.utn.edu.ar\n"
@@ -334,6 +446,55 @@ class TurnosAutoridadesTests(TestCase):
             {self.manana.id, self.tarde.id},
         )
 
+    def test_cambiar_turnos_previsualiza_la_nomina_antes_de_distribuir(self):
+        for registro in self.registros:
+            registro.sede = None
+            registro.turno_cursada = None
+            registro.save(update_fields=("sede", "turno_cursada"))
+            CandidaturaAutoridad.objects.create(registro_padron=registro, cargada_por=self.usuario)
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("gestionar-autoridades-claustro", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            {
+                "configuracion-turnos": [str(self.tarde.id)],
+                f"titulares_{self.tarde.id}": "1",
+                f"suplentes_{self.tarde.id}": "0",
+                "guardar-turnos": "",
+            },
+        )
+
+        self.assertSetEqual(
+            set(self.eleccion_claustro.turnos_autoridad.values_list("turno_id", flat=True)),
+            {self.tarde.id},
+            list(respuesta.context["messages"]) if respuesta.context else "",
+        )
+        self.assertFalse(AsignacionAutoridad.objects.filter(mesa=self.mesa).exists())
+        respuesta = self.client.post(
+            reverse("gestionar-autoridades-claustro", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            {"confirmar-nomina": "1"},
+        )
+        self.assertEqual(
+            set(AsignacionAutoridad.objects.filter(mesa=self.mesa).values_list("turno_id", flat=True)),
+            {self.tarde.id},
+            list(respuesta.context["messages"]) if respuesta.context else "",
+        )
+
+    def test_regenerar_mesas_deja_pendiente_la_confirmacion_de_nomina(self):
+        for registro in self.registros:
+            CandidaturaAutoridad.objects.create(registro_padron=registro, cargada_por=self.usuario)
+
+        resultado = calcular_mesas_automaticas_eleccion(
+            self.eleccion,
+            usuario=self.usuario,
+            recalcular_sedes=False,
+        )
+
+        self.assertIn("confirmá", resultado["autoridades"][self.eleccion_claustro.id]["pendiente"])
+        self.assertFalse(AsignacionAutoridad.objects.filter(
+            mesa__eleccion_claustro_departamento__eleccion_claustro=self.eleccion_claustro,
+        ).exists())
+
     def test_configurar_turnos_no_modifica_otro_claustro(self):
         otro_claustro = EleccionClaustro.objects.create(
             eleccion=self.eleccion,
@@ -369,6 +530,18 @@ class TurnosAutoridadesTests(TestCase):
         with self.assertRaisesMessage(ValidationError, "habilitado para este claustro"):
             asignar_autoridad(self.registros[0], self.mesa, self.tarde, self.usuario)
 
+    def test_asignacion_rige_sin_aceptacion_y_la_autoridad_puede_rechazarla(self):
+        asignacion, creada = asignar_autoridad(self.registros[0], self.mesa, self.manana, self.usuario)
+
+        self.assertTrue(creada)
+        self.assertEqual(asignacion.estado, AsignacionAutoridad.Estado.ASIGNADA)
+        self.assertEqual(asignacion.get_estado_display(), "Asignada")
+
+        responder_asignacion(asignacion)
+        asignacion.refresh_from_db()
+
+        self.assertEqual(asignacion.estado, AsignacionAutoridad.Estado.RECHAZADA)
+
     def test_el_limite_se_aplica_por_mesa_y_turno(self):
         EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.tarde)
 
@@ -386,12 +559,12 @@ class TurnosAutoridadesTests(TestCase):
         self.assertTrue(creada)
         self.assertEqual(tercera.turno, self.tarde)
 
-    def test_rechaza_asignacion_en_sede_o_turno_de_cursada(self):
+    def test_permite_sede_de_cursada_pero_rechaza_turno_superpuesto(self):
         registro = self.registros[0]
         registro.sede = self.sede_votacion
         registro.save(update_fields=("sede",))
-        with self.assertRaisesMessage(ValidationError, "sede donde cursa"):
-            asignar_autoridad(registro, self.mesa, self.manana, self.usuario)
+        asignacion, creada = asignar_autoridad(registro, self.mesa, self.manana, self.usuario)
+        self.assertTrue(creada)
         registro.sede = None
         registro.turno_cursada = self.manana
         registro.save(update_fields=("sede", "turno_cursada"))
@@ -399,6 +572,8 @@ class TurnosAutoridadesTests(TestCase):
             asignar_autoridad(registro, self.mesa, self.manana, self.usuario)
 
     def test_redistribucion_cubre_primero_y_reparte_titulares(self):
+        from apps.autoridades.models import ConfiguracionAutoridades
+        ConfiguracionAutoridades.objects.create(eleccion_claustro=self.eleccion_claustro, reacomodar_titulares=True)
         segunda_mesa = Mesa.objects.create(
             eleccion=self.eleccion,
             numero=2,
@@ -414,10 +589,80 @@ class TurnosAutoridadesTests(TestCase):
         conteos = list(AsignacionAutoridad.objects.filter(turno=self.manana).values("mesa_id").annotate(total=Count("id")).order_by("mesa_id"))
         self.assertEqual(resultado["asignadas"], 3)
         self.assertEqual([fila["total"] for fila in conteos], [2, 1])
-        self.assertEqual(resultado["sin_cubrir"], [])
+        self.assertEqual(resultado["titulares_faltantes"], 1)
         self.assertEqual(AsignacionAutoridad.objects.filter(mesa=segunda_mesa, tipo=AsignacionAutoridad.Tipo.TITULAR).count(), 1)
 
+    def test_asigna_titulares_en_todas_las_mesas_antes_de_repartir_suplentes(self):
+        from apps.autoridades.models import ConfiguracionAutoridades
+        ConfiguracionAutoridades.objects.create(eleccion_claustro=self.eleccion_claustro, reacomodar_titulares=True)
+        segunda_mesa = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=2,
+            eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento,
+            sede=self.sede_votacion,
+            generada_automaticamente=True,
+        )
+        configuracion = self.eleccion_claustro.turnos_autoridad.get(turno=self.manana)
+        configuracion.titulares_por_mesa = 1
+        configuracion.suplentes_por_mesa = 1
+        configuracion.save(update_fields=("titulares_por_mesa", "suplentes_por_mesa"))
+        for registro in self.registros:
+            CandidaturaAutoridad.objects.create(registro_padron=registro, cargada_por=self.usuario)
+
+        redistribuir_autoridades(self.eleccion_claustro, self.usuario)
+
+        self.assertEqual(
+            AsignacionAutoridad.objects.filter(turno=self.manana, tipo=AsignacionAutoridad.Tipo.TITULAR).count(),
+            2,
+        )
+        self.assertEqual(
+            AsignacionAutoridad.objects.filter(turno=self.manana, tipo=AsignacionAutoridad.Tipo.SUPLENTE).count(),
+            1,
+        )
+        self.assertEqual(
+            AsignacionAutoridad.objects.filter(mesa=segunda_mesa, tipo=AsignacionAutoridad.Tipo.TITULAR).count(),
+            1,
+        )
+
+    def test_quitar_titular_promueve_al_suplente_de_la_misma_mesa_y_turno(self):
+        configuracion = self.eleccion_claustro.turnos_autoridad.get(turno=self.manana)
+        configuracion.titulares_por_mesa = 1
+        configuracion.suplentes_por_mesa = 1
+        configuracion.save(update_fields=("titulares_por_mesa", "suplentes_por_mesa"))
+        for registro in self.registros:
+            CandidaturaAutoridad.objects.create(registro_padron=registro, cargada_por=self.usuario)
+        redistribuir_autoridades(self.eleccion_claustro, self.usuario)
+        titular_anterior = AsignacionAutoridad.objects.get(
+            mesa=self.mesa,
+            turno=self.manana,
+            tipo=AsignacionAutoridad.Tipo.TITULAR,
+        )
+        suplente_anterior = AsignacionAutoridad.objects.get(
+            mesa=self.mesa,
+            turno=self.manana,
+            tipo=AsignacionAutoridad.Tipo.SUPLENTE,
+        )
+        candidatura_titular_anterior_id = titular_anterior.candidatura_id
+        registro_suplente_anterior_id = suplente_anterior.registro_padron_id
+        self.assertNotEqual(titular_anterior.registro_padron_id, suplente_anterior.registro_padron_id)
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("gestionar-autoridades-claustro", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            {"quitar-candidato": "1", "candidatura_id": candidatura_titular_anterior_id},
+            follow=True,
+        )
+
+        asignacion_promovida = AsignacionAutoridad.objects.get(
+            registro_padron_id=registro_suplente_anterior_id,
+        )
+        self.assertEqual(asignacion_promovida.tipo, AsignacionAutoridad.Tipo.TITULAR)
+        self.assertTrue(CandidaturaAutoridad.objects.get(pk=candidatura_titular_anterior_id).excluida)
+        self.assertContains(respuesta, "Revisá la distribución propuesta")
+
     def test_propone_cambio_de_sede_sin_aplicarlo(self):
+        from apps.autoridades.models import ConfiguracionAutoridades
+        ConfiguracionAutoridades.objects.create(eleccion_claustro=self.eleccion_claustro, permitir_cambio_sede=True)
         sede_alternativa = Sede.objects.create(nombre="Sede alternativa")
         EleccionClaustroDepartamentoSede.objects.create(
             eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento,
@@ -440,7 +685,9 @@ class TurnosAutoridadesTests(TestCase):
         self.registros[0].refresh_from_db()
         self.assertEqual(self.registros[0].asignacion_sede_padron.sede, self.sede_votacion)
 
-    def test_confirma_cambio_de_sede_y_recalcula_mesas_y_autoridades(self):
+    def test_confirma_cambio_de_sede_laboral_y_conserva_padron(self):
+        from apps.autoridades.models import ConfiguracionAutoridades
+        ConfiguracionAutoridades.objects.create(eleccion_claustro=self.eleccion_claustro, permitir_cambio_sede=True)
         sede_alternativa = Sede.objects.create(nombre="Sede alternativa confirmada")
         EleccionClaustroDepartamentoSede.objects.create(
             eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento,
@@ -448,10 +695,13 @@ class TurnosAutoridadesTests(TestCase):
         )
         CandidaturaAutoridad.objects.create(registro_padron=self.registros[0], cargada_por=self.usuario)
 
-        confirmar_cambio_sede_para_autoridad(self.registros[0], sede_alternativa, self.usuario)
+        mesa_destino = Mesa.objects.create(eleccion=self.eleccion, numero=2, sede=sede_alternativa,
+            eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento, generada_automaticamente=True)
+        confirmar_cambio_sede_para_autoridad(self.registros[0], sede_alternativa, self.usuario, mesa=mesa_destino, turno=self.manana)
 
         self.registros[0].refresh_from_db()
-        self.assertEqual(self.registros[0].asignacion_sede_padron.sede, sede_alternativa)
+        self.assertEqual(self.registros[0].asignacion_sede_padron.sede, self.sede_votacion)
+        self.assertEqual(self.registros[0].asignacion_mesa.mesa, self.mesa)
         self.assertEqual(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).count(), 2)
         asignacion = AsignacionAutoridad.objects.get(registro_padron=self.registros[0])
         self.assertEqual(asignacion.mesa.sede, sede_alternativa)
