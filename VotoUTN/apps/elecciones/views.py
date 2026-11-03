@@ -433,6 +433,12 @@ def configurar_eleccion(request, eleccion_id):
         or claustros.filter(Q(fecha_votacion__isnull=True) | Q(maximo_votantes_por_mesa__isnull=True)).exists()
     )
     autoridades_pendientes = eleccion.mesas.filter(autoridades__isnull=True).exists() or not eleccion.mesas.exists()
+    periodo_justificacion_vigente = bool(
+        eleccion.estado == Eleccion.Estado.EN_CURSO
+        and eleccion.justificacion_electores_habilitada_en
+        and eleccion.fecha_limite_justificacion_electores
+        and eleccion.fecha_limite_justificacion_electores >= timezone.localdate()
+    )
     return render(
         request,
         "elecciones/configurar_eleccion.html",
@@ -452,6 +458,7 @@ def configurar_eleccion(request, eleccion_id):
             "padrones_pendientes": padrones_pendientes,
             "alcances_pendientes": alcances_pendientes,
             "autoridades_pendientes": autoridades_pendientes,
+            "periodo_justificacion_vigente": periodo_justificacion_vigente,
             "cantidad_padrones": eleccion.registros_padron.count(),
             "cantidad_mesas": eleccion.mesas.count(),
             "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),
