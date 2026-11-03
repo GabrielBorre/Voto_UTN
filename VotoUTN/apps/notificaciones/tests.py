@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from smtplib import SMTPException
 from unittest.mock import patch
 
@@ -6,12 +7,22 @@ from django.core import mail
 from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
+from apps.asistencia.models import RegistroParticipacion
+from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.notificaciones.forms import FormularioEnviarNotificacion
 from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
-from apps.notificaciones.services import crear_envios, notificaciones_para_usuario, procesar_envios_pendientes
-from apps.padron.models import Elector
-from apps.parametros.models import FechaAdministrativa
+from apps.notificaciones.services import (
+    crear_envios,
+    crear_notificaciones_ausentes_confirmadas,
+    enviar_notificacion,
+    notificaciones_para_usuario,
+    procesar_envios_pendientes,
+)
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.padron.models import Elector, RegistroPadron
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa
 from apps.usuarios.backend_auth import ElectorUser
 from apps.usuarios.models import PerfilUsuario
 
@@ -245,3 +256,89 @@ class NotificacionesDestinatariosTests(TestCase):
         self.assertEqual(self.envio.estado, EnvioNotificacion.Estado.ERROR)
         self.assertIsNone(self.envio.enviada_en)
         self.assertEqual(self.envio.error, "El proveedor no confirmó el envío del correo.")
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class NotificacionesAusentesTests(TestCase):
+    def test_fecha_limite_inclusiva_se_incluye_en_notificacion_interna_y_correo(self):
+        eleccion = Eleccion.objects.create(
+            nombre="Elección de prueba",
+            fecha_inicio=date(2026, 8, 3),
+            fecha_fin=date(2026, 8, 3),
+            estado=Eleccion.Estado.EN_CURSO,
+        )
+        claustro = Claustro.objects.create(nombre="Estudiantes")
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="NOT")
+        configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=EleccionClaustro.objects.create(
+                eleccion=eleccion,
+                claustro=claustro,
+            ),
+            departamento=departamento,
+        )
+        elector = Elector.objects.create(
+            legajo="notificacion-ausente",
+            nombre="Ana",
+            apellido="Pérez",
+            dni="40123456",
+            correo_electronico="ana@example.test",
+        )
+        registro = RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=eleccion,
+            eleccion_claustro_departamento=configuracion,
+        )
+        mesa = Mesa.objects.create(
+            eleccion=eleccion,
+            numero=1,
+            eleccion_claustro_departamento=configuracion,
+            estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
+        )
+        AsignacionMesa.objects.create(registro_padron=registro, mesa=mesa)
+        usuario = get_user_model().objects.create_user(username="registrador")
+        RegistroParticipacion.objects.create(
+            registro_padron=registro,
+            mesa=mesa,
+            registrada_por=usuario,
+            metodo=RegistroParticipacion.Metodo.MANUAL,
+        )
+        fecha_limite = timezone.localdate() + timedelta(days=7)
+        plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+            codigo="aviso-ausentes-eleccion",
+            defaults={
+                "nombre": "Ausentes: período de justificativos",
+                "categoria": PlantillaNotificacion.Categoria.JORNADA,
+                "asunto": "Información sobre tu participación: {nombre_eleccion}",
+                "contenido": (
+                    "Hola {nombre_destinatario},\n\n"
+                    "En los registros de la elección {nombre_eleccion} figurás como ausente. "
+                    "Podés presentar un justificativo dentro del período habilitado desde Voto UTN.\n\n"
+                    "Si considerás que esta información es incorrecta, comunicate con la Junta Electoral.\n\n"
+                    "Voto UTN"
+                ),
+                "roles_destinatarios": ["elector"],
+                "permite_envio_manual": False,
+            },
+        )
+        plantilla.contenido = "Plantilla anterior: Podés presentar un justificativo dentro del período habilitado desde Voto UTN."
+        plantilla.save(update_fields=("contenido",))
+
+        envios = crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite)
+
+        self.assertEqual(len(envios), 1)
+        fecha_formateada = fecha_limite.strftime("%d/%m/%Y")
+        notificacion = EnvioNotificacion.objects.get(elector=elector, eleccion=eleccion)
+        self.assertIn(
+            f"Podés presentar un justificativo hasta el día {fecha_formateada} inclusive, "
+            "momento en el que finaliza el período de justificación de inasistencias electorales.",
+            notificacion.contenido,
+        )
+        self.assertEqual(notificacion.contenido.count("Podés presentar un justificativo"), 1)
+        self.assertNotIn("Plantilla anterior", notificacion.contenido)
+
+        self.assertTrue(enviar_notificacion(notificacion))
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(f"hasta el día {fecha_formateada} inclusive", mail.outbox[0].body)
+        self.assertIn("finaliza el período de justificación de inasistencias electorales.", mail.outbox[0].body)
+        self.assertEqual(mail.outbox[0].body, notificacion.contenido)

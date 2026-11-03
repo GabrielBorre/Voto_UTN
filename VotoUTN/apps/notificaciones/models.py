@@ -20,7 +20,7 @@ class PlantillaNotificacion(models.Model):
         "horario_turno", "fecha_votacion", "url_accion", "fecha_capacitacion",
         "hora_capacitacion", "lugar_capacitacion", "fecha_presentacion",
         "estado_solicitud", "observacion_resolucion", "sede_solicitada",
-        "turno_solicitado", "tipo_ausencia",
+        "turno_solicitado", "tipo_ausencia", "fecha_limite_justificacion_electores",
     }
 
     codigo = models.SlugField(max_length=100, unique=True)

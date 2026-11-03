@@ -182,7 +182,7 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
     if mesas.exclude(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA).exists():
         raise ValueError("Todas las mesas deben estar escaneadas y confirmadas antes de notificar a los ausentes.")
 
-    plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+    plantilla, _ = PlantillaNotificacion.objects.update_or_create(
         codigo="aviso-ausentes-eleccion",
         defaults={
             "nombre": "Ausentes: período de justificativos",
@@ -191,7 +191,9 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
             "contenido": (
                 "Hola {nombre_destinatario},\n\n"
                 "En los registros de la elección {nombre_eleccion} figurás como ausente. "
-                "Podés presentar un justificativo dentro del período habilitado desde Voto UTN.\n\n"
+                "Podés presentar un justificativo hasta el día "
+                "{fecha_limite_justificacion_electores} inclusive, momento en el que finaliza "
+                "el período de justificación de inasistencias electorales.\n\n"
                 "Si considerás que esta información es incorrecta, comunicate con la Junta Electoral.\n\n"
                 "Voto UTN"
             ),
@@ -217,6 +219,7 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
             contenido=plantilla.contenido.format(
                 nombre_destinatario=registro.elector.nombre_completo,
                 nombre_eleccion=eleccion.nombre,
+                fecha_limite_justificacion_electores=fecha_limite_justificacion_electores.strftime("%d/%m/%Y"),
             ),
         )
         for registro in registros_ausentes
