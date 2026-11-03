@@ -232,6 +232,10 @@ class HistorialElectoralTests(TestCase):
             "En Curso - Voto No Registrado",
         )
         self.assertContains(respuesta, '<span aria-hidden="true">⚠</span>')
+        self.assertContains(
+            respuesta,
+            f'href="{reverse("mis-justificativos")}" class="btn small light">Justificar</a>',
+        )
 
     def test_ausente_pasa_a_infractor_al_vencer_el_periodo_de_justificacion(self):
         self.registrar_no_voto(self.registro_abierto, self.mesa_abierta)
@@ -262,6 +266,7 @@ class HistorialElectoralTests(TestCase):
         }
         self.assertEqual(historial[self.eleccion_abierta.pk], "Voto Emitido")
         self.assertContains(respuesta, '<span aria-hidden="true">✔</span>')
+        self.assertNotContains(respuesta, ">Justificar</a>")
 
     def test_confirmar_eleccion_actual_no_cambia_situacion_de_eleccion_anterior(self):
         anterior, registro_anterior, mesa_anterior = self.crear_registro(

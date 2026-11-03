@@ -50,6 +50,8 @@
           <td>
             {% if item.justificativo %}
             <a href="{% url 'detalle-justificativo-elector' item.justificativo.pk %}" class="btn small light">Ver solicitud</a>
+            {% elif item.estado == "En Curso - Voto No Registrado" %}
+            <a href="{% url 'mis-justificativos' %}" class="btn small light">Justificar</a>
             {% endif %}
           </td>
         </tr>
