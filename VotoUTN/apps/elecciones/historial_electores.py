@@ -18,7 +18,10 @@ def _estado_registro(registro, momento):
         ),
         None,
     )
-    if eleccion.estado in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO):
+    if (
+        eleccion.estado in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO)
+        and not eleccion.notificaciones_ausentes_confirmadas_en
+    ):
         return "En Curso", "info", justificativo
 
     if justificativo is not None:
@@ -36,7 +39,7 @@ def _estado_registro(registro, momento):
 
     if not participacion:
         return "Voto Emitido", "ok", None
-    if periodo_vencido and (periodo_habilitado or eleccion.estado == Eleccion.Estado.FINALIZADA):
+    if eleccion.estado == Eleccion.Estado.FINALIZADA or (periodo_vencido and periodo_habilitado):
         return "Infractor", "danger", None
     return "En Curso - Voto No Registrado", "warn", None
 

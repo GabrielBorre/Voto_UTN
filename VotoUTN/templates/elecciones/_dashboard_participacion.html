@@ -12,12 +12,74 @@
       <a class="button hero-boton" href="#historial-participacion">Historial de participación</a>
       <a class="button hero-boton-secundario" href="{% url 'historial-elecciones' %}">Volver</a>
       {% if puede_confirmar_notificaciones_ausentes %}
-      <form method="post" action="{% url 'confirmar-notificaciones-ausentes' eleccion_actual.pk %}" data-confirm="El escaneo de todas las mesas está confirmado. ¿Querés notificar a los electores registrados como ausentes?">
+      <form method="post" action="{% url 'confirmar-notificaciones-ausentes' eleccion_actual.pk %}" id="form-confirmar-notificaciones-ausentes">
         {% csrf_token %}
-        <button class="button hero-boton" type="submit">Confirmar escaneo y notificar ausentes</button>
+        <button class="button hero-boton" type="button" id="abrir-dialogo-confirmar-ausentes">
+          {% if periodo_justificacion_pendiente_habilitacion %}
+          Definir plazo y habilitar justificativos
+          {% else %}
+          Confirmar escaneo y notificar ausentes
+          {% endif %}
+        </button>
+        <dialog class="dialogo-limite-mesas" id="dialogo-confirmar-notificaciones-ausentes" aria-labelledby="titulo-confirmar-notificaciones-ausentes">
+          <h2 id="titulo-confirmar-notificaciones-ausentes">
+            {% if periodo_justificacion_pendiente_habilitacion %}
+            Habilitar justificativos para electores
+            {% else %}
+            Confirmar escaneo y notificar ausentes
+            {% endif %}
+          </h2>
+          <p>
+            {% if periodo_justificacion_pendiente_habilitacion %}
+            Indicá hasta qué fecha podrán presentar justificativos. Las notificaciones ya fueron confirmadas y no se volverán a enviar.
+            {% else %}
+            El escaneo de todas las mesas está confirmado. Indicá la fecha límite inclusiva para presentar justificativos; al confirmar se notificará a los electores registrados como ausentes y se habilitará el período.
+            {% endif %}
+          </p>
+          <div class="field">
+            <label for="fecha-limite-justificacion-electores">Último día para presentar justificativos</label>
+            <input
+              class="form-control"
+              type="date"
+              id="fecha-limite-justificacion-electores"
+              name="fecha_limite_justificacion_electores"
+              min="{{ fecha_minima_justificacion_electores|date:'Y-m-d' }}"
+              required
+            >
+          </div>
+          <div class="footer-actions">
+            <button class="button primary" type="submit">
+              {% if periodo_justificacion_pendiente_habilitacion %}
+              Habilitar período
+              {% else %}
+              Confirmar y habilitar período
+              {% endif %}
+            </button>
+            <button class="button light" type="button" id="cancelar-dialogo-confirmar-ausentes">Cancelar</button>
+          </div>
+        </dialog>
       </form>
+      <script>
+        (function () {
+          const boton = document.getElementById("abrir-dialogo-confirmar-ausentes");
+          const dialogo = document.getElementById("dialogo-confirmar-notificaciones-ausentes");
+          const cancelar = document.getElementById("cancelar-dialogo-confirmar-ausentes");
+          if (!boton || !dialogo || !cancelar) return;
+          boton.addEventListener("click", function () {
+            dialogo.showModal();
+          });
+          cancelar.addEventListener("click", function () {
+            dialogo.close();
+          });
+        })();
+      </script>
       {% elif eleccion_actual.notificaciones_ausentes_confirmadas_en %}
-      <p class="muted">Notificaciones a ausentes confirmadas el {{ eleccion_actual.notificaciones_ausentes_confirmadas_en|date:'d/m/Y H:i' }}.</p>
+      <p class="muted">
+        Notificaciones a ausentes confirmadas el {{ eleccion_actual.notificaciones_ausentes_confirmadas_en|date:'d/m/Y H:i' }}.
+        {% if eleccion_actual.justificacion_electores_habilitada_en %}
+        Período de justificativos habilitado hasta el {{ eleccion_actual.fecha_limite_justificacion_electores|date:'d/m/Y' }}.
+        {% endif %}
+      </p>
       {% endif %}
     </div>
   </section>

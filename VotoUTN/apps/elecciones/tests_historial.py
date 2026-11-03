@@ -80,6 +80,10 @@ class HistorialElectoralTests(TestCase):
             update_fields=("justificacion_electores_habilitada_en", "fecha_limite_justificacion_electores")
         )
 
+    def confirmar_notificaciones_ausentes(self, eleccion):
+        eleccion.notificaciones_ausentes_confirmadas_en = timezone.now() - timedelta(minutes=1)
+        eleccion.save(update_fields=("notificaciones_ausentes_confirmadas_en",))
+
     def registrar_no_voto(self, registro, mesa):
         return RegistroParticipacion.objects.create(
             registro_padron=registro,
@@ -107,6 +111,7 @@ class HistorialElectoralTests(TestCase):
                 Eleccion.Estado.FINALIZADA,
                 numero=len(elecciones) + 2,
             )
+            self.confirmar_notificaciones_ausentes(elecciones[nombre][0])
 
         votado, registro_votado, _ = elecciones["Votó"]
         self.habilitar_periodo(votado)
@@ -164,10 +169,9 @@ class HistorialElectoralTests(TestCase):
         self.assertContains(respuesta, '<span aria-hidden="true">⏳</span>', count=1)
         self.assertContains(respuesta, '<span aria-hidden="true">⚠</span>', count=1)
 
-    def test_eleccion_publicada_aparece_con_situacion_en_curso(self):
+    def test_eleccion_publicada_antes_del_periodo_aparece_con_situacion_en_curso(self):
         self.eleccion_abierta.estado = Eleccion.Estado.PUBLICADA
         self.eleccion_abierta.save(update_fields=("estado",))
-        self.habilitar_periodo(self.eleccion_abierta)
         self.registrar_no_voto(self.registro_abierto, self.mesa_abierta)
         justificativo = self.crear_justificativo(
             self.registro_abierto,
@@ -189,10 +193,32 @@ class HistorialElectoralTests(TestCase):
         )
         self.assertContains(respuesta, "En Curso")
 
-    def test_eleccion_en_curso_mantiene_situacion_en_curso_durante_justificativos(self):
-        self.habilitar_periodo(self.eleccion_abierta)
+    def test_eleccion_finalizada_muestra_infractor_si_hay_ausencia_sin_justificativo(self):
+        self.eleccion_abierta.estado = Eleccion.Estado.FINALIZADA
+        self.eleccion_abierta.save(update_fields=("estado",))
         self.registrar_no_voto(self.registro_abierto, self.mesa_abierta)
-        self.crear_justificativo(self.registro_abierto, JustificativoAusencia.Estado.APROBADO)
+        votada, _, _ = self.crear_registro(
+            "Elección finalizada con voto",
+            Eleccion.Estado.FINALIZADA,
+            numero=2,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("historial-electoral"))
+
+        historial = {
+            item["eleccion"].pk: item
+            for item in respuesta.context["historial"]
+        }
+        self.assertEqual(
+            historial[self.eleccion_abierta.pk]["estado"],
+            "Infractor",
+        )
+        self.assertEqual(historial[votada.pk]["estado"], "Voto Emitido")
+
+    def test_confirmar_notificaciones_muestra_ausencia_aunque_no_se_haya_abierto_justificativo(self):
+        self.registrar_no_voto(self.registro_abierto, self.mesa_abierta)
+        self.confirmar_notificaciones_ausentes(self.eleccion_abierta)
         self.client.force_login(self.usuario)
 
         respuesta = self.client.get(reverse("historial-electoral"))
@@ -201,7 +227,77 @@ class HistorialElectoralTests(TestCase):
             item["eleccion"].pk: item["estado"]
             for item in respuesta.context["historial"]
         }
-        self.assertEqual(historial[self.eleccion_abierta.pk], "En Curso")
+        self.assertEqual(
+            historial[self.eleccion_abierta.pk],
+            "En Curso - Voto No Registrado",
+        )
+        self.assertContains(respuesta, '<span aria-hidden="true">⚠</span>')
+
+    def test_ausente_pasa_a_infractor_al_vencer_el_periodo_de_justificacion(self):
+        self.registrar_no_voto(self.registro_abierto, self.mesa_abierta)
+        self.habilitar_periodo(self.eleccion_abierta, limite=self.hoy + timedelta(days=1))
+        self.confirmar_notificaciones_ausentes(self.eleccion_abierta)
+        self.client.force_login(self.usuario)
+
+        durante_periodo = self.client.get(reverse("historial-electoral"))
+        self.assertEqual(
+            durante_periodo.context["historial"][0]["estado"],
+            "En Curso - Voto No Registrado",
+        )
+
+        self.eleccion_abierta.fecha_limite_justificacion_electores = self.hoy - timedelta(days=1)
+        self.eleccion_abierta.save(update_fields=("fecha_limite_justificacion_electores",))
+        vencido = self.client.get(reverse("historial-electoral"))
+        self.assertEqual(vencido.context["historial"][0]["estado"], "Infractor")
+
+    def test_confirmar_notificaciones_muestra_voto_emitido_si_no_hay_ausencia(self):
+        self.confirmar_notificaciones_ausentes(self.eleccion_abierta)
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("historial-electoral"))
+
+        historial = {
+            item["eleccion"].pk: item["estado"]
+            for item in respuesta.context["historial"]
+        }
+        self.assertEqual(historial[self.eleccion_abierta.pk], "Voto Emitido")
+        self.assertContains(respuesta, '<span aria-hidden="true">✔</span>')
+
+    def test_confirmar_eleccion_actual_no_cambia_situacion_de_eleccion_anterior(self):
+        anterior, registro_anterior, mesa_anterior = self.crear_registro(
+            "Elección anterior",
+            Eleccion.Estado.FINALIZADA,
+            numero=2,
+        )
+        self.confirmar_notificaciones_ausentes(anterior)
+        self.registrar_no_voto(registro_anterior, mesa_anterior)
+        self.registrar_no_voto(self.registro_abierto, self.mesa_abierta)
+        self.confirmar_notificaciones_ausentes(self.eleccion_abierta)
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("historial-electoral"))
+
+        estados = {
+            item["eleccion"].pk: item["estado"]
+            for item in respuesta.context["historial"]
+        }
+        self.assertEqual(estados[anterior.pk], "En Curso - Voto No Registrado")
+        self.assertEqual(estados[self.eleccion_abierta.pk], "En Curso - Voto No Registrado")
+
+    def test_justificativo_se_muestra_despues_de_confirmar_notificaciones(self):
+        self.registrar_no_voto(self.registro_abierto, self.mesa_abierta)
+        self.habilitar_periodo(self.eleccion_abierta)
+        self.crear_justificativo(self.registro_abierto, JustificativoAusencia.Estado.APROBADO)
+        self.confirmar_notificaciones_ausentes(self.eleccion_abierta)
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("historial-electoral"))
+
+        historial = {
+            item["eleccion"].pk: item["estado"]
+            for item in respuesta.context["historial"]
+        }
+        self.assertEqual(historial[self.eleccion_abierta.pk], "Inasistencia Justificada")
 
     def test_formulario_solo_habilita_justificacion_electoral_en_periodo_y_con_ausencia(self):
         formulario = FormularioJustificativo(registro_padron=self.registro_abierto)

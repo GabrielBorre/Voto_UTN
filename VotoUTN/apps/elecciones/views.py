@@ -16,6 +16,7 @@ from .forms import (
     FormularioEleccion,
     FormularioEditarEleccion,
     FormularioFechasAdministrativasEleccion,
+    FormularioFechaLimiteJustificativosElectores,
 )
 from .services import agregar_claustro, eliminar_claustro
 from .models import (
@@ -240,14 +241,27 @@ def listar_elecciones(request):
             pagina_mesas=Paginator(dashboard["mesas"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
             querystring_paginacion=parametros.urlencode(),
         )
-        puede_confirmar_ausentes = (
+        puede_administrar = (
             puede_administrar_elecciones(request.user, eleccion_actual)
             and eleccion_actual.estado == Eleccion.Estado.EN_CURSO
-            and eleccion_actual.notificaciones_ausentes_confirmadas_en is None
-            and eleccion_actual.mesas.exists()
-            and not eleccion_actual.mesas.exclude(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA).exists()
+        )
+        periodo_pendiente_habilitacion = bool(
+            eleccion_actual.notificaciones_ausentes_confirmadas_en
+            and not eleccion_actual.justificacion_electores_habilitada_en
+        )
+        puede_confirmar_ausentes = puede_administrar and (
+            periodo_pendiente_habilitacion
+            or (
+                eleccion_actual.notificaciones_ausentes_confirmadas_en is None
+                and eleccion_actual.mesas.exists()
+                and not eleccion_actual.mesas.exclude(
+                    estado_escaneo=Mesa.EstadoEscaneo.PROCESADA
+                ).exists()
+            )
         )
         contexto["puede_confirmar_notificaciones_ausentes"] = puede_confirmar_ausentes
+        contexto["periodo_justificacion_pendiente_habilitacion"] = periodo_pendiente_habilitacion
+        contexto["fecha_minima_justificacion_electores"] = timezone.localdate()
     return render(request, "elecciones/list.html", contexto)
 
 
@@ -258,15 +272,27 @@ def confirmar_notificaciones_ausentes(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("Solo el administrador de junta puede confirmar las notificaciones a ausentes.")
+    formulario = FormularioFechaLimiteJustificativosElectores(request.POST)
+    if not formulario.is_valid():
+        messages.error(request, "Indique una fecha límite válida, igual o posterior a hoy.")
+        return redirect(f"{reverse('lista-elecciones')}?eleccion={eleccion.pk}")
+    confirmacion_previa = eleccion.notificaciones_ausentes_confirmadas_en is not None
     try:
-        envios = crear_notificaciones_ausentes_confirmadas(eleccion)
+        envios = crear_notificaciones_ausentes_confirmadas(
+            eleccion,
+            formulario.cleaned_data["fecha_limite_justificacion_electores"],
+        )
     except ValueError as error:
         messages.error(request, str(error))
         return redirect(f"{reverse('lista-elecciones')}?eleccion={eleccion.pk}")
 
-    enviados = sum(enviar_notificacion(envio) for envio in envios)
+    enviados = 0 if confirmacion_previa else sum(enviar_notificacion(envio) for envio in envios)
     registrar_evento(
-        accion="eleccion.notificaciones_ausentes_confirmadas",
+        accion=(
+            "eleccion.periodo_justificacion_electores_habilitado"
+            if confirmacion_previa
+            else "eleccion.notificaciones_ausentes_confirmadas"
+        ),
         entidad="Eleccion",
         entidad_id=eleccion.pk,
         eleccion=eleccion,
@@ -276,9 +302,17 @@ def confirmar_notificaciones_ausentes(request, eleccion_id):
             "notificaciones_creadas": len(envios),
             "correos_enviados": enviados,
             "correos_no_enviados": len(envios) - enviados,
+            "fecha_limite_justificacion_electores": formulario.cleaned_data[
+                "fecha_limite_justificacion_electores"
+            ].isoformat(),
         },
     )
-    if not envios:
+    if confirmacion_previa:
+        messages.success(
+            request,
+            "Se habilitó el período de justificativos para electores.",
+        )
+    elif not envios:
         messages.success(request, "Escaneo confirmado: no se registraron ausentes para notificar.")
     elif enviados == len(envios):
         messages.success(request, f"Se notificó a {len(envios)} electores ausentes por correo y en la aplicación.")

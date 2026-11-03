@@ -1411,6 +1411,7 @@ th a.table-sort-link:focus-visible {
     border: 1px solid var(--borde);
     border-radius: 16px;
     box-shadow: 0 18px 60px rgb(15 23 42 / 28%);
+    color: var(--texto);
     max-width: 560px;
     padding: 24px;
     width: calc(100% - 32px);
@@ -1426,6 +1427,7 @@ th a.table-sort-link:focus-visible {
 }
 
 .dialogo-limite-mesas p {
+    color: var(--texto);
     line-height: 1.5;
 }
 

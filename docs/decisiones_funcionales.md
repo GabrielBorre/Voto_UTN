@@ -16,22 +16,34 @@
 - El inicio del elector muestra la información de la elección únicamente cuando
   está Publicada o En curso. Una elección En preparación no debe ser visible allí.
 - Las elecciones Publicadas y En curso aparecen en el historial electoral y
-  muestran «En Curso» como situación, aun cuando exista participación o un
-  justificativo. Al finalizar la elección se aplican los estados de participación
-  y justificativos detallados a continuación.
-- Una vez habilitado el período, quien no tenga registro de ausencia figura
-  como «Voto Emitido» y quien tenga registro de ausencia como «En Curso - Voto
-  No Registrado». Un justificativo pendiente figura como «Pendiente de
-  Revisión»; uno aprobado, como «Inasistencia Justificada»; y uno rechazado,
-  como «Infractor - Justificación Rechazada».
-- El período de justificación se abre desde una acción web del administrador
-  de junta después de completar el escaneo de todas las mesas. Esa acción y la
-  señal de finalización del escaneo quedan pendientes y no forman parte de la
-  integración del historial.
+  muestran «En Curso» hasta que el administrador de junta confirma el escaneo de
+  todas las mesas. Esa confirmación actualiza únicamente la situación de los
+  electores de esa elección: «Voto Emitido» si no tienen registro de ausencia o
+  «En Curso - Voto No Registrado» si lo tienen. «Voto Emitido» es definitivo
+  desde esa confirmación. Para quien sí tiene ausencia, «En Curso - Voto No
+  Registrado» se mantiene durante el período de justificación; al vencer el
+  plazo, pasa a «Infractor» si no hay un justificativo que determine otro
+  estado. Los justificativos aplicables conservan prioridad. La confirmación
+  de una elección no modifica las situaciones de las demás elecciones del
+  historial.
+- Al finalizar una elección, quien tenga una ausencia registrada y no haya
+  presentado un justificativo figura como «Infractor», con independencia de que
+  se haya abierto el período de justificación o vencido su fecha límite. Quien
+  no tenga registro de ausencia figura como «Voto Emitido». Los justificativos
+  presentados conservan prioridad y su estado histórico.
+- Dentro del período habilitado, un justificativo pendiente figura como
+  «Pendiente de Revisión»; uno aprobado, como «Inasistencia Justificada»; y uno
+  rechazado, como «Infractor - Justificación Rechazada».
+- Al confirmar el escaneo de todas las mesas, el administrador de junta indica
+  la fecha límite inclusiva para justificar ausencias. La misma acción notifica
+  a los electores ausentes y abre el período de justificativos hasta esa fecha.
+  Si el escaneo ya se había confirmado sin abrir el período, el administrador
+  puede definir el plazo posteriormente sin volver a generar notificaciones.
 - Solo se puede presentar un justificativo electoral durante el período
   habilitado y si existe un registro de ausencia. La fecha límite configurada
-  es inclusiva. Al vencer, la ausencia sin solicitud pasa a «Infractor»; una
-  solicitud pendiente o rechazada conserva su estado propio.
+  es inclusiva. Antes de finalizar la elección, al vencer el plazo la ausencia
+  sin solicitud pasa a «Infractor»; una solicitud pendiente o rechazada conserva
+  su estado propio.
 
 ## Elecciones, claustros, sedes y departamentos
 
