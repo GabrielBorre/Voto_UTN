@@ -13,8 +13,16 @@
 - En estado **En curso** la configuración se conserva consultable, pero no
   modificable desde las pantallas ni sus endpoints. Las excepciones son las
   fechas administrativas existentes, la emisión del padrón imprimible y el
-  avance a Finalizada. No se incorpora por ahora la solicitud de fechas al
-  cambiar de estado ni una nueva clasificación de fechas por estado.
+  avance a Finalizada.
+- Al publicar se solicitan obligatoriamente, en un diálogo, la fecha límite de
+  solicitudes de cambio de sede y la fecha límite de justificativos de
+  inasistencia como autoridad de mesa. Se guardan junto con la transición o
+  no se guarda ninguno de los cambios si la publicación falla.
+- Los plazos no bloquean las transiciones por estar vencidos o ser futuros, ni
+  tienen que quedar dentro del período electoral. Se conserva el avance
+  secuencial y los controles de configuración, padrón, mesas y justificativos
+  pendientes. El plazo de autoridades permite presentaciones hasta el día
+  indicado inclusive; después no afecta los justificativos como elector.
 - Solo se pueden agregar o quitar claustros en **En preparación**. Los nuevos
   heredan las sedes de la elección; eliminar un claustro con datos vinculados
   se rechaza sin borrar padrones ni modificar sus alcances.
@@ -226,10 +234,32 @@ Reglas:
 - La presentación de justificativos se habilita únicamente para la elección actual cuando se encuentra publicada (`PREPARADA`) o en curso (`ABIERTA`).
 - La misma regla aplica a electores y autoridades de mesa; el servidor rechaza envíos aunque se intente omitir la restricción de la interfaz.
 - No se habilita la presentación en elecciones en preparación, finalizadas ni cuando no existe una elección actual con padrón activo para la persona.
+- La casilla «Voté, pero aparezco como ausente» permite reclamar una ausencia
+  a votar. Solo se ofrece si la persona tiene una ausencia registrada
+  (`RegistroParticipacion` por escaneo de QR) y todavía no presentó un
+  justificativo de ausencia a votar. Al marcarla se ocultan «Ausencia a
+  justificar» y «Tipo» y aparece «Perdí el comprobante de votación»; el
+  servidor fija la ausencia a votar y no asigna tipo. Las descripciones de
+  ambas casillas se muestran al pasar el cursor. Admite comprobante PDF/imagen
+  o la declaración de comprobante extraviado junto con un comentario para
+  revisar manualmente el padrón.
+- Si el elector adjunta una imagen JPG/PNG del troquel, el sistema lee el QR y
+  verifica la firma, la elección y el identificador del elector. El resultado
+  (válido, no válido, sin QR detectado, revisión manual para PDF o comprobante
+  extraviado) se muestra a la Junta, que puede volver a validarlo. Un resultado
+  no válido no impide la presentación.
+- La validación automática no modifica la ausencia. Solo cuando el
+  administrador o el administrativo de junta aprueba el reclamo se elimina el
+  `RegistroParticipacion`, con copia en el justificativo y evento de auditoría.
+  Si la resolución cambia a rechazada, la ausencia se restaura. Mantiene el
+  límite de una presentación por tipo de ausencia y la validación de adjuntos.
 
 ## Resolución de solicitudes de cambio de sede
 
 - Cada elector puede registrar una única solicitud de cambio de sede por elección, independientemente de su estado (pendiente, aprobada o rechazada).
+- El filtro por estado afecta solo el listado, incluso en modo lectura. Los
+  resúmenes y las acciones masivas continúan abarcando todas las solicitudes
+  pendientes; la cantidad y el estado del listado filtrado se muestran explícitos.
 - La gestión muestra la cantidad actual de mesas de cada sede habilitada para la elección y una estimación de las mesas adicionales necesarias para las solicitudes pendientes.
 - El administrador de junta puede aprobar solicitudes agregando como máximo una cantidad total de mesas nuevas definida en el formulario. El límite se aplica a toda la elección, no por sede.
 - Al elegir la acción con límite, se informa cuántas mesas nuevas se crearían si se aceptaran todas las solicitudes pendientes y se solicita el máximo total permitido antes de confirmar.

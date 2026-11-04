@@ -9,6 +9,11 @@ from django.utils import timezone
 from apps.elecciones.models import ESTADOS_ELECCION_NO_CERRADOS, Eleccion
 from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
+from apps.justificativos.services import (
+    anular_participacion_por_reclamo,
+    restaurar_participacion_anulada,
+    validar_comprobante,
+)
 from apps.notificaciones.services import crear_notificacion_resultado_justificativo, enviar_notificacion
 from apps.padron.models import Elector, RegistroPadron
 from apps.usuarios.models import AsignacionRol
@@ -56,7 +61,8 @@ def mis_justificativos(request):
         messages.error(request, "No tenés un padrón activo para la elección actual.")
         return redirect("mis-justificativos")
     if request.method == "POST" and formulario.is_valid():
-        formulario.save()
+        justificativo = formulario.save()
+        validar_comprobante(justificativo)
         messages.success(request, "El justificativo fue presentado para revision.")
         return redirect("mis-justificativos")
     justificativos = JustificativoAusencia.objects.select_related("registro_padron__eleccion", "tipo")
@@ -161,6 +167,11 @@ def resolver_justificativo(request, justificativo_id):
         return HttpResponseForbidden("No tiene permiso para resolver este justificativo.")
     if request.method == "POST" and eleccion.estado == Eleccion.Estado.FINALIZADA:
         return HttpResponseForbidden("No se pueden modificar justificativos de elecciones del historial.")
+    if request.method == "POST" and request.POST.get("accion") == "revalidar":
+        if justificativo.reclamo_participacion:
+            validar_comprobante(justificativo)
+            messages.success(request, "Se volvió a validar el comprobante.")
+        return redirect("resolver-justificativo", justificativo_id=justificativo.pk)
     formulario = FormularioResolucionJustificativo(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
         with transaction.atomic():
@@ -175,6 +186,11 @@ def resolver_justificativo(request, justificativo_id):
             justificativo.resuelta_por = request.user
             justificativo.resuelta_en = timezone.now()
             justificativo.save(update_fields=("estado", "observacion_resolucion", "resuelta_por", "resuelta_en"))
+            if justificativo.reclamo_participacion:
+                if justificativo.estado == JustificativoAusencia.Estado.APROBADO:
+                    anular_participacion_por_reclamo(justificativo, usuario=request.user, request=request)
+                else:
+                    restaurar_participacion_anulada(justificativo, usuario=request.user, request=request)
             envio = crear_notificacion_resultado_justificativo(justificativo) if estaba_pendiente else None
         if envio is not None:
             correo_enviado = enviar_notificacion(envio)

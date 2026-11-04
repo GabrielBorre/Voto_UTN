@@ -1,19 +1,31 @@
 from datetime import datetime, timedelta
+from io import BytesIO
 from smtplib import SMTPException
 from unittest.mock import patch
+from tempfile import TemporaryDirectory
 
+import qrcode
+from PIL import Image
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.test import override_settings
 from django.utils.timezone import make_aware
+from django.utils import timezone
 
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
+from apps.asistencia.models import RegistroParticipacion
+from apps.asistencia.services import ServicioRegistroParticipacion
+from apps.auditoria.models import EventoAuditoria
+from apps.autoridades.models import AsignacionAutoridad
+from apps.justificativos.forms import FormularioJustificativo
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
+from apps.mesas.models import Mesa
 from apps.notificaciones.models import EnvioNotificacion
 from apps.padron.models import Elector, RegistroPadron
-from apps.parametros.models import Claustro, Departamento
+from apps.parametros.models import Claustro, Departamento, Turno
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 from apps.usuarios.backend_auth import ElectorUser
 
@@ -81,6 +93,263 @@ class JustificativosViewsTests(TestCase):
         usuario = get_user_model().objects.create_user(username="elector", password="clave")
         PerfilUsuario.objects.create(usuario=usuario, elector=elector)
         return usuario, registro_anterior, registro_reciente
+
+    def preparar_reclamo_participacion(self):
+        usuario, _, registro = self.crear_elector_con_padrones()
+        mesa = Mesa.objects.create(
+            eleccion=registro.eleccion, numero=1,
+            eleccion_claustro_departamento=registro.eleccion_claustro_departamento,
+            estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
+        )
+        RegistroParticipacion.objects.create(
+            registro_padron=registro, mesa=mesa, registrada_por=self.usuario, metodo="qr",
+        )
+        self.client.force_login(usuario)
+        return usuario, registro, mesa
+
+    def test_casilla_reclamo_se_muestra_y_oculta_ausencia_y_tipo(self):
+        self.preparar_reclamo_participacion()
+        respuesta = self.client.get(reverse("mis-justificativos"))
+        self.assertContains(respuesta, "Voté, pero aparezco como ausente")
+        self.assertContains(respuesta, 'data-campo-justificativo="ausencia"')
+        self.assertContains(respuesta, 'data-campo-justificativo="tipo"')
+        self.assertContains(respuesta, "js/mis-justificativos.js")
+        self.assertContains(respuesta, 'aria-describedby="ayuda_reclamo_participacion"')
+        self.assertContains(respuesta, 'aria-describedby="ayuda_comprobante_extraviado"')
+        self.assertContains(respuesta, 'title="Marcá esta opción si votaste y figurás como ausente.')
+        self.assertNotContains(respuesta, "<small>Marcá esta opción")
+
+    def test_casilla_reclamo_no_se_ofrece_sin_ausencia_registrada(self):
+        usuario, _, registro = self.crear_elector_con_padrones()
+        self.client.force_login(usuario)
+        respuesta = self.client.get(reverse("mis-justificativos"))
+        self.assertNotContains(respuesta, "Voté, pero aparezco como ausente")
+        self.assertNotContains(respuesta, "Perdí el comprobante de votación")
+        tipo = TipoJustificativo.objects.create(nombre="Enfermedad sin ausencia")
+        formulario = FormularioJustificativo(
+            {"reclamo_participacion": True, "comprobante_extraviado": True, "detalle": "Voté."},
+            registro_padron=registro,
+        )
+        self.assertFalse(formulario.is_valid())
+        self.assertIn("tipo", formulario.errors)
+        formulario = FormularioJustificativo(
+            {"reclamo_participacion": True, "ausencia": "votar", "tipo": tipo.pk, "detalle": "Enfermedad.",
+             "comprobante_extraviado": True},
+            registro_padron=registro,
+        )
+        self.assertTrue(formulario.is_valid(), formulario.errors)
+        justificativo = formulario.save()
+        self.assertFalse(justificativo.reclamo_participacion)
+        self.assertFalse(justificativo.comprobante_extraviado)
+
+    def test_reclamo_admite_comprobante_sin_ausencia_ni_tipo_y_conserva_participacion(self):
+        _, registro, _ = self.preparar_reclamo_participacion()
+        with TemporaryDirectory() as directorio, override_settings(MEDIA_ROOT=directorio):
+            respuesta = self.client.post(reverse("mis-justificativos"), {
+                "reclamo_participacion": "on", "detalle": "Voté y adjunto el comprobante.",
+                "documento": SimpleUploadedFile("comprobante.pdf", b"%PDF-1.4\ncomprobante"),
+            })
+            self.assertRedirects(respuesta, reverse("mis-justificativos"))
+            justificativo = JustificativoAusencia.objects.get(registro_padron=registro)
+            self.assertTrue(justificativo.reclamo_participacion)
+            self.assertIsNone(justificativo.tipo)
+            self.assertEqual(justificativo.ausencia, JustificativoAusencia.Ausencia.VOTAR)
+            self.assertTrue(justificativo.documento)
+            self.assertFalse(justificativo.comprobante_extraviado)
+            self.assertEqual(justificativo.estado, JustificativoAusencia.Estado.PENDIENTE)
+            self.assertEqual(justificativo.validacion_comprobante, JustificativoAusencia.ValidacionComprobante.NO_PROCESABLE)
+            self.assertTrue(registro.participaciones.exists())
+            self.assertContains(self.client.get(reverse("mis-justificativos")), "Voté, pero aparezco como ausente")
+
+    def test_reclamo_ignora_ausencia_y_tipo_enviados(self):
+        _, registro, _ = self.preparar_reclamo_participacion()
+        tipo = TipoJustificativo.objects.create(nombre="Enfermedad reclamo")
+        datos = {
+            "reclamo_participacion": True, "ausencia": "autoridad", "tipo": tipo.pk,
+            "detalle": "Perdí el comprobante.", "comprobante_extraviado": True,
+        }
+        formulario = FormularioJustificativo(datos, registro_padron=registro)
+        self.assertTrue(formulario.is_valid(), formulario.errors)
+        justificativo = formulario.save()
+        self.assertEqual(justificativo.ausencia, JustificativoAusencia.Ausencia.VOTAR)
+        self.assertIsNone(justificativo.tipo)
+
+    def test_reclamo_con_comprobante_extraviado_se_muestra_al_revisor(self):
+        _, registro, _ = self.preparar_reclamo_participacion()
+        respuesta = self.client.post(reverse("mis-justificativos"), {
+            "reclamo_participacion": "on", "detalle": "Perdí el comprobante. Voté por la mañana.",
+            "comprobante_extraviado": "on",
+        })
+        self.assertRedirects(respuesta, reverse("mis-justificativos"))
+        justificativo = JustificativoAusencia.objects.get(registro_padron=registro)
+        self.assertTrue(justificativo.comprobante_extraviado)
+        self.assertFalse(justificativo.documento)
+        self.client.force_login(self.usuario)
+        respuesta = self.client.get(reverse("resolver-justificativo", args=(justificativo.pk,)))
+        self.assertContains(respuesta, "Requiere revisión manual del padrón")
+        self.assertContains(respuesta, "Voté, pero aparezco como ausente")
+        self.assertEqual(justificativo.validacion_comprobante, JustificativoAusencia.ValidacionComprobante.SIN_COMPROBANTE)
+
+    def imagen_qr(self, contenido, nombre="comprobante.png"):
+        salida = BytesIO()
+        if contenido is None:
+            Image.new("RGB", (200, 200), "white").save(salida, format="PNG")
+        else:
+            qrcode.make(contenido).get_image().convert("RGB").save(salida, format="PNG")
+        return SimpleUploadedFile(nombre, salida.getvalue(), content_type="image/png")
+
+    def qr_troquel(self, registro, mesa, eleccion_id=None, identificador=None):
+        return ServicioRegistroParticipacion.generar_codigo_qr(
+            eleccion_id=eleccion_id or registro.eleccion_id,
+            mesa_numero=mesa.numero,
+            identificador_qr=identificador or registro.identificador_qr,
+        )
+
+    def presentar_reclamo(self, registro, documento):
+        respuesta = self.client.post(reverse("mis-justificativos"), {
+            "reclamo_participacion": "on", "detalle": "Voté y adjunto el troquel.", "documento": documento,
+        })
+        self.assertRedirects(respuesta, reverse("mis-justificativos"))
+        return JustificativoAusencia.objects.get(registro_padron=registro)
+
+    def test_comprobante_con_qr_del_elector_se_valida_y_la_aprobacion_anula_la_ausencia(self):
+        _, registro, mesa = self.preparar_reclamo_participacion()
+        participacion = registro.participaciones.get()
+        with TemporaryDirectory() as directorio, override_settings(MEDIA_ROOT=directorio):
+            justificativo = self.presentar_reclamo(registro, self.imagen_qr(self.qr_troquel(registro, mesa)))
+            self.assertEqual(justificativo.validacion_comprobante, JustificativoAusencia.ValidacionComprobante.VALIDO)
+            self.assertIsNotNone(justificativo.comprobante_validado_en)
+            # La validación automática no anula la ausencia: requiere aprobación de la Junta.
+            self.assertTrue(registro.participaciones.exists())
+            self.client.force_login(self.usuario)
+            url = reverse("resolver-justificativo", args=(justificativo.pk,))
+            respuesta = self.client.get(url)
+            self.assertContains(respuesta, "QR válido para el elector")
+            self.assertContains(respuesta, "El QR corresponde al elector y a la mesa 1.")
+            self.client.post(url, {"estado": "aprobado", "observacion_resolucion": ""})
+        justificativo.refresh_from_db()
+        self.assertFalse(registro.participaciones.exists())
+        self.assertIsNotNone(justificativo.participacion_anulada_en)
+        self.assertEqual(justificativo.respaldo_participacion["id"], participacion.pk)
+        self.assertEqual(justificativo.respaldo_participacion["mesa_id"], mesa.pk)
+        evento = EventoAuditoria.objects.get(accion="participacion.anulada_por_reclamo")
+        self.assertEqual(evento.usuario, self.usuario)
+        self.assertEqual(evento.datos_anteriores["registro_padron_id"], registro.pk)
+
+        self.client.post(url, {"estado": "rechazado", "observacion_resolucion": "Revisado."})
+        justificativo.refresh_from_db()
+        restaurada = registro.participaciones.get()
+        self.assertEqual(restaurada.mesa, mesa)
+        self.assertEqual(restaurada.registrada_en, participacion.registrada_en)
+        self.assertIsNone(justificativo.participacion_anulada_en)
+        self.assertTrue(EventoAuditoria.objects.filter(accion="participacion.restaurada_por_reclamo").exists())
+
+    def test_comprobante_invalido_queda_para_revision_y_el_rechazo_conserva_la_ausencia(self):
+        _, registro, mesa = self.preparar_reclamo_participacion()
+        otro = RegistroPadron.objects.create(
+            elector=Elector.objects.create(legajo="9001", nombre="Otro", apellido="Elector", dni="40000001"),
+            eleccion=registro.eleccion, eleccion_claustro_departamento=registro.eleccion_claustro_departamento,
+        )
+        Validacion = JustificativoAusencia.ValidacionComprobante
+        valido = self.qr_troquel(registro, mesa)
+        adulterado = valido[:-1] + ("Y" if valido.endswith("Z") else "Z")
+        casos = (
+            (self.qr_troquel(registro, mesa, identificador=otro.identificador_qr), Validacion.INVALIDO, "otro elector"),
+            (self.qr_troquel(registro, mesa, eleccion_id=self.eleccion.pk), Validacion.INVALIDO, "otra elección"),
+            (adulterado, Validacion.INVALIDO, "no es un comprobante firmado"),
+            (None, Validacion.NO_DETECTADO, "No se encontró un código QR"),
+        )
+        with TemporaryDirectory() as directorio, override_settings(MEDIA_ROOT=directorio):
+            for contenido, esperado, detalle in casos:
+                with self.subTest(esperado=esperado, detalle=detalle):
+                    JustificativoAusencia.objects.filter(registro_padron=registro).delete()
+                    justificativo = self.presentar_reclamo(registro, self.imagen_qr(contenido))
+                    self.assertEqual(justificativo.validacion_comprobante, esperado)
+                    self.assertIn(detalle, justificativo.detalle_validacion_comprobante)
+            self.client.force_login(self.usuario)
+            url = reverse("resolver-justificativo", args=(justificativo.pk,))
+            self.assertContains(self.client.get(url), "No se detectó un QR")
+            self.client.post(url, {"estado": "rechazado", "observacion_resolucion": "Sin QR."})
+        self.assertTrue(registro.participaciones.exists())
+        self.assertFalse(EventoAuditoria.objects.filter(accion="participacion.anulada_por_reclamo").exists())
+
+    def test_revalidar_comprobante_y_solo_la_junta_puede_resolver(self):
+        usuario_elector, registro, mesa = self.preparar_reclamo_participacion()
+        with TemporaryDirectory() as directorio, override_settings(MEDIA_ROOT=directorio):
+            justificativo = self.presentar_reclamo(registro, self.imagen_qr(self.qr_troquel(registro, mesa)))
+            JustificativoAusencia.objects.filter(pk=justificativo.pk).update(
+                validacion_comprobante=JustificativoAusencia.ValidacionComprobante.PENDIENTE,
+            )
+            url = reverse("resolver-justificativo", args=(justificativo.pk,))
+            self.assertEqual(self.client.post(url, {"estado": "aprobado"}).status_code, 403)
+            self.assertEqual(self.client.post(url, {"accion": "revalidar"}).status_code, 403)
+            self.assertTrue(registro.participaciones.exists())
+            self.client.force_login(self.usuario)
+            self.assertRedirects(self.client.post(url, {"accion": "revalidar"}), url)
+        justificativo.refresh_from_db()
+        self.assertEqual(justificativo.validacion_comprobante, JustificativoAusencia.ValidacionComprobante.VALIDO)
+        self.assertEqual(justificativo.estado, JustificativoAusencia.Estado.PENDIENTE)
+        self.assertTrue(registro.participaciones.exists())
+
+    def test_reclamo_rechaza_falta_de_comprobante_o_de_comentario(self):
+        _, registro, _ = self.preparar_reclamo_participacion()
+        for adicionales in ({}, {"comprobante_extraviado": "on", "detalle": "  "}):
+            with self.subTest(adicionales=adicionales):
+                respuesta = self.client.post(reverse("mis-justificativos"), {
+                    "reclamo_participacion": "on", "detalle": "Voté.", **adicionales,
+                })
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertTrue(respuesta.context["formulario"].errors)
+                self.assertFalse(JustificativoAusencia.objects.filter(registro_padron=registro).exists())
+
+    def test_sin_reclamo_exige_ausencia_y_tipo_e_ignora_comprobante_extraviado(self):
+        _, registro, _ = self.preparar_reclamo_participacion()
+        formulario = FormularioJustificativo({"detalle": "Enfermedad."}, registro_padron=registro)
+        self.assertFalse(formulario.is_valid())
+        self.assertIn("ausencia", formulario.errors)
+        self.assertIn("tipo", formulario.errors)
+        tipo = TipoJustificativo.objects.create(nombre="Enfermedad sin reclamo")
+        formulario = FormularioJustificativo(
+            {"ausencia": "votar", "tipo": tipo.pk, "detalle": "Enfermedad.", "comprobante_extraviado": True},
+            registro_padron=registro,
+        )
+        self.assertTrue(formulario.is_valid(), formulario.errors)
+        justificativo = formulario.save()
+        self.assertFalse(justificativo.reclamo_participacion)
+        self.assertFalse(justificativo.comprobante_extraviado)
+
+    def test_reclamo_no_disponible_si_ya_justifico_ausencia_a_votar(self):
+        _, registro, _ = self.preparar_reclamo_participacion()
+        datos = {"reclamo_participacion": True, "detalle": "Perdí el comprobante.", "comprobante_extraviado": True}
+        formulario = FormularioJustificativo(
+            datos, {"documento": SimpleUploadedFile("comprobante.exe", b"invalido")}, registro_padron=registro,
+        )
+        self.assertFalse(formulario.is_valid())
+        self.assertIn("documento", formulario.errors)
+        formulario = FormularioJustificativo(datos, registro_padron=registro)
+        self.assertTrue(formulario.is_valid(), formulario.errors)
+        formulario.save()
+        siguiente = FormularioJustificativo(datos, registro_padron=registro)
+        self.assertTrue(siguiente.fields["reclamo_participacion"].disabled)
+        self.assertFalse(siguiente.is_valid())
+        self.assertEqual(registro.justificativos.count(), 1)
+
+    def test_plazo_autoridades_inclusivo_no_afecta_justificativos_elector(self):
+        usuario, registro, mesa = self.preparar_reclamo_participacion()
+        turno = Turno.objects.create(nombre="Mañana plazo", hora_inicio="08:00", hora_fin="12:00")
+        AsignacionAutoridad.objects.bulk_create([
+            AsignacionAutoridad(registro_padron=registro, mesa=mesa, turno=turno, asignada_por=usuario),
+        ])
+        tipo = TipoJustificativo.objects.create(nombre="Enfermedad plazo")
+        for dias in (-1, 0, 1):
+            with self.subTest(dias=dias):
+                registro.eleccion.fecha_limite_justificacion_autoridades = timezone.localdate() + timedelta(days=dias)
+                registro.eleccion.save(update_fields=("fecha_limite_justificacion_autoridades",))
+                datos = {"ausencia": "autoridad", "tipo": tipo.pk, "detalle": "Enfermedad."}
+                formulario = FormularioJustificativo(datos, registro_padron=registro)
+                self.assertEqual(formulario.is_valid(), dias >= 0, formulario.errors)
+                datos["ausencia"] = "votar"
+                self.assertTrue(FormularioJustificativo(datos, registro_padron=registro).is_valid())
 
     def test_mis_justificativos_muestra_la_eleccion_mas_reciente_sin_selector(self):
         usuario, _, registro_reciente = self.crear_elector_con_padrones()

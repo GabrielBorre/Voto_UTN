@@ -148,6 +148,16 @@ la previsualización, errores, advertencias, usuario y confirmación de cada CSV
 - `TipoJustificativo`
 - `JustificativoAusencia`
 
+`JustificativoAusencia.reclamo_participacion` identifica el reclamo «Voté,
+pero aparezco como ausente»: siempre es una ausencia a votar y no tiene
+`tipo` (restricción `justificativo_tipo_o_reclamo_participacion`). Conserva
+`comprobante_extraviado` además del comentario y del adjunto opcional para la
+revisión manual del padrón. `validacion_comprobante` y
+`detalle_validacion_comprobante` guardan el resultado de leer el QR del troquel
+adjunto. Al aprobar el reclamo se elimina el `RegistroParticipacion` y su copia
+queda en `respaldo_participacion` con `participacion_anulada_en`; si luego se
+rechaza, la ausencia se restaura desde esa copia.
+
 ## Notificaciones
 
 - `PlantillaNotificacion`

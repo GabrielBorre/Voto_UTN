@@ -1,4 +1,5 @@
 {% extends "gestion/base.html" %}
+{% load static %}
 {% block title %}Configurar elección | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
 <section class="hero">
@@ -12,11 +13,30 @@
       <h2>Una elección, cuatro etapas</h2>
     </div>
     {% if siguiente_estado %}
+    {% if eleccion.estado == 'en_preparacion' %}
+    <button class="button primary ciclo-accion" type="button" id="abrir-publicacion" aria-haspopup="dialog" aria-controls="dialogo-publicacion">Publicar elección <span aria-hidden="true">&rarr;</span></button>
+    <dialog class="utn-dialogo" id="dialogo-publicacion" aria-labelledby="titulo-publicacion" aria-describedby="ayuda-publicacion">
+      <form method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="estado" value="publicada">
+        <h2 id="titulo-publicacion">Publicar elección</h2>
+        <p id="ayuda-publicacion">{{ siguiente_estado.2 }}</p>
+        {% for campo in formulario_publicacion %}
+        <div class="field"><label for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}</div>
+        {% endfor %}
+        <div class="utn-dialogo-acciones">
+          <button type="button" id="cancelar-publicacion">Cancelar</button>
+          <button type="submit" data-dialogo-aceptar>Publicar elección</button>
+        </div>
+      </form>
+    </dialog>
+    {% else %}
     <form class="ciclo-accion" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" data-confirm-title="{{ siguiente_estado.1 }}" data-confirm-accept="{{ siguiente_estado.1 }}" data-confirm="{{ siguiente_estado.2 }}&#10;&#10;¿Querés continuar?">
       {% csrf_token %}
       <input type="hidden" name="estado" value="{{ siguiente_estado.0 }}">
       <button class="button primary" type="submit">{{ siguiente_estado.1 }} <span aria-hidden="true">&rarr;</span></button>
     </form>
+    {% endif %}
     {% endif %}
   </div>
   <ol class="linea-tiempo-eleccion" aria-label="Estados de la elección en orden de avance">
@@ -65,4 +85,7 @@
 {% if eleccion.estado != 'en_preparacion' %}
 <div class="notice">La configuración está en modo lectura. {% if eleccion.estado == 'publicada' or eleccion.estado == 'en_curso' %}Se permite modificar las fechas administrativas{% if eleccion.estado == 'en_curso' %}, emitir el padrón imprimible{% endif %} y avanzar al siguiente estado.{% endif %}</div>
 {% endif %}
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{% static 'js/publicar-eleccion.js' %}"></script>
 {% endblock %}

@@ -26,11 +26,35 @@ class JustificativoAusencia(models.Model):
         VOTAR = "votar", "Ausencia a votar"
         AUTORIDAD = "autoridad", "Ausencia como autoridad de mesa"
 
+    class ValidacionComprobante(models.TextChoices):
+        NO_APLICA = "no_aplica", "No aplica"
+        PENDIENTE = "pendiente", "Sin validar"
+        VALIDO = "valido", "QR válido para el elector"
+        INVALIDO = "invalido", "QR no válido para el elector"
+        NO_DETECTADO = "no_detectado", "No se detectó un QR"
+        NO_PROCESABLE = "no_procesable", "Requiere revisión manual"
+        SIN_COMPROBANTE = "sin_comprobante", "Comprobante extraviado"
+
     registro_padron = models.ForeignKey(RegistroPadron, on_delete=models.PROTECT, related_name="justificativos")
     ausencia = models.CharField(max_length=16, choices=Ausencia.choices, default=Ausencia.VOTAR)
-    tipo = models.ForeignKey(TipoJustificativo, on_delete=models.PROTECT, related_name="justificativos")
+    tipo = models.ForeignKey(
+        TipoJustificativo, on_delete=models.PROTECT, related_name="justificativos", null=True, blank=True,
+    )
+    reclamo_participacion = models.BooleanField("Voté, pero aparezco como ausente", default=False)
     detalle = models.TextField()
     documento = models.FileField(upload_to="justificativos/%Y/%m/%d", blank=True)
+    comprobante_extraviado = models.BooleanField(
+        "Perdí el comprobante de votación", default=False,
+    )
+    validacion_comprobante = models.CharField(
+        "Validación del comprobante", max_length=16,
+        choices=ValidacionComprobante.choices, default=ValidacionComprobante.NO_APLICA,
+    )
+    detalle_validacion_comprobante = models.TextField("Detalle de la validación", blank=True)
+    comprobante_validado_en = models.DateTimeField(null=True, blank=True)
+    # Copia del RegistroParticipacion eliminado al aprobar el reclamo, para auditoría y restauración.
+    respaldo_participacion = models.JSONField(default=dict, blank=True)
+    participacion_anulada_en = models.DateTimeField(null=True, blank=True)
     estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.PENDIENTE)
     presentada_en = models.DateTimeField(auto_now_add=True)
     resuelta_por = models.ForeignKey("auth.User", on_delete=models.PROTECT, null=True, blank=True, related_name="justificativos_resueltos")
@@ -39,6 +63,21 @@ class JustificativoAusencia(models.Model):
 
     class Meta:
         db_table = "elecciones_justificativoausencia"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(reclamo_participacion=True, ausencia="votar", tipo__isnull=True)
+                    | models.Q(reclamo_participacion=False, tipo__isnull=False)
+                ),
+                name="justificativo_tipo_o_reclamo_participacion",
+            ),
+        ]
+
+    @property
+    def motivo(self):
+        if self.reclamo_participacion:
+            return self._meta.get_field("reclamo_participacion").verbose_name
+        return str(self.tipo) if self.tipo_id else ""
 
     def clean(self):
         if self.resuelta_por_id and self.estado == self.Estado.PENDIENTE:

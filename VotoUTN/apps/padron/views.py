@@ -671,6 +671,7 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
             "detalle_impacto_sin_crear": detalle_impacto_sin_crear,
             "estados_filtro": estados_filtro,
             "estado_filtro": estado_filtro,
+            "etiqueta_estado_filtro": dict(estados_filtro).get(estado_filtro, ""),
             "solo_lectura": solo_lectura,
         },
     )

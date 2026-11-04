@@ -20,6 +20,12 @@ const totalQuitadas = document.getElementById("total-mesas-quitadas-seleccionada
 const formularioSeleccionadas = document.getElementById("aprobar-seleccionadas");
 const nombresSede = Object.fromEntries(celdasQuitadas.map((celda) => [celda.dataset.quitadasSede, celda.dataset.sedeNombre]));
 
+const formularioFiltro = document.getElementById("filtro-solicitudes");
+const selectorEstado = document.getElementById("filtro-estado-solicitud");
+if (formularioFiltro && selectorEstado) {
+  selectorEstado.addEventListener("change", () => formularioFiltro.requestSubmit());
+}
+
 function describirImpacto(porSede, verbo) {
   const partes = Object.entries(porSede || {})
     .filter(([, cantidad]) => cantidad > 0)

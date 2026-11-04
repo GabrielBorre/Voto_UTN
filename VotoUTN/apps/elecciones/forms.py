@@ -79,6 +79,28 @@ class FormularioAgregarClaustro(forms.Form):
         self.fields["claustro"].widget.attrs["class"] = "form-control"
 
 
+class FormularioPublicarEleccion(forms.Form):
+    fecha_cierre_solicitudes_cambio_sede = forms.DateField(
+        label="Fecha límite para solicitar cambio de sede",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
+    )
+    fecha_limite_justificacion_autoridades = forms.DateField(
+        label="Fecha límite para justificar inasistencia como autoridad de mesa",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
+    )
+
+    def __init__(self, *args, eleccion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eleccion = eleccion
+        for nombre, campo in self.fields.items():
+            campo.initial = getattr(eleccion, nombre)
+
+    def publicar(self):
+        for nombre in self.fields:
+            setattr(self.eleccion, nombre, self.cleaned_data[nombre])
+        self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
+
+
 class FormularioFechasAdministrativasEleccion(forms.Form):
     def __init__(self, *args, eleccion, **kwargs):
         super().__init__(*args, **kwargs)
@@ -140,11 +162,16 @@ class FormularioFechasAdministrativasEleccion(forms.Form):
 class FormularioEditarEleccion(forms.ModelForm):
     class Meta:
         model = Eleccion
-        fields = FormularioEleccion.Meta.fields
-        labels = FormularioEleccion.Meta.labels
+        fields = (*FormularioEleccion.Meta.fields, "fecha_limite_justificacion_autoridades")
+        labels = {
+            **FormularioEleccion.Meta.labels,
+            "fecha_limite_justificacion_autoridades": "Fecha límite para justificar inasistencia como autoridad de mesa",
+        }
         widgets = {
             "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
             "fecha_fin": forms.DateInput(attrs={"type": "date"}),
+            "fecha_cierre_solicitudes_cambio_sede": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+            "fecha_limite_justificacion_autoridades": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):

@@ -537,7 +537,7 @@ async function registerCurrentPage(origin) {
         }
 
         if (result.invalidos?.length) {
-            throw new Error("Se detectaron QRs que no corresponden a la mesa actual.");
+            throw new Error("QRs no corresponden a la mesa actual.");
         }
 
         setStatus(

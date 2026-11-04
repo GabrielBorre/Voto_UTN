@@ -64,7 +64,7 @@
           {% for item in justificativos %}
             <tr>
               <td><strong>{{ item.registro_padron.elector.nombre_completo }}</strong></td>
-              <td>{{ item.tipo }}</td>
+              <td>{{ item.motivo }}{% if item.reclamo_participacion %}<br>{% include "justificativos/_validacion_comprobante.html" with justificativo=item %}{% endif %}</td>
               <td>{{ item.presentada_en|date:"d/m/Y H:i" }}</td>
               <td>
                 {% if item.estado == "pendiente" %}
