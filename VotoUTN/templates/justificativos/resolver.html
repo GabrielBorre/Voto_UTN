@@ -29,9 +29,29 @@
   </div>
 
   <div class="request-summary">
+    {% if justificativo.reclamo_participacion %}
+    <div class="notice">El elector declara que votó pero figura como ausente. Si aprobás el reclamo, se anula la ausencia registrada (queda una copia para auditoría); si lo rechazás, la ausencia se mantiene.</div>
+    {% if justificativo.comprobante_extraviado %}<div class="notice">El elector declaró que perdió el comprobante de votación. Requiere revisión manual del padrón.</div>{% endif %}
+    {% if justificativo.participacion_anulada_en %}<div class="notice">La ausencia registrada fue anulada el {{ justificativo.participacion_anulada_en|date:"d/m/Y H:i" }}.</div>{% endif %}
+    <div class="request-summary-item full-width">
+      <span>Validación automática del comprobante</span>
+      <div>
+        {% include "justificativos/_validacion_comprobante.html" %}
+        {% if justificativo.detalle_validacion_comprobante %}<p class="muted">{{ justificativo.detalle_validacion_comprobante }}</p>{% endif %}
+        {% if justificativo.comprobante_validado_en %}<p class="muted">Validado el {{ justificativo.comprobante_validado_en|date:"d/m/Y H:i" }}.</p>{% endif %}
+        {% if not nav_en_historial and justificativo.documento %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="revalidar">
+            <button class="button light small" type="submit">Validar nuevamente</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
     <div class="request-summary-item">
       <span>Motivo</span>
-      <strong>{{ justificativo.tipo }}</strong>
+      <strong>{{ justificativo.motivo }}</strong>
     </div>
     <div class="request-summary-item">
       <span>Presentado</span>

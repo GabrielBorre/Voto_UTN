@@ -58,7 +58,6 @@ class Eleccion(models.Model):
             ("fecha_apertura_padron_provisorio", "fecha_cierre_padron_provisorio"),
             ("fecha_cierre_padron_provisorio", "fecha_publicacion_padron_definitivo"),
             ("fecha_publicacion_padron_definitivo", "fecha_inicio"),
-            ("fecha_inicio", "fecha_cierre_solicitudes_cambio_sede"),
         )
         for inicial, final in fechas_ordenadas:
             valor_inicial = getattr(self, inicial)
@@ -96,9 +95,14 @@ class Eleccion(models.Model):
             )
             if claustros_sin_padron.exists():
                 raise ValidationError("Debe existir al menos una importación de padrón válida por cada claustro antes de publicar la elección.")
+            if not self.fecha_cierre_solicitudes_cambio_sede or not self.fecha_limite_justificacion_autoridades:
+                raise ValidationError("Debe indicar los plazos de cambio de sede y justificación de autoridades antes de publicar.")
         self.estado = nuevo_estado
         self.habilitada = nuevo_estado in (self.Estado.PUBLICADA, self.Estado.EN_CURSO)
-        self.save(update_fields=("estado", "habilitada"))
+        campos = ("estado", "habilitada")
+        if nuevo_estado == self.Estado.PUBLICADA:
+            campos += ("fecha_cierre_solicitudes_cambio_sede", "fecha_limite_justificacion_autoridades")
+        self.save(update_fields=campos)
 
     def __str__(self):
         return self.nombre

@@ -1199,6 +1199,23 @@ th a.table-sort-link:focus-visible {
     margin-bottom: 7px;
 }
 
+.field .form-check {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+}
+
+.field .form-check input[type="checkbox"] {
+    flex-shrink: 0;
+    height: 16px;
+    margin: 0;
+    width: 16px;
+}
+
+.field .form-check label {
+    margin-bottom: 0;
+}
+
 .field-label {
     align-items: center;
     display: flex;

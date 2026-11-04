@@ -414,6 +414,8 @@ class CicloDeVidaEleccionTests(TestCase):
         self.turno = turno
 
     def test_solo_abre_con_mesas_y_cerrar_la_deshabilita(self):
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = self.eleccion.fecha_fin
+        self.eleccion.fecha_limite_justificacion_autoridades = self.eleccion.fecha_fin
         RegistroPadron.objects.create(
             elector=Elector.objects.create(dni="40180001", legajo="40180001", nombre="Elector ciclo"),
             eleccion=self.eleccion, eleccion_claustro_departamento=self.configuracion,

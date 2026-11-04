@@ -17,6 +17,7 @@ from .forms import (
     FormularioEditarEleccion,
     FormularioFechasAdministrativasEleccion,
     FormularioFechaLimiteJustificativosElectores,
+    FormularioPublicarEleccion,
 )
 from .services import agregar_claustro, eliminar_claustro
 from .models import (
@@ -77,7 +78,11 @@ def contexto_formulario_eleccion(formulario, incluir_parametros=False):
     contexto = {
         "campos_generales": [
             formulario[nombre]
-            for nombre in ("nombre", "fecha_inicio", "fecha_fin", "fecha_cierre_solicitudes_cambio_sede")
+            for nombre in (
+                "nombre", "fecha_inicio", "fecha_fin", "fecha_cierre_solicitudes_cambio_sede",
+                "fecha_limite_justificacion_autoridades",
+            )
+            if nombre in formulario.fields
         ],
     }
     if incluir_parametros:
@@ -225,7 +230,7 @@ def inicio_administrador_junta(request):
 
 @login_required
 def listar_elecciones(request):
-    elecciones = elecciones_con_participacion(request.user)
+    elecciones = elecciones_con_participacion(request.user).filter(estado=Eleccion.Estado.EN_CURSO)
     hay_eleccion_en_curso = Eleccion.objects.filter(
         estado=Eleccion.Estado.EN_CURSO,
     ).exists()
@@ -460,6 +465,7 @@ def configurar_eleccion(request, eleccion_id):
                 for indice, (codigo, ayuda) in enumerate(estados)
             ],
             "siguiente_estado": siguiente_estado,
+            "formulario_publicacion": FormularioPublicarEleccion(eleccion=eleccion),
             "pendientes_configuracion": pendientes_configuracion,
             "padrones_pendientes": padrones_pendientes,
             "alcances_pendientes": alcances_pendientes,
@@ -597,6 +603,11 @@ def cambiar_estado_eleccion(request, eleccion_id):
         return HttpResponseForbidden("No tiene permiso para cambiar esta eleccion.")
     nuevo_estado = request.POST.get("estado")
     estado_anterior = eleccion.estado
+    plazos_anteriores = {
+        nombre: valor.isoformat() if valor else None
+        for nombre in ("fecha_cierre_solicitudes_cambio_sede", "fecha_limite_justificacion_autoridades")
+        for valor in (getattr(eleccion, nombre),)
+    }
     if nuevo_estado == Eleccion.Estado.FINALIZADA:
         hay_justificativos_pendientes = JustificativoAusencia.objects.filter(
             registro_padron__eleccion=eleccion,
@@ -613,7 +624,19 @@ def cambiar_estado_eleccion(request, eleccion_id):
             messages.error(request, "No se puede finalizar la elección con mesas pendientes de escaneo.", extra_tags=ETIQUETA_POPUP_TRANSICION)
             return redirect("gestionar-elecciones")
     try:
-        eleccion.cambiar_estado(nuevo_estado)
+        with transaction.atomic():
+            if nuevo_estado == Eleccion.Estado.PUBLICADA:
+                formulario = FormularioPublicarEleccion(request.POST, eleccion=eleccion)
+                if not formulario.is_valid():
+                    errores = [
+                        f"{formulario.fields[nombre].label}: {error}"
+                        for nombre, errores_campo in formulario.errors.items()
+                        for error in errores_campo
+                    ]
+                    raise ValidationError(errores)
+                formulario.publicar()
+            else:
+                eleccion.cambiar_estado(nuevo_estado)
     except ValidationError as error:
         messages.error(request, " ".join(error.messages), extra_tags=ETIQUETA_POPUP_TRANSICION)
     else:
@@ -628,8 +651,16 @@ def cambiar_estado_eleccion(request, eleccion_id):
             eleccion=eleccion,
             usuario=request.user,
             request=request,
-            datos_anteriores={"estado": estado_anterior},
-            datos_nuevos={"estado": eleccion.estado, "habilitada": eleccion.habilitada},
+            datos_anteriores={"estado": estado_anterior, **plazos_anteriores},
+            datos_nuevos={
+                "estado": eleccion.estado,
+                "habilitada": eleccion.habilitada,
+                **{
+                    nombre: valor.isoformat() if valor else None
+                    for nombre in plazos_anteriores
+                    for valor in (getattr(eleccion, nombre),)
+                },
+            },
         )
         messages.success(request, f"La elección quedó {eleccion.get_estado_display().lower()}.")
     return redirect("gestionar-elecciones")

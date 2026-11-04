@@ -134,7 +134,11 @@ class AuditoriaEleccionTests(BaseAuditoriaElectoralTests):
         self.crear_padron()
         respuesta = self.client.post(
             reverse("cambiar-estado-eleccion", args=(self.eleccion.id,)),
-            {"estado": Eleccion.Estado.PUBLICADA},
+            {
+                "estado": Eleccion.Estado.PUBLICADA,
+                "fecha_cierre_solicitudes_cambio_sede": "2026-08-03",
+                "fecha_limite_justificacion_autoridades": "2026-08-03",
+            },
             HTTP_HOST="127.0.0.1",
             REMOTE_ADDR="127.0.0.10",
             HTTP_USER_AGENT="Prueba",

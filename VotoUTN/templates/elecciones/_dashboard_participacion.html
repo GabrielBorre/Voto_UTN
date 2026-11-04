@@ -74,12 +74,6 @@
         })();
       </script>
       {% elif eleccion_actual.notificaciones_ausentes_confirmadas_en %}
-      <p class="muted">
-        Notificaciones a ausentes confirmadas el {{ eleccion_actual.notificaciones_ausentes_confirmadas_en|date:'d/m/Y H:i' }}.
-        {% if eleccion_actual.justificacion_electores_habilitada_en %}
-        Período de justificativos habilitado hasta el {{ eleccion_actual.fecha_limite_justificacion_electores|date:'d/m/Y' }}.
-        {% endif %}
-      </p>
       {% endif %}
     </div>
   </section>

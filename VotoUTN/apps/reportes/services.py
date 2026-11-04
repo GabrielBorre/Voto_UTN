@@ -126,7 +126,7 @@ def exportar_reporte_eleccion(eleccion, tipo):
                     valor_csv(valor)
                     for valor in (
                         item.registro_padron.elector.nombre_completo,
-                        item.tipo,
+                        item.motivo,
                         item.estado,
                         item.presentada_en.isoformat(),
                         item.resuelta_en.isoformat() if item.resuelta_en else "",
