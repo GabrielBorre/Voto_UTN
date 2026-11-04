@@ -237,6 +237,32 @@ class DashboardParticipacionTests(TestCase):
         self.assertEqual(respuesta.context["eleccion_actual"], self.eleccion)
         self.assertEqual(respuesta.context["dashboard"]["electores_total"], 4)
 
+    def test_registro_participacion_muestra_solo_la_eleccion_en_curso(self):
+        finalizada = Eleccion.objects.create(
+            nombre="Eleccion Finalizada Habilitada",
+            fecha_inicio=date(2027, 8, 3),
+            fecha_fin=date(2027, 8, 3),
+            estado=Eleccion.Estado.FINALIZADA,
+            habilitada=True,
+        )
+        AsignacionRol.objects.create(
+            usuario=self.administrativo, rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA, eleccion=finalizada
+        )
+        self.client.force_login(self.administrativo)
+
+        respuesta = self.client.get(reverse("lista-elecciones"), {"eleccion": finalizada.pk})
+
+        self.assertEqual(list(respuesta.context["elecciones"]), [self.eleccion])
+        self.assertEqual(respuesta.context["eleccion_actual"], self.eleccion)
+        self.assertNotContains(respuesta, "Eleccion Finalizada Habilitada")
+        self.assertNotContains(respuesta, reverse("escanear", args=(finalizada.pk,)))
+        self.assertContains(respuesta, reverse("escanear", args=(self.eleccion.pk,)))
+
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.FINALIZADA)
+        respuesta = self.client.get(reverse("lista-elecciones"))
+        self.assertFalse(respuesta.context["elecciones"].exists())
+        self.assertContains(respuesta, "Debe haber una elección en curso para poder registrar participación.")
+
     def test_admin_confirma_notificaciones_solo_con_todas_las_mesas_procesadas_y_no_duplica(self):
         self.eleccion.estado = Eleccion.Estado.EN_CURSO
         self.eleccion.save(update_fields=("estado",))

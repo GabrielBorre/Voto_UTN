@@ -230,7 +230,7 @@ def inicio_administrador_junta(request):
 
 @login_required
 def listar_elecciones(request):
-    elecciones = elecciones_con_participacion(request.user)
+    elecciones = elecciones_con_participacion(request.user).filter(estado=Eleccion.Estado.EN_CURSO)
     hay_eleccion_en_curso = Eleccion.objects.filter(
         estado=Eleccion.Estado.EN_CURSO,
     ).exists()

@@ -2,6 +2,14 @@
 
 Este documento registra cambios aplicados al proyecto. Describe los archivos y el efecto de cada cambio; no reemplaza el historial de Git ni las migraciones de Django.
 
+## Registro de participación limitado a la elección en curso
+
+- `listar_elecciones` (`apps/elecciones/views.py`) filtra las elecciones del
+  usuario por estado `en_curso`, tanto en la lista móvil como en el tablero de
+  escritorio. Las elecciones finalizadas o publicadas ya no se listan ni se
+  pueden seleccionar mediante `?eleccion=`.
+- Prueba: `apps/asistencia/tests_dashboard.py`.
+
 ## Validación del comprobante en reclamos de participación
 
 - Al presentar un reclamo «Voté, pero aparezco como ausente» con una imagen
