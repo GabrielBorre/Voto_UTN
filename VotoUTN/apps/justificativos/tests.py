@@ -12,9 +12,11 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.test import override_settings
+from django.utils import timezone
 from django.utils.timezone import make_aware
 from django.utils import timezone
 
+from apps.asistencia.models import RegistroParticipacion
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.asistencia.models import RegistroParticipacion
 from apps.asistencia.services import ServicioRegistroParticipacion
@@ -24,6 +26,7 @@ from apps.justificativos.forms import FormularioJustificativo
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.mesas.models import Mesa
 from apps.notificaciones.models import EnvioNotificacion
+from apps.mesas.models import Mesa
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Turno
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
@@ -101,9 +104,7 @@ class JustificativosViewsTests(TestCase):
             eleccion_claustro_departamento=registro.eleccion_claustro_departamento,
             estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
         )
-        RegistroParticipacion.objects.create(
-            registro_padron=registro, mesa=mesa, registrada_por=self.usuario, metodo="qr",
-        )
+        self.registrar_no_votante(registro, mesa)
         self.client.force_login(usuario)
         return usuario, registro, mesa
 
@@ -121,26 +122,19 @@ class JustificativosViewsTests(TestCase):
 
     def test_casilla_reclamo_no_se_ofrece_sin_ausencia_registrada(self):
         usuario, _, registro = self.crear_elector_con_padrones()
+        registro.eleccion.justificacion_electores_habilitada_en = timezone.now()
+        registro.eleccion.save(update_fields=("justificacion_electores_habilitada_en",))
         self.client.force_login(usuario)
         respuesta = self.client.get(reverse("mis-justificativos"))
         self.assertNotContains(respuesta, "Voté, pero aparezco como ausente")
         self.assertNotContains(respuesta, "Perdí el comprobante de votación")
-        tipo = TipoJustificativo.objects.create(nombre="Enfermedad sin ausencia")
         formulario = FormularioJustificativo(
             {"reclamo_participacion": True, "comprobante_extraviado": True, "detalle": "Voté."},
             registro_padron=registro,
         )
+        self.assertFalse(formulario.permite_reclamo())
         self.assertFalse(formulario.is_valid())
-        self.assertIn("tipo", formulario.errors)
-        formulario = FormularioJustificativo(
-            {"reclamo_participacion": True, "ausencia": "votar", "tipo": tipo.pk, "detalle": "Enfermedad.",
-             "comprobante_extraviado": True},
-            registro_padron=registro,
-        )
-        self.assertTrue(formulario.is_valid(), formulario.errors)
-        justificativo = formulario.save()
-        self.assertFalse(justificativo.reclamo_participacion)
-        self.assertFalse(justificativo.comprobante_extraviado)
+        self.assertFalse(JustificativoAusencia.objects.filter(registro_padron=registro).exists())
 
     def test_reclamo_admite_comprobante_sin_ausencia_ni_tipo_y_conserva_participacion(self):
         _, registro, _ = self.preparar_reclamo_participacion()
@@ -351,6 +345,24 @@ class JustificativosViewsTests(TestCase):
                 datos["ausencia"] = "votar"
                 self.assertTrue(FormularioJustificativo(datos, registro_padron=registro).is_valid())
 
+    def registrar_no_votante(self, registro, mesa=None):
+        registro.eleccion.justificacion_electores_habilitada_en = timezone.now()
+        registro.eleccion.fecha_limite_justificacion_electores = timezone.localdate() + timedelta(days=5)
+        registro.eleccion.save(
+            update_fields=("justificacion_electores_habilitada_en", "fecha_limite_justificacion_electores")
+        )
+        mesa = mesa or Mesa.objects.create(
+            eleccion=registro.eleccion,
+            eleccion_claustro_departamento=registro.eleccion_claustro_departamento,
+            numero=registro.pk,
+        )
+        return RegistroParticipacion.objects.create(
+            registro_padron=registro,
+            mesa=mesa,
+            registrada_por=self.usuario,
+            metodo=RegistroParticipacion.Metodo.MANUAL,
+        )
+
     def test_mis_justificativos_muestra_la_eleccion_mas_reciente_sin_selector(self):
         usuario, _, registro_reciente = self.crear_elector_con_padrones()
         self.client.login(username=usuario.username, password="clave")
@@ -398,6 +410,7 @@ class JustificativosViewsTests(TestCase):
 
     def test_mis_justificativos_ignora_un_registro_padron_alterado_en_post(self):
         usuario, registro_anterior, registro_reciente = self.crear_elector_con_padrones()
+        self.registrar_no_votante(registro_reciente)
         tipo = TipoJustificativo.objects.create(nombre="Enfermedad")
         self.client.login(username=usuario.username, password="clave")
 
@@ -417,6 +430,7 @@ class JustificativosViewsTests(TestCase):
 
     def test_elector_solo_puede_presentar_un_justificativo_de_votar(self):
         usuario, _, registro_reciente = self.crear_elector_con_padrones()
+        self.registrar_no_votante(registro_reciente)
         tipo = TipoJustificativo.objects.create(nombre="Enfermedad")
         datos = {"ausencia": "votar", "tipo": tipo.id, "detalle": "Detalle."}
         self.client.login(username=usuario.username, password="clave")
@@ -442,6 +456,7 @@ class JustificativosViewsTests(TestCase):
             sede=sede,
             numero=1,
         )
+        self.registrar_no_votante(registro, mesa)
         AsignacionAutoridad.objects.bulk_create([
             AsignacionAutoridad(registro_padron=registro, mesa=mesa, turno=turno, asignada_por=usuario)
         ])
@@ -484,6 +499,38 @@ class JustificativosViewsTests(TestCase):
                 ausencia=JustificativoAusencia.Ausencia.AUTORIDAD,
             ).exists()
         )
+    def test_no_habilita_justificacion_de_voto_sin_periodo_abierto_o_registro_de_no_voto(self):
+        usuario, _, registro = self.crear_elector_con_padrones()
+        mesa = Mesa.objects.create(
+            eleccion=registro.eleccion,
+            eleccion_claustro_departamento=registro.eleccion_claustro_departamento,
+            numero=registro.pk,
+        )
+        RegistroParticipacion.objects.create(
+            registro_padron=registro,
+            mesa=mesa,
+            registrada_por=usuario,
+            metodo=RegistroParticipacion.Metodo.MANUAL,
+        )
+        self.client.force_login(usuario)
+
+        respuesta = self.client.get(reverse("mis-justificativos"))
+
+        self.assertFalse(respuesta.context["puede_presentar_justificativo_electoral"])
+        self.assertContains(respuesta, "La justificación por inasistencia estará disponible")
+
+    def test_no_habilita_justificacion_de_voto_si_no_hay_registro_de_no_voto(self):
+        usuario, _, registro = self.crear_elector_con_padrones()
+        registro.eleccion.justificacion_electores_habilitada_en = timezone.now()
+        registro.eleccion.fecha_limite_justificacion_electores = timezone.localdate() + timedelta(days=5)
+        registro.eleccion.save(
+            update_fields=("justificacion_electores_habilitada_en", "fecha_limite_justificacion_electores")
+        )
+        self.client.force_login(usuario)
+
+        respuesta = self.client.get(reverse("mis-justificativos"))
+
+        self.assertFalse(respuesta.context["puede_presentar_justificativo_electoral"])
 
     def test_bandeja_justificativos_usa_ruta_publica_existente(self):
         self.client.login(username="admin", password="clave")

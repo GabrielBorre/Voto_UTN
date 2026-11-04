@@ -3,6 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from .views import keycloak_login_view, keycloak_login_callback_view, keycloak_logout_view
+from apps.justificativos.views import documento_justificativo_por_archivo
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -21,6 +22,11 @@ urlpatterns = [
     path('login/', keycloak_login_view, name='keycloak_login'),
     path('callback', keycloak_login_callback_view, name='callback_login'),
     path("logout/", keycloak_logout_view, name="logout"),
+    path(
+        "media/justificativos/<path:nombre_archivo>",
+        documento_justificativo_por_archivo,
+        name="documento-justificativo-por-archivo",
+    ),
 ]
 
 if settings.DEBUG:

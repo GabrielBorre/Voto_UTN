@@ -77,7 +77,7 @@
               </td>
               <td>
                 {% if item.documento %}
-                  <a class="button light small" href="{{ item.documento.url }}">Ver adjunto</a>
+                  <a class="button light small" href="{% url 'documento-justificativo-gestion' item.pk %}">Ver adjunto</a>
                 {% else %}
                   <span class="muted">Sin adjunto</span>
                 {% endif %}

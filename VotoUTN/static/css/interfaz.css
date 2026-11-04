@@ -13,6 +13,7 @@
 .utn-dialogo::backdrop { background: #10233d99; }
 .utn-dialogo h2 { margin: 0 0 1rem; font-size: 1.3rem; }
 .utn-dialogo p { white-space: pre-line; overflow-wrap: anywhere; }
+.utn-dialogo-advertencia-icono { color: #d99a00; }
 .utn-dialogo-entrada label { display: block; margin-bottom: .5rem; }
 .utn-dialogo-entrada input { box-sizing: border-box; width: 100%; padding: .6rem; }
 .utn-dialogo-acciones { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .75rem; margin-top: 1.5rem; }

@@ -2,8 +2,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import HttpResponseForbidden
+from django.http import FileResponse, Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.elecciones.models import ESTADOS_ELECCION_NO_CERRADOS, Eleccion
@@ -15,9 +16,15 @@ from apps.justificativos.services import (
     validar_comprobante,
 )
 from apps.notificaciones.services import crear_notificacion_resultado_justificativo, enviar_notificacion
+from apps.justificativos.services import puede_presentar_justificativo_electoral
 from apps.padron.models import Elector, RegistroPadron
 from apps.usuarios.models import AsignacionRol
-from apps.usuarios.permisos import es_administrativo_junta, puede_revisar_justificativo
+from apps.usuarios.permisos import (
+    es_administrativo_junta,
+    puede_consultar_historial_electoral,
+    puede_revisar_justificativo,
+)
+from apps.usuarios.services import elector_de_identidad
 
 
 @login_required
@@ -76,9 +83,103 @@ def mis_justificativos(request):
             "estado_habilitado": estado_habilitado,
             "formulario": formulario,
             "puede_presentar": estado_habilitado and bool(formulario.fields["ausencia"].choices),
+            "puede_presentar_justificativo_electoral": bool(
+                registro_padron and puede_presentar_justificativo_electoral(registro_padron)
+            ),
+
             "justificativos": justificativos,
         },
     )
+
+
+@login_required
+def detalle_justificativo_elector(request, justificativo_id):
+    elector = elector_de_identidad(request.user)
+    if not puede_consultar_historial_electoral(request.user, elector):
+        return HttpResponseForbidden("No tiene permiso para consultar justificativos electorales.")
+    justificativo = get_object_or_404(
+        JustificativoAusencia.objects.select_related(
+            "registro_padron__eleccion",
+            "registro_padron__elector",
+            "tipo",
+            "resuelta_por",
+        ),
+        pk=justificativo_id,
+        registro_padron__elector=elector,
+        ausencia=JustificativoAusencia.Ausencia.VOTAR,
+    )
+    return render(
+        request,
+        "justificativos/detalle_elector.html",
+        {
+            "justificativo": justificativo,
+            "documento_es_pdf": justificativo.documento.name.lower().endswith(".pdf")
+            if justificativo.documento
+            else False,
+            "url_documento": (
+                reverse("documento-justificativo-elector", args=(justificativo.pk,))
+                if justificativo.documento
+                else None
+            ),
+        },
+    )
+
+
+@login_required
+def documento_justificativo_elector(request, justificativo_id):
+    elector = elector_de_identidad(request.user)
+    if not puede_consultar_historial_electoral(request.user, elector):
+        return HttpResponseForbidden("No tiene permiso para consultar justificativos electorales.")
+    justificativo = get_object_or_404(
+        JustificativoAusencia.objects.filter(
+            registro_padron__elector=elector,
+            ausencia=JustificativoAusencia.Ausencia.VOTAR,
+        ),
+        pk=justificativo_id,
+    )
+    if not justificativo.documento:
+        raise Http404("El justificativo no tiene documentación adjunta.")
+    return _respuesta_documento_privado(justificativo)
+
+
+@login_required
+def documento_justificativo_gestion(request, justificativo_id):
+    justificativo = get_object_or_404(
+        JustificativoAusencia.objects.select_related("registro_padron__eleccion"),
+        pk=justificativo_id,
+    )
+    if not puede_revisar_justificativo(request.user, justificativo.registro_padron.eleccion):
+        return HttpResponseForbidden("No tiene permiso para consultar este justificativo.")
+    if not justificativo.documento:
+        raise Http404("El justificativo no tiene documentación adjunta.")
+    return _respuesta_documento_privado(justificativo)
+
+
+@login_required
+def documento_justificativo_por_archivo(request, nombre_archivo):
+    justificativo = get_object_or_404(
+        JustificativoAusencia.objects.select_related("registro_padron__eleccion"),
+        documento=f"justificativos/{nombre_archivo}",
+    )
+    elector = elector_de_identidad(request.user)
+    es_titular = (
+        justificativo.registro_padron.elector_id == getattr(elector, "pk", None)
+        and puede_consultar_historial_electoral(request.user, elector)
+    )
+    puede_revisar = puede_revisar_justificativo(
+        request.user,
+        justificativo.registro_padron.eleccion,
+    )
+    if not es_titular and not puede_revisar:
+        raise Http404("No existe el documento solicitado.")
+    return _respuesta_documento_privado(justificativo)
+
+
+def _respuesta_documento_privado(justificativo):
+    respuesta = FileResponse(justificativo.documento.open("rb"), as_attachment=False)
+    respuesta["Cache-Control"] = "private, no-store"
+    respuesta["X-Content-Type-Options"] = "nosniff"
+    return respuesta
 
 
 @login_required

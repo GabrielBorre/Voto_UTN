@@ -15,6 +15,9 @@
   <span class="gestion-nav__disabled" role="link" aria-disabled="true" tabindex="0" title="No hay una elección actual para configurar. Creala desde Inicio.">Configurar elección</span>
   {% endif %}
   {% endif %}
+  {% if nav_puede_consultar_historial_electoral %}
+  <a class="{% if request.resolver_match.url_name == 'historial-electoral' or request.resolver_match.url_name == 'detalle-justificativo-elector' %}active{% endif %}" href="{% url 'historial-electoral' %}">Historial Electoral</a>
+  {% endif %}
   {% if nav_puede_gestionar_parametros %}
   <a class="{% if request.resolver_match.url_name == 'gestionar-parametros' or request.resolver_match.url_name == 'listar-parametros' or request.resolver_match.url_name == 'crear-parametro' or request.resolver_match.url_name == 'editar-parametro' or request.resolver_match.url_name == 'catalogos-candidaturas' %}active{% endif %}" href="{% url 'gestionar-parametros' %}">Parámetros de elección</a>
   {% endif %}

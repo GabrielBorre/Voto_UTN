@@ -247,6 +247,48 @@ class CicloConfiguracionTests(TestCase):
         self.assertContains(respuesta, 'data-popup-titulo="No se puede cambiar el estado"')
         self.assertContains(respuesta, "No se puede finalizar la elección con mesas pendientes de escaneo.")
 
+    def test_popup_finalizacion_informa_periodo_de_justificacion_vigente_sin_bloquear(self):
+        self.estado(Eleccion.Estado.EN_CURSO)
+        fecha_limite = timezone.localdate() + timedelta(days=3)
+        self.eleccion.justificacion_electores_habilitada_en = timezone.now()
+        self.eleccion.fecha_limite_justificacion_electores = fecha_limite
+        self.eleccion.save(
+            update_fields=(
+                "justificacion_electores_habilitada_en",
+                "fecha_limite_justificacion_electores",
+            )
+        )
+        self.mesa.estado_escaneo = Mesa.EstadoEscaneo.PROCESADA
+        self.mesa.save(update_fields=("estado_escaneo",))
+
+        respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))
+
+        self.assertContains(respuesta, "Aún se encuentra vigente el período de justificación")
+        self.assertContains(respuesta, f"{fecha_limite:%d/%m/%Y} inclusive.")
+        self.assertContains(respuesta, "⚠ Aún se encuentra vigente el período de justificación")
+        finalizacion = self.client.post(
+            reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)),
+            {"estado": Eleccion.Estado.FINALIZADA},
+        )
+        self.eleccion.refresh_from_db()
+        self.assertEqual(finalizacion.status_code, 302)
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.FINALIZADA)
+
+    def test_popup_finalizacion_no_muestra_periodo_de_justificacion_vencido(self):
+        self.estado(Eleccion.Estado.EN_CURSO)
+        self.eleccion.justificacion_electores_habilitada_en = timezone.now() - timedelta(days=10)
+        self.eleccion.fecha_limite_justificacion_electores = timezone.localdate() - timedelta(days=1)
+        self.eleccion.save(
+            update_fields=(
+                "justificacion_electores_habilitada_en",
+                "fecha_limite_justificacion_electores",
+            )
+        )
+
+        respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))
+
+        self.assertNotContains(respuesta, "Aún se encuentra vigente el período de justificación")
+
     def test_claustro_nuevo_hereda_sedes_y_se_elimina_sin_borrar_padrones(self):
         otro = Claustro.objects.create(
             nombre="No docentes", organizacion_departamentos=Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO,

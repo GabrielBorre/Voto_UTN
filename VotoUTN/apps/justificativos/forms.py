@@ -3,6 +3,7 @@ from django.utils import timezone
 
 from apps.autoridades.models import AsignacionAutoridad
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
+from apps.justificativos.services import puede_presentar_justificativo_electoral
 
 class FormularioJustificativo(forms.ModelForm):
     class Meta:
@@ -61,7 +62,9 @@ class FormularioJustificativo(forms.ModelForm):
     def ausencias_disponibles(self):
         if self.registro_padron is None:
             return set()
-        permitidas = {JustificativoAusencia.Ausencia.VOTAR}
+        permitidas = set()
+        if puede_presentar_justificativo_electoral(self.registro_padron):
+            permitidas.add(JustificativoAusencia.Ausencia.VOTAR)
         if not self.plazo_autoridad_vencido() and AsignacionAutoridad.objects.filter(registro_padron=self.registro_padron).exists():
             permitidas.add(JustificativoAusencia.Ausencia.AUTORIDAD)
         usadas = set(

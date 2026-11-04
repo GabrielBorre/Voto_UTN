@@ -1,11 +1,40 @@
 from apps.usuarios.models import AsignacionRol
 from apps.elecciones.models import Eleccion
+from apps.autoridades.models import AsignacionAutoridad
 
 
 ROLES_CON_PARTICIPACION = {
     AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
     AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
 }
+
+
+def puede_consultar_historial_electoral(usuario, elector):
+    if not usuario.is_authenticated:
+        return False
+    if getattr(usuario, "es_elector", False):
+        return True
+    if elector is None:
+        return False
+    roles = AsignacionRol.objects.filter(usuario=usuario, activo=True)
+    return roles.filter(
+        rol__in=(AsignacionRol.Rol.ELECTOR, AsignacionRol.Rol.AUTORIDAD_MESA),
+    ).exists() or AsignacionAutoridad.objects.filter(
+        registro_padron__elector=elector,
+    ).exists()
+
+
+def es_autoridad_en_eleccion_publicada_o_en_curso(elector):
+    if elector is None:
+        return False
+    return AsignacionAutoridad.objects.filter(
+        registro_padron__elector=elector,
+        registro_padron__activo=True,
+        registro_padron__eleccion__estado__in=(
+            Eleccion.Estado.PUBLICADA,
+            Eleccion.Estado.EN_CURSO,
+        ),
+    ).exclude(estado=AsignacionAutoridad.Estado.RECHAZADA).exists()
 
 
 def es_administrativo_junta(usuario):
