@@ -1,6 +1,7 @@
 from django import forms
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 
 from .models import (
     Eleccion,
@@ -15,6 +16,25 @@ from apps.mesas.models import Mesa
 from apps.padron.services import claustro_tiene_emision_vigente
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede
 from .services import agregar_claustro
+
+
+class FormularioFechaLimiteJustificativosElectores(forms.Form):
+    fecha_limite_justificacion_electores = forms.DateField(
+        label="Último día para presentar justificativos",
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["fecha_limite_justificacion_electores"].widget.attrs["min"] = (
+            timezone.localdate().isoformat()
+        )
+
+    def clean_fecha_limite_justificacion_electores(self):
+        fecha = self.cleaned_data["fecha_limite_justificacion_electores"]
+        if fecha < timezone.localdate():
+            raise forms.ValidationError("La fecha límite no puede ser anterior a hoy.")
+        return fecha
 
 
 class FormularioEleccion(forms.ModelForm):

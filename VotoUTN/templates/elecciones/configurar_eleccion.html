@@ -12,7 +12,7 @@
       <h2>Una elección, cuatro etapas</h2>
     </div>
     {% if siguiente_estado %}
-    <form class="ciclo-accion" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" data-confirm-title="{{ siguiente_estado.1 }}" data-confirm-accept="{{ siguiente_estado.1 }}" data-confirm="{{ siguiente_estado.2 }}&#10;&#10;¿Querés continuar?">
+    <form class="ciclo-accion" method="post" action="{% url 'cambiar-estado-eleccion' eleccion.id %}" data-confirm-title="{{ siguiente_estado.1 }}" data-confirm-accept="{{ siguiente_estado.1 }}" data-confirm="{{ siguiente_estado.2 }}{% if periodo_justificacion_vigente %}&#10;&#10;⚠ Aún se encuentra vigente el período de justificación de inasistencias electorales hasta el día {{ eleccion.fecha_limite_justificacion_electores|date:'d/m/Y' }} inclusive.{% endif %}&#10;&#10;¿Querés continuar?">
       {% csrf_token %}
       <input type="hidden" name="estado" value="{{ siguiente_estado.0 }}">
       <button class="button primary" type="submit">{{ siguiente_estado.1 }} <span aria-hidden="true">&rarr;</span></button>

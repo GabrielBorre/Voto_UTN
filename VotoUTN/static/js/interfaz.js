@@ -59,7 +59,21 @@ function mostrarDialogo(mensaje, opciones) {
     const esPregunta = opciones.tipo === "pregunta";
     const esAviso = opciones.tipo === "aviso";
     elemento.querySelector("h2").textContent = opciones.titulo || (esAviso ? "Aviso" : "Confirmar operación");
-    elemento.querySelector("p").textContent = mensaje;
+    const textoMensaje = elemento.querySelector("p");
+    const indiceAdvertencia = mensaje.indexOf("⚠");
+    if (indiceAdvertencia === -1) {
+      textoMensaje.textContent = mensaje;
+    } else {
+      const iconoAdvertencia = document.createElement("span");
+      iconoAdvertencia.className = "utn-dialogo-advertencia-icono";
+      iconoAdvertencia.setAttribute("aria-hidden", "true");
+      iconoAdvertencia.textContent = "⚠";
+      textoMensaje.replaceChildren(
+        document.createTextNode(mensaje.slice(0, indiceAdvertencia)),
+        iconoAdvertencia,
+        document.createTextNode(mensaje.slice(indiceAdvertencia + 1)),
+      );
+    }
     elemento.querySelector(".utn-dialogo-entrada").hidden = !esPregunta;
     entrada.value = opciones.valorInicial || "";
     entrada.type = opciones.tipoEntrada || "text";

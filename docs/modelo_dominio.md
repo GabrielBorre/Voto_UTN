@@ -31,6 +31,10 @@ destinatarios y evento sugerido. La fecha concreta por elección continúa en
 - `EleccionClaustroDepartamentoSede`
 - `Mesa`
 
+`Eleccion` conserva `justificacion_electores_habilitada_en`, que registra el
+momento en que se abre la carga de justificativos de electores. La apertura se
+realizará desde la web después de completar el escaneo de todas las mesas.
+
 Regla de unicidad del ciclo de vida: como máximo una `Eleccion` puede estar en
 estado `en_preparacion`, `publicada` o `en_curso` considerando esos estados como un
 único grupo. Puede haber varias elecciones `finalizada`.
@@ -97,6 +101,10 @@ turno y en turnos diferentes.
 ## Participación
 
 - `RegistroParticipacion`
+
+En el flujo electoral, este registro identifica a un elector que no votó,
+independientemente de que la ausencia se haya cargado por QR o manualmente. Si
+no existe un registro, se presume que votó.
 
 Debe contemplar:
 

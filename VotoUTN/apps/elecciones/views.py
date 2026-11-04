@@ -4,8 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import HttpResponseForbidden
-from django.http import Http404
+from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -17,6 +16,7 @@ from .forms import (
     FormularioEleccion,
     FormularioEditarEleccion,
     FormularioFechasAdministrativasEleccion,
+    FormularioFechaLimiteJustificativosElectores,
 )
 from .services import agregar_claustro, eliminar_claustro
 from .models import (
@@ -49,13 +49,28 @@ from apps.notificaciones.services import (
 from apps.usuarios.services import elector_de_identidad
 from apps.usuarios.permisos import (
     elecciones_con_participacion,
+    puede_consultar_historial_electoral,
     puede_administrar_elecciones,
     puede_configurar_eleccion,
     puede_crear_elecciones,
+    es_autoridad_en_eleccion_publicada_o_en_curso,
 )
 from apps.usuarios.models import AsignacionRol
+from .historial_electores import construir_historial_electoral
 
 MESAS_POR_PAGINA = 10
+
+
+@login_required
+def historial_electoral(request):
+    elector = elector_de_identidad(request.user)
+    if not puede_consultar_historial_electoral(request.user, elector):
+        return HttpResponseForbidden("No tiene permiso para consultar el historial electoral.")
+    return render(
+        request,
+        "elecciones/historial_electoral_elector.html",
+        {"historial": construir_historial_electoral(elector)},
+    )
 
 
 def contexto_formulario_eleccion(formulario, incluir_parametros=False):
@@ -85,6 +100,7 @@ def contexto_fechas_administrativas(formulario):
 def inicio_autenticado(request):
     es_elector = getattr(request.user, "es_elector", False)
     es_autoridad_asignada = False
+    elector = elector_de_identidad(request.user)
     if not es_elector:
         roles_persona = AsignacionRol.objects.filter(
             usuario=request.user,
@@ -93,11 +109,26 @@ def inicio_autenticado(request):
         )
         es_elector = roles_persona.filter(rol=AsignacionRol.Rol.ELECTOR).exists()
         es_autoridad_asignada = roles_persona.filter(rol=AsignacionRol.Rol.AUTORIDAD_MESA).exists()
-    if es_elector or es_autoridad_asignada:
-        elector = elector_de_identidad(request.user)
+    tiene_historial_autoridad = (
+        elector is not None
+        and AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists()
+    )
+    if (
+        es_elector
+        or es_autoridad_asignada
+        or es_autoridad_en_eleccion_publicada_o_en_curso(elector)
+        or tiene_historial_autoridad
+    ):
+        eleccion_en_curso = Eleccion.objects.filter(
+            estado__in=(Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO),
+        ).order_by("-fecha_inicio", "-id").first()
         registros = RegistroPadron.objects.none()
-        if elector is not None:
-            registros = RegistroPadron.objects.filter(elector=elector, activo=True).select_related(
+        if elector is not None and eleccion_en_curso is not None:
+            registros = RegistroPadron.objects.filter(
+                elector=elector,
+                eleccion=eleccion_en_curso,
+                activo=True,
+            ).select_related(
                 "eleccion",
                 "eleccion_claustro_departamento__eleccion_claustro",
                 "sede",
@@ -106,8 +137,22 @@ def inicio_autenticado(request):
                 "asignacion_autoridad__turno",
                 "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
             )
-        es_autoridad = AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists() if elector is not None else False
-        return render(request, "elecciones/inicio_elector.html", {"registros": registros, "es_autoridad": es_autoridad})
+            situaciones_por_eleccion = {
+                item["eleccion"].pk: item
+                for item in construir_historial_electoral(elector)
+            }
+            for registro in registros:
+                registro.situacion_electoral = situaciones_por_eleccion.get(registro.eleccion_id)
+        es_autoridad = es_autoridad_en_eleccion_publicada_o_en_curso(elector)
+        return render(
+            request,
+            "elecciones/inicio_elector.html",
+            {
+                "registros": registros,
+                "eleccion_en_curso": eleccion_en_curso,
+                "es_autoridad": es_autoridad,
+            },
+        )
     if AsignacionRol.objects.filter(
         usuario=request.user,
         activo=True,
@@ -202,14 +247,27 @@ def listar_elecciones(request):
             pagina_mesas=Paginator(dashboard["mesas"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
             querystring_paginacion=parametros.urlencode(),
         )
-        puede_confirmar_ausentes = (
+        puede_administrar = (
             puede_administrar_elecciones(request.user, eleccion_actual)
             and eleccion_actual.estado == Eleccion.Estado.EN_CURSO
-            and eleccion_actual.notificaciones_ausentes_confirmadas_en is None
-            and eleccion_actual.mesas.exists()
-            and not eleccion_actual.mesas.exclude(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA).exists()
+        )
+        periodo_pendiente_habilitacion = bool(
+            eleccion_actual.notificaciones_ausentes_confirmadas_en
+            and not eleccion_actual.justificacion_electores_habilitada_en
+        )
+        puede_confirmar_ausentes = puede_administrar and (
+            periodo_pendiente_habilitacion
+            or (
+                eleccion_actual.notificaciones_ausentes_confirmadas_en is None
+                and eleccion_actual.mesas.exists()
+                and not eleccion_actual.mesas.exclude(
+                    estado_escaneo=Mesa.EstadoEscaneo.PROCESADA
+                ).exists()
+            )
         )
         contexto["puede_confirmar_notificaciones_ausentes"] = puede_confirmar_ausentes
+        contexto["periodo_justificacion_pendiente_habilitacion"] = periodo_pendiente_habilitacion
+        contexto["fecha_minima_justificacion_electores"] = timezone.localdate()
     return render(request, "elecciones/list.html", contexto)
 
 
@@ -220,15 +278,27 @@ def confirmar_notificaciones_ausentes(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("Solo el administrador de junta puede confirmar las notificaciones a ausentes.")
+    formulario = FormularioFechaLimiteJustificativosElectores(request.POST)
+    if not formulario.is_valid():
+        messages.error(request, "Indique una fecha límite válida, igual o posterior a hoy.")
+        return redirect(f"{reverse('lista-elecciones')}?eleccion={eleccion.pk}")
+    confirmacion_previa = eleccion.notificaciones_ausentes_confirmadas_en is not None
     try:
-        envios = crear_notificaciones_ausentes_confirmadas(eleccion)
+        envios = crear_notificaciones_ausentes_confirmadas(
+            eleccion,
+            formulario.cleaned_data["fecha_limite_justificacion_electores"],
+        )
     except ValueError as error:
         messages.error(request, str(error))
         return redirect(f"{reverse('lista-elecciones')}?eleccion={eleccion.pk}")
 
-    enviados = sum(enviar_notificacion(envio) for envio in envios)
+    enviados = 0 if confirmacion_previa else sum(enviar_notificacion(envio) for envio in envios)
     registrar_evento(
-        accion="eleccion.notificaciones_ausentes_confirmadas",
+        accion=(
+            "eleccion.periodo_justificacion_electores_habilitado"
+            if confirmacion_previa
+            else "eleccion.notificaciones_ausentes_confirmadas"
+        ),
         entidad="Eleccion",
         entidad_id=eleccion.pk,
         eleccion=eleccion,
@@ -238,9 +308,17 @@ def confirmar_notificaciones_ausentes(request, eleccion_id):
             "notificaciones_creadas": len(envios),
             "correos_enviados": enviados,
             "correos_no_enviados": len(envios) - enviados,
+            "fecha_limite_justificacion_electores": formulario.cleaned_data[
+                "fecha_limite_justificacion_electores"
+            ].isoformat(),
         },
     )
-    if not envios:
+    if confirmacion_previa:
+        messages.success(
+            request,
+            "Se habilitó el período de justificativos para electores.",
+        )
+    elif not envios:
         messages.success(request, "Escaneo confirmado: no se registraron ausentes para notificar.")
     elif enviados == len(envios):
         messages.success(request, f"Se notificó a {len(envios)} electores ausentes por correo y en la aplicación.")
@@ -278,7 +356,11 @@ def historial_elecciones(request):
     if not puede_administrar_elecciones(request.user):
         return HttpResponseForbidden("No tiene permiso para consultar el historial.")
     elecciones = Eleccion.objects.filter(estado=Eleccion.Estado.FINALIZADA)
-    return render(request, "elecciones/historial_elecciones.html", {"elecciones": elecciones})
+    return render(
+        request,
+        "elecciones/historial_elecciones_administrador_junta.html",
+        {"elecciones": elecciones},
+    )
 
 
 @login_required
@@ -357,6 +439,12 @@ def configurar_eleccion(request, eleccion_id):
         or claustros.filter(Q(fecha_votacion__isnull=True) | Q(maximo_votantes_por_mesa__isnull=True)).exists()
     )
     autoridades_pendientes = eleccion.mesas.filter(autoridades__isnull=True).exists() or not eleccion.mesas.exists()
+    periodo_justificacion_vigente = bool(
+        eleccion.estado == Eleccion.Estado.EN_CURSO
+        and eleccion.justificacion_electores_habilitada_en
+        and eleccion.fecha_limite_justificacion_electores
+        and eleccion.fecha_limite_justificacion_electores >= timezone.localdate()
+    )
     return render(
         request,
         "elecciones/configurar_eleccion.html",
@@ -376,6 +464,7 @@ def configurar_eleccion(request, eleccion_id):
             "padrones_pendientes": padrones_pendientes,
             "alcances_pendientes": alcances_pendientes,
             "autoridades_pendientes": autoridades_pendientes,
+            "periodo_justificacion_vigente": periodo_justificacion_vigente,
             "cantidad_padrones": eleccion.registros_padron.count(),
             "cantidad_mesas": eleccion.mesas.count(),
             "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),

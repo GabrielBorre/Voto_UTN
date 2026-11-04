@@ -632,6 +632,10 @@
     margin-top: 18px;
 }
 
+.alcances-agregar-claustro {
+    margin-bottom: 18px;
+}
+
 .card p {
     color: #3f4754;
     margin: 0 0 10px;
@@ -941,6 +945,18 @@
     background: #fff8e6;
     border: 1px solid #f3d48a;
     color: #6f5313;
+}
+
+.inicio-elector__titulo-eleccion {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .75rem;
+    padding-bottom: .75rem;
+}
+
+.inicio-elector__titulo-eleccion h2 {
+    margin: 0;
 }
 
 .button,
@@ -1411,6 +1427,7 @@ th a.table-sort-link:focus-visible {
     border: 1px solid var(--borde);
     border-radius: 16px;
     box-shadow: 0 18px 60px rgb(15 23 42 / 28%);
+    color: var(--texto);
     max-width: 560px;
     padding: 24px;
     width: calc(100% - 32px);
@@ -1426,6 +1443,7 @@ th a.table-sort-link:focus-visible {
 }
 
 .dialogo-limite-mesas p {
+    color: var(--texto);
     line-height: 1.5;
 }
 

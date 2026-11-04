@@ -7,6 +7,43 @@
 - No existe una aplicación móvil nativa.
 - El administrativo de junta registra la participación.
 - La autoridad de mesa no registra participación.
+- El registro por QR o carga manual identifica a quienes no votaron; la ausencia
+  de un registro implica que se presume que el elector votó.
+- El historial electoral se muestra a electores y autoridades de mesa, y cada
+  persona solo consulta sus propios registros y justificativos.
+- Un elector autenticado puede acceder al historial aunque todavía no exista en
+  el padrón local; en ese caso se muestra vacío.
+- El inicio del elector muestra la información de la elección únicamente cuando
+  está Publicada o En curso. Una elección En preparación no debe ser visible allí.
+- Las elecciones Publicadas y En curso aparecen en el historial electoral y
+  muestran «En Curso» hasta que el administrador de junta confirma el escaneo de
+  todas las mesas. Esa confirmación actualiza únicamente la situación de los
+  electores de esa elección: «Voto Emitido» si no tienen registro de ausencia o
+  «En Curso - Voto No Registrado» si lo tienen. «Voto Emitido» es definitivo
+  desde esa confirmación. Para quien sí tiene ausencia, «En Curso - Voto No
+  Registrado» se mantiene durante el período de justificación; al vencer el
+  plazo, pasa a «Infractor» si no hay un justificativo que determine otro
+  estado. Los justificativos aplicables conservan prioridad. La confirmación
+  de una elección no modifica las situaciones de las demás elecciones del
+  historial.
+- Al finalizar una elección, quien tenga una ausencia registrada y no haya
+  presentado un justificativo figura como «Infractor», con independencia de que
+  se haya abierto el período de justificación o vencido su fecha límite. Quien
+  no tenga registro de ausencia figura como «Voto Emitido». Los justificativos
+  presentados conservan prioridad y su estado histórico.
+- Dentro del período habilitado, un justificativo pendiente figura como
+  «Pendiente de Revisión»; uno aprobado, como «Inasistencia Justificada»; y uno
+  rechazado, como «Infractor - Justificación Rechazada».
+- Al confirmar el escaneo de todas las mesas, el administrador de junta indica
+  la fecha límite inclusiva para justificar ausencias. La misma acción notifica
+  a los electores ausentes y abre el período de justificativos hasta esa fecha.
+  Si el escaneo ya se había confirmado sin abrir el período, el administrador
+  puede definir el plazo posteriormente sin volver a generar notificaciones.
+- Solo se puede presentar un justificativo electoral durante el período
+  habilitado y si existe un registro de ausencia. La fecha límite configurada
+  es inclusiva. Antes de finalizar la elección, al vencer el plazo la ausencia
+  sin solicitud pasa a «Infractor»; una solicitud pendiente o rechazada conserva
+  su estado propio.
 
 ## Elecciones, claustros, sedes y departamentos
 
@@ -110,6 +147,9 @@ Ejemplo: `Sistemas de Información` / `K`.
 ## Autoridades
 
 - Una autoridad de mesa es también un elector.
+- El rol visible de Autoridad de Mesa requiere una asignación no rechazada en
+  una elección Publicada o En curso. Las asignaciones de elecciones en
+  preparación o finalizadas no modifican el rol visible de Elector.
 - No se crea una identidad duplicada.
 - Debe existir previamente como elector.
 - Debe pertenecer al padrón de la elección.

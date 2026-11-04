@@ -44,7 +44,7 @@
     <div class="request-summary-item full-width">
       <span>Documento</span>
       {% if justificativo.documento %}
-        <a class="button light small" href="{{ justificativo.documento.url }}">Ver documento adjunto</a>
+        <a class="button light small" href="{% url 'documento-justificativo-gestion' justificativo.pk %}">Ver documento adjunto</a>
       {% else %}
         <span class="muted">No se adjuntó documentación.</span>
       {% endif %}
