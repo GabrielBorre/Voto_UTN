@@ -148,7 +148,7 @@ class HistorialElectoralTests(TestCase):
             "Elección en curso": "En Curso",
             "Votó": "Voto Emitido",
             "No registrado": "En Curso - Voto No Registrado",
-            "Pendiente": "Pendiente de Revisión",
+            "Pendiente": "Justificativo Pendiente de Revisión",
             "Aprobado": "Inasistencia Justificada",
             "Rechazado": "Infractor - Justificación Rechazada",
             "Infractor": "Infractor",
@@ -158,7 +158,7 @@ class HistorialElectoralTests(TestCase):
         for estado in (
             "Voto Emitido",
             "En Curso - Voto No Registrado",
-            "Pendiente de Revisión",
+            "Justificativo Pendiente de Revisión",
             "Inasistencia Justificada",
             "Infractor - Justificación Rechazada",
             "Infractor",

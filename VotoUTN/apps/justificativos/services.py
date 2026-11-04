@@ -20,7 +20,7 @@ def puede_presentar_justificativo_electoral(registro_padron, momento=None):
 
 def estado_justificativo_electoral(justificativo):
     if justificativo.estado == JustificativoAusencia.Estado.PENDIENTE:
-        return "Pendiente de Revisión", "warn"
+        return "Justificativo Pendiente de Revisión", "warn"
     if justificativo.estado == JustificativoAusencia.Estado.APROBADO:
         return "Inasistencia Justificada", "ok"
     if justificativo.estado == JustificativoAusencia.Estado.RECHAZADO:

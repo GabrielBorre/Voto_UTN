@@ -943,6 +943,18 @@
     color: #6f5313;
 }
 
+.inicio-elector__titulo-eleccion {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .75rem;
+    padding-bottom: .75rem;
+}
+
+.inicio-elector__titulo-eleccion h2 {
+    margin: 0;
+}
+
 .button,
 .btn {
     border: 1px solid transparent;

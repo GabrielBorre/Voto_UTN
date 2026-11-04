@@ -12,7 +12,23 @@
   {% if eleccion_en_curso %}
   {% for registro in registros %}
   <div class="card">
-    <h2>{{ registro.eleccion }}</h2>
+    <div class="inicio-elector__titulo-eleccion">
+      <h2>{{ registro.eleccion }}</h2>
+      {% if registro.situacion_electoral %}
+      <span class="pill {{ registro.situacion_electoral.clase_estado }}">
+        {% if registro.situacion_electoral.estado == "Voto Emitido" or registro.situacion_electoral.estado == "Inasistencia Justificada" %}
+        <span aria-hidden="true">✔</span>
+        {% elif registro.situacion_electoral.estado == "Infractor - Justificación Rechazada" or registro.situacion_electoral.estado == "Infractor" %}
+        <span aria-hidden="true">❌</span>
+        {% elif registro.situacion_electoral.estado == "Justificativo Pendiente de Revisión" %}
+        <span aria-hidden="true">⏳</span>
+        {% elif registro.situacion_electoral.estado == "En Curso - Voto No Registrado" %}
+        <span aria-hidden="true">⚠</span>
+        {% endif %}
+        &nbsp;{{ registro.situacion_electoral.estado }}
+      </span>
+      {% endif %}
+    </div>
     <section class="toolbar">
       {% if registro.asignacion_autoridad %}
       <div class="option">

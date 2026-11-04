@@ -40,7 +40,7 @@ class SeedHistorialElectoralTests(TestCase):
             {
                 "Voto Emitido",
                 "Infractor",
-                "Pendiente de Revisión",
+                "Justificativo Pendiente de Revisión",
                 "Inasistencia Justificada",
                 "Infractor - Justificación Rechazada",
                 "En Curso - Voto No Registrado",

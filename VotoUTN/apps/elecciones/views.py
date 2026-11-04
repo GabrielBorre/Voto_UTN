@@ -137,6 +137,12 @@ def inicio_autenticado(request):
                 "asignacion_autoridad__turno",
                 "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
             )
+            situaciones_por_eleccion = {
+                item["eleccion"].pk: item
+                for item in construir_historial_electoral(elector)
+            }
+            for registro in registros:
+                registro.situacion_electoral = situaciones_por_eleccion.get(registro.eleccion_id)
         es_autoridad = es_autoridad_en_eleccion_publicada_o_en_curso(elector)
         return render(
             request,

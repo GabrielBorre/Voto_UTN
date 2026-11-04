@@ -1,12 +1,15 @@
-from datetime import date, time
+from datetime import date, time, timedelta
 from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.autoridades.models import AsignacionAutoridad
+from apps.asistencia.models import RegistroParticipacion
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
+from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Turno
@@ -500,6 +503,52 @@ class InicioElectorTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, mesa.codigo)
         self.assertNotContains(respuesta, "Será asignada próximamente")
+
+    def test_muestra_la_situacion_electoral_calculada_por_el_historial(self):
+        url = reverse("inicio-autenticado")
+
+        en_curso = self.client.get(url)
+        self.assertContains(en_curso, "pill info")
+        self.assertContains(en_curso, "En Curso")
+
+        self.eleccion_en_curso.notificaciones_ausentes_confirmadas_en = timezone.now()
+        self.eleccion_en_curso.justificacion_electores_habilitada_en = timezone.now()
+        self.eleccion_en_curso.fecha_limite_justificacion_electores = timezone.localdate() + timedelta(days=5)
+        self.eleccion_en_curso.save(
+            update_fields=(
+                "notificaciones_ausentes_confirmadas_en",
+                "justificacion_electores_habilitada_en",
+                "fecha_limite_justificacion_electores",
+            )
+        )
+
+        voto_emitido = self.client.get(url)
+        self.assertContains(voto_emitido, "pill ok")
+        self.assertContains(voto_emitido, "Voto Emitido")
+
+        mesa = Mesa.objects.create(eleccion=self.eleccion_en_curso, numero=24)
+        usuario = get_user_model().objects.create_user(username="registro-inicio-elector")
+        RegistroParticipacion.objects.create(
+            registro_padron=self.registro_en_curso,
+            mesa=mesa,
+            registrada_por=usuario,
+            metodo=RegistroParticipacion.Metodo.MANUAL,
+        )
+
+        inasistencia = self.client.get(url)
+        self.assertContains(inasistencia, "pill warn")
+        self.assertContains(inasistencia, "En Curso - Voto No Registrado")
+
+        JustificativoAusencia.objects.create(
+            registro_padron=self.registro_en_curso,
+            ausencia=JustificativoAusencia.Ausencia.VOTAR,
+            tipo=TipoJustificativo.objects.create(nombre="Motivo inicio"),
+            detalle="Detalle de prueba.",
+            estado=JustificativoAusencia.Estado.PENDIENTE,
+        )
+        pendiente = self.client.get(url)
+        self.assertContains(pendiente, "pill warn")
+        self.assertContains(pendiente, "Justificativo Pendiente de Revisión")
 
     def test_muestra_aviso_y_enlace_al_historial_si_no_hay_elecciones_en_curso(self):
         self.eleccion_en_curso.estado = Eleccion.Estado.FINALIZADA
