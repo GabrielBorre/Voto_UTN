@@ -48,18 +48,15 @@ class FormularioEleccion(forms.ModelForm):
             "nombre",
             "fecha_inicio",
             "fecha_fin",
-            "fecha_cierre_solicitudes_cambio_sede",
         )
         labels = {
             "nombre": "Nombre de la elección",
             "fecha_inicio": "Inicio del proceso electoral",
             "fecha_fin": "Fin del proceso electoral",
-            "fecha_cierre_solicitudes_cambio_sede": "Cierre de solicitudes de cambio de sede",
         }
         widgets = {
             "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
             "fecha_fin": forms.DateInput(attrs={"type": "date"}),
-            "fecha_cierre_solicitudes_cambio_sede": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -193,7 +190,6 @@ class FormularioEditarEleccion(forms.ModelForm):
         widgets = {
             "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
             "fecha_fin": forms.DateInput(attrs={"type": "date"}),
-            "fecha_cierre_solicitudes_cambio_sede": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
             "fecha_limite_justificacion_autoridades": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
         }
 
