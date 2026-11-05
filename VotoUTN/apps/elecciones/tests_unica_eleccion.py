@@ -4,7 +4,7 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 
-from apps.elecciones.forms import FormularioEleccion
+from apps.elecciones.forms import FormularioEditarEleccion, FormularioEleccion, FormularioPublicarEleccion
 from apps.elecciones.models import Eleccion, EleccionSede, EleccionClaustro, EleccionClaustroSede, EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede, EleccionClaustroTurno
 from apps.parametros.models import Claustro, Sede, Departamento, Turno
 
@@ -42,6 +42,18 @@ class EleccionUnicaNoCerradaTests(TestCase):
         self.crear_eleccion("Eleccion en borrador", Eleccion.Estado.EN_PREPARACION)
 
         self.assertEqual(Eleccion.objects.count(), 3)
+
+    def test_fecha_cambio_sede_se_solicita_al_publicar_y_no_al_crear_o_editar(self):
+        eleccion = self.crear_eleccion("Eleccion en preparación", Eleccion.Estado.EN_PREPARACION)
+
+        self.assertNotIn("fecha_cierre_solicitudes_cambio_sede", FormularioEleccion().fields)
+        self.assertNotIn(
+            "fecha_cierre_solicitudes_cambio_sede",
+            FormularioEditarEleccion(instance=eleccion).fields,
+        )
+        formulario_publicacion = FormularioPublicarEleccion(eleccion=eleccion)
+        self.assertIn("fecha_cierre_solicitudes_cambio_sede", formulario_publicacion.fields)
+        self.assertTrue(formulario_publicacion.fields["fecha_cierre_solicitudes_cambio_sede"].required)
 
     def test_formulario_rechaza_crear_otra_eleccion_no_cerrada(self):
         self.crear_eleccion("Eleccion existente", Eleccion.Estado.EN_CURSO)

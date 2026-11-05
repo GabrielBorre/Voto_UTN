@@ -86,8 +86,7 @@ def contexto_formulario_eleccion(formulario, incluir_parametros=False):
         "campos_generales": [
             formulario[nombre]
             for nombre in (
-                "nombre", "fecha_inicio", "fecha_fin", "fecha_cierre_solicitudes_cambio_sede",
-                "fecha_limite_justificacion_autoridades",
+                "nombre", "fecha_inicio", "fecha_fin", "fecha_limite_justificacion_autoridades",
             )
             if nombre in formulario.fields
         ],
