@@ -47,7 +47,7 @@ class AutoridadesViewsTests(TestCase):
         self.assertTemplateUsed(respuesta, "autoridades/gestion.html")
         self.assertContains(respuesta, reverse("configurar-eleccion", args=(self.eleccion.id,)))
         self.assertContains(respuesta, "Volver a configuración", count=1)
-        self.assertNotContains(respuesta, 'class="card management-section"')
+        self.assertNotContains(respuesta, reverse("previsualizar-recalculo-mesas", args=(self.eleccion.id,)))
         self.assertContains(
             respuesta,
             reverse(
@@ -592,7 +592,7 @@ class TurnosAutoridadesTests(TestCase):
         self.assertEqual(resultado["titulares_faltantes"], 1)
         self.assertEqual(AsignacionAutoridad.objects.filter(mesa=segunda_mesa, tipo=AsignacionAutoridad.Tipo.TITULAR).count(), 1)
 
-    def test_asigna_titulares_en_todas_las_mesas_antes_de_repartir_suplentes(self):
+    def test_asigna_titulares_en_todas_las_mesas_sin_suplentes(self):
         from apps.autoridades.models import ConfiguracionAutoridades
         ConfiguracionAutoridades.objects.create(eleccion_claustro=self.eleccion_claustro, reacomodar_titulares=True)
         segunda_mesa = Mesa.objects.create(
@@ -604,7 +604,7 @@ class TurnosAutoridadesTests(TestCase):
         )
         configuracion = self.eleccion_claustro.turnos_autoridad.get(turno=self.manana)
         configuracion.titulares_por_mesa = 1
-        configuracion.suplentes_por_mesa = 1
+        configuracion.suplentes_por_mesa = 0
         configuracion.save(update_fields=("titulares_por_mesa", "suplentes_por_mesa"))
         for registro in self.registros:
             CandidaturaAutoridad.objects.create(registro_padron=registro, cargada_por=self.usuario)
@@ -616,18 +616,18 @@ class TurnosAutoridadesTests(TestCase):
             2,
         )
         self.assertEqual(
-            AsignacionAutoridad.objects.filter(turno=self.manana, tipo=AsignacionAutoridad.Tipo.SUPLENTE).count(),
-            1,
+            AsignacionAutoridad.objects.filter(turno=self.manana, tipo="suplente").count(),
+            0,
         )
         self.assertEqual(
             AsignacionAutoridad.objects.filter(mesa=segunda_mesa, tipo=AsignacionAutoridad.Tipo.TITULAR).count(),
             1,
         )
 
-    def test_quitar_titular_promueve_al_suplente_de_la_misma_mesa_y_turno(self):
+    def test_quitar_titular_deja_la_vacante_sin_promover(self):
         configuracion = self.eleccion_claustro.turnos_autoridad.get(turno=self.manana)
         configuracion.titulares_por_mesa = 1
-        configuracion.suplentes_por_mesa = 1
+        configuracion.suplentes_por_mesa = 0
         configuracion.save(update_fields=("titulares_por_mesa", "suplentes_por_mesa"))
         for registro in self.registros:
             CandidaturaAutoridad.objects.create(registro_padron=registro, cargada_por=self.usuario)
@@ -637,14 +637,7 @@ class TurnosAutoridadesTests(TestCase):
             turno=self.manana,
             tipo=AsignacionAutoridad.Tipo.TITULAR,
         )
-        suplente_anterior = AsignacionAutoridad.objects.get(
-            mesa=self.mesa,
-            turno=self.manana,
-            tipo=AsignacionAutoridad.Tipo.SUPLENTE,
-        )
         candidatura_titular_anterior_id = titular_anterior.candidatura_id
-        registro_suplente_anterior_id = suplente_anterior.registro_padron_id
-        self.assertNotEqual(titular_anterior.registro_padron_id, suplente_anterior.registro_padron_id)
         self.client.force_login(self.usuario)
 
         respuesta = self.client.post(
@@ -653,10 +646,7 @@ class TurnosAutoridadesTests(TestCase):
             follow=True,
         )
 
-        asignacion_promovida = AsignacionAutoridad.objects.get(
-            registro_padron_id=registro_suplente_anterior_id,
-        )
-        self.assertEqual(asignacion_promovida.tipo, AsignacionAutoridad.Tipo.TITULAR)
+        self.assertFalse(AsignacionAutoridad.objects.filter(mesa=self.mesa, turno=self.manana, estado="asignada").exists())
         self.assertTrue(CandidaturaAutoridad.objects.get(pk=candidatura_titular_anterior_id).excluida)
         self.assertContains(respuesta, "Revisá la distribución propuesta")
 

@@ -22,7 +22,7 @@ class EliminarAsignacionesTests(TestCase):
         self.opciones = ConfiguracionAutoridades.objects.create(
             eleccion_claustro=self.eleccion_claustro, modo="aleatorio",
         )
-        self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=1, suplentes_por_mesa=1)
+        self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=2, suplentes_por_mesa=0)
         for registro in self.registros:
             CandidaturaAutoridad.objects.create(registro_padron=registro, cargada_por=self.usuario)
         distribuir(self.eleccion_claustro, self.usuario)
@@ -60,7 +60,7 @@ class EliminarAsignacionesTests(TestCase):
         self.assertEqual(CandidaturaAutoridad.objects.filter(excluida=True).count(), 1)
         self.assertEqual(list(AsignacionMesa.objects.order_by("pk").values_list("pk", "registro_padron_id", "mesa_id")), padron)
         self.assertFalse(AsignacionMesa.objects.filter(autoridad_al_final=True).exists())
-        self.assertEqual(self.eleccion_claustro.turnos_autoridad.get().titulares_por_mesa, 1)
+        self.assertEqual(self.eleccion_claustro.turnos_autoridad.get().titulares_por_mesa, 2)
         self.opciones.refresh_from_db()
         self.assertEqual(self.opciones.modo, "manual")
         evento = EventoAuditoria.objects.get(accion="autoridades.asignaciones_eliminadas")

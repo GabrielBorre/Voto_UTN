@@ -28,6 +28,8 @@ def bloquear_edicion(claustro):
     eleccion = Eleccion.objects.select_for_update().get(pk=claustro.eleccion_id)
     if eleccion.estado not in (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA):
         raise ValidationError("Las autoridades solo pueden distribuirse antes de abrir la elección.")
+    if eleccion.autoridades_confirmadas_en:
+        raise ValidationError("Las autoridades definitivas ya fueron confirmadas.")
     if RegistroPadron.objects.filter(eleccion=eleccion, qr_generado_en__isnull=False).exists():
         raise ValidationError("No se pueden redistribuir autoridades después de emitir el padrón imprimible.")
     if AsignacionAutoridad.objects.filter(registro_padron__eleccion=eleccion, respondida_en__isnull=False).exists():
@@ -45,9 +47,9 @@ def eliminar_asignaciones(claustro, usuario):
     """Vacía las autoridades del claustro, sin ejecutar otra distribución."""
     from django.core.exceptions import PermissionDenied
     from apps.usuarios.models import AsignacionRol
-    from apps.usuarios.permisos import puede_configurar_eleccion
+    from apps.usuarios.permisos import puede_gestionar_autoridades
 
-    if not puede_configurar_eleccion(usuario, claustro.eleccion):
+    if not puede_gestionar_autoridades(usuario, claustro.eleccion):
         raise PermissionDenied("No tiene permiso para eliminar asignaciones de autoridades.")
     bloquear_edicion(claustro)
     mesas = Mesa.objects.filter(eleccion_claustro_departamento__eleccion_claustro=claustro)
@@ -92,7 +94,7 @@ def _puede_trabajar(registro, mesa, turno, modo):
     )
 
 
-def _puede_trabajar_nomina(registro, mesa, turno, opciones):
+def _puede_trabajar_nomina(registro, mesa, turno, opciones, tipo="titular", *, traslado_sin_reordenar=False):
     """Aplica los destinos habilitados para nuevas plazas de nómina."""
     from apps.autoridades.services import _sede_electoral_actual
     propia = getattr(registro, "asignacion_mesa", None)
@@ -109,9 +111,13 @@ def _puede_trabajar_nomina(registro, mesa, turno, opciones):
         return True
     if propia.mesa_id == mesa.pk:
         return True
+    origen = _sede_electoral_actual(registro)
+    if (traslado_sin_reordenar and origen != mesa.sede_id and opciones.permitir_cambio_sede
+            and not opciones.reacomodar_titulares and tipo == "titular"):
+        from apps.autoridades.reordenamiento_padron import traslado_sin_reordenar
+        return traslado_sin_reordenar(registro, mesa)
     if not (opciones.reacomodar_titulares or opciones.permitir_mesa_distinta):
         return False
-    origen = _sede_electoral_actual(registro)
     if origen == mesa.sede_id:
         return True
     return bool(opciones.reacomodar_titulares and opciones.permitir_cambio_sede and registro.sede_id != origen)
@@ -231,7 +237,7 @@ def _optimizar_nomina(candidatos_por_plaza, niveles, fijas):
     return resultado
 
 
-def planificar_distribucion(claustro, opciones, mesas, turnos, *, preservar_asignaciones=True):
+def planificar_distribucion(claustro, opciones, mesas, turnos, *, preservar_asignaciones=True, traslado_sin_reordenar=False):
     """Calcula la cobertura sin guardar ni auditar cambios."""
     anteriores = list(AsignacionAutoridad.objects.filter(mesa__in=mesas).order_by("pk"))
     anteriores_por_registro = {a.registro_padron_id: a for a in anteriores if a.estado == "asignada"}
@@ -264,22 +270,22 @@ def planificar_distribucion(claustro, opciones, mesas, turnos, *, preservar_asig
         sorteo = SystemRandom()
         sorteo.shuffle(registros)
     orden_azar = {r.pk: i for i, r in enumerate(registros)}
-    # Rondas parejas; todos los cupos titulares preceden a cualquier suplencia.
+    # Primero todos los cupos mínimos, luego los adicionales, en rondas parejas.
     plazas = []
-    for tipo, campo in (("titular", "titulares_por_mesa"), ("suplente", "suplentes_por_mesa")):
-        for orden in range(max(getattr(c, campo) for c in turnos)):
+    for es_minimo in (True, False):
+        for orden in range(1, max(c.titulares_por_mesa for c in turnos) + 1):
             ronda = []
             for config in turnos:
-                if orden < getattr(config, campo):
+                if orden <= config.titulares_por_mesa and (orden <= config.minimo_titulares_por_mesa) == es_minimo:
                     for mesa in mesas:
-                        ronda.append((mesa, config.turno, tipo, orden + 1))
+                        ronda.append((mesa, config.turno, "titular", orden))
             if opciones.modo == "aleatorio":
                 sorteo.shuffle(ronda)
             plazas.extend(ronda)
     candidatos_por_plaza = []
     for mesa, turno, tipo, orden in plazas:
         elegibles = [r for r in registros if (
-            _puede_trabajar_nomina(r, mesa, turno, opciones)
+            _puede_trabajar_nomina(r, mesa, turno, opciones, tipo, traslado_sin_reordenar=traslado_sin_reordenar)
             if opciones.modo == "nomina" else _puede_trabajar(r, mesa, turno, opciones.modo)
         )]
         # Una propuesta confirmada reserva exactamente su destino laboral.
@@ -366,8 +372,9 @@ def planificar_distribucion(claustro, opciones, mesas, turnos, *, preservar_asig
                  else 1 if _sede_electoral_actual(r) == mesa.sede_id else 2)
                 for r in candidatos_por_plaza[indice]
             ])
-        niveles = [0 if tipo == "titular" and orden == 1 else 1 if tipo == "titular" else 2
-                   for _, _, tipo, orden in plazas]
+        minimos = {config.turno_id: config.minimo_titulares_por_mesa for config in turnos}
+        niveles = [0 if orden == 1 else 1 if orden <= minimos[turno.pk] else 2
+                   for _, turno, _, orden in plazas]
         solucion = _optimizar_nomina(candidatos_con_distancia, niveles, fijas)
     else:
         solucion = _completar_plazas([[r.pk for r in candidatos] for candidatos in candidatos_por_plaza], fijas)
@@ -378,7 +385,7 @@ def planificar_distribucion(claustro, opciones, mesas, turnos, *, preservar_asig
 
 
 @transaction.atomic
-def distribuir(claustro, usuario, *, preservar_asignaciones=True, aplicar_reacomodo=True):
+def distribuir(claustro, usuario, *, preservar_asignaciones=True, aplicar_reacomodo=True, traslado_sin_reordenar=False):
     from apps.autoridades.services import _crear_asignacion, _sincronizar_rol_autoridad
     from apps.usuarios.models import AsignacionRol
 
@@ -412,6 +419,7 @@ def distribuir(claustro, usuario, *, preservar_asignaciones=True, aplicar_reacom
                  mesa_traslado=None, turno_traslado=None)
     ocupantes, plazas, previas_por_registro, anteriores_por_registro, candidatos_por_plaza = planificar_distribucion(
         claustro, opciones, mesas, turnos, preservar_asignaciones=preservar_asignaciones,
+        traslado_sin_reordenar=traslado_sin_reordenar,
     )
     nuevas = []
     conservadas = []
@@ -500,38 +508,7 @@ def distribuir(claustro, usuario, *, preservar_asignaciones=True, aplicar_reacom
 
 @transaction.atomic
 def promover_suplente_por_baja(mesa, turno, usuario):
-    """Una baja explícita de titular promueve al primer suplente compatible."""
-    claustro = mesa.eleccion_claustro_departamento.eleccion_claustro
-    bloquear_edicion(claustro)
-    opciones = configuracion_actual(claustro)
-    config = claustro.turnos_autoridad.filter(turno=turno).first()
-    if not config or mesa.autoridades.filter(turno=turno, tipo="titular", estado="asignada").count() >= config.titulares_por_mesa:
-        return None
-    suplentes = list(mesa.autoridades.filter(turno=turno, tipo="suplente", estado="asignada").select_related(
-        "registro_padron__elector", "registro_padron__turno_cursada", "registro_padron__candidatura_autoridad",
-        "registro_padron__asignacion_mesa__mesa", "registro_padron__asignacion_sede_padron",
-    ).order_by("orden_suplencia", "pk"))
-    for suplente in suplentes:
-        registro = suplente.registro_padron
-        candidatura = getattr(registro, "candidatura_autoridad", None)
-        if ((candidatura and candidatura.excluida) or es_candidato_electoral(registro)
-                or not _puede_trabajar(registro, mesa, turno, opciones.modo)):
-            continue
-        suplente.tipo = "titular"
-        suplente.orden_suplencia = None
-        suplente.save(update_fields=("tipo", "orden_suplencia"))
-        CandidaturaAutoridad.objects.filter(
-            registro_padron=registro, mesa_manual=mesa, turno_manual=turno,
-        ).update(tipo_manual="titular", orden_manual=None)
-        for orden, restante in enumerate((a for a in suplentes if a.pk != suplente.pk), 1):
-            restante.orden_suplencia = orden
-            restante.save(update_fields=("orden_suplencia",))
-            CandidaturaAutoridad.objects.filter(
-                registro_padron_id=restante.registro_padron_id, mesa_manual=mesa, turno_manual=turno,
-            ).update(orden_manual=orden)
-        _auditar(claustro, usuario, "autoridades.suplente_promovido_por_baja", {"asignacion": suplente.pk})
-        return suplente
-    return None
+    raise ValidationError("Las vacantes de autoridades permanecen sin cubrir; no se designan suplentes.")
 
 
 def reacomodar_titulares(claustro, autoridades, usuario):
@@ -590,6 +567,8 @@ def guardar_selecciones(claustro, selecciones, usuario):
     vistos = set()
     for seleccion in selecciones:
         registro, mesa, turno, tipo, orden = seleccion[:5]
+        if tipo != AsignacionAutoridad.Tipo.TITULAR:
+            raise ValidationError("Solo se pueden asignar autoridades titulares.")
         asignacion_a_reemplazar = seleccion[5] if len(seleccion) > 5 else None
         if registro.pk in vistos:
             raise ValidationError("Una persona no puede ocupar dos lugares en el archivo.")

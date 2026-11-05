@@ -1300,6 +1300,26 @@ a.button.danger:hover {
     overflow-x: auto;
 }
 
+.tabla-alternativas-nomina {
+    table-layout: fixed;
+    min-width: 960px;
+}
+
+.tabla-alternativas-nomina .alternativa-seleccion { width: 7%; }
+.tabla-alternativas-nomina .alternativa-descripcion { width: 26%; }
+.tabla-alternativas-nomina .alternativa-cantidad { width: 10%; }
+.tabla-alternativas-nomina .alternativa-detalle { width: 37%; }
+
+.tabla-alternativas-nomina th,
+.tabla-alternativas-nomina td {
+    vertical-align: top;
+    overflow-wrap: break-word;
+}
+
+.tabla-alternativas-nomina p {
+    margin: 0 0 8px;
+}
+
 table {
     border-collapse: collapse;
     width: 100%;
@@ -1722,6 +1742,12 @@ th a.table-sort-link:focus-visible {
     color: var(--azul-900);
     margin-bottom: 18px;
     padding: 12px 14px;
+}
+
+.hero .notice {
+    color: #12315c;
+    margin-top: 18px;
+    border-radius: 8px;
 }
 
 .notice.success {

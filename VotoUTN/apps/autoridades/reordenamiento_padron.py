@@ -26,6 +26,68 @@ class ElectorPropuesto:
     grupo: object
 
 
+def traslado_sin_reordenar(registro, destino):
+    """Comprueba capacidad y orden entre mesas sin desplazar a otros electores."""
+    from apps.mesas.models import AsignacionMesa
+    from apps.padron.models import SolicitudCambioSede
+    fila = AsignacionMesa.objects.select_related("mesa").filter(registro_padron=registro).first()
+    if not fila or not destino.sede_id or not destino.sede.activa:
+        return False
+    if fila.mesa.sede_id == destino.sede_id or fila.mesa.eleccion_claustro_departamento_id != destino.eleccion_claustro_departamento_id:
+        return False
+    if registro.sede_id == fila.mesa.sede_id or registro.qr_generado_en:
+        return False
+    if SolicitudCambioSede.objects.filter(registro_padron=registro, estado="pendiente").exists():
+        return False
+    try:
+        destino.clean()
+    except ValidationError:
+        return False
+    maximo = destino.eleccion_claustro_departamento.eleccion_claustro.maximo_votantes_por_mesa
+    filas = list(AsignacionMesa.objects.filter(
+        Q(mesa__eleccion_claustro_departamento=destino.eleccion_claustro_departamento,
+          mesa__sede=destino.sede) | Q(registro_padron=registro),
+    ).select_related("mesa").order_by(
+        "registro_padron__elector__apellido", "registro_padron__elector__nombre", "registro_padron_id",
+    ))
+    if not maximo or sum(f.mesa_id == destino.pk for f in filas) >= maximo:
+        return False
+    antes_del_traslado = True
+    for otra in filas:
+        if otra.registro_padron_id == registro.pk:
+            antes_del_traslado = False
+            continue
+        if (antes_del_traslado and otra.mesa.numero > destino.numero) or (not antes_del_traslado and otra.mesa.numero < destino.numero):
+            return False
+    return True
+
+
+def aplicar_traslados_sin_reordenar(asignaciones):
+    from apps.mesas.models import AsignacionMesa
+    from apps.padron.models import AsignacionSedePadron
+    movimientos = []
+    for asignacion in asignaciones:
+        registro, destino = asignacion.registro_padron, asignacion.mesa
+        fila = AsignacionMesa.objects.select_for_update().select_related("mesa").get(registro_padron=registro)
+        if fila.mesa.sede_id == destino.sede_id:
+            continue
+        if not traslado_sin_reordenar(registro, destino):
+            raise ValidationError("El traslado ya no respeta el orden o la capacidad sin mover otras mesas.")
+        origen_id = fila.mesa_id
+        sede = AsignacionSedePadron.objects.select_for_update().get(registro_padron=registro)
+        sede.sede_id = destino.sede_id
+        sede.regla_aplicada = None
+        sede.estado = AsignacionSedePadron.Estado.ASIGNADA
+        sede.full_clean()
+        sede.save()
+        fila.mesa = destino
+        fila.autoridad_al_final = True
+        fila.full_clean()
+        fila.save(update_fields=("mesa", "autoridad_al_final"))
+        movimientos.append({"registro": registro.pk, "origen": origen_id, "destino": destino.pk})
+    return movimientos
+
+
 def calcular_padrones_ordenados(*, mesas, electores, titulares, maximo,
                                votacion_fija=None, mesas_protegidas=()):
     """Planifica sin escribir; el orden de entrada de electores es alfabético.
@@ -115,7 +177,7 @@ def calcular_padrones_ordenados(*, mesas, electores, titulares, maximo,
 
 
 def previsualizar_padrones(claustro, *, titulares, permitir_cambio_mesa, permitir_cambio_sede,
-                           registros_conservados=()):
+                           registros_conservados=(), votacion_fija_adicional=None):
     """Lee el padrón y calcula su distribución sin cambiar filas ni emitir QR.
 
     ``titulares`` contiene identificadores de registros y de mesas de trabajo
@@ -169,17 +231,21 @@ def previsualizar_padrones(claustro, *, titulares, permitir_cambio_mesa, permiti
     def grupo(mesa):
         return GrupoPadron(claustro.pk, mesa.eleccion_claustro_departamento_id, mesa.sede_id)
 
+    votacion_fija = {registro_id: filas_por_registro[registro_id].mesa_id
+                     for registro_id, _, tipo in asignaciones
+                     if tipo == "suplente" and registro_id not in titulares and registro_id in filas_por_registro}
+    votacion_fija.update(votacion_fija_adicional or {})
     propuesta = calcular_padrones_ordenados(
         mesas=[MesaPropuesta(m.pk, grupo(m)) for m in mesas],
         electores=[ElectorPropuesto(f.registro_padron_id, grupo(f.mesa)) for f in filas],
         titulares=titulares,
         maximo=claustro.maximo_votantes_por_mesa,
-        votacion_fija={registro_id: filas_por_registro[registro_id].mesa_id
-                       for registro_id, _, tipo in asignaciones
-                       if tipo == "suplente" and registro_id not in titulares and registro_id in filas_por_registro},
+        votacion_fija=votacion_fija,
         mesas_protegidas={m.pk for m in mesas if not m.generada_automaticamente
                           or m.estado_escaneo != Mesa.EstadoEscaneo.PENDIENTE}
-                         | {mesa_id for _, mesa_id, _ in asignaciones}
+                         | {mesa_id for _, mesa_id, _ in asignaciones} | set(votacion_fija.values())
+                         | set(AsignacionAutoridad.objects.filter(mesa__in=mesas, mesa_votacion_original__isnull=False)
+                               .values_list("mesa_votacion_original_id", flat=True))
                          | set(Mesa.objects.filter(pk__in=mesas_por_id).filter(
                              Q(asignaciones_rol__isnull=False)
                              | Q(selecciones_autoridad__isnull=False)

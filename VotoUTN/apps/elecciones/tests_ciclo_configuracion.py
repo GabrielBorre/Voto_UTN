@@ -107,6 +107,8 @@ class CicloConfiguracionTests(TestCase):
         self.assertFalse(puede_configurar_eleccion(self.usuario, self.eleccion))
         self.assertTrue(puede_configurar_eleccion(self.usuario, self.eleccion, solo_consulta=True))
         for nombre, argumentos in rutas:
+            if estado == Eleccion.Estado.PUBLICADA and nombre in ("gestionar-autoridades", "gestionar-autoridades-claustro"):
+                continue
             with self.subTest(ruta=nombre):
                 url = reverse(nombre, args=argumentos)
                 respuesta = self.client.get(url)
@@ -180,18 +182,25 @@ class CicloConfiguracionTests(TestCase):
                 }).status_code, 403)
 
     def test_seleccion_estima_y_aprueba_solo_las_solicitudes_marcadas(self):
-        self.estado(Eleccion.Estado.EN_CURSO)
+        from apps.padron.models import AsignacionSedePadron
+        self.estado(Eleccion.Estado.PUBLICADA)
+        self.mesa.generada_automaticamente = True
+        self.mesa.save(update_fields=("generada_automaticamente",))
         seleccionada = self.solicitud()
         no_seleccionada = self.solicitud(self.crear_registro("40100002"))
+        for registro in (seleccionada.registro_padron, no_seleccionada.registro_padron):
+            AsignacionSedePadron.objects.create(registro_padron=registro, sede=self.sedes[0], estado="asignada")
         url = reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,))
         respuesta = self.client.get(url, {"accion": "estimar_seleccion", "solicitudes_ids": [seleccionada.pk]})
         self.assertEqual(respuesta.json(), {
-            "mesas_por_sede": {str(self.sedes[1].pk): 1}, "mesas_quitadas_por_sede": {},
-            "total": 1, "total_quitadas": 0, "seleccionadas": 1,
+            "mesas_por_sede": {str(self.sedes[1].pk): 1}, "mesas_quitadas_por_sede": {str(self.sedes[0].pk): 1},
+            "total": 1, "total_quitadas": 1, "seleccionadas": 1,
         })
-        self.assertEqual(self.client.post(url, {
+        respuesta = self.client.post(url, {
             "accion": "aprobar_seleccionadas", "solicitudes_ids": [seleccionada.pk],
-        }).status_code, 302)
+        })
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(self.client.post(url, {"accion": "confirmar_aprobacion", "propuesta": respuesta.context["propuesta"]}).status_code, 302)
         seleccionada.refresh_from_db()
         no_seleccionada.refresh_from_db()
         self.assertEqual(seleccionada.estado, SolicitudCambioSede.Estado.APROBADA)

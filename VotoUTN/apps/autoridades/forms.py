@@ -15,7 +15,7 @@ class FormularioFiltroAsignaciones(forms.Form):
     sede = forms.ModelChoiceField(queryset=Sede.objects.none(), required=False, empty_label="Todas las sedes")
     cobertura = forms.ChoiceField(required=False, choices=(
         ("", "Todas las mesas"), ("titulares", "Con titulares faltantes"),
-        ("suplentes", "Con suplentes faltantes"), ("completa", "Con cobertura completa"),
+        ("completa", "Con cobertura completa"),
     ))
 
     def __init__(self, *args, claustro, **kwargs):
@@ -55,8 +55,6 @@ class FormularioConfiguracionAutoridades(forms.ModelForm):
 
     def clean(self):
         datos = super().clean()
-        if datos.get("modo") == "nomina" and datos.get("permitir_cambio_sede") and not datos.get("reacomodar_titulares"):
-            self.add_error("permitir_cambio_sede", "Para cambiar de sede también debe habilitarse «Permitir cambio de mesa».")
         if datos.get("modo") == "nomina" and datos.get("permitir_cambio_sede") and datos.get("permitir_mesa_distinta"):
             self.add_error("permitir_mesa_distinta", "«Votar en mesa distinta» mantiene la misma sede; no se combina con cambio de sede.")
         if datos.get("modo") == "nomina" and datos.get("reacomodar_titulares") and datos.get("permitir_mesa_distinta"):
@@ -72,7 +70,7 @@ class FormularioConfiguracionAutoridades(forms.ModelForm):
 
 class FormularioSeleccionMesa(forms.Form):
     turno = forms.ModelChoiceField(queryset=Turno.objects.none(), label="Turno")
-    tipo = forms.ChoiceField(choices=AsignacionAutoridad.Tipo.choices, label="Función")
+    tipo = forms.ChoiceField(choices=((AsignacionAutoridad.Tipo.TITULAR, "Titular"),), label="Función")
     busqueda = forms.CharField(required=False, max_length=180, label="Buscar por nombre, apellido, documento o legajo",
                                widget=forms.TextInput(attrs={"type": "search", "autocomplete": "off", "placeholder": "Escribí para filtrar las personas disponibles"}))
     registro = forms.ModelChoiceField(queryset=None, label="Persona disponible de la mesa")

@@ -1,5 +1,9 @@
 # Archivos de prueba: padrones y autoridades
 
+Para el flujo actual sin suplentes y la demostración de autoridades, usá
+[DEMO_AUTORIDADES.md](DEMO_AUTORIDADES.md). Las referencias a suplentes en el
+resto de este documento describen una configuración anterior.
+
 Las [variantes solo de alumnos](variantes_alumnos/README.md) incluyen archivos
 separados para errores de importación, restricciones de cursada, distribución,
 faltantes y cambios de sede, con instrucciones y resultados esperados.

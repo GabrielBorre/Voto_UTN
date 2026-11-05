@@ -928,7 +928,7 @@ class CalculoMesasAutomaticasEleccionTests(TestCase):
         )
         self.assertEqual(cantidades, [50, 26, 25])
 
-    def test_recalculo_reemplaza_solo_mesas_automaticas(self):
+    def test_recalculo_conserva_mesas_existentes_y_agrega_las_necesarias(self):
         registros = [self.crear_elector(str(numero), self.alcance_a) for numero in range(20, 23)]
         mesa_manual = Mesa.objects.create(
             eleccion=self.eleccion,
@@ -946,7 +946,7 @@ class CalculoMesasAutomaticasEleccionTests(TestCase):
         self.assertEqual(resultado["mesas"], 3)
         self.assertTrue(Mesa.objects.filter(pk=mesa_manual.pk).exists())
         self.assertEqual(AsignacionMesa.objects.filter(registro_padron__in=registros).count(), 3)
-        self.assertFalse(Mesa.objects.filter(pk__in=ids_anteriores).exists())
+        self.assertEqual(set(Mesa.objects.filter(pk__in=ids_anteriores).values_list("pk", flat=True)), ids_anteriores)
         self.assertTrue(all(registro.asignacion_mesa.mesa.generada_automaticamente for registro in registros))
 
     def test_error_en_un_claustro_no_borra_la_distribucion_anterior(self):
@@ -1797,7 +1797,8 @@ class SolicitudCambioSedeTests(TestCase):
 
         self.registro.refresh_from_db()
         solicitud.refresh_from_db()
-        self.assertEqual(self.registro.sede, self.sede_destino)
+        self.assertEqual(self.registro.sede, self.sede_origen)
+        self.assertEqual(self.registro.asignacion_sede_padron.sede, self.sede_destino)
         self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.APROBADA)
         self.assertEqual(self.registro.asignacion_mesa.mesa.sede, self.sede_destino)
 

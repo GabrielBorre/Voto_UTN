@@ -34,7 +34,7 @@ class VistaMesasAutoridadesTests(TestCase):
     def setUp(self):
         casos_base.TurnosAutoridadesTests.setUp(self)
         ConfiguracionAutoridades.objects.create(eleccion_claustro=self.eleccion_claustro, modo="aleatorio")
-        self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=1, suplentes_por_mesa=1)
+        self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=2, suplentes_por_mesa=0)
         self.departamento = self.mesa.eleccion_claustro_departamento.departamento
         self.otro_departamento = Departamento.objects.create(nombre="Otro departamento", codigo="OD")
         alcance = EleccionClaustroDepartamento.objects.create(
@@ -52,6 +52,12 @@ class VistaMesasAutoridadesTests(TestCase):
     def mesas_mostradas(self, respuesta):
         return {m.pk for m in respuesta.context["pagina_mesas"]}
 
+    def test_muestra_asignacion_provisoria_y_minimos_pendientes(self):
+        self.eleccion_claustro.turnos_autoridad.update(minimo_titulares_por_mesa=2)
+        respuesta = self.client.get(self.ruta)
+        self.assertContains(respuesta, "Asignación provisoria")
+        self.assertContains(respuesta, "Mínimo pendiente: 2")
+
     def test_listado_compacto_agrupa_por_mesa_y_abre_detalle_a_pedido(self):
         respuesta = self.client.get(self.ruta)
         elementos = ElementosListado(respuesta.content.decode())
@@ -59,11 +65,11 @@ class VistaMesasAutoridadesTests(TestCase):
         self.assertEqual(len(elementos.detalles), 3)
         self.assertTrue(all("hidden" in d for d in elementos.detalles))
         self.assertContains(respuesta, '<table class="mesas-asignaciones-tabla">', html=False)
-        for titulo in ("Mesa", "Departamento", "Sede", "Turno", "Titulares", "Suplentes", "Autoridades"):
+        for titulo in ("Mesa", "Departamento", "Sede", "Turno", "Titulares", "Autoridades"):
             self.assertContains(respuesta, f'<th scope="col">{titulo}</th>', html=True)
-        self.assertContains(respuesta, "1 de 1")
+        self.assertContains(respuesta, "2 de 2")
         mesa = next(m for m in respuesta.context["pagina_mesas"] if m.pk == self.mesa.pk)
-        self.assertEqual([a.tipo for a in mesa.autoridades_pagina], ["titular", "suplente"])
+        self.assertEqual([a.tipo for a in mesa.autoridades_pagina], ["titular", "titular"])
         self.assertContains(respuesta, "Ver autoridades")
         for asignacion in mesa.autoridades_pagina:
             self.assertContains(respuesta, asignacion.registro_padron.elector.nombre_completo)
@@ -80,7 +86,7 @@ class VistaMesasAutoridadesTests(TestCase):
     def test_filtrar_cobertura_completa_o_cupos_faltantes(self):
         respuesta = self.client.get(self.ruta, {"cobertura": "completa"})
         self.assertEqual(self.mesas_mostradas(respuesta), {self.mesa.pk})
-        for cobertura in ("titulares", "suplentes"):
+        for cobertura in ("titulares",):
             with self.subTest(cobertura=cobertura):
                 respuesta = self.client.get(self.ruta, {"cobertura": cobertura})
                 self.assertEqual(self.mesas_mostradas(respuesta), {self.mesa_otro_departamento.pk, self.mesa_otra_sede.pk})
@@ -118,10 +124,10 @@ class VistaMesasAutoridadesTests(TestCase):
                 self.assertFalse(self.mesas_mostradas(respuesta))
                 self.assertNotIn(ajeno, respuesta.context["formulario_filtros"].fields["departamento"].queryset)
 
-    def test_detalle_conserva_la_accion_de_confirmar_reemplazo(self):
-        asignacion = AsignacionAutoridad.objects.get(tipo="titular")
+    def test_detalle_no_ofrece_promover_suplentes(self):
+        asignacion = AsignacionAutoridad.objects.filter(tipo="titular").first()
         asignacion.estado = "rechazada"
         asignacion.save()
         respuesta = self.client.get(self.ruta)
-        self.assertContains(respuesta, reverse("confirmar-reemplazo-autoridad", args=(asignacion.pk,)))
-        self.assertContains(respuesta, "Confirmar reemplazo")
+        self.assertNotContains(respuesta, reverse("confirmar-reemplazo-autoridad", args=(asignacion.pk,)))
+        self.assertNotContains(respuesta, "Confirmar reemplazo")

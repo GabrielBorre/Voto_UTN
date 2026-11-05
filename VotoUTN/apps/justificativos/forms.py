@@ -1,4 +1,6 @@
 from django import forms
+from django.db import transaction
+from django.utils import timezone
 
 from apps.autoridades.models import AsignacionAutoridad
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
@@ -25,7 +27,10 @@ class FormularioJustificativo(forms.ModelForm):
         if self.registro_padron is None:
             return set()
         permitidas = {JustificativoAusencia.Ausencia.VOTAR}
-        if AsignacionAutoridad.objects.filter(registro_padron=self.registro_padron).exists():
+        eleccion = self.registro_padron.eleccion
+        if (eleccion.estado == "publicada" and eleccion.autoridades_confirmadas_en
+                and eleccion.fecha_limite_justificacion_autoridades and timezone.localdate() <= eleccion.fecha_limite_justificacion_autoridades
+                and AsignacionAutoridad.objects.filter(registro_padron=self.registro_padron).exists()):
             permitidas.add(JustificativoAusencia.Ausencia.AUTORIDAD)
         usadas = set(
             JustificativoAusencia.objects.filter(registro_padron=self.registro_padron).values_list("ausencia", flat=True)
@@ -44,8 +49,13 @@ class FormularioJustificativo(forms.ModelForm):
         justificativo = super().save(commit=False)
         justificativo.registro_padron = self.registro_padron
         if commit:
-            justificativo.save()
-            self.save_m2m()
+            from apps.elecciones.models import Eleccion
+            with transaction.atomic():
+                eleccion = Eleccion.objects.select_for_update().get(pk=self.registro_padron.eleccion_id)
+                if justificativo.ausencia == JustificativoAusencia.Ausencia.AUTORIDAD and (eleccion.estado != Eleccion.Estado.PUBLICADA or not eleccion.autoridades_confirmadas_en or not eleccion.fecha_limite_justificacion_autoridades or timezone.localdate() > eleccion.fecha_limite_justificacion_autoridades):
+                    raise forms.ValidationError("La presentación de justificativos de autoridades no está habilitada o su plazo venció.")
+                justificativo.save()
+                self.save_m2m()
         return justificativo
 
     def clean_documento(self):

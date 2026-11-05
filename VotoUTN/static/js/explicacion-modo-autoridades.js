@@ -1,13 +1,19 @@
 const selectorModo = document.querySelector("#id_modo");
 const explicaciones = document.querySelectorAll("[data-explicacion-modo]");
 const entradaNomina = document.querySelector("[data-entrada-nomina]");
-const opcionesNomina = document.querySelector("[data-opciones-nomina]");
 const archivoNomina = entradaNomina?.querySelector("input[type='file']");
 let botonAplicar = document.querySelector("[data-boton-aplicar]");
 const accionesModo = document.querySelector("[data-acciones-modo]");
 const botonRecalcular = document.querySelector("[data-boton-recalcular]");
 const formularioModo = document.querySelector("#formulario-modo-autoridades");
 const selectorTurnos = document.querySelector("input[name='configuracion-turnos']")?.form;
+
+formularioModo?.addEventListener("submit", (evento) => {
+  if (formularioModo.dataset.provisoria === "1" && evento.submitter?.name === "aplicar-modo" && selectorModo?.value === "aleatorio" &&
+      !confirm("Este sorteo es provisorio y puede cambiar antes de la confirmación definitiva. ¿Querés aplicarlo?")) {
+    evento.preventDefault();
+  }
+});
 
 for (const boton of document.querySelectorAll("[data-detalle-mesa]")) {
   boton.addEventListener("click", () => {
@@ -43,9 +49,6 @@ if (selectorModo && explicaciones.length) {
     if (entradaNomina) {
       entradaNomina.hidden = selectorModo.value !== "nomina";
     }
-    if (opcionesNomina) {
-      opcionesNomina.hidden = selectorModo.value !== "nomina";
-    }
     if (archivoNomina) {
       archivoNomina.required = selectorModo.value === "nomina";
     }
@@ -77,34 +80,4 @@ if (selectorModo && explicaciones.length) {
     actualizarExplicacion();
   });
   actualizarExplicacion();
-}
-
-for (const opcion of opcionesNomina?.querySelectorAll("input[type='checkbox']") || []) {
-  opcion.addEventListener("change", () => {
-    const reacomodar = opcionesNomina.querySelector("input[name='reacomodar_titulares']");
-    const mesaDistinta = opcionesNomina.querySelector("input[name='permitir_mesa_distinta']");
-    const sede = opcionesNomina.querySelector("input[name='permitir_cambio_sede']");
-    if (opcion === sede && sede.checked) {
-      reacomodar.checked = true;
-      mesaDistinta.checked = false;
-    }
-    if (opcion === reacomodar && reacomodar.checked) mesaDistinta.checked = false;
-    if (opcion === reacomodar && !reacomodar.checked) sede.checked = false;
-    if (opcion === mesaDistinta && mesaDistinta.checked) {
-      reacomodar.checked = false;
-      sede.checked = false;
-    }
-    if (selectorModo.value !== "nomina" || formularioModo.dataset.modoGuardado !== "nomina") return;
-    if (!Number(formularioModo.dataset.nominaCargada)) return;
-    // Al cargar un archivo se aplican juntas sus opciones. Con una nómina ya
-    // guardada, cambiar una opción actualiza automáticamente la distribución.
-    if (archivoNomina?.files.length) return;
-    archivoNomina.required = false;
-    const accion = document.createElement("input");
-    accion.type = "hidden";
-    accion.name = "actualizar-nomina";
-    accion.value = "1";
-    formularioModo.append(accion);
-    formularioModo.requestSubmit();
-  });
 }

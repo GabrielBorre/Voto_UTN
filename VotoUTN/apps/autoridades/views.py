@@ -1,13 +1,17 @@
 import csv
+import hashlib
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core import signing
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Case, IntegerField, Value, When
-from django.http import Http404, HttpResponse, HttpResponseForbidden
+from django.db.models import Case, IntegerField, Q, Value, When
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils.dateparse import parse_date
 
 from apps.autoridades.forms import (
     FormularioArchivoNomina,
@@ -24,11 +28,11 @@ from apps.autoridades.services import (
     redistribuir_autoridades,
     responder_asignacion,
 )
-from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad, PreferenciaAutoridad
+from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad, ImportacionNominaAutoridades, PreferenciaAutoridad
 from apps.elecciones.models import Eleccion, EleccionClaustro
 from apps.mesas.models import Mesa
 from apps.padron.models import RegistroPadron
-from apps.usuarios.permisos import puede_configurar_eleccion
+from apps.usuarios.permisos import puede_gestionar_autoridades
 from apps.usuarios.services import elector_de_identidad
 
 
@@ -39,11 +43,12 @@ def _cobertura_actual(eleccion_claustro):
         for config in eleccion_claustro.turnos_autoridad.select_related("turno"):
             asignaciones = AsignacionAutoridad.objects.filter(mesa=mesa, turno=config.turno).exclude(estado=AsignacionAutoridad.Estado.RECHAZADA)
             titulares = asignaciones.filter(tipo=AsignacionAutoridad.Tipo.TITULAR).count()
-            suplentes = asignaciones.filter(tipo=AsignacionAutoridad.Tipo.SUPLENTE).count()
+            suplentes = 0
             sin_cubrir.extend([(mesa, config.turno)] * max(0, config.titulares_por_mesa - titulares))
             filas.append({
                 "mesa": mesa, "turno": config.turno,
                 "titulares": titulares, "maximo_titulares": config.titulares_por_mesa,
+                "minimo_titulares": config.minimo_titulares_por_mesa,
                 "suplentes": suplentes, "maximo_suplentes": config.suplentes_por_mesa,
                 "suplentes_faltantes": max(0, config.suplentes_por_mesa - suplentes),
                 "cubierta": titulares >= config.titulares_por_mesa,
@@ -54,7 +59,7 @@ def _cobertura_actual(eleccion_claustro):
 @login_required
 def descargar_plantilla_autoridades(request, eleccion_id, claustro_id=None):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD")):
+    if not puede_gestionar_autoridades(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para descargar la plantilla.")
     eleccion_claustro = None
     if claustro_id is not None:
@@ -75,7 +80,7 @@ def descargar_plantilla_autoridades(request, eleccion_id, claustro_id=None):
 @login_required
 def gestionar_autoridades(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not puede_configurar_eleccion(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD")):
+    if not puede_gestionar_autoridades(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para gestionar autoridades.")
 
     resumen_claustros = []
@@ -107,6 +112,127 @@ def gestionar_autoridades(request, eleccion_id):
 
 
 @login_required
+def confirmar_autoridades_definitivas(request, eleccion_id):
+    if request.method != "POST":
+        raise Http404()
+    from apps.autoridades.confirmacion import confirmar_autoridades
+    from django.core.exceptions import PermissionDenied
+    try:
+        cantidad = confirmar_autoridades(eleccion_id, request.user, parse_date(request.POST.get("fecha_limite", "")))
+    except PermissionDenied:
+        return HttpResponseForbidden("No tiene permiso para confirmar autoridades.")
+    except (ValidationError, ValueError) as error:
+        messages.error(request, " ".join(error.messages) if isinstance(error, ValidationError) else str(error))
+    else:
+        messages.success(request, f"Autoridades confirmadas. Se registraron {cantidad} convocatorias.")
+    return redirect("gestionar-autoridades", eleccion_id=eleccion_id)
+
+
+@login_required
+def previsualizar_recalculo_mesas(request, eleccion_id):
+    from apps.autoridades.nomina import _huella
+    from apps.padron.services import calcular_mesas_automaticas_eleccion
+    from apps.mesas.models import Mesa
+
+    eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
+    if not puede_gestionar_autoridades(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para recalcular las mesas.")
+
+    def huellas(actual):
+        return [_huella(c) for c in actual.elecciones_claustro.order_by("pk")]
+
+    if request.method == "POST":
+        try:
+            datos = signing.loads(request.POST.get("propuesta", ""), salt="recalculo-mesas", max_age=1800)
+            with transaction.atomic():
+                actual = Eleccion.objects.select_for_update().get(pk=eleccion_id)
+                if not puede_gestionar_autoridades(request.user, actual):
+                    return HttpResponseForbidden("La elección ya no admite cambios.")
+                if datos != {"eleccion": actual.pk, "huellas": huellas(actual)}:
+                    raise ValueError("Los datos cambiaron; revisá una nueva propuesta antes de confirmar.")
+                resultado = calcular_mesas_automaticas_eleccion(actual, usuario=request.user, request=request,
+                                                               recalcular_sedes=False, conservar_mesas=True, confirmar_afectadas=True)
+        except (signing.BadSignature, ValueError) as error:
+            messages.error(request, str(error) if isinstance(error, ValueError) else "La propuesta venció; calculala nuevamente.")
+            return redirect("previsualizar-recalculo-mesas", eleccion_id=eleccion_id)
+        messages.success(request, f"Mesas recalculadas. Designaciones provisorias que quedaron vacantes: {resultado.get('autoridades_vacantes', 0)}.")
+        return redirect("gestionar-autoridades", eleccion_id=eleccion_id)
+
+    try:
+        estado = {"eleccion": eleccion.pk, "huellas": huellas(eleccion)}
+        with transaction.atomic():
+            resultado = calcular_mesas_automaticas_eleccion(eleccion, usuario=request.user, recalcular_sedes=False, conservar_mesas=True, confirmar_afectadas=True)
+            ids_registros = [movimiento["registro"] for movimiento in resultado.get("movimientos", [])]
+            nombres = {r.pk: r.elector.nombre_completo for r in RegistroPadron.objects.filter(pk__in=ids_registros).select_related("elector")}
+            numeros = {mesa.pk: mesa.codigo for mesa in Mesa.objects.filter(eleccion=eleccion).select_related("eleccion_claustro_departamento__departamento")}
+            movimientos = [{"elector": nombres.get(m["registro"], ""), "origen": numeros.get(m["origen"], "Sin mesa"),
+                            "destino": numeros.get(m["destino"], "Mesa nueva")} for m in resultado.get("movimientos", [])]
+            transaction.set_rollback(True)
+    except ValueError as error:
+        messages.error(request, str(error))
+        return redirect("gestionar-autoridades", eleccion_id=eleccion_id)
+    return render(request, "autoridades/previsualizar_recalculo_mesas.html", {
+        "eleccion": eleccion, "resultado": resultado, "movimientos": movimientos,
+        "propuesta": signing.dumps(estado, salt="recalculo-mesas"),
+    })
+
+
+@login_required
+def revisar_retorno_votacion(request, asignacion_id):
+    from apps.auditoria.services import registrar_evento
+    from apps.autoridades.nomina import _huella
+    from apps.autoridades.retorno_votacion import planificar_retorno
+    from apps.justificativos.models import JustificativoAusencia
+    from apps.mesas.models import AsignacionMesa
+    from apps.padron.models import AsignacionSedePadron
+    from apps.usuarios.permisos import puede_administrar_elecciones
+
+    asignacion = get_object_or_404(AsignacionAutoridad.objects.select_related(
+        "registro_padron__eleccion", "mesa__eleccion_claustro_departamento__eleccion_claustro", "mesa_votacion_original__sede",
+    ), pk=asignacion_id)
+    eleccion = asignacion.registro_padron.eleccion
+    claustro = asignacion.mesa.eleccion_claustro_departamento.eleccion_claustro
+    if not puede_administrar_elecciones(request.user, eleccion):
+        return HttpResponseForbidden("No tiene permiso para revisar el retorno.")
+    if (eleccion.estado != Eleccion.Estado.PUBLICADA or not eleccion.autoridades_confirmadas_en
+            or asignacion.estado != AsignacionAutoridad.Estado.RECHAZADA
+            or not JustificativoAusencia.objects.filter(registro_padron=asignacion.registro_padron, ausencia="autoridad", estado="aprobado").exists()):
+        return HttpResponseForbidden("El retorno solo puede revisarse tras aprobar una ausencia de autoridades confirmadas.")
+    destino_url = reverse("gestionar-autoridades-claustro", args=(eleccion.pk, claustro.pk))
+    try:
+        if request.method == "POST":
+            datos = signing.loads(request.POST.get("propuesta", ""), salt="retorno-votacion", max_age=1800)
+            with transaction.atomic():
+                eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+                if eleccion.estado != Eleccion.Estado.PUBLICADA or not eleccion.autoridades_confirmadas_en:
+                    raise ValidationError("La elección ya no admite cambios de mesa.")
+                asignacion = AsignacionAutoridad.objects.select_for_update(of=("self",)).select_related(
+                    "registro_padron__eleccion", "mesa_votacion_original__sede", "mesa__eleccion_claustro_departamento__eleccion_claustro",
+                ).get(pk=asignacion_id)
+                if (asignacion.estado != AsignacionAutoridad.Estado.RECHAZADA
+                        or not JustificativoAusencia.objects.filter(registro_padron=asignacion.registro_padron, ausencia="autoridad", estado="aprobado").exists()
+                        or datos != {"asignacion": asignacion_id, "huella": _huella(claustro)}):
+                    raise ValidationError("Los datos cambiaron; revisá una nueva propuesta.")
+                movimientos = planificar_retorno(asignacion)
+                for movimiento in movimientos:
+                    AsignacionMesa.objects.filter(registro_padron_id=movimiento["registro"]).update(mesa_id=movimiento["mesa_id"], autoridad_al_final=False)
+                AsignacionSedePadron.objects.update_or_create(registro_padron=asignacion.registro_padron, defaults={
+                    "sede_id": asignacion.mesa_votacion_original.sede_id, "estado": AsignacionSedePadron.Estado.ASIGNADA, "regla_aplicada": None,
+                })
+                registrar_evento(accion="autoridades.restitucion_mesa_votacion", entidad="RegistroPadron", entidad_id=asignacion.registro_padron_id,
+                                 eleccion=eleccion, usuario=request.user, request=request, datos_nuevos={"movimientos": movimientos})
+            messages.success(request, f"Se confirmó el regreso y se actualizaron {len(movimientos)} asignaciones de mesa.")
+            return redirect(destino_url)
+        movimientos = planificar_retorno(asignacion)
+        propuesta = signing.dumps({"asignacion": asignacion_id, "huella": _huella(claustro)}, salt="retorno-votacion")
+    except (ValidationError, signing.BadSignature) as error:
+        messages.error(request, " ".join(error.messages) if isinstance(error, ValidationError) else "La propuesta venció; revisala nuevamente.")
+        return redirect(destino_url)
+    return render(request, "autoridades/revisar_retorno_votacion.html", {"eleccion": eleccion, "asignacion": asignacion,
+                                                                          "movimientos": movimientos, "propuesta": propuesta})
+
+
+@login_required
 @transaction.atomic
 def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
     eleccion_claustro = get_object_or_404(
@@ -115,7 +241,10 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
         eleccion_id=eleccion_id,
     )
     eleccion = eleccion_claustro.eleccion
-    if not puede_configurar_eleccion(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD")):
+    if request.method == "POST":
+        eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+        eleccion_claustro.eleccion = eleccion
+    if not puede_gestionar_autoridades(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para gestionar autoridades.")
 
     clave_propuesta = f"cambio_sede_autoridad_{eleccion.id}_{eleccion_claustro.id}"
@@ -137,6 +266,11 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
         aplicar_modo and request.POST.get("modo") == "nomina" and not actualizar_nomina
     )
     if request.method == "POST" and "cancelar-nomina" in request.POST:
+        propuesta = request.session.get(clave_nomina, {})
+        ImportacionNominaAutoridades.objects.filter(
+            pk=propuesta.get("importacion_id"), eleccion_claustro=eleccion_claustro,
+            usuario=request.user, estado=ImportacionNominaAutoridades.Estado.PREVISUALIZADA,
+        ).update(estado=ImportacionNominaAutoridades.Estado.CANCELADA)
         request.session.pop(clave_nomina, None)
         return redirect("gestionar-autoridades-claustro", eleccion_id=eleccion.id, claustro_id=claustro_id)
     if request.method == "POST":
@@ -155,14 +289,20 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
             messages.error(request, "No hay una previsualización pendiente. Volvé a calcular la nómina.")
         else:
             try:
-                resumen = confirmar_nomina(eleccion_claustro, request.user, propuesta)
+                alternativa = request.POST.get("alternativa")
+                resumen = confirmar_nomina(eleccion_claustro, request.user, propuesta, alternativa=alternativa)
             except ValidationError as error:
                 messages.error(request, "No se aplicó la nómina: " + " ".join(error.messages))
+                ImportacionNominaAutoridades.objects.filter(
+                    pk=propuesta.get("importacion_id"), eleccion_claustro=eleccion_claustro,
+                    usuario=request.user, estado=ImportacionNominaAutoridades.Estado.PREVISUALIZADA,
+                ).update(estado=ImportacionNominaAutoridades.Estado.RECHAZADA, errores=error.messages)
             else:
-                messages.success(request, f"Se asignaron {resumen['titulares']} titulares y {resumen['suplentes']} suplentes; {resumen['sin_asignar']} personas quedaron sin asignar.")
+                messages.success(request, f"Se asignaron {resumen['titulares']} titulares; {resumen['sin_asignar']} personas quedaron sin asignar.")
                 from apps.autoridades.nomina import previsualizar_nomina
                 try:
-                    datos_actuales = {**propuesta["datos"], "registros": []}
+                    elegida = next((opcion for opcion in propuesta.get("alternativas", []) if opcion.get("codigo") == alternativa), None)
+                    datos_actuales = {**(elegida["datos"] if elegida else propuesta["datos"]), "registros": []}
                     comparacion = previsualizar_nomina(eleccion_claustro, request.user, datos_actuales)
                 except ValidationError:
                     request.session.pop(clave_comparacion, None)
@@ -180,7 +320,7 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
                 request,
                 f"Distribución recalculada: {resumen['asignadas']} autoridades. "
                 f"Se reasignaron desde cero. Faltan "
-                f"{resumen['titulares_faltantes']} titulares y {resumen['suplentes_faltantes']} suplentes.",
+                f"{resumen['titulares_faltantes']} titulares.",
             )
             if resumen["titulares_faltantes"] or resumen["suplentes_faltantes"]:
                 messages.warning(request, "Se alcanzó la mayor cobertura posible: no hay una combinación compatible que cubra más cupos respetando la prioridad de titulares, el padrón y los turnos actuales.")
@@ -208,14 +348,38 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
                 formulario_nomina.add_error("archivo", "Cargá el archivo de nómina para iniciar la nómina común.")
             elif formulario_nomina.is_valid():
                 from apps.autoridades.nomina import identificar_nomina, previsualizar_nomina
+                archivo = formulario_nomina.cleaned_data["archivo"]
+                importacion = None
+                contenido = archivo.read() if archivo else None
+                if archivo:
+                    anterior = request.session.get(clave_nomina, {})
+                    ImportacionNominaAutoridades.objects.filter(
+                        pk=anterior.get("importacion_id"), eleccion_claustro=eleccion_claustro,
+                        usuario=request.user, estado=ImportacionNominaAutoridades.Estado.PREVISUALIZADA,
+                    ).update(estado=ImportacionNominaAutoridades.Estado.CANCELADA)
+                    request.session.pop(clave_nomina, None)
+                    archivo.seek(0)
+                    importacion = ImportacionNominaAutoridades.objects.create(
+                        eleccion_claustro=eleccion_claustro, usuario=request.user,
+                        archivo=archivo, nombre_archivo=archivo.name[:255],
+                        huella_archivo=hashlib.sha256(contenido).hexdigest(),
+                    )
                 try:
-                    archivo = formulario_nomina.cleaned_data["archivo"]
-                    registros = identificar_nomina(eleccion_claustro, archivo.read(), archivo.name) if archivo else []
+                    registros = identificar_nomina(eleccion_claustro, contenido, archivo.name) if archivo else []
                     datos = {"registros": registros, "mesa": formulario_modo.cleaned_data["reacomodar_titulares"],
                              "votar_mesa": formulario_modo.cleaned_data["permitir_mesa_distinta"],
                              "sede": formulario_modo.cleaned_data["permitir_cambio_sede"]}
-                    request.session[clave_nomina] = previsualizar_nomina(eleccion_claustro, request.user, datos)
+                    propuesta = previsualizar_nomina(eleccion_claustro, request.user, datos)
+                    if importacion:
+                        importacion.cantidad_validas = len(registros)
+                        importacion.save(update_fields=("cantidad_validas",))
+                        propuesta["importacion_id"] = importacion.pk
+                    request.session[clave_nomina] = propuesta
                 except ValidationError as error:
+                    if importacion:
+                        importacion.estado = ImportacionNominaAutoridades.Estado.RECHAZADA
+                        importacion.errores = error.messages
+                        importacion.save(update_fields=("estado", "errores"))
                     formulario_nomina.add_error("archivo", " ".join(error.messages))
                 else:
                     return redirect("gestionar-autoridades-claustro", eleccion_id=eleccion.id, claustro_id=claustro_id)
@@ -249,7 +413,7 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
                             f"Distribución aplicada: {resumen['asignadas']} autoridades. "
                             f"Se conservaron {resumen['conservadas']}, se incorporaron {resumen['nuevas']} "
                             f"y se liberaron {resumen['liberadas']}. Faltan "
-                            f"{resumen['titulares_faltantes']} titulares y {resumen['suplentes_faltantes']} suplentes."
+                            f"{resumen['titulares_faltantes']} titulares."
                         )
                         if modo_elegido == "aleatorio" and (resumen["titulares_faltantes"] or resumen["suplentes_faltantes"]):
                             mensaje += " No se pueden cubrir más cupos conservando las asignaciones y selecciones actuales. Recalcular permite sortear todo desde cero."
@@ -275,7 +439,7 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
         try:
             resumen = redistribuir_autoridades(eleccion_claustro, request.user)
             request.session.pop(clave_nomina, None)
-            messages.success(request, f"Distribución aplicada: {resumen['asignadas']} autoridades. Faltan {resumen['titulares_faltantes']} titulares y {resumen['suplentes_faltantes']} suplentes; completá los cupos pendientes.")
+            messages.success(request, f"Distribución aplicada: {resumen['asignadas']} autoridades. Faltan {resumen['titulares_faltantes']} titulares; completá los cupos pendientes.")
         except ValidationError as error:
             messages.error(request, error.messages[0])
         return redirect("gestionar-autoridades-claustro", eleccion_id=eleccion.id, claustro_id=claustro_id)
@@ -311,11 +475,12 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
             existente = eleccion_claustro.turnos_autoridad.filter(turno=turno).first()
             try:
                 titulares = int(request.POST.get(f"titulares_{turno.id}", existente.titulares_por_mesa if existente else 3))
-                suplentes = int(request.POST.get(f"suplentes_{turno.id}", existente.suplentes_por_mesa if existente else 0))
+                minimo = int(request.POST.get(f"minimo_titulares_{turno.id}", existente.minimo_titulares_por_mesa if existente else 1))
+                suplentes = int(request.POST.get(f"suplentes_{turno.id}", 0))
             except (TypeError, ValueError):
-                titulares, suplentes = 0, -1
-            if not 1 <= titulares <= 32767 or not 0 <= suplentes <= 32767:
-                formulario_turnos.add_error(None, "Cada turno requiere al menos un titular y los cupos deben ser números no negativos.")
+                titulares, minimo, suplentes = 0, 0, -1
+            if not 1 <= minimo <= titulares <= 32767 or suplentes != 0:
+                formulario_turnos.add_error(None, "El mínimo debe ser al menos 1 y no superar el máximo de titulares; no se permiten suplentes.")
                 break
             from django.db.models import Count
             asignaciones = AsignacionAutoridad.objects.filter(
@@ -333,18 +498,19 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
                 if any(fila["cantidad"] > (titulares if fila["tipo_manual"] == "titular" else suplentes) for fila in selecciones):
                     formulario_turnos.add_error(None, "Quitá las selecciones manuales que exceden el nuevo cupo antes de reducirlo.")
                     break
-            limites.append((turno, titulares, suplentes))
+            limites.append((turno, titulares, minimo, suplentes))
         if formulario_turnos.errors:
             messages.error(request, "Revisá los cupos configurados para cada turno.")
         else:
             try:
                 with transaction.atomic():
                     formulario_turnos.guardar()
-                    for turno, titulares, suplentes in limites:
+                    for turno, titulares, minimo, suplentes in limites:
                         config = eleccion_claustro.turnos_autoridad.get(turno=turno)
                         config.titulares_por_mesa = titulares
+                        config.minimo_titulares_por_mesa = minimo
                         config.suplentes_por_mesa = suplentes
-                        config.save(update_fields=("titulares_por_mesa", "suplentes_por_mesa"))
+                        config.save(update_fields=("titulares_por_mesa", "minimo_titulares_por_mesa", "suplentes_por_mesa"))
                     puede_previsualizar = opciones.modo == "nomina" and bool(limites) and Mesa.objects.filter(
                         eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
                     ).exists() and CandidaturaAutoridad.objects.filter(
@@ -392,9 +558,6 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
             if perfil:
                 AsignacionRol.objects.filter(rol=AsignacionRol.Rol.AUTORIDAD_MESA, eleccion=eleccion, mesa=asignacion_actual.mesa, usuario=perfil.usuario).delete()
             asignacion_actual.delete()
-            if candidatura.excluida and asignacion_actual.tipo == AsignacionAutoridad.Tipo.TITULAR:
-                from apps.autoridades.distribucion import promover_suplente_por_baja
-                promover_suplente_por_baja(asignacion_actual.mesa, asignacion_actual.turno, request.user)
         if candidatura.excluida:
             mensaje = "Elector quitado de la nómina de autoridades; sigue habilitado para votar."
         else:
@@ -471,11 +634,25 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
     pagina_mesas = Paginator(mesas_con_asignaciones, 25).get_page(request.GET.get("pagina_mesas", 1))
     autoridades_por_mesa = {}
     cobertura_por_mesa = {}
+    vacantes_pendientes = {(mesa.pk, turno.pk) for mesa, turno in sin_cubrir}
     for asignacion in autoridades.filter(mesa__in=pagina_mesas.object_list).order_by(
         "mesa__numero", "turno__hora_inicio",
         Case(When(tipo=AsignacionAutoridad.Tipo.TITULAR, then=Value(0)), default=Value(1), output_field=IntegerField()),
         "orden_suplencia", "registro_padron__elector__apellido", "registro_padron__elector__nombre",
     ):
+        if asignacion.estado == AsignacionAutoridad.Estado.RECHAZADA and asignacion.mesa_votacion_original_id:
+            from apps.mesas.models import AsignacionMesa
+            mesa_votacion = AsignacionMesa.objects.filter(registro_padron=asignacion.registro_padron).values_list("mesa_id", flat=True).first()
+            asignacion.retorno_votacion_pendiente = bool(mesa_votacion and mesa_votacion != asignacion.mesa_votacion_original_id)
+        if (asignacion.estado == AsignacionAutoridad.Estado.RECHAZADA and not asignacion.reemplazo_confirmado_en and eleccion.estado == Eleccion.Estado.PUBLICADA
+                and (asignacion.mesa_id, asignacion.turno_id) in vacantes_pendientes):
+            from apps.autoridades.traslados_vacantes import candidatos_para_vacante
+            from apps.justificativos.models import JustificativoAusencia
+            asignacion.ausencia_aprobada = JustificativoAusencia.objects.filter(
+                registro_padron=asignacion.registro_padron, ausencia="autoridad", estado="aprobado",
+            ).exists()
+            if asignacion.ausencia_aprobada:
+                asignacion.candidatos_vacante = list(candidatos_para_vacante(asignacion))
         autoridades_por_mesa.setdefault(asignacion.mesa_id, []).append(asignacion)
     for fila in cobertura:
         cobertura_por_mesa.setdefault(fila["mesa"].pk, []).append(fila)
@@ -504,6 +681,7 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
             "turno": turno,
             "turno_id": turno.pk,
             "titulares_por_mesa": configuracion.titulares_por_mesa if configuracion else 3,
+            "minimo_titulares_por_mesa": configuracion.minimo_titulares_por_mesa if configuracion else 1,
             "suplentes_por_mesa": configuracion.suplentes_por_mesa if configuracion else 0,
         })
     return render(
@@ -520,6 +698,7 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
             "modo_guardado": modo_anterior,
             "resumen_nomina": resumen_nomina,
             "propuesta_nomina": request.session.get(clave_nomina),
+            "importaciones_nomina": eleccion_claustro.importaciones_autoridades.select_related("usuario"),
             "turnos_configurados": turnos_configurados,
             "mesas_seleccion": Mesa.objects.filter(eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro).select_related("sede"),
             "titulares_faltantes": len(sin_cubrir),
@@ -542,11 +721,23 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
 
 
 @login_required
+def descargar_importacion_nomina(request, eleccion_id, claustro_id, importacion_id):
+    importacion = get_object_or_404(
+        ImportacionNominaAutoridades.objects.select_related("eleccion_claustro__eleccion"),
+        pk=importacion_id, eleccion_claustro_id=claustro_id,
+        eleccion_claustro__eleccion_id=eleccion_id,
+    )
+    if not puede_gestionar_autoridades(request.user, importacion.eleccion_claustro.eleccion, solo_consulta=True):
+        return HttpResponseForbidden("No tiene permiso para consultar esta importación.")
+    return FileResponse(importacion.archivo.open("rb"), as_attachment=True, filename=importacion.nombre_archivo)
+
+
+@login_required
 def seleccionar_autoridades_mesa(request, eleccion_id, claustro_id, mesa_id):
     from apps.autoridades.seleccion_manual import asignar_manualmente, quitar_designacion
     mesa = get_object_or_404(Mesa.objects.select_related("eleccion", "eleccion_claustro_departamento__eleccion_claustro", "sede"), pk=mesa_id, eleccion_id=eleccion_id, eleccion_claustro_departamento__eleccion_claustro_id=claustro_id)
     claustro = mesa.eleccion_claustro_departamento.eleccion_claustro
-    if not puede_configurar_eleccion(request.user, mesa.eleccion):
+    if not puede_gestionar_autoridades(request.user, mesa.eleccion):
         return HttpResponseForbidden("No tiene permiso para seleccionar autoridades.")
     formulario = FormularioSeleccionMesa(
         request.POST if "seleccionar" in request.POST else None, mesa=mesa,
@@ -602,7 +793,10 @@ def mis_asignaciones_autoridad(request):
     if request.user.is_superuser:
         return render(request, "autoridades/mis_asignaciones.html", {"asignaciones": asignaciones, "vista_administrativa": True})
     if elector is not None:
-        asignaciones = asignaciones.filter(registro_padron__elector=elector)
+        asignaciones = asignaciones.filter(registro_padron__elector=elector).filter(
+            Q(registro_padron__eleccion__autoridades_confirmadas_en__isnull=False)
+            | Q(registro_padron__eleccion__estado=Eleccion.Estado.FINALIZADA)
+        )
         if not asignaciones.exists():
             return HttpResponseForbidden("No tiene asignaciones de autoridad de mesa.")
     elif getattr(request.user, "es_elector", False) or not request.user.asignaciones_rol.filter(rol="autoridad_mesa", activo=True).exists():
@@ -617,36 +811,44 @@ def responder_autoridad(request, asignacion_id):
     if request.method != "POST":
         raise Http404()
     asignacion = get_object_or_404(AsignacionAutoridad, pk=asignacion_id, registro_padron__elector=elector_de_identidad(request.user))
-    if request.POST.get("respuesta") != "rechazar":
-        messages.error(request, "La asignación ya es válida. Solo necesitás responder si la rechazás.")
-    elif asignacion.estado == AsignacionAutoridad.Estado.RECHAZADA:
+    if asignacion.estado == AsignacionAutoridad.Estado.RECHAZADA:
         messages.info(request, "La asignación ya figura como rechazada.")
+        return redirect("mis-asignaciones-autoridad")
+    messages.info(request, "Para informar que no podrás ejercer, presentá un justificativo de ausencia como autoridad.")
+    from django.urls import reverse
+    return redirect(f"{reverse('mis-justificativos')}?ausencia=autoridad")
+
+
+@login_required
+def confirmar_traslado_vacante(request, asignacion_id):
+    from apps.autoridades.traslados_vacantes import confirmar_traslado_por_vacante
+    from django.core.exceptions import PermissionDenied
+    if request.method != "POST":
+        raise Http404()
+    ausente = get_object_or_404(
+        AsignacionAutoridad.objects.select_related("registro_padron__eleccion", "mesa__eleccion_claustro_departamento"),
+        pk=asignacion_id,
+    )
+    try:
+        candidato_id = int(request.POST.get("candidato_id", ""))
+        confirmar_traslado_por_vacante(ausente, candidato_id, request.user)
+    except (TypeError, ValueError):
+        messages.error(request, "Elegí una autoridad de la propuesta.")
+    except PermissionDenied:
+        return HttpResponseForbidden("No tiene permiso para confirmar el traslado.")
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
     else:
-        eleccion_claustro = asignacion.mesa.eleccion_claustro_departamento.eleccion_claustro
-        try:
-            responder_asignacion(asignacion)
-        except ValidationError as error:
-            messages.error(request, error.messages[0])
-        else:
-            messages.success(request, "Se registró que no asistirás. La Junta confirmará el reemplazo; el justificativo se evalúa por separado.")
-    return redirect("mis-asignaciones-autoridad")
+        messages.success(request, "Se confirmó el traslado y se generó la notificación. La mesa de votación no cambió.")
+    return redirect("gestionar-autoridades-claustro", eleccion_id=ausente.registro_padron.eleccion_id,
+                    claustro_id=ausente.mesa.eleccion_claustro_departamento.eleccion_claustro_id)
 
 
 @login_required
 def confirmar_reemplazo_autoridad(request, asignacion_id):
-    from apps.autoridades.reemplazos import confirmar_reemplazo, puede_confirmar_reemplazo
     if request.method != "POST":
         raise Http404()
-    asignacion = get_object_or_404(AsignacionAutoridad.objects.select_related("registro_padron__eleccion", "mesa__eleccion_claustro_departamento"), pk=asignacion_id)
-    if not puede_confirmar_reemplazo(request.user, asignacion.registro_padron.eleccion):
-        return HttpResponseForbidden("No tiene permiso para confirmar este reemplazo.")
-    try:
-        promovida = confirmar_reemplazo(asignacion, request.user)
-    except ValidationError as error:
-        messages.error(request, error.messages[0])
-    else:
-        messages.success(request, "Reemplazo confirmado: se promovió al suplente." if promovida else "Ausencia confirmada. No hay suplente disponible; revisá la vacante.")
-    return redirect("gestionar-autoridades-claustro", eleccion_id=asignacion.registro_padron.eleccion_id, claustro_id=asignacion.mesa.eleccion_claustro_departamento.eleccion_claustro_id)
+    return HttpResponseForbidden("Las vacantes de autoridades permanecen sin cubrir; no se designan suplentes.")
 
 
 @login_required

@@ -40,6 +40,14 @@ def puede_configurar_eleccion(usuario, eleccion, *, solo_consulta=False):
     )
 
 
+def puede_gestionar_autoridades(usuario, eleccion, *, solo_consulta=False):
+    return (
+        eleccion.estado != Eleccion.Estado.FINALIZADA
+        and (solo_consulta or (eleccion.estado in (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA) and not eleccion.autoridades_confirmadas_en))
+        and puede_administrar_elecciones(usuario, eleccion)
+    )
+
+
 def puede_crear_elecciones(usuario):
     if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
         return False

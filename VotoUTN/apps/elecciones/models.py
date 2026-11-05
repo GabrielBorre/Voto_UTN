@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 
@@ -24,6 +24,8 @@ class Eleccion(models.Model):
     fecha_publicacion_padron_definitivo = models.DateField(null=True, blank=True)
     fecha_cierre_solicitudes_cambio_sede = models.DateField(null=True, blank=True)
     fecha_limite_justificacion_autoridades = models.DateField(null=True, blank=True)
+    autoridades_confirmadas_en = models.DateTimeField(null=True, blank=True, editable=False)
+    autoridades_confirmadas_por = models.ForeignKey("auth.User", on_delete=models.PROTECT, null=True, blank=True, editable=False, related_name="confirmaciones_autoridades")
     fecha_limite_justificacion_electores = models.DateField(null=True, blank=True)
     notificaciones_ausentes_confirmadas_en = models.DateTimeField(null=True, blank=True, editable=False)
     habilitada = models.BooleanField("habilitada", default=True)
@@ -77,7 +79,9 @@ class Eleccion(models.Model):
                 if not configuracion.sedes_habilitadas.exists():
                     raise ValidationError("Cada departamento debe tener al menos una sede habilitada.")
 
+    @transaction.atomic
     def cambiar_estado(self, nuevo_estado):
+        self.estado = type(self).objects.select_for_update().get(pk=self.pk).estado
         transiciones = {
             self.Estado.EN_PREPARACION: self.Estado.PUBLICADA,
             self.Estado.PUBLICADA: self.Estado.EN_CURSO,
@@ -89,6 +93,31 @@ class Eleccion(models.Model):
         self.validar_configuracion(validar_turnos=nuevo_estado != self.Estado.FINALIZADA)
         if nuevo_estado == self.Estado.EN_CURSO and not self.mesas.exists():
             raise ValidationError("La eleccion debe tener al menos una mesa antes de iniciarse.")
+        if nuevo_estado == self.Estado.EN_CURSO:
+            from apps.justificativos.models import JustificativoAusencia
+            if not self.autoridades_confirmadas_en:
+                raise ValidationError("Confirmá las autoridades definitivas antes de iniciar la elección.")
+            if self.registros_padron.filter(activo=True, asignacion_mesa__isnull=True).exists():
+                raise ValidationError("Todos los electores activos deben tener una mesa asignada antes de iniciar la elección.")
+            if JustificativoAusencia.objects.filter(
+                registro_padron__eleccion=self, ausencia=JustificativoAusencia.Ausencia.AUTORIDAD,
+                estado=JustificativoAusencia.Estado.PENDIENTE,
+            ).exists():
+                raise ValidationError("Resolvé todos los justificativos de autoridades pendientes antes de iniciar la elección.")
+            from apps.autoridades.models import AsignacionAutoridad
+            for mesa in self.mesas.select_related("eleccion_claustro_departamento__eleccion_claustro"):
+                if not mesa.eleccion_claustro_departamento_id:
+                    raise ValidationError(f"La mesa {mesa.numero} no tiene un alcance electoral configurado.")
+                claustro = mesa.eleccion_claustro_departamento.eleccion_claustro
+                for configuracion in claustro.turnos_autoridad.select_related("turno"):
+                    cantidad = AsignacionAutoridad.objects.filter(
+                        mesa=mesa, turno=configuracion.turno, tipo="titular", estado="asignada",
+                    ).count()
+                    if cantidad < configuracion.minimo_titulares_por_mesa:
+                        raise ValidationError(
+                            f"La mesa {mesa.codigo}, turno {configuracion.turno}, no alcanza el mínimo de autoridades "
+                            f"({cantidad} de {configuracion.minimo_titulares_por_mesa})."
+                        )
         if nuevo_estado == self.Estado.PUBLICADA:
             claustros_sin_padron = self.elecciones_claustro.exclude(
                 departamentos__registros_padron__activo=True
@@ -134,10 +163,14 @@ class EleccionClaustroTurno(models.Model):
     eleccion_claustro = models.ForeignKey(EleccionClaustro, on_delete=models.PROTECT, related_name="turnos_autoridad")
     turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="elecciones_turno")
     titulares_por_mesa = models.PositiveSmallIntegerField(default=3)
+    minimo_titulares_por_mesa = models.PositiveSmallIntegerField(default=1)
     suplentes_por_mesa = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=("eleccion_claustro", "turno"), name="turno_unico_por_claustro")]
+        constraints = [
+            models.UniqueConstraint(fields=("eleccion_claustro", "turno"), name="turno_unico_por_claustro"),
+            models.CheckConstraint(condition=models.Q(suplentes_por_mesa=0), name="turno_sin_suplentes_mesa"),
+        ]
 
 
 class EleccionClaustroSede(models.Model):

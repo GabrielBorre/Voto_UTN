@@ -5,7 +5,7 @@ from django.db import transaction
 from apps.autoridades.distribucion import _auditar, _puede_trabajar, _registros, bloquear_edicion, es_candidato_electoral
 from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
 from apps.mesas.models import AsignacionMesa
-from apps.usuarios.permisos import puede_configurar_eleccion
+from apps.usuarios.permisos import puede_gestionar_autoridades
 
 
 def personas_disponibles(mesa, turnos):
@@ -22,7 +22,7 @@ def personas_disponibles(mesa, turnos):
 
 def _validar_edicion(mesa, usuario):
     claustro = mesa.eleccion_claustro_departamento.eleccion_claustro
-    if not puede_configurar_eleccion(usuario, mesa.eleccion):
+    if not puede_gestionar_autoridades(usuario, mesa.eleccion):
         raise PermissionDenied("No tiene permiso para editar autoridades.")
     bloquear_edicion(claustro)
     return claustro
@@ -58,7 +58,7 @@ def asignar_manualmente(mesa, turno, registro, usuario, *, tipo, orden=None, ree
     if AsignacionAutoridad.objects.filter(registro_padron=registro).exists():
         raise ValidationError("La persona ya tiene una asignación. Quitá esa designación antes de asignarla a otro cupo.")
     config = claustro.turnos_autoridad.filter(turno=turno).first()
-    if not config or tipo not in AsignacionAutoridad.Tipo.values:
+    if not config or tipo != AsignacionAutoridad.Tipo.TITULAR:
         raise ValidationError("El turno o la función no están habilitados.")
     anterior = None
     if reemplazar is not None:

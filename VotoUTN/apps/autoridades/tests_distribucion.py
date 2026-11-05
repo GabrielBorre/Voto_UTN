@@ -6,7 +6,7 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.autoridades.distribucion import _completar_plazas, _optimizar_nomina, distribuir, guardar_selecciones
+from apps.autoridades.distribucion import _completar_plazas, _optimizar_nomina, distribuir, guardar_selecciones, planificar_distribucion
 from apps.autoridades.forms import FormularioSeleccionMesa
 from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad, ConfiguracionAutoridades
 from apps.autoridades.seleccion_manual import asignar_manualmente
@@ -78,16 +78,31 @@ class DistribucionAutoridadesTests(TestCase):
         for r in self.registros:
             CandidaturaAutoridad.objects.get_or_create(registro_padron=r, defaults={"cargada_por": self.usuario})
 
-    def cupos(self, titulares=1, suplentes=1):
+    def cupos(self, titulares=1, suplentes=0):
         self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=titulares, suplentes_por_mesa=suplentes)
+
+    def test_nomina_y_sorteo_priorizan_minimos_antes_de_cupos_adicionales(self):
+        manana = self.eleccion_claustro.turnos_autoridad.get(turno=self.manana)
+        manana.titulares_por_mesa = 3
+        manana.minimo_titulares_por_mesa = 1
+        manana.save()
+        tarde = EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.tarde, titulares_por_mesa=3, minimo_titulares_por_mesa=2)
+        self.nomina()
+        for modo in ("nomina", "aleatorio"):
+            with self.subTest(modo=modo), patch("apps.autoridades.distribucion._puede_trabajar", return_value=True), patch("apps.autoridades.distribucion._puede_trabajar_nomina", return_value=True):
+                self.opciones.modo = modo
+                ocupantes, plazas, *_ = planificar_distribucion(self.eleccion_claustro, self.opciones, [self.mesa], [manana, tarde], preservar_asignaciones=False)
+                turnos = [plazas[i][1].pk for i in ocupantes]
+                self.assertEqual(turnos.count(self.manana.pk), 1)
+                self.assertEqual(turnos.count(self.tarde.pk), 2)
 
     def test_nomina_comun_visible_con_carga_y_opciones(self):
         self.client.force_login(self.usuario)
         respuesta = self.client.get(reverse("gestionar-autoridades-claustro", args=(self.eleccion.pk, self.eleccion_claustro.pk)))
         self.assertContains(respuesta, '<option value="nomina" selected>Nómina común</option>', html=True)
-        self.assertContains(respuesta, 'name="permitir_cambio_sede"')
-        self.assertContains(respuesta, 'name="reacomodar_titulares"')
-        self.assertContains(respuesta, 'name="permitir_mesa_distinta"')
+        self.assertNotContains(respuesta, 'name="permitir_cambio_sede"')
+        self.assertNotContains(respuesta, 'name="reacomodar_titulares"')
+        self.assertNotContains(respuesta, 'name="permitir_mesa_distinta"')
         self.assertNotContains(respuesta, 'name="agregar-candidato"')
         self.assertContains(respuesta, 'name="archivo"')
         self.assertContains(respuesta, "Previsualizar nómina")
@@ -182,10 +197,10 @@ class DistribucionAutoridadesTests(TestCase):
         self.assertEqual(AsignacionAutoridad.objects.get(registro_padron=self.registros[2]).pk, nueva.pk)
         self.assertEqual(AsignacionAutoridad.objects.filter(mesa=self.mesa, tipo="titular").count(), 2)
 
-    def test_todos_los_turnos_titulares_antes_de_cualquier_suplente(self):
+    def test_todos_los_turnos_se_cubren_solo_con_titulares(self):
         self.nomina()
-        self.cupos(2, 1)
-        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.tarde, titulares_por_mesa=1, suplentes_por_mesa=1)
+        self.cupos(2, 0)
+        EleccionClaustroTurno.objects.create(eleccion_claustro=self.eleccion_claustro, turno=self.tarde, titulares_por_mesa=1, suplentes_por_mesa=0)
         r = self.registros[2]
         r.turno_cursada = self.manana
         r.save()
@@ -211,20 +226,20 @@ class DistribucionAutoridadesTests(TestCase):
         self.cupos()
         distribuir(self.eleccion_claustro, self.usuario)
         self.assertEqual(AsignacionAutoridad.objects.filter(tipo="titular").count(), 1)
-        self.assertEqual(AsignacionAutoridad.objects.filter(tipo="suplente").count(), 1)
-        self.assertEqual(CandidaturaAutoridad.objects.count(), 2)
+        self.assertFalse(AsignacionAutoridad.objects.filter(tipo="suplente").exists())
+        self.assertEqual(CandidaturaAutoridad.objects.count(), 1)
 
     def test_repetir_sorteo_conserva_dos_titulares_distintos(self):
         self.opciones.modo = "aleatorio"
         self.opciones.save()
-        self.cupos(2, 1)
+        self.cupos(2, 0)
         distribuir(self.eleccion_claustro, self.usuario)
         anteriores = set(AsignacionAutoridad.objects.values_list("pk", "registro_padron_id", "tipo"))
         resultado = distribuir(self.eleccion_claustro, self.usuario)
         self.assertEqual(set(AsignacionAutoridad.objects.values_list("pk", "registro_padron_id", "tipo")), anteriores)
         self.assertEqual(AsignacionAutoridad.objects.filter(tipo="titular").count(), 2)
-        self.assertEqual(resultado["conservadas"], 3)
-        self.assertEqual(resultado["asignadas"], 3)
+        self.assertEqual(resultado["conservadas"], 2)
+        self.assertEqual(resultado["asignadas"], 2)
         self.assertEqual(resultado["titulares_faltantes"], 0)
 
     def test_aumentar_cupos_conserva_titular_y_asigna_otra_persona(self):
@@ -252,25 +267,25 @@ class DistribucionAutoridadesTests(TestCase):
     def test_recalcular_reemplaza_todas_las_asignaciones_y_limpia_destinos(self):
         self.opciones.modo = "aleatorio"
         self.opciones.save()
-        self.cupos(2, 1)
+        self.cupos(2, 0)
         distribuir(self.eleccion_claustro, self.usuario)
         anteriores = set(AsignacionAutoridad.objects.values_list("pk", flat=True))
         CandidaturaAutoridad.objects.update(
-            mesa_manual=self.mesa, turno_manual=self.manana, tipo_manual="suplente", orden_manual=1,
+            mesa_manual=self.mesa, turno_manual=self.manana, tipo_manual="titular", orden_manual=None,
             mesa_traslado=self.mesa, turno_traslado=self.tarde,
         )
         # Una llamada directa al servicio debe tener las mismas garantías que el botón.
         resultado = distribuir(self.eleccion_claustro, self.usuario, preservar_asignaciones=False)
         self.assertFalse(AsignacionAutoridad.objects.filter(pk__in=anteriores).exists())
         self.assertEqual(AsignacionAutoridad.objects.filter(tipo="titular").count(), 2)
-        self.assertEqual(AsignacionAutoridad.objects.filter(tipo="suplente").count(), 1)
+        self.assertFalse(AsignacionAutoridad.objects.filter(tipo="suplente").exists())
         self.assertEqual(resultado["conservadas"], 0)
         self.assertEqual(resultado["titulares_faltantes"], 0)
         self.assertFalse(CandidaturaAutoridad.objects.exclude(mesa_manual=None, mesa_traslado=None).exists())
         from apps.auditoria.models import EventoAuditoria
         evento = EventoAuditoria.objects.filter(accion="autoridades.distribuidas").latest("pk")
         self.assertEqual(evento.datos_nuevos["operacion"], "recalcular")
-        self.assertEqual(len(evento.datos_nuevos["asignaciones_resultantes"]), 3)
+        self.assertEqual(len(evento.datos_nuevos["asignaciones_resultantes"]), 2)
 
     def test_recalculo_fallido_revierte_asignaciones_y_selecciones(self):
         self.opciones.modo = "aleatorio"
@@ -325,47 +340,46 @@ class DistribucionAutoridadesTests(TestCase):
         self.assertEqual({primero, segundo}, {self.manana.pk, self.tarde.pk})
         self.assertEqual(resultado["titulares_faltantes"], 1)
 
-    def test_aplicar_conserva_selecciones_manual_y_suplente_con_vacante_titular(self):
+    def test_aplicar_conserva_seleccion_manual_y_completa_vacante_titular(self):
         self.opciones.modo = "aleatorio"
         self.opciones.save()
-        self.cupos()
+        self.cupos(2, 0)
         distribuir(self.eleccion_claustro, self.usuario)
-        suplente = AsignacionAutoridad.objects.get(tipo="suplente")
-        candidatura = suplente.candidatura
+        titular = AsignacionAutoridad.objects.first()
+        candidatura = titular.candidatura
         candidatura.mesa_manual = self.mesa
         candidatura.turno_manual = self.manana
-        candidatura.tipo_manual = "suplente"
-        candidatura.orden_manual = 1
+        candidatura.tipo_manual = "titular"
+        candidatura.orden_manual = None
         candidatura.save()
         anteriores = set(AsignacionAutoridad.objects.values_list("pk", flat=True))
-        self.cupos(3, 1)
+        self.cupos(3, 0)
         self.client.force_login(self.usuario)
         ruta = reverse("gestionar-autoridades-claustro", args=(self.eleccion.pk, self.eleccion_claustro.pk))
         respuesta = self.client.post(ruta, {"aplicar-modo": "1", "modo": "aleatorio"}, follow=True)
-        self.assertContains(respuesta, "conservando las asignaciones")
+        self.assertContains(respuesta, "Se conservaron 2")
         self.assertEqual(AsignacionAutoridad.objects.filter(pk__in=anteriores).count(), 2)
-        suplente.refresh_from_db()
+        titular.refresh_from_db()
         candidatura.refresh_from_db()
-        self.assertEqual(suplente.tipo, "suplente")
+        self.assertEqual(titular.tipo, "titular")
         self.assertEqual(candidatura.mesa_manual_id, self.mesa.pk)
-        # Recalcular sí puede usar ese suplente para completar los titulares.
         respuesta = self.client.post(ruta, {"recalcular-distribucion": "1"}, follow=True)
         self.assertEqual(AsignacionAutoridad.objects.filter(tipo="titular").count(), 3)
         self.assertFalse(AsignacionAutoridad.objects.filter(tipo="suplente").exists())
-        self.assertContains(respuesta, "Faltan 0 titulares y 1 suplentes")
+        self.assertContains(respuesta, "Faltan 0 titulares")
 
     def test_recalculo_respeta_exclusiones_y_no_toca_el_padron(self):
         self.opciones.modo = "aleatorio"
         self.opciones.save()
-        self.cupos(2, 1)
+        self.cupos(2, 0)
         self.nomina()
         CandidaturaAutoridad.objects.filter(registro_padron=self.registros[0]).update(excluida=True)
-        ubicaciones = list(AsignacionMesa.objects.values_list("pk", "mesa_id", "registro_padron_id"))
+        ubicaciones = list(AsignacionMesa.objects.order_by("pk").values_list("pk", "mesa_id", "registro_padron_id"))
         resultado = distribuir(self.eleccion_claustro, self.usuario, preservar_asignaciones=False)
         self.assertFalse(AsignacionAutoridad.objects.filter(registro_padron=self.registros[0]).exists())
         self.assertEqual(resultado["titulares_faltantes"], 0)
-        self.assertEqual(resultado["suplentes_faltantes"], 1)
-        self.assertEqual(list(AsignacionMesa.objects.values_list("pk", "mesa_id", "registro_padron_id")), ubicaciones)
+        self.assertEqual(resultado["suplentes_faltantes"], 0)
+        self.assertEqual(list(AsignacionMesa.objects.order_by("pk").values_list("pk", "mesa_id", "registro_padron_id")), ubicaciones)
 
     def test_recalculo_rechaza_modo_manual_y_qr_sin_limpiar_selecciones(self):
         self.nomina()
@@ -423,29 +437,20 @@ class DistribucionAutoridadesTests(TestCase):
             distribuir(self.eleccion_claustro, self.usuario)
         self.assertFalse(AsignacionAutoridad.objects.exists())
 
-    def test_confirmacion_junta_promueve_una_sola_vez_y_conserva_qr(self):
-        from apps.autoridades.services import responder_asignacion
-        from apps.autoridades.reemplazos import confirmar_reemplazo
+    def test_justificacion_aprobada_deja_vacante_sin_cambiar_padron(self):
         self.nomina()
-        self.cupos(1, 2)
+        self.cupos(1, 0)
         distribuir(self.eleccion_claustro, self.usuario)
         titular = AsignacionAutoridad.objects.get(tipo="titular")
-        suplente = AsignacionAutoridad.objects.get(tipo="suplente", orden_suplencia=1)
         justificativo = JustificativoAusencia.objects.create(registro_padron=titular.registro_padron, ausencia="autoridad", tipo=TipoJustificativo.objects.create(nombre="Salud"), detalle="Prueba")
-        r = suplente.registro_padron
-        r.qr_generado_en = timezone.now()
-        r.numero_mesa_qr = self.mesa.numero
-        r.save()
-        responder_asignacion(titular)
+        type(self.eleccion).objects.filter(pk=self.eleccion.pk).update(estado="publicada", autoridades_confirmadas_en=timezone.now())
+        ubicaciones = list(AsignacionMesa.objects.values_list("pk", "mesa_id"))
         for _ in range(2):
             resolver_justificativo(justificativo, estado="aprobado", observacion="", usuario=self.usuario)
-            confirmar_reemplazo(titular, self.usuario)
         titular.refresh_from_db()
-        suplente.refresh_from_db()
         self.assertEqual(titular.estado, "rechazada")
-        self.assertEqual(suplente.tipo, "titular")
-        self.assertEqual(AsignacionAutoridad.objects.filter(tipo="suplente", orden_suplencia=1).count(), 1)
-        self.assertEqual(r.asignacion_mesa.mesa_id, self.mesa.pk)
+        self.assertFalse(AsignacionAutoridad.objects.filter(estado="asignada").exists())
+        self.assertEqual(list(AsignacionMesa.objects.values_list("pk", "mesa_id")), ubicaciones)
 
     def test_justificativo_rechazado_no_cambia_autoridades(self):
         self.nomina()
@@ -521,11 +526,11 @@ class DistribucionAutoridadesTests(TestCase):
         grupos = _agrupar_padrones_por_mesa(self.eleccion)
         self.assertEqual(grupos[0]["padrones"][-1].pk, self.registros[0].pk)
 
-    def test_manual_no_permite_suplente_antes_de_completar_titulares(self):
+    def test_manual_no_permite_suplentes(self):
         self.opciones.modo = "manual"
         self.opciones.save()
         self.cupos()
-        with self.assertRaisesMessage(ValidationError, "Primero completá"):
+        with self.assertRaisesMessage(ValidationError, "Solo se pueden asignar autoridades titulares"):
             guardar_selecciones(self.eleccion_claustro, [(self.registros[0], self.mesa, self.manana, "suplente", 1)], self.usuario)
         self.assertFalse(CandidaturaAutoridad.objects.exists())
 
@@ -542,14 +547,11 @@ class DistribucionAutoridadesTests(TestCase):
         self.assertFalse(candidato.activo)
 
     def test_sin_suplente_confirmacion_deja_vacante(self):
-        from apps.autoridades.services import responder_asignacion
-        from apps.autoridades.reemplazos import confirmar_reemplazo
         self.nomina()
         self.cupos(1, 0)
         distribuir(self.eleccion_claustro, self.usuario)
         titular = AsignacionAutoridad.objects.get()
         j = JustificativoAusencia.objects.create(registro_padron=titular.registro_padron, ausencia="autoridad", tipo=TipoJustificativo.objects.create(nombre="Salud"), detalle="Prueba")
+        type(self.eleccion).objects.filter(pk=self.eleccion.pk).update(estado="publicada", autoridades_confirmadas_en=timezone.now())
         resolver_justificativo(j, estado="aprobado", observacion="", usuario=self.usuario)
-        responder_asignacion(titular)
-        confirmar_reemplazo(titular, self.usuario)
         self.assertFalse(AsignacionAutoridad.objects.filter(estado="asignada").exists())

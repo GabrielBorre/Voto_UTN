@@ -5,74 +5,72 @@
 <section class="hero">
   <h1>Autoridades de {{ eleccion_claustro.claustro }}</h1>
   <p>{{ eleccion.nombre }}. Configurá los turnos, elegí el modo y aplicá la distribución de autoridades.</p>
+{% if eleccion.autoridades_confirmadas_en %}<p class="notice"><strong>Autoridades confirmadas.</strong> La distribución está cerrada; las vacantes aprobadas se gestionan desde el listado.</p>{% elif eleccion.estado == 'en_preparacion' or eleccion.estado == 'publicada' %}<p class="notice"><strong>Asignación provisoria.</strong> Las autoridades pueden cambiar si se modifican el padrón o las mesas. La confirmación definitiva se realizará en una etapa posterior.</p>{% endif %}
 </section>
 
 <div class="management-panel autoridades-panel">
+  {% if eleccion.autoridades_confirmadas_en %}<fieldset disabled>{% endif %}
   <section class="card management-section">
-    <div class="section-title"><div><h2>Turnos y cupos</h2><p>Definí primero los turnos de trabajo y cuántas autoridades titulares y suplentes necesita cada mesa. Reducir cupos no cambia las asignaciones hasta volver a aplicar el modo. No se puede quitar un turno mientras tenga asignaciones.</p></div><span class="tag">{{ eleccion_claustro.claustro }}</span></div>
+    <div class="section-title"><div><h2>Turnos y cupos</h2><p>Definí primero los turnos de trabajo y cuántas autoridades titulares necesita cada mesa. Reducir cupos no cambia las asignaciones hasta volver a aplicar el modo. No se puede quitar un turno mientras tenga asignaciones.</p></div><span class="tag">{{ eleccion_claustro.claustro }}</span></div>
     <form method="post">
       {% csrf_token %}
       {% for error in formulario_turnos.non_field_errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}
       <div class="field choice-field"><label for="{{ formulario_turnos.turnos.id_for_label }}">{{ formulario_turnos.turnos.label }}</label>{{ formulario_turnos.turnos }}{% for error in formulario_turnos.turnos.errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}</div>
-      {% for configuracion in configuraciones_turnos %}<div class="gestion-form-grid turno-cupos" data-turno-cupos="{{ configuracion.turno_id }}"{% if configuracion.turno_id not in turnos_configurados %} hidden{% endif %}><div class="field"><label>Titulares por mesa · {{ configuracion.turno }}</label><input class="input" type="number" min="1" name="titulares_{{ configuracion.turno_id }}" value="{{ configuracion.titulares_por_mesa }}"></div><div class="field"><label>Suplentes por mesa · {{ configuracion.turno }}</label><input class="input" type="number" min="0" name="suplentes_{{ configuracion.turno_id }}" value="{{ configuracion.suplentes_por_mesa }}"></div></div>{% endfor %}
+      {% for configuracion in configuraciones_turnos %}<div class="gestion-form-grid turno-cupos" data-turno-cupos="{{ configuracion.turno_id }}"{% if configuracion.turno_id not in turnos_configurados %} hidden{% endif %}><div class="field"><label>Máximo de titulares por mesa · {{ configuracion.turno }}</label><input class="input" type="number" min="1" name="titulares_{{ configuracion.turno_id }}" value="{{ configuracion.titulares_por_mesa }}"></div><div class="field"><label>Mínimo de titulares por mesa · {{ configuracion.turno }}</label><input class="input" type="number" min="1" name="minimo_titulares_{{ configuracion.turno_id }}" value="{{ configuracion.minimo_titulares_por_mesa }}"></div></div>{% endfor %}
       <div class="footer-actions"><button class="button secondary" name="guardar-turnos">Aplicar turnos y cupos</button></div>
     </form>
   </section>
 
   <section class="card management-section">
     <div class="section-title"><div><h2>Modo de elección</h2><p>En nómina común, revisá la distribución calculada antes de confirmarla.</p></div></div>
-    <form method="post" enctype="multipart/form-data" class="autoridades-modo-form" id="formulario-modo-autoridades" data-modo-guardado="{{ modo_guardado }}" data-nomina-cargada="{{ resumen_nomina.total|default:0 }}">{% csrf_token %}
+    <form method="post" enctype="multipart/form-data" class="autoridades-modo-form" id="formulario-modo-autoridades" data-modo-guardado="{{ modo_guardado }}" data-nomina-cargada="{{ resumen_nomina.total|default:0 }}" data-provisoria="{% if not eleccion.autoridades_confirmadas_en %}1{% endif %}">{% csrf_token %}
       <div class="field"><label for="{{ formulario_modo.modo.id_for_label }}">Modo de asignación</label>{{ formulario_modo.modo }}{% for error in formulario_modo.modo.errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}</div>
       <div class="autoridades-mode-description" id="explicacion-modo-autoridades" aria-live="polite" aria-atomic="true">
         <div class="autoridades-mode-copy" data-explicacion-modo="nomina"{% if modo_vista != 'nomina' %} hidden{% endif %}><strong>Nómina común.</strong> Cargá el archivo con las personas disponibles del claustro. Se calcula una propuesta para revisar antes de confirmar. Se conservan las asignaciones existentes y se completan las vacantes disponibles.</div>
-        <div class="autoridades-mode-copy" data-explicacion-modo="aleatorio"{% if modo_vista != 'aleatorio' %} hidden{% endif %}><strong>Sorteo aleatorio.</strong> Se busca la mayor cobertura posible, primero de titulares y después de suplentes, respetando la mesa y el horario en que cada persona asiste a la sede.<p>«Sortear todas las mesas» conserva las asignaciones válidas y completa los lugares disponibles. «Recalcular» pide confirmación y hace un sorteo desde cero, reemplazando también las selecciones manuales. Una persona puede volver a salir elegida por azar.</p></div>
+        <div class="autoridades-mode-copy" data-explicacion-modo="aleatorio"{% if modo_vista != 'aleatorio' %} hidden{% endif %}><strong>Sorteo aleatorio.</strong> Se busca la mayor cobertura posible de titulares, respetando la mesa y el horario en que cada persona asiste a la sede.<p>«Sortear todas las mesas» conserva las asignaciones válidas y completa los lugares disponibles. «Recalcular» pide confirmación y hace un sorteo desde cero, reemplazando también las selecciones manuales. Una persona puede volver a salir elegida por azar.</p></div>
         <p class="autoridades-mode-common"><strong>Reglas comunes</strong><span>No se asignan candidatos electorales ni personas con un turno incompatible con su horario de asistencia a la sede. Cada persona ocupa un solo lugar.</span></p>
         <p class="autoridades-mode-common">En todos los modos podés entrar en «Editar mesa» para agregar, cambiar o quitar autoridades.</p>
       </div>
       <div class="field" data-entrada-nomina{% if modo_vista != 'nomina' %} hidden{% endif %}><label for="{{ formulario_nomina.archivo.id_for_label }}">Archivo de nómina CSV o Excel</label>{{ formulario_nomina.archivo }}{% for error in formulario_nomina.archivo.errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}<a class="button light small" href="{% url 'descargar-plantilla-autoridades-claustro' eleccion.id eleccion_claustro.id %}?modo=nomina">Descargar plantilla de nómina</a></div>
-      <div data-opciones-nomina{% if modo_vista != 'nomina' %} hidden{% endif %}>
-        <div class="field"><label>{{ formulario_modo.reacomodar_titulares }} {{ formulario_modo.reacomodar_titulares.label }}</label><p>Permite asignar en otra mesa de la misma sede y reacomodar el padrón para que la autoridad vote en su mesa de trabajo.</p>{{ formulario_modo.reacomodar_titulares.errors }}</div>
-        <div class="field"><label>{{ formulario_modo.permitir_mesa_distinta }} {{ formulario_modo.permitir_mesa_distinta.label }}</label><p>Permite que una persona sea autoridad en otra mesa de la misma sede, sin cambiar la mesa donde vota. Se asigna en un turno disponible que no se superponga con su cursada.</p>{{ formulario_modo.permitir_mesa_distinta.errors }}</div>
-        <div class="field"><label>{{ formulario_modo.permitir_cambio_sede }} {{ formulario_modo.permitir_cambio_sede.label }}</label><p>Amplía la asignación a otra sede habilitada del mismo claustro y departamento. Requiere «Permitir cambio de mesa»; en ese caso el padrón también se reacomoda.</p>{{ formulario_modo.permitir_cambio_sede.errors }}</div>
-      </div>
       <div class="footer-actions" data-acciones-modo>
         {% if modo_vista != 'manual' %}<button type="submit" class="button primary" data-boton-aplicar name="aplicar-modo">{% if modo_vista == 'aleatorio' %}Sortear todas las mesas{% elif modo_vista == 'nomina' %}Previsualizar nómina{% endif %}</button>{% endif %}
         {% if modo_vista == 'aleatorio' %}<button type="submit" class="button secondary" data-boton-recalcular name="recalcular-distribucion" onclick="return confirm('Se eliminarán todas las asignaciones actuales, aleatorias y manuales, y se generará una distribución nueva desde cero. ¿Continuar?')">Recalcular</button>{% endif %}
       </div>
     </form>
-    {% if titulares_faltantes or suplentes_faltantes %}<p class="notice">Cobertura pendiente: {{ titulares_faltantes }} titulares y {{ suplentes_faltantes }} suplentes.</p>{% endif %}
+    {% if titulares_faltantes %}<p class="notice">Cobertura pendiente: {{ titulares_faltantes }} titulares.</p>{% endif %}
   </section>
+  {% if importaciones_nomina %}
+  <section class="card management-section">
+    <h2>Historial de archivos de nómina</h2>
+    <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Archivo</th><th>Usuario</th><th>Estado</th><th>Personas válidas</th><th>Detalle</th></tr></thead><tbody>
+      {% for importacion in importaciones_nomina %}<tr><td>{{ importacion.creada_en }}</td><td><a href="{% url 'descargar-importacion-nomina' eleccion.id eleccion_claustro.id importacion.id %}">{{ importacion.nombre_archivo }}</a></td><td>{{ importacion.usuario }}</td><td>{{ importacion.get_estado_display }}</td><td>{{ importacion.cantidad_validas }}</td><td>{{ importacion.errores|join:"; " }}</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  {% endif %}
   {% if propuesta_nomina %}
   <section class="card management-section" aria-labelledby="previsualizar-nomina-titulo">
     <div class="section-title"><div><h2 id="previsualizar-nomina-titulo">Revisar distribución propuesta</h2>
       <p>Esta propuesta todavía no se aplicó. Conserva las autoridades asignadas y completa los cupos disponibles.</p></div></div>
-    <p>Opciones propuestas: reacomodar padrón <strong>{% if propuesta_nomina.datos.mesa %}habilitado{% else %}deshabilitado{% endif %}</strong>; votar en mesa distinta <strong>{% if propuesta_nomina.datos.votar_mesa %}habilitado{% else %}deshabilitado{% endif %}</strong>; cambio de sede <strong>{% if propuesta_nomina.datos.sede %}habilitado{% else %}deshabilitado{% endif %}</strong>.</p>
-    <p>Resultado: <strong>{{ propuesta_nomina.resumen.titulares }} titulares</strong>, <strong>{{ propuesta_nomina.resumen.suplentes }} suplentes</strong> y <strong>{{ propuesta_nomina.resumen.sin_asignar }} personas sin asignar</strong>.</p>
-    <p>Faltarían {{ propuesta_nomina.resumen.titulares_faltantes }} titulares y {{ propuesta_nomina.resumen.suplentes_faltantes }} suplentes. Las mesas nuevas pueden crearse con cupos pendientes.</p>
-    {% if propuesta_nomina.resumen.cambios %}
-    <div class="table-wrap"><table><thead><tr><th>Claustro</th><th>Departamento</th><th>Sede</th><th>Mesas actuales</th><th>Mesas propuestas</th></tr></thead><tbody>
-    {% for cambio in propuesta_nomina.resumen.cambios %}<tr><td>{{ eleccion_claustro.claustro }}</td><td>{{ cambio.departamento }}</td><td>{{ cambio.sede }}</td><td>{{ cambio.antes }}</td><td>{{ cambio.despues }}{% if cambio.agregadas %}<br>Se agregan: {{ cambio.agregadas|join:", " }}{% endif %}{% if cambio.quitadas %}<br>Se quitan: {{ cambio.quitadas|join:", " }}{% endif %}</td></tr>{% endfor %}
-    </tbody></table></div>
-    {% else %}<p>No se agregan ni se quitan mesas.</p>{% endif %}
-    <details><summary>Comparar opciones de mesa distinta y cambio de sede</summary>
-      <p>Estas alternativas se calculan sin aplicar cambios y conservan las asignaciones actuales.</p>
-      <div class="table-wrap"><table><thead><tr><th>Opciones</th><th>Titulares</th><th>Suplentes</th><th>Personas sin asignar</th><th>Cupos pendientes</th></tr></thead><tbody>
-      {% for alternativa in propuesta_nomina.alternativas %}<tr><td>{{ alternativa.nombre }}</td>{% if alternativa.error %}<td colspan="4">{{ alternativa.error }}</td>{% else %}<td>{{ alternativa.titulares }}</td><td>{{ alternativa.suplentes }}</td><td>{{ alternativa.sin_asignar }}</td><td>{{ alternativa.titulares_faltantes }} titulares y {{ alternativa.suplentes_faltantes }} suplentes</td>{% endif %}</tr>{% endfor %}
+    <p>Compará los resultados y elegí una opción. Los cambios de mesas y sedes se aplican solamente al confirmar.</p>
+    <form method="post"{% if not eleccion.autoridades_confirmadas_en %} onsubmit="return confirm('Esta distribución es provisoria y puede cambiar antes de la confirmación definitiva. ¿Querés aplicarla?')"{% endif %}>{% csrf_token %}
+      <div class="table-wrap"><table class="tabla-alternativas-nomina"><colgroup><col class="alternativa-seleccion"><col class="alternativa-descripcion"><col class="alternativa-cantidad"><col class="alternativa-cantidad"><col class="alternativa-cantidad"><col class="alternativa-detalle"></colgroup><thead><tr><th scope="col">Elegir</th><th scope="col">Alternativa</th><th scope="col">Titulares</th><th scope="col">Sin asignar</th><th scope="col">Cupos pendientes</th><th scope="col">Detalle de cambios</th></tr></thead><tbody>
+      {% for alternativa in propuesta_nomina.alternativas %}<tr><td>{% if not alternativa.error %}<input type="radio" name="alternativa" value="{{ alternativa.codigo }}" required aria-label="{{ alternativa.nombre }}">{% endif %}</td><td><strong>{{ alternativa.nombre }}</strong><p>{{ alternativa.descripcion }}</p></td>{% if alternativa.error %}<td colspan="4">{{ alternativa.error }}</td>{% else %}<td>{{ alternativa.titulares }}</td><td>{{ alternativa.sin_asignar }}</td><td>{{ alternativa.titulares_faltantes }} titulares</td><td><p>{{ alternativa.autoridades_mesa_distinta }} autoridades trabajan en una mesa distinta de la de votación.</p><p>{{ alternativa.electores_cambian_mesa }} electores cambian su mesa de votación; {{ alternativa.electores_cambian_sede }} cambian su sede de votación.</p>{% for ruta in alternativa.detalle_cambios_sede %}<p>{{ ruta.cantidad }} electores cambian su sede de votación de {{ ruta.origen }} a {{ ruta.destino }}.</p>{% endfor %}{% for ruta in alternativa.detalle_sedes %}<p>{{ ruta.cantidad }} autoridades votan en {{ ruta.origen }} y trabajan en {{ ruta.destino }}.</p>{% endfor %}<details><summary>Ver detalle de mesas</summary>{% if alternativa.cambios %}{% for cambio in alternativa.cambios %}<p>{{ cambio.departamento }} · {{ cambio.sede }}: {{ cambio.antes }} → {{ cambio.despues }} mesas.{% if cambio.agregadas %} Se agregan: {{ cambio.agregadas|join:", " }}.{% endif %}{% if cambio.quitadas %} Se quitan: {{ cambio.quitadas|join:", " }}.{% endif %}</p>{% endfor %}{% else %}<p>No se agregan ni se quitan mesas.</p>{% endif %}</details></td>{% endif %}</tr>{% endfor %}
       </tbody></table></div>
-    </details>
-    <div class="footer-actions"><form method="post">{% csrf_token %}<button class="button primary" name="confirmar-nomina">Confirmar distribución</button></form><form method="post">{% csrf_token %}<button class="button light" name="cancelar-nomina">Cancelar</button></form></div>
+      <div class="footer-actions"><button class="button primary" name="confirmar-nomina">Confirmar distribución elegida</button></div>
+    </form>
+    <form method="post">{% csrf_token %}<button class="button light" name="cancelar-nomina">Cancelar</button></form>
   </section>
   {% endif %}
   {% if resumen_nomina %}
   <section class="card management-section" aria-labelledby="resumen-nomina-titulo">
     <div class="section-title"><div><h2 id="resumen-nomina-titulo">Resultado de la nómina</h2>
-      <p>Se asignaron <strong>{{ resumen_nomina.titulares }} titulares</strong> y <strong>{{ resumen_nomina.suplentes }} suplentes</strong>. Quedaron <strong>{{ resumen_nomina.sin_asignar }} personas sin asignar</strong> de {{ resumen_nomina.total }} personas de la nómina.</p>
+      <p>Se asignaron <strong>{{ resumen_nomina.titulares }} titulares</strong>. Quedaron <strong>{{ resumen_nomina.sin_asignar }} personas sin asignar</strong> de {{ resumen_nomina.total }} personas de la nómina.</p>
     </div></div>
-    <p>Quedan {{ titulares_faltantes }} cupos de titulares y {{ suplentes_faltantes }} de suplentes por cubrir.</p>
+    <p>Quedan {{ titulares_faltantes }} cupos de titulares por cubrir.</p>
     {% if resumen_nomina.escenarios %}
     <details><summary>Cómo cambiarían los resultados con otras opciones</summary>
-      <div class="table-wrap"><table><thead><tr><th>Opciones</th><th>Titulares</th><th>Suplentes</th><th>Personas sin asignar</th><th>Cupos pendientes</th></tr></thead><tbody>
-      {% for escenario in resumen_nomina.escenarios %}<tr><td>{{ escenario.nombre }}</td>{% if escenario.error %}<td colspan="4">{{ escenario.error }}</td>{% else %}<td>{{ escenario.titulares }}</td><td>{{ escenario.suplentes }}</td><td>{{ escenario.sin_asignar }}</td><td>{{ escenario.titulares_faltantes }} titulares y {{ escenario.suplentes_faltantes }} suplentes</td>{% endif %}</tr>{% endfor %}
+      <div class="table-wrap"><table><thead><tr><th>Opciones</th><th>Titulares</th><th>Personas sin asignar</th><th>Cupos pendientes</th></tr></thead><tbody>
+      {% for escenario in resumen_nomina.escenarios %}<tr><td>{{ escenario.nombre }}</td>{% if escenario.error %}<td colspan="3">{{ escenario.error }}</td>{% else %}<td>{{ escenario.titulares }}</td><td>{{ escenario.sin_asignar }}</td><td>{{ escenario.titulares_faltantes }} titulares</td>{% endif %}</tr>{% endfor %}
       </tbody></table></div>
       <p>La comparación no aplica cambios. Respeta departamentos, horarios, exclusiones y cupos.</p>
     </details>
@@ -81,6 +79,7 @@
   </section>
   {% endif %}
 
+  {% if eleccion.autoridades_confirmadas_en %}</fieldset>{% endif %}
   <section class="card management-section" id="asignaciones">
     <div class="section-title">
       <div>
@@ -95,7 +94,7 @@
     </form>
     <div class="table-wrap">
       <table class="mesas-asignaciones-tabla">
-        <thead><tr><th scope="col">Mesa</th><th scope="col">Departamento</th><th scope="col">Sede</th><th scope="col">Turno</th><th scope="col">Titulares</th><th scope="col">Suplentes</th><th scope="col">Autoridades</th></tr></thead>
+        <thead><tr><th scope="col">Mesa</th><th scope="col">Departamento</th><th scope="col">Sede</th><th scope="col">Turno</th><th scope="col">Titulares</th><th scope="col">Autoridades</th></tr></thead>
       {% for mesa in pagina_mesas %}
       <tbody class="mesa-grupo">
       {% for fila in mesa.cobertura_pagina %}
@@ -106,23 +105,22 @@
         <td rowspan="{{ mesa.cobertura_pagina|length }}">{{ mesa.sede|default:"Sin sede" }}</td>
         {% endif %}
         <td>{{ fila.turno }}</td>
-        <td class="mesa-cupo cupo-{% if fila.titulares < fila.maximo_titulares %}pendiente{% elif fila.titulares > fila.maximo_titulares %}excedido{% else %}completo{% endif %}" title="{{ fila.titulares }} de {{ fila.maximo_titulares }} titulares{% if fila.titulares > fila.maximo_titulares %}; excede el cupo{% endif %}">{{ fila.titulares }} de {{ fila.maximo_titulares }}</td>
-        <td class="mesa-cupo cupo-{% if fila.suplentes_faltantes %}pendiente{% elif fila.suplentes > fila.maximo_suplentes %}excedido{% else %}completo{% endif %}" title="{{ fila.suplentes }} de {{ fila.maximo_suplentes }} suplentes{% if fila.suplentes > fila.maximo_suplentes %}; excede el cupo{% endif %}">{{ fila.suplentes }} de {{ fila.maximo_suplentes }}</td>
+        <td class="mesa-cupo cupo-{% if fila.titulares < fila.maximo_titulares %}pendiente{% elif fila.titulares > fila.maximo_titulares %}excedido{% else %}completo{% endif %}" title="{{ fila.titulares }} de {{ fila.maximo_titulares }} titulares{% if fila.titulares > fila.maximo_titulares %}; excede el cupo{% endif %}">{{ fila.titulares }} de {{ fila.maximo_titulares }}{% if fila.titulares < fila.minimo_titulares %}<br><small>Mínimo pendiente: {{ fila.minimo_titulares }}</small>{% endif %}</td>
         {% if forloop.first %}<td rowspan="{{ mesa.cobertura_pagina|length }}"><div class="mesa-resumen-acciones"><span>{{ mesa.autoridades_pagina|length }} autoridades</span><button type="button" class="button light small" data-detalle-mesa="detalle-mesa-{{ mesa.pk }}" aria-controls="detalle-mesa-{{ mesa.pk }}" aria-expanded="false">Ver autoridades</button></div></td>{% endif %}
       </tr>
       {% empty %}
-      <tr class="mesa-fila-resumen" data-mesa="{{ mesa.pk }}"><th scope="rowgroup">{{ mesa.codigo }}</th><td>{{ mesa.eleccion_claustro_departamento.departamento|default:"Sin distinción por departamento" }}</td><td>{{ mesa.sede|default:"Sin sede" }}</td><td>Sin turnos configurados</td><td>—</td><td>—</td><td><button type="button" class="button light small" data-detalle-mesa="detalle-mesa-{{ mesa.pk }}" aria-controls="detalle-mesa-{{ mesa.pk }}" aria-expanded="false">Ver autoridades</button></td></tr>
+      <tr class="mesa-fila-resumen" data-mesa="{{ mesa.pk }}"><th scope="rowgroup">{{ mesa.codigo }}</th><td>{{ mesa.eleccion_claustro_departamento.departamento|default:"Sin distinción por departamento" }}</td><td>{{ mesa.sede|default:"Sin sede" }}</td><td>Sin turnos configurados</td><td>—</td><td><button type="button" class="button light small" data-detalle-mesa="detalle-mesa-{{ mesa.pk }}" aria-controls="detalle-mesa-{{ mesa.pk }}" aria-expanded="false">Ver autoridades</button></td></tr>
       {% endfor %}
       <tr class="mesa-fila-detalle" id="detalle-mesa-{{ mesa.pk }}" hidden>
-        <td colspan="7"><div class="mesa-detalle">
-          <div class="mesa-detalle-acciones"><strong>Autoridades de {{ mesa.codigo }}</strong><a class="button light small" href="{% url 'seleccionar-autoridades-mesa' eleccion.id eleccion_claustro.id mesa.id %}">Editar mesa</a></div>
+        <td colspan="6"><div class="mesa-detalle">
+          <div class="mesa-detalle-acciones"><strong>Autoridades de {{ mesa.codigo }}</strong>{% if not eleccion.autoridades_confirmadas_en %}<a class="button light small" href="{% url 'seleccionar-autoridades-mesa' eleccion.id eleccion_claustro.id mesa.id %}">Editar mesa</a>{% endif %}</div>
           {% if mesa.autoridades_pagina %}
           <div class="table-wrap"><table class="mesa-autoridades-tabla"><thead><tr><th>Persona</th><th>Turno</th><th>Función</th><th>Estado</th></tr></thead><tbody>
             {% for autoridad in mesa.autoridades_pagina %}<tr>
               <td>{{ autoridad.registro_padron.elector.nombre_completo }}</td>
               <td>{{ autoridad.turno }}</td>
-              <td>{{ autoridad.get_tipo_display }}{% if autoridad.orden_suplencia %} {{ autoridad.orden_suplencia }}{% endif %}</td>
-              <td>{{ autoridad.get_estado_display }}{% if autoridad.reemplazo_confirmado_en %}<small class="reemplazo-detalle">Reemplazo confirmado por {{ autoridad.reemplazo_confirmado_por }} el {{ autoridad.reemplazo_confirmado_en|date:"d/m/Y H:i" }}{% if autoridad.reemplazada_por %}: {{ autoridad.reemplazada_por.registro_padron.elector.nombre_completo }}{% else %}: sin suplente disponible{% endif %}</small>{% elif autoridad.estado == 'rechazada' %}<form method="post" action="{% url 'confirmar-reemplazo-autoridad' autoridad.id %}">{% csrf_token %}<button class="button primary small" onclick="return confirm('Se promoverá al primer suplente disponible de esta mesa y turno. ¿Confirmar?')">Confirmar reemplazo</button></form>{% endif %}</td>
+              <td>{{ autoridad.get_tipo_display }}</td>
+              <td>{{ autoridad.get_estado_display }}{% if autoridad.retorno_votacion_pendiente %}<small> · Regreso a la mesa electoral anterior pendiente de revisión.</small> <a href="{% url 'revisar-retorno-votacion' autoridad.id %}">Revisar movimientos</a>{% endif %}{% if autoridad.ausencia_aprobada %}{% if autoridad.candidatos_vacante %}<form method="post" action="{% url 'confirmar-traslado-vacante' autoridad.id %}">{% csrf_token %}<label>Propuesta para cubrir la vacante<select name="candidato_id" required><option value="">Elegí una autoridad</option>{% for candidata in autoridad.candidatos_vacante %}<option value="{{ candidata.id }}">{{ candidata.registro_padron.elector.nombre_completo }} · mesa {{ candidata.mesa.codigo }} ({{ candidata.titulares_origen }} titulares)</option>{% endfor %}</select></label><button class="button primary small" onclick="return confirm('La autoridad trabajará en esta mesa, conservará su mesa de votación y recibirá una notificación. ¿Confirmar?')">Confirmar traslado</button></form>{% else %}<small>Sin propuesta compatible: la vacante sigue pendiente.</small>{% endif %}{% endif %}</td>
             </tr>{% endfor %}
           </tbody></table></div>
           {% else %}<p class="muted">Sin autoridades asignadas.</p>{% endif %}
@@ -138,11 +136,11 @@
 
 <div class="section-actions">
   <a class="button light" href="{% url 'gestionar-autoridades' eleccion.id %}">Volver a autoridades</a>
-  <form method="post" onsubmit="if (!confirm('Se eliminarán todas las asignaciones de autoridades de este claustro, incluidas las manuales. Las mesas quedarán sin autoridades hasta que vuelvas a asignarlas. ¿Continuar?')) return false; this.elements['confirmar-eliminacion'].value = '1';">
+  {% if not eleccion.autoridades_confirmadas_en %}<form method="post" onsubmit="if (!confirm('Se eliminarán todas las asignaciones de autoridades de este claustro, incluidas las manuales. Las mesas quedarán sin autoridades hasta que vuelvas a asignarlas. ¿Continuar?')) return false; this.elements['confirmar-eliminacion'].value = '1';">
     {% csrf_token %}
     <input type="hidden" name="confirmar-eliminacion" value="">
     <button type="submit" class="button danger" name="eliminar-asignaciones" value="1">Eliminar todas las asignaciones</button>
-  </form>
+  </form>{% endif %}
 </div>
 {% endblock %}
-{% block scripts %}<script type="module" src="{% static 'js/explicacion-modo-autoridades.js' %}?v=20261028.1"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/explicacion-modo-autoridades.js' %}?v=20261103.1"></script>{% endblock %}

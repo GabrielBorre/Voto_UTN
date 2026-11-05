@@ -156,7 +156,9 @@ class SolicitudCambioSede(models.Model):
     def clean(self):
         if self.sede_origen_id == self.sede_destino_id:
             raise ValidationError({"sede_destino": "La sede solicitada debe ser distinta de la sede actual."})
-        if self.registro_padron_id and self.sede_origen_id and self.registro_padron.sede_id != self.sede_origen_id:
+        asignacion = getattr(self.registro_padron, "asignacion_sede_padron", None) if self.registro_padron_id else None
+        sede_actual_id = asignacion.sede_id if asignacion and asignacion.sede_id else (self.registro_padron.sede_id if self.registro_padron_id else None)
+        if self.registro_padron_id and self.sede_origen_id and sede_actual_id != self.sede_origen_id:
             raise ValidationError({"sede_origen": "La sede de origen debe coincidir con la sede actual del padrón."})
         if self.registro_padron_id and self.sede_destino_id:
             alcance = self.registro_padron.eleccion_claustro_departamento

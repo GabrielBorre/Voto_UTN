@@ -159,11 +159,13 @@ class JustificativosViewsTests(TestCase):
         self.assertEqual(JustificativoAusencia.objects.filter(registro_padron=registro_reciente).count(), 1)
 
     def test_autoridad_puede_presentar_un_justificativo_por_tipo_de_ausencia(self):
+        from django.utils import timezone
         from apps.autoridades.models import AsignacionAutoridad
         from apps.mesas.models import Mesa
         from apps.parametros.models import Sede, Turno
 
         usuario, _, registro = self.crear_elector_con_padrones()
+        Eleccion.objects.filter(pk=registro.eleccion_id).update(autoridades_confirmadas_en=timezone.now(), fecha_limite_justificacion_autoridades=timezone.localdate() + timedelta(days=1))
         tipo = TipoJustificativo.objects.create(nombre="Enfermedad")
         sede = Sede.objects.create(nombre="Central")
         turno = Turno.objects.create(nombre="Mañana", hora_inicio="08:00", hora_fin="12:00")
@@ -183,7 +185,7 @@ class JustificativosViewsTests(TestCase):
 
         self.assertEqual(JustificativoAusencia.objects.filter(registro_padron=registro).count(), 2)
 
-    def test_autoridad_puede_presentar_justificativo_en_eleccion_en_curso(self):
+    def test_autoridad_no_puede_presentar_justificativo_en_eleccion_en_curso(self):
         from apps.autoridades.models import AsignacionAutoridad
         from apps.mesas.models import Mesa
         from apps.parametros.models import Sede, Turno
@@ -208,8 +210,8 @@ class JustificativosViewsTests(TestCase):
             {"ausencia": "autoridad", "tipo": tipo.id, "detalle": "No puede asistir."},
         )
 
-        self.assertRedirects(respuesta, reverse("mis-justificativos"))
-        self.assertTrue(
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertFalse(
             JustificativoAusencia.objects.filter(
                 registro_padron=registro,
                 ausencia=JustificativoAusencia.Ausencia.AUTORIDAD,

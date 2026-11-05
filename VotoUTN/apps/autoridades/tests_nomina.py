@@ -1,21 +1,35 @@
 from unittest.mock import patch
+from tempfile import TemporaryDirectory
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.autoridades import tests as base
-from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad, ConfiguracionAutoridades
+from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad, ConfiguracionAutoridades, ImportacionNominaAutoridades
 from apps.autoridades.seleccion_manual import asignar_manualmente
 
 
 class NominaAutomaticaTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.directorio_archivos = TemporaryDirectory()
+        cls.configuracion_archivos = override_settings(MEDIA_ROOT=cls.directorio_archivos.name)
+        cls.configuracion_archivos.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.configuracion_archivos.disable()
+        cls.directorio_archivos.cleanup()
+        super().tearDownClass()
+
     def setUp(self):
         base.TurnosAutoridadesTests.setUp(self)
         self.opciones = ConfiguracionAutoridades.objects.create(eleccion_claustro=self.eleccion_claustro, modo="aleatorio")
-        self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=1, suplentes_por_mesa=1)
+        self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=2, suplentes_por_mesa=0)
         self.ruta = reverse("gestionar-autoridades-claustro", args=(self.eleccion.pk, self.eleccion_claustro.pk))
         self.client.force_login(self.usuario)
 
@@ -31,12 +45,47 @@ class NominaAutomaticaTests(TestCase):
         respuesta = self.cargar()
         self.assertEqual(respuesta.status_code, 200)
         resumen = respuesta.context["resumen_nomina"]
-        self.assertEqual((resumen["titulares"], resumen["suplentes"], resumen["sin_asignar"]), (1, 1, 1))
+        self.assertEqual((resumen["titulares"], resumen["suplentes"], resumen["sin_asignar"]), (2, 0, 1))
         self.assertEqual(resumen["total"], 3)
-        self.assertEqual(len(resumen["escenarios"]), 4)
-        self.assertContains(respuesta, "Se asignaron 1 titulares y 1 suplentes; 1 personas quedaron sin asignar.")
+        self.assertEqual(len(resumen["escenarios"]), 5)
+        self.assertContains(respuesta, "Se asignaron 2 titulares; 1 personas quedaron sin asignar.")
         self.assertNotContains(respuesta, "Agregar elector manualmente")
         self.assertNotContains(respuesta, "Aplicar nómina común")
+        importacion = ImportacionNominaAutoridades.objects.get()
+        self.assertEqual(importacion.estado, "confirmada")
+        self.assertEqual(importacion.cantidad_validas, 3)
+        self.assertIsNotNone(importacion.confirmada_en)
+        self.assertContains(respuesta, "Historial de archivos de nómina")
+        descarga = self.client.get(reverse("descargar-importacion-nomina", args=(self.eleccion.pk, self.eleccion_claustro.pk, importacion.pk)))
+        self.assertEqual(descarga.status_code, 200)
+        self.assertIn(b"Documento", b"".join(descarga.streaming_content))
+
+    def test_archivo_invalido_queda_registrado_con_error(self):
+        respuesta = self.cargar(["00000000"], confirmar=False)
+        importacion = ImportacionNominaAutoridades.objects.get()
+        self.assertEqual(importacion.estado, "rechazada")
+        self.assertTrue(importacion.errores)
+        self.assertContains(respuesta, "Historial de archivos de nómina")
+
+    def test_importacion_acepta_csv_con_punto_y_coma(self):
+        archivo = SimpleUploadedFile("nomina.csv", (
+            "Tipo documento;Documento;Legajo\nDNI;" + self.registros[0].elector.dni + ";" + self.registros[0].elector.legajo + "\n"
+        ).encode())
+        respuesta = self.client.post(self.ruta, {"aplicar-modo": "1", "modo": "nomina", "archivo": archivo}, follow=True)
+        self.assertContains(respuesta, "Revisar distribución propuesta")
+        self.assertEqual(ImportacionNominaAutoridades.objects.get().cantidad_validas, 1)
+
+    def test_historial_conserva_cancelacion_y_restringe_descarga(self):
+        from django.contrib.auth import get_user_model
+        self.cargar(confirmar=False)
+        importacion = ImportacionNominaAutoridades.objects.get()
+        self.client.post(self.ruta, {"cancelar-nomina": "1"})
+        importacion.refresh_from_db()
+        self.assertEqual(importacion.estado, "cancelada")
+        intruso = get_user_model().objects.create_user(username="sin_permiso_archivo")
+        self.client.force_login(intruso)
+        url = reverse("descargar-importacion-nomina", args=(self.eleccion.pk, self.eleccion_claustro.pk, importacion.pk))
+        self.assertEqual(self.client.get(url).status_code, 403)
 
     def test_importar_nomina_conserva_asignacion_manual_y_completa_vacantes(self):
         from django.contrib.auth import get_user_model
@@ -50,13 +99,13 @@ class NominaAutomaticaTests(TestCase):
         anterior.refresh_from_db()
         self.assertEqual((anterior.mesa_id, anterior.turno_id, anterior.tipo), (self.mesa.pk, self.manana.pk, "titular"))
         self.assertTrue(AsignacionRol.objects.filter(pk=rol_id, activo=True).exists())
-        self.assertEqual(AsignacionAutoridad.objects.filter(tipo="suplente").count(), 1)
+        self.assertEqual(AsignacionAutoridad.objects.filter(tipo="titular").count(), 2)
 
     def test_previsualizar_no_guarda_y_cancelar_no_modifica(self):
         respuesta = self.cargar(confirmar=False)
         self.assertContains(respuesta, "Revisar distribución propuesta")
-        self.assertEqual(len(respuesta.context["propuesta_nomina"]["alternativas"]), 4)
-        self.assertIn("Votar en mesa distinta", {fila["nombre"] for fila in respuesta.context["propuesta_nomina"]["alternativas"]})
+        self.assertEqual(len(respuesta.context["propuesta_nomina"]["alternativas"]), 5)
+        self.assertIn("mesa_distinta", {fila["codigo"] for fila in respuesta.context["propuesta_nomina"]["alternativas"]})
         self.assertFalse(CandidaturaAutoridad.objects.exists())
         self.assertFalse(AsignacionAutoridad.objects.exists())
         self.opciones.refresh_from_db()
@@ -64,6 +113,24 @@ class NominaAutomaticaTests(TestCase):
         self.client.post(self.ruta, {"cancelar-nomina": "1"})
         self.assertFalse(CandidaturaAutoridad.objects.exists())
         self.assertNotContains(self.client.get(self.ruta), "Revisar distribución propuesta")
+
+    def test_elegir_alternativa_de_la_tabla_aplica_opciones_calculadas(self):
+        respuesta = self.cargar(confirmar=False)
+        self.assertContains(respuesta, 'name="alternativa"')
+        self.assertNotContains(respuesta, 'name="reacomodar_titulares"')
+        self.assertFalse(AsignacionAutoridad.objects.exists())
+        respuesta = self.client.post(self.ruta, {"confirmar-nomina": "1", "alternativa": "mesa_distinta"}, follow=True)
+        self.assertContains(respuesta, "Se asignaron")
+        self.opciones.refresh_from_db()
+        self.assertTrue(self.opciones.permitir_mesa_distinta)
+        self.assertFalse(self.opciones.reacomodar_titulares)
+        self.assertEqual(ImportacionNominaAutoridades.objects.get().estado, "confirmada")
+
+    def test_no_acepta_alternativa_ajena_a_la_previsualizacion(self):
+        self.cargar(confirmar=False)
+        respuesta = self.client.post(self.ruta, {"confirmar-nomina": "1", "alternativa": "inventada"}, follow=True)
+        self.assertContains(respuesta, "Elegí una alternativa disponible")
+        self.assertFalse(AsignacionAutoridad.objects.exists())
 
     def test_acciones_anteriores_de_nomina_no_eluden_la_revision(self):
         self.opciones.modo = "nomina"
@@ -87,10 +154,17 @@ class NominaAutomaticaTests(TestCase):
 
     def test_datos_cambiados_invalidan_previsualizacion(self):
         self.cargar(confirmar=False)
-        self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=2)
+        self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=3)
         respuesta = self.client.post(self.ruta, {"confirmar-nomina": "1"}, follow=True)
         self.assertContains(respuesta, "Los datos cambiaron desde la previsualización")
         self.assertFalse(CandidaturaAutoridad.objects.exists())
+        self.assertFalse(AsignacionAutoridad.objects.exists())
+
+    def test_cambio_de_minimo_invalida_previsualizacion(self):
+        self.cargar(confirmar=False)
+        self.eleccion_claustro.turnos_autoridad.update(minimo_titulares_por_mesa=2)
+        respuesta = self.client.post(self.ruta, {"confirmar-nomina": "1"}, follow=True)
+        self.assertContains(respuesta, "Los datos cambiaron desde la previsualización")
         self.assertFalse(AsignacionAutoridad.objects.exists())
 
     def test_edicion_manual_descarta_previsualizacion_anterior(self):
@@ -129,6 +203,30 @@ class NominaAutomaticaTests(TestCase):
         self.assertFalse(AsignacionAutoridad.objects.exists())
         self.assertFalse(CandidaturaAutoridad.objects.exists())
 
+    def test_traslado_compatible_no_reordena_otros_electores(self):
+        from apps.mesas.models import AsignacionMesa, Mesa
+        destino = Mesa.objects.create(eleccion=self.eleccion, numero=2, sede=self.sede,
+                                      eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento)
+        self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=1, suplentes_por_mesa=0)
+        antes = dict(AsignacionMesa.objects.values_list("registro_padron_id", "mesa_id"))
+        respuesta = self.cargar([r.elector.dni for r in self.registros[:2]], permitir_cambio_sede="on")
+        self.assertContains(respuesta, "Se asignaron 2 titulares")
+        trasladada = AsignacionAutoridad.objects.get(mesa=destino).registro_padron
+        self.assertEqual(trasladada.asignacion_mesa.mesa_id, destino.pk)
+        self.assertEqual(trasladada.asignacion_sede_padron.sede_id, destino.sede_id)
+        despues = dict(AsignacionMesa.objects.values_list("registro_padron_id", "mesa_id"))
+        self.assertEqual({pk for pk in antes if antes[pk] != despues[pk]}, {trasladada.pk})
+
+    def test_traslado_sin_reordenar_rechaza_mesa_fuera_de_orden(self):
+        from apps.autoridades.reordenamiento_padron import traslado_sin_reordenar
+        from apps.mesas.models import AsignacionMesa, Mesa
+        primera = Mesa.objects.create(eleccion=self.eleccion, numero=2, sede=self.sede,
+                                     eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento)
+        ultima = Mesa.objects.create(eleccion=self.eleccion, numero=3, sede=self.sede,
+                                    eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento)
+        AsignacionMesa.objects.filter(registro_padron=self.registros[1]).update(mesa=primera)
+        self.assertFalse(traslado_sin_reordenar(self.registros[0], ultima))
+
     def test_previsualiza_y_crea_mesa_aunque_queden_titulares_pendientes(self):
         from apps.mesas.models import AsignacionMesa, Mesa
         from apps.padron.models import AsignacionSedePadron, Elector, RegistroPadron
@@ -153,21 +251,22 @@ class NominaAutomaticaTests(TestCase):
         antes = list(AsignacionMesa.objects.order_by("registro_padron_id").values_list("registro_padron_id", "mesa_id"))
         respuesta = self.cargar(
             [self.registros[0].elector.dni, self.registros[1].elector.dni], confirmar=False,
-            permitir_cambio_sede="on", reacomodar_titulares="on",
         )
         self.assertContains(respuesta, "Revisar distribución propuesta")
         propuesta = respuesta.context["propuesta_nomina"]["resumen"]
-        alternativas = {a["nombre"]: a for a in respuesta.context["propuesta_nomina"]["alternativas"]}
-        self.assertEqual(alternativas["Solo su mesa"]["titulares"], 1)
-        self.assertEqual(alternativas["Permitir cambio de mesa"]["titulares"], 1)
-        self.assertEqual(alternativas["Permitir cambio de mesa y sede"]["titulares"], 2)
+        alternativas = {a["codigo"]: a for a in respuesta.context["propuesta_nomina"]["alternativas"]}
+        self.assertEqual(alternativas["mesa_actual"]["titulares"], 1)
+        self.assertEqual(alternativas["cambio_mesa"]["titulares"], 1)
+        self.assertEqual(alternativas["sede_reacomodo"]["titulares"], 2)
+        self.assertGreater(alternativas["sede_reacomodo"]["electores_cambian_sede"], 0)
+        self.assertTrue(alternativas["sede_reacomodo"]["detalle_cambios_sede"])
         self.assertEqual(propuesta["titulares_faltantes"], 1)
-        self.assertTrue(any(c["antes"] == 1 and c["despues"] == 2 for c in propuesta["cambios"]))
+        self.assertTrue(any(c["antes"] == 1 and c["despues"] == 2 for c in alternativas["sede_reacomodo"]["cambios"]))
         self.assertEqual(Mesa.objects.filter(eleccion=self.eleccion).count(), 2)
         self.assertEqual(list(AsignacionMesa.objects.order_by("registro_padron_id").values_list("registro_padron_id", "mesa_id")), antes)
         from apps.auditoria.models import EventoAuditoria
         self.assertFalse(EventoAuditoria.objects.filter(accion="autoridades.padron_reordenado").exists())
-        respuesta = self.client.post(self.ruta, {"confirmar-nomina": "1"}, follow=True)
+        respuesta = self.client.post(self.ruta, {"confirmar-nomina": "1", "alternativa": "sede_reacomodo"}, follow=True)
         self.assertContains(respuesta, "Se asignaron 2 titulares")
         self.assertTrue(EventoAuditoria.objects.filter(accion="autoridades.padron_reordenado").exists())
         self.assertEqual(Mesa.objects.filter(eleccion=self.eleccion).count(), 3)
@@ -207,7 +306,7 @@ class NominaAutomaticaTests(TestCase):
         self.assertEqual(AsignacionMesa.objects.count(), 3)
         self.assertTrue(all(m.asignaciones_padron.count() <= 2 for m in (self.mesa, otra)))
 
-    def test_reordenar_conserva_el_suplente_y_su_mesa_de_votacion(self):
+    def test_reordenar_conserva_los_titulares_ya_asignados(self):
         from apps.mesas.models import AsignacionMesa, Mesa
         self.eleccion_claustro.maximo_votantes_por_mesa = 2
         self.eleccion_claustro.save(update_fields=("maximo_votantes_por_mesa",))
@@ -215,13 +314,13 @@ class NominaAutomaticaTests(TestCase):
                                    eleccion_claustro_departamento=self.mesa.eleccion_claustro_departamento,
                                    generada_automaticamente=True)
         titular = asignar_manualmente(self.mesa, self.manana, self.registros[0], self.usuario, tipo="titular")
-        suplente = asignar_manualmente(self.mesa, self.manana, self.registros[1], self.usuario, tipo="suplente")
+        segundo_titular = asignar_manualmente(self.mesa, self.manana, self.registros[1], self.usuario, tipo="titular")
         respuesta = self.cargar([self.registros[2].elector.dni], reacomodar_titulares="on")
-        self.assertContains(respuesta, "Se asignaron 2 titulares")
+        self.assertContains(respuesta, "Se asignaron 3 titulares")
         titular.refresh_from_db()
-        suplente.refresh_from_db()
+        segundo_titular.refresh_from_db()
         self.assertEqual(titular.mesa_id, self.mesa.pk)
-        self.assertEqual(suplente.mesa_id, self.mesa.pk)
+        self.assertEqual(segundo_titular.mesa_id, self.mesa.pk)
         self.assertEqual(AsignacionMesa.objects.get(registro_padron=self.registros[1]).mesa_id, self.mesa.pk)
         self.assertEqual(AsignacionAutoridad.objects.filter(mesa=otra, tipo="titular").count(), 1)
 
@@ -237,11 +336,12 @@ class NominaAutomaticaTests(TestCase):
         self.assertEqual(self.opciones.modo, "aleatorio")
 
     def test_aumentar_cupos_previsualiza_y_conserva_designaciones(self):
+        self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=1)
         self.cargar()
         anteriores = set(AsignacionAutoridad.objects.values_list("pk", "registro_padron_id", "mesa_id", "turno_id", "tipo"))
         respuesta = self.client.post(self.ruta, {
             "guardar-turnos": "1", "configuracion-turnos": [self.manana.pk],
-            f"titulares_{self.manana.pk}": "2", f"suplentes_{self.manana.pk}": "1",
+            f"titulares_{self.manana.pk}": "2",
         }, follow=True)
         self.assertContains(respuesta, "Revisar distribución propuesta")
         self.assertEqual(set(AsignacionAutoridad.objects.values_list("pk", "registro_padron_id", "mesa_id", "turno_id", "tipo")), anteriores)

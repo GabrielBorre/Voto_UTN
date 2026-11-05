@@ -2,6 +2,14 @@
 
 Este documento registra cambios aplicados al proyecto. Describe los archivos y el efecto de cada cambio; no reemplaza el historial de Git ni las migraciones de Django.
 
+## Importación y cobertura de autoridades
+
+- `apps/autoridades`: historial de archivos de nómina, estados y errores, CSV con coma o punto y coma y migración aditiva `0010`.
+- `apps/autoridades` y su plantilla: cambio de sede sin reordenar cuando la mesa destino respeta capacidad y orden alfabético, con auditoría.
+- `apps/justificativos` y `apps/autoridades`: la aprobación de una ausencia deja la vacante; la Junta puede confirmar una propuesta de traslado de otra mesa compatible sin cambiar la votación y se notifica a la persona trasladada.
+- Las migraciones `autoridades.0012` y `elecciones.0031` eliminan las suplencias de mesa existentes y bloquean nuevos cupos o designaciones de suplentes, sin modificar candidaturas electorales.
+- `apps/autoridades` y su plantilla: selección de la alternativa directamente desde la comparación, con detalle por opción y confirmación de la propuesta previamente calculada.
+
 ## Nitidez del padrón imprimible
 
 - Troqueles con fondo blanco, sin sombreado gris.
@@ -1161,3 +1169,16 @@ formularios, distribución, previsualización, plantilla, JavaScript, documentac
 y pruebas. Archivos principales: `VotoUTN/apps/autoridades/migrations/0009_nomina_mesa_distinta_sin_planilla.py`,
 `VotoUTN/apps/autoridades/{models,forms,distribucion,nomina,views}.py` y
 `VotoUTN/templates/autoridades/gestion_claustro.html`.
+# Autoridades: mínimo por turno y justificativos pendientes
+
+- Se añade revisión firmada de los recálculos manuales y de las aprobaciones de cambios de sede, con movimientos, mesas creadas o quitadas y autoridades provisorias afectadas. Las propuestas vencen o se rechazan si cambia el padrón. Tras importar un padrón, el recálculo automático informa las designaciones que quedan vacantes.
+- El inicio comprueba el mínimo de titulares por mesa y turno. Se agrega restitución de mesa anterior sin desplazar electores y una propuesta confirmable cuando es necesario reordenar; los casos sin una partición segura requieren revisión.
+
+- Se habilita la gestión provisoria de autoridades en Publicada. La confirmación definitiva exige cierre y resolución de cambios de sede, registra el plazo de justificación y las convocatorias, y bloquea la edición general. Los traslados por ausencias aprobadas requieren confirmación previa.
+- Las solicitudes de cambio de sede utilizan la sede electoral asignada y preservan la sede de cursada. El comando `generar_solicitudes_prueba` permite simular y crear un lote concentrado para probar cambios de mesas.
+
+- La nómina y el sorteo priorizan la cobertura mínima configurada por turno antes de distribuir cupos adicionales. La previsualización se invalida si cambia ese mínimo.
+
+- Se agrega el mínimo de titulares por mesa y turno, con valor inicial 1 para configuraciones existentes. El formulario exige que no supere el máximo y las propuestas de traslado conservan ese mínimo en la mesa de origen.
+- La elección no pasa a En curso con justificativos de autoridad pendientes. La presentación de nuevos justificativos de autoridad queda limitada al estado Publicada; los justificativos de ausencia a votar conservan su flujo.
+- La migración `elecciones.0032` incorpora el mínimo sin modificar asignaciones ni mesas existentes.

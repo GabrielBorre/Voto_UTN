@@ -6,6 +6,28 @@ from apps.padron.models import RegistroPadron
 from apps.parametros.models import Sede, Turno
 
 
+class ImportacionNominaAutoridades(models.Model):
+    class Estado(models.TextChoices):
+        PREVISUALIZADA = "previsualizada", "Previsualizada"
+        CONFIRMADA = "confirmada", "Confirmada"
+        RECHAZADA = "rechazada", "Rechazada"
+        CANCELADA = "cancelada", "Cancelada"
+
+    eleccion_claustro = models.ForeignKey("elecciones.EleccionClaustro", on_delete=models.PROTECT, related_name="importaciones_autoridades")
+    archivo = models.FileField(upload_to="autoridades/nominas/%Y/%m/%d")
+    nombre_archivo = models.CharField(max_length=255)
+    huella_archivo = models.CharField(max_length=64)
+    estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.PREVISUALIZADA)
+    cantidad_validas = models.PositiveIntegerField(default=0)
+    errores = models.JSONField(default=list, blank=True)
+    usuario = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="importaciones_autoridades")
+    creada_en = models.DateTimeField(auto_now_add=True)
+    confirmada_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-creada_en", "-pk")
+
+
 class ConfiguracionAutoridades(models.Model):
     class Modo(models.TextChoices):
         NOMINA = "nomina", "Nómina común"
@@ -25,7 +47,7 @@ class CandidaturaAutoridad(models.Model):
     excluida = models.BooleanField(default=False)
     mesa_manual = models.ForeignKey(Mesa, on_delete=models.SET_NULL, null=True, blank=True, related_name="selecciones_autoridad")
     turno_manual = models.ForeignKey(Turno, on_delete=models.PROTECT, null=True, blank=True)
-    tipo_manual = models.CharField(max_length=12, choices=(("titular", "Titular"), ("suplente", "Suplente")), blank=True)
+    tipo_manual = models.CharField(max_length=12, choices=(("titular", "Titular"),), blank=True)
     orden_manual = models.PositiveSmallIntegerField(null=True, blank=True)
     mesa_traslado = models.ForeignKey(Mesa, on_delete=models.SET_NULL, null=True, blank=True, related_name="traslados_autoridad")
     turno_traslado = models.ForeignKey(Turno, on_delete=models.PROTECT, null=True, blank=True, related_name="traslados_autoridad")
@@ -45,11 +67,13 @@ class AsignacionAutoridad(models.Model):
 
     class Tipo(models.TextChoices):
         TITULAR = "titular", "Titular"
-        SUPLENTE = "suplente", "Suplente"
 
     registro_padron = models.OneToOneField(RegistroPadron, on_delete=models.PROTECT, related_name="asignacion_autoridad")
     candidatura = models.OneToOneField(CandidaturaAutoridad, on_delete=models.PROTECT, related_name="asignacion", null=True, blank=True)
     mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name="autoridades")
+    mesa_votacion_original = models.ForeignKey(
+        Mesa, on_delete=models.SET_NULL, related_name="autoridades_origen_votacion", null=True, blank=True,
+    )
     turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="asignaciones_autoridad")
     tipo = models.CharField(max_length=12, choices=Tipo.choices, default=Tipo.TITULAR)
     orden_suplencia = models.PositiveSmallIntegerField(null=True, blank=True)
@@ -63,8 +87,11 @@ class AsignacionAutoridad(models.Model):
 
     class Meta:
         db_table = "elecciones_asignacionautoridad"
+        constraints = [models.CheckConstraint(condition=models.Q(tipo="titular"), name="autoridad_solo_titular")]
 
     def clean(self):
+        if self.tipo != self.Tipo.TITULAR:
+            raise ValidationError({"tipo": "Solo se admiten autoridades titulares."})
         if self.registro_padron_id and self.mesa_id:
             if self.candidatura_id and self.candidatura.registro_padron_id != self.registro_padron_id:
                 raise ValidationError({"candidatura": "Debe corresponder al mismo elector del padron."})

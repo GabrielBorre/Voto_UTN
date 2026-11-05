@@ -432,7 +432,8 @@ class CicloDeVidaEleccionTests(TestCase):
         self.turno = turno
 
     def test_solo_abre_con_mesas_y_cerrar_la_deshabilita(self):
-        RegistroPadron.objects.create(
+        from django.utils import timezone
+        registro = RegistroPadron.objects.create(
             elector=Elector.objects.create(dni="40180001", legajo="40180001", nombre="Elector ciclo"),
             eleccion=self.eleccion, eleccion_claustro_departamento=self.configuracion,
         )
@@ -440,7 +441,13 @@ class CicloDeVidaEleccionTests(TestCase):
         with self.assertRaises(ValidationError):
             self.eleccion.cambiar_estado(Eleccion.Estado.EN_CURSO)
 
-        Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=self.sede)
+        mesa = Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=self.sede)
+        AsignacionMesa.objects.create(registro_padron=registro, mesa=mesa)
+        from apps.autoridades.models import AsignacionAutoridad
+        AsignacionAutoridad.objects.create(registro_padron=registro, mesa=mesa, turno=self.turno,
+                                           asignada_por=get_user_model().objects.create_user(username="junta-ciclo"))
+        self.eleccion.autoridades_confirmadas_en = timezone.now()
+        self.eleccion.save(update_fields=("autoridades_confirmadas_en",))
         self.eleccion.cambiar_estado(Eleccion.Estado.EN_CURSO)
         self.eleccion.refresh_from_db()
         self.assertTrue(self.eleccion.habilitada)

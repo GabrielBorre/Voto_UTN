@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponseForbidden
@@ -45,6 +46,7 @@ def mis_justificativos(request):
         request.POST or None,
         request.FILES or None,
         registro_padron=registro_padron,
+        initial={"ausencia": JustificativoAusencia.Ausencia.AUTORIDAD} if request.GET.get("ausencia") == "autoridad" else None,
     )
     if request.method == "POST" and not estado_habilitado:
         messages.error(
@@ -56,9 +58,13 @@ def mis_justificativos(request):
         messages.error(request, "No tenés un padrón activo para la elección actual.")
         return redirect("mis-justificativos")
     if request.method == "POST" and formulario.is_valid():
-        formulario.save()
-        messages.success(request, "El justificativo fue presentado para revision.")
-        return redirect("mis-justificativos")
+        try:
+            formulario.save()
+        except ValidationError as error:
+            formulario.add_error(None, error)
+        else:
+            messages.success(request, "El justificativo fue presentado para revision.")
+            return redirect("mis-justificativos")
     justificativos = JustificativoAusencia.objects.select_related("registro_padron__eleccion", "tipo")
     justificativos = justificativos.filter(registro_padron__elector=elector).order_by("-presentada_en", "-pk")
     return render(
@@ -164,21 +170,25 @@ def resolver_justificativo(request, justificativo_id):
     formulario = FormularioResolucionJustificativo(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
         from apps.justificativos.services import resolver_justificativo as resolver
-        with transaction.atomic():
-            estaba_pendiente = resolver(
-                justificativo, estado=formulario.cleaned_data["estado"],
-                observacion=formulario.cleaned_data["observacion_resolucion"], usuario=request.user,
-            )
-            envio = crear_notificacion_resultado_justificativo(justificativo) if estaba_pendiente else None
-        if envio is not None:
-            correo_enviado = enviar_notificacion(envio)
-            if correo_enviado:
-                messages.success(request, "El justificativo fue resuelto y se notificó al elector por correo.")
-            else:
-                messages.warning(request, "El justificativo fue resuelto y la notificación está disponible en la web, pero no se pudo enviar el correo al elector.")
+        try:
+            with transaction.atomic():
+                estaba_pendiente = resolver(
+                    justificativo, estado=formulario.cleaned_data["estado"],
+                    observacion=formulario.cleaned_data["observacion_resolucion"], usuario=request.user,
+                )
+                envio = crear_notificacion_resultado_justificativo(justificativo) if estaba_pendiente else None
+        except ValidationError as error:
+            formulario.add_error(None, error)
         else:
-            messages.success(request, "El justificativo fue actualizado.")
-        return redirect("gestionar-justificativos", eleccion_id=justificativo.registro_padron.eleccion_id)
+            if envio is not None:
+                correo_enviado = enviar_notificacion(envio)
+                if correo_enviado:
+                    messages.success(request, "El justificativo fue resuelto y se notificó al elector por correo.")
+                else:
+                    messages.warning(request, "El justificativo fue resuelto y la notificación está disponible en la web, pero no se pudo enviar el correo al elector.")
+            else:
+                messages.success(request, "El justificativo fue actualizado.")
+            return redirect("gestionar-justificativos", eleccion_id=justificativo.registro_padron.eleccion_id)
     return render(
         request,
         "justificativos/resolver.html",

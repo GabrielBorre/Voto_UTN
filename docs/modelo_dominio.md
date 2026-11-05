@@ -88,6 +88,7 @@ marca protege la correspondencia entre el papel emitido y la asignación de mesa
 
 - `AsignacionAutoridad`
 - `PreferenciaAutoridad`
+- `ImportacionNominaAutoridades`: archivo y trazabilidad de cada previsualización, confirmación, cancelación o rechazo de una nómina por claustro.
 
 Una autoridad es el mismo elector con una asignación adicional; no una persona duplicada.
 `AsignacionAutoridad` vincula una autoridad con una mesa y un único turno de trabajo
@@ -186,8 +187,8 @@ comportamiento principal:
 - `padron`: `Elector`, `RegistroPadron`, `ImportacionPadron` y
   `ErrorImportacionPadron`.
 - `mesas`: `Mesa` y `AsignacionMesa`.
-- `autoridades`: `CandidaturaAutoridad`, `AsignacionAutoridad` y
-  `PreferenciaAutoridad`.
+- `autoridades`: `CandidaturaAutoridad`, `AsignacionAutoridad`,
+  `PreferenciaAutoridad` e `ImportacionNominaAutoridades`.
 - `partidos`: `Partido`, `OrganoElectivo`, `CargoElectivo`, `PuestoEleccion`,
   `ParticipacionPartido`, `ListaCandidatos`, `Candidato` e `ImportacionCandidaturas`.
 - `justificativos`: `TipoJustificativo` y `JustificativoAusencia`.
@@ -205,9 +206,9 @@ preservar los permisos asociados a los modelos existentes.
 ## Evolución del modelo de autoridades
 
 - `RegistroPadron.turno_cursada` referencia el turno existente del elector y puede ser nulo únicamente cuando no informa una sede de cursada.
-- `EleccionClaustroTurno` configura por turno la cantidad máxima de titulares y la cantidad requerida de suplentes por mesa.
+- `EleccionClaustroTurno` configura por turno las cantidades mínima y máxima de titulares por mesa. El mínimo rige para ceder autoridades a otra mesa. Los cupos de suplentes de mesa se mantienen en cero por compatibilidad de esquema.
 - `CandidaturaAutoridad` representa la nómina de elegibles e incluye exclusión explícita para no volver a seleccionar a un elector.
-- `AsignacionAutoridad` conserva mesa, turno y estado, y añade tipo titular/suplente y orden de suplencia.
+- `AsignacionAutoridad` conserva mesa, turno y estado; solo se admiten designaciones titulares de mesa.
 - Las asignaciones usan al mismo `RegistroPadron`; no crean un segundo elector ni una identidad local automática.
 - `ConfiguracionAutoridades` guarda por claustro el modo (`nomina` o `aleatorio`) y tres opciones: reacomodar titulares, asignar una autoridad a una mesa de votación distinta dentro de la misma sede, y permitir cambio de sede.
 - `CandidaturaAutoridad` conserva opcionalmente mesa, turno, tipo y orden elegidos manualmente. La selección se valida contra el padrón activo y los cupos.

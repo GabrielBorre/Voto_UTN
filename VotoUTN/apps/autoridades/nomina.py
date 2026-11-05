@@ -7,7 +7,7 @@ from django.db import transaction
 
 from apps.autoridades.distribucion import _auditar, bloquear_edicion, configuracion_actual, distribuir
 from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
-from apps.usuarios.permisos import puede_configurar_eleccion
+from apps.usuarios.permisos import puede_gestionar_autoridades
 
 
 def resumen_actual(claustro):
@@ -25,7 +25,7 @@ def resumen_actual(claustro):
 
 
 def _guardar_opciones(claustro, usuario, formulario):
-    if not puede_configurar_eleccion(usuario, claustro.eleccion):
+    if not puede_gestionar_autoridades(usuario, claustro.eleccion):
         raise PermissionDenied("No tiene permiso para gestionar autoridades.")
     bloquear_edicion(claustro)
     if formulario.cleaned_data["modo"] != "nomina":
@@ -75,12 +75,12 @@ def _huella(claustro):
         "eleccion": list(type(claustro.eleccion).objects.filter(pk=claustro.eleccion_id).values_list("estado", flat=True)),
         "maximo": list(type(claustro).objects.filter(pk=claustro.pk).values_list("maximo_votantes_por_mesa", flat=True)),
         "mesas": list(mesas.order_by("pk").values_list("pk", "numero", "sede_id", "sede__nombre", "sede__activa", "eleccion_claustro_departamento_id", "eleccion_claustro_departamento__departamento__codigo", "eleccion_claustro_departamento__departamento__nombre", "generada_automaticamente", "estado_escaneo")),
-        "registros": list(registros.order_by("pk").values_list("pk", "activo", "sede_id", "turno_cursada_id", "turno_cursada__hora_inicio", "turno_cursada__hora_fin", "qr_generado_en", "numero_mesa_qr", "elector__apellido", "elector__nombre", "elector__tipo_documento", "elector__dni", "elector__legajo")),
+        "registros": list(registros.order_by("pk").values_list("pk", "activo", "eleccion_claustro_departamento_id", "nivel", "sede_id", "turno_cursada_id", "turno_cursada__hora_inicio", "turno_cursada__hora_fin", "qr_generado_en", "numero_mesa_qr", "elector__apellido", "elector__nombre", "elector__tipo_documento", "elector__dni", "elector__legajo")),
         "padron": list(AsignacionMesa.objects.filter(registro_padron__in=registros).order_by("registro_padron_id").values_list("registro_padron_id", "mesa_id", "autoridad_al_final")),
         "sedes": list(AsignacionSedePadron.objects.filter(registro_padron__in=registros).order_by("registro_padron_id").values_list("registro_padron_id", "sede_id", "estado", "regla_aplicada_id")),
-        "autoridades": list(AsignacionAutoridad.objects.filter(mesa__in=mesas).order_by("pk").values_list("pk", "registro_padron_id", "mesa_id", "turno_id", "tipo", "orden_suplencia", "estado", "respondida_en")),
+        "autoridades": list(AsignacionAutoridad.objects.filter(mesa__in=mesas).order_by("pk").values_list("pk", "registro_padron_id", "mesa_id", "mesa_votacion_original_id", "turno_id", "tipo", "orden_suplencia", "estado", "respondida_en")),
         "nomina": list(CandidaturaAutoridad.objects.filter(registro_padron__in=registros).order_by("pk").values_list("pk", "registro_padron_id", "excluida", "mesa_manual_id", "turno_manual_id", "tipo_manual", "orden_manual", "mesa_traslado_id", "turno_traslado_id")),
-        "turnos": list(claustro.turnos_autoridad.order_by("turno_id").values_list("turno_id", "turno__hora_inicio", "turno__hora_fin", "titulares_por_mesa", "suplentes_por_mesa")),
+        "turnos": list(claustro.turnos_autoridad.order_by("turno_id").values_list("turno_id", "turno__hora_inicio", "turno__hora_fin", "titulares_por_mesa", "minimo_titulares_por_mesa", "suplentes_por_mesa")),
         "sedes_habilitadas": list(EleccionClaustroDepartamentoSede.objects.filter(eleccion_claustro_departamento__eleccion_claustro=claustro).order_by("pk").values_list("pk", "eleccion_claustro_departamento_id", "sede_id", "sede__activa")),
         "solicitudes": list(SolicitudCambioSede.objects.filter(registro_padron__in=registros).order_by("pk").values_list("pk", "registro_padron_id", "estado", "sede_origen_id", "sede_destino_id")),
         "perfiles": list(PerfilUsuario.objects.filter(elector__registros_padron__in=registros).order_by("pk").values_list("pk", "elector_id", "usuario_id", "activo").distinct()),
@@ -127,12 +127,25 @@ def _ejecutar_propuesta(claustro, usuario, datos):
     cantidad_candidaturas = CandidaturaAutoridad.objects.filter(
         registro_padron__eleccion_claustro_departamento__eleccion_claustro=claustro,
     ).count()
+    estado_inicial = _estado_resultado(claustro)
     actuales = list(Mesa.objects.filter(
         eleccion_claustro_departamento__eleccion_claustro=claustro,
     ).values_list("numero", "eleccion_claustro_departamento_id", "sede_id"))
     for _ in range(cantidad_candidaturas + len(conservados) + 3):
-        resultado = distribuir(claustro, usuario, aplicar_reacomodo=False)
+        resultado = distribuir(claustro, usuario, aplicar_reacomodo=False,
+                               traslado_sin_reordenar=datos["sede"] and not datos["mesa"])
         if not datos["mesa"]:
+            if datos["sede"]:
+                from apps.autoridades.reordenamiento_padron import aplicar_traslados_sin_reordenar
+                asignaciones = AsignacionAutoridad.objects.filter(
+                    mesa__eleccion_claustro_departamento__eleccion_claustro=claustro,
+                    estado="asignada", tipo="titular",
+                ).exclude(registro_padron_id__in=conservados).select_related(
+                    "registro_padron__elector", "mesa__sede", "mesa__eleccion_claustro_departamento__eleccion_claustro",
+                )
+                movimientos = aplicar_traslados_sin_reordenar(asignaciones)
+                if movimientos:
+                    _auditar(claustro, usuario, "autoridades.traslado_sin_reordenar", {"movimientos": movimientos})
             break
         from apps.autoridades.reordenamiento_padron import aplicar_padrones, previsualizar_padrones
         titulares = dict(AsignacionAutoridad.objects.filter(
@@ -171,14 +184,46 @@ def _ejecutar_propuesta(claustro, usuario, datos):
             codigo = alcance.departamento.codigo if alcance.departamento_id else ""
             formatear = lambda numero: f"{codigo}-{numero:03d}" if codigo else f"{numero:03d}"
             cambios.append({"departamento": str(alcance.departamento or "Sin departamento"), "sede": str(sede or "Sin sede"), "antes": antes[(alcance_id, sede_id)], "despues": despues[(alcance_id, sede_id)], "agregadas": [formatear(n) for n in agregadas], "quitadas": [formatear(n) for n in quitadas]})
+    mesas_antes = {numero: (alcance, sede) for numero, alcance, sede in estado_inicial["mesas"]}
+    mesas_despues = {numero: (alcance, sede) for numero, alcance, sede in final["mesas"]}
+    padron_antes = {registro: numero for registro, numero, _ in estado_inicial["padron"]}
+    padron_despues = {registro: numero for registro, numero, _ in final["padron"]}
+    movimientos = [(registro, numero, padron_despues[registro]) for registro, numero in padron_antes.items()
+                   if registro in padron_despues and numero != padron_despues[registro]]
+    rutas_cambio = Counter((mesas_antes[origen][1], mesas_despues[destino][1])
+                           for _, origen, destino in movimientos
+                           if mesas_antes[origen][1] != mesas_despues[destino][1])
+    cambios_sede = sum(rutas_cambio.values())
+    rutas_sede = Counter()
+    autoridades_mesa_distinta = 0
+    for registro, mesa_trabajo, _, _, _ in final["autoridades"]:
+        mesa_votacion = padron_despues.get(registro)
+        if mesa_votacion is None:
+            continue
+        if mesa_votacion != mesa_trabajo:
+            autoridades_mesa_distinta += 1
+        sede_votacion = mesas_despues[mesa_votacion][1]
+        sede_trabajo = mesas_despues[mesa_trabajo][1]
+        if sede_votacion != sede_trabajo:
+            rutas_sede[(sede_votacion, sede_trabajo)] += 1
+    sedes = Sede.objects.in_bulk({sede for par in list(rutas_sede) + list(rutas_cambio) for sede in par if sede is not None})
+    detalle_sedes = [{"origen": str(sedes.get(origen) or "Sin sede"),
+                      "destino": str(sedes.get(destino) or "Sin sede"), "cantidad": cantidad}
+                     for (origen, destino), cantidad in sorted(rutas_sede.items(), key=str)]
+    detalle_cambios_sede = [{"origen": str(sedes.get(origen) or "Sin sede"),
+                             "destino": str(sedes.get(destino) or "Sin sede"), "cantidad": cantidad}
+                            for (origen, destino), cantidad in sorted(rutas_cambio.items(), key=str)]
     resumen = resumen_actual(claustro)
-    resumen.update({"titulares_faltantes": resultado["titulares_faltantes"], "suplentes_faltantes": resultado["suplentes_faltantes"], "cambios": cambios})
+    resumen.update({"titulares_faltantes": resultado["titulares_faltantes"], "suplentes_faltantes": resultado["suplentes_faltantes"], "cambios": cambios,
+                    "electores_cambian_mesa": len(movimientos), "electores_cambian_sede": cambios_sede,
+                    "autoridades_mesa_distinta": autoridades_mesa_distinta, "detalle_sedes": detalle_sedes,
+                    "detalle_cambios_sede": detalle_cambios_sede})
     huella = hashlib.sha256(json.dumps(final, sort_keys=True, default=str).encode()).hexdigest()
     return resumen, huella
 
 
 def previsualizar_nomina(claustro, usuario, datos):
-    if not puede_configurar_eleccion(usuario, claustro.eleccion):
+    if not puede_gestionar_autoridades(usuario, claustro.eleccion):
         raise PermissionDenied("No tiene permiso para gestionar autoridades.")
     estado = _huella(claustro)
     def simular(opciones):
@@ -188,21 +233,28 @@ def previsualizar_nomina(claustro, usuario, datos):
         return resultado
     resumen, calculo = simular(datos)
     alternativas = []
-    for nombre, mesa, votar_mesa, sede in (
-        ("Solo su mesa", False, False, False),
-        ("Votar en mesa distinta", False, True, False),
-        ("Permitir cambio de mesa", True, False, False),
-        ("Permitir cambio de mesa y sede", True, False, True),
+    for codigo, nombre, descripcion, mesa, votar_mesa, sede in (
+        ("mesa_actual", "Vota y ejerce en su mesa", "Trabaja en su mesa de votación actual.", False, False, False),
+        ("mesa_distinta", "Vota y ejerce en mesas distintas", "Trabaja en otra mesa de la misma sede, sin cambiar dónde vota.", False, True, False),
+        ("cambio_mesa", "Vota y ejerce en otra mesa", "Se reordena el padrón para que vote y trabaje en otra mesa de la misma sede.", True, False, False),
+        ("cambio_sede", "Vota y ejerce en otra sede", "Cambia de sede si cabe en la mesa que le corresponde por orden alfabético, sin mover a otras personas. Si no, queda una vacante.", False, False, True),
+        ("sede_reacomodo", "Cambia de sede y reordena mesas", "Se reordena el padrón para que vote y ejerza en la mesa de la nueva sede que necesita autoridades.", True, False, True),
     ):
         if (mesa, votar_mesa, sede) == (datos["mesa"], datos.get("votar_mesa", False), datos["sede"]):
             resultado = resumen
         else:
             try:
-                resultado, _ = simular({**datos, "mesa": mesa, "votar_mesa": votar_mesa, "sede": sede})
+                resultado, resultado_huella = simular({**datos, "mesa": mesa, "votar_mesa": votar_mesa, "sede": sede})
             except ValidationError as error:
-                alternativas.append({"nombre": nombre, "error": " ".join(error.messages)})
+                alternativas.append({"codigo": codigo, "nombre": nombre, "descripcion": descripcion, "error": " ".join(error.messages)})
                 continue
-        alternativas.append({"nombre": nombre, "titulares": resultado["titulares"],
+        if (mesa, votar_mesa, sede) == (datos["mesa"], datos.get("votar_mesa", False), datos["sede"]):
+            resultado_huella = calculo
+        alternativas.append({"codigo": codigo, "nombre": nombre, "descripcion": descripcion, "datos": {**datos, "mesa": mesa, "votar_mesa": votar_mesa, "sede": sede},
+                             "calculo": resultado_huella, "cambios": resultado["cambios"],
+                             "electores_cambian_mesa": resultado["electores_cambian_mesa"], "electores_cambian_sede": resultado["electores_cambian_sede"],
+                             "autoridades_mesa_distinta": resultado["autoridades_mesa_distinta"], "detalle_sedes": resultado["detalle_sedes"],
+                             "detalle_cambios_sede": resultado["detalle_cambios_sede"], "titulares": resultado["titulares"],
                              "suplentes": resultado["suplentes"], "sin_asignar": resultado["sin_asignar"],
                              "titulares_faltantes": resultado["titulares_faltantes"],
                              "suplentes_faltantes": resultado["suplentes_faltantes"]})
@@ -210,14 +262,31 @@ def previsualizar_nomina(claustro, usuario, datos):
 
 
 @transaction.atomic
-def confirmar_nomina(claustro, usuario, propuesta):
-    if not puede_configurar_eleccion(usuario, claustro.eleccion):
+def confirmar_nomina(claustro, usuario, propuesta, *, alternativa=None):
+    if not puede_gestionar_autoridades(usuario, claustro.eleccion):
         raise PermissionDenied("No tiene permiso para gestionar autoridades.")
     bloquear_edicion(claustro)
     if _huella(claustro) != propuesta["estado"]:
         raise ValidationError("Los datos cambiaron desde la previsualización. Volvé a calcularla.")
-    resumen, calculo = _ejecutar_propuesta(claustro, usuario, propuesta["datos"])
-    if calculo != propuesta["calculo"]:
+    seleccion = next((opcion for opcion in propuesta["alternativas"] if opcion.get("codigo") == alternativa and not opcion.get("error")), None) if alternativa is not None else None
+    if alternativa is not None and seleccion is None:
+        raise ValidationError("Elegí una alternativa disponible de la previsualización.")
+    datos = seleccion["datos"] if seleccion else propuesta["datos"]
+    calculo_esperado = seleccion["calculo"] if seleccion else propuesta["calculo"]
+    resumen, calculo = _ejecutar_propuesta(claustro, usuario, datos)
+    if calculo != calculo_esperado:
         raise ValidationError("El resultado cambió desde la previsualización. Volvé a calcularla.")
+    if propuesta.get("importacion_id"):
+        from django.utils import timezone
+        from apps.autoridades.models import ImportacionNominaAutoridades
+        importacion = ImportacionNominaAutoridades.objects.select_for_update().filter(
+            pk=propuesta["importacion_id"], eleccion_claustro=claustro, usuario=usuario,
+            estado=ImportacionNominaAutoridades.Estado.PREVISUALIZADA,
+        ).first()
+        if importacion is None:
+            raise ValidationError("La importación ya no está disponible; volvé a cargar el archivo.")
+        importacion.estado = ImportacionNominaAutoridades.Estado.CONFIRMADA
+        importacion.confirmada_en = timezone.now()
+        importacion.save(update_fields=("estado", "confirmada_en"))
     _auditar(claustro, usuario, "autoridades.nomina_confirmada", resumen)
     return resumen

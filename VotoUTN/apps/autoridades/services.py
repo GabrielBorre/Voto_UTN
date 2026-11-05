@@ -57,7 +57,11 @@ def leer_filas_autoridades(contenido: bytes, nombre_archivo: str = "") -> list[d
     except UnicodeDecodeError as exc:
         raise ValueError("El archivo debe estar codificado en UTF-8.") from exc
 
-    lector = csv.DictReader(io.StringIO(texto, newline=""))
+    try:
+        dialecto = csv.Sniffer().sniff(texto[:8192], delimiters=",;")
+    except csv.Error:
+        dialecto = csv.excel
+    lector = csv.DictReader(io.StringIO(texto, newline=""), dialect=dialecto)
     filas = []
     for numero, fila in enumerate(lector, start=2):
         if not fila:
@@ -88,9 +92,11 @@ def asignar_autoridad(registro_padron, mesa, turno, usuario):
     if sede_electoral is not None and sede_electoral != mesa.sede_id:
         raise ValidationError("La autoridad debe asignarse en la sede electoral que ya tiene asignada.")
     candidatura, _ = CandidaturaAutoridad.objects.get_or_create(registro_padron=registro_padron, defaults={"cargada_por": usuario})
+    mesa_original = getattr(registro_padron, "asignacion_mesa", None)
     asignacion, creada = AsignacionAutoridad.objects.get_or_create(
         registro_padron=registro_padron,
-        defaults={"mesa": mesa, "turno": turno, "candidatura": candidatura, "asignada_por": usuario},
+        defaults={"mesa": mesa, "mesa_votacion_original_id": mesa_original.mesa_id if mesa_original else None,
+                  "turno": turno, "candidatura": candidatura, "asignada_por": usuario},
     )
     if not creada and asignacion.mesa_id != mesa.id:
         raise ValidationError("El elector ya fue asignado como autoridad de otra mesa.")
@@ -127,10 +133,12 @@ def _sede_electoral_actual(registro):
 
 def _crear_asignacion(registro, mesa, turno, usuario, tipo, orden=None):
     candidatura = getattr(registro, "candidatura_autoridad", None)
+    asignacion_mesa = getattr(registro, "asignacion_mesa", None)
     return AsignacionAutoridad(
         registro_padron=registro,
         candidatura=candidatura,
         mesa=mesa,
+        mesa_votacion_original_id=asignacion_mesa.mesa_id if asignacion_mesa else None,
         turno=turno,
         tipo=tipo,
         orden_suplencia=orden,

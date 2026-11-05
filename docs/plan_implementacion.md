@@ -51,15 +51,25 @@ gestion de mesas.
 Incluye CSV, previsualizacion, validacion, confirmacion, errores e historial.
 
 ### Etapa 7 - Autoridades de mesa
-**Estado:** flujo actualizado completado en la rama del issue 62
+**Estado:** en actualización por las nuevas decisiones sobre titulares y confirmación definitiva
 
 El flujo permite sorteo, selección por archivo o nómina común por claustro, con
 cupos por turno y edición manual desde cada mesa. La nómina se calcula y
 previsualiza antes de confirmarse; conserva las designaciones existentes y
-permite reordenar padrones y mesas según las opciones de movilidad. Incluye
-promoción de suplentes al confirmar la Junta un reemplazo, independientemente
-del justificativo. El plan completo de continuidad, las decisiones
-C/C y las verificaciones están en [plan_autoridades_tres_modos.md](plan_autoridades_tres_modos.md).
+permite reordenar padrones y mesas según las opciones de movilidad. Se eliminan
+las suplencias de mesa y una vacante puede cubrirse mediante una propuesta de
+traslado de un titular que debe confirmar la Junta. La confirmación definitiva
+requiere que termine el plazo de cambios de sede y no haya solicitudes pendientes;
+establece el plazo de justificación, registra y envía convocatorias y bloquea la
+edición general. El inicio exige resolver los justificativos pendientes
+de autoridades y los traslados respetan el mínimo configurado por mesa y turno.
+El recálculo y la aprobación de cambios de sede muestran movimientos y vacantes
+antes de confirmar. El retorno a una mesa anterior se aplica directamente si no
+desplaza a otros electores; si requiere reordenar, se presenta a la Junta. Cuando
+no existe una partición válida con las mesas existentes o hay datos protegidos,
+se informa el conflicto para revisión.
+El plan anterior de continuidad, las decisiones C/C y las verificaciones están en
+[plan_autoridades_tres_modos.md](plan_autoridades_tres_modos.md).
 El detalle de uso y archivos está en `docs/autoridades_modalidades.md`.
 
 ### Etapa 8 - Justificativos
