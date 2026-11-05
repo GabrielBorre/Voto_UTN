@@ -15,7 +15,13 @@ from .models import (
 from apps.mesas.models import Mesa
 from apps.padron.models import RegistroPadron
 from apps.padron.services import claustro_tiene_emision_vigente
-from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede
+from apps.parametros.models import (
+    CODIGOS_FECHAS_ADMINISTRATIVAS_RETIRADAS,
+    Claustro,
+    Departamento,
+    FechaAdministrativa,
+    Sede,
+)
 from .services import agregar_claustro
 
 
@@ -128,6 +134,8 @@ class FormularioFechasAdministrativasEleccion(forms.Form):
         self.definiciones_fechas = list(
             FechaAdministrativa.objects.filter(
                 Q(activa=True) | Q(programaciones__eleccion=eleccion),
+            ).exclude(
+                codigo__in=CODIGOS_FECHAS_ADMINISTRATIVAS_RETIRADAS,
             ).distinct().prefetch_related("claustros")
         )
         programaciones = {
