@@ -38,7 +38,7 @@ from apps.auditoria.services import registrar_evento
 from apps.mesas.models import Mesa
 from apps.partidos.models import ParticipacionPartido
 from apps.padron.models import RegistroPadron, SolicitudCambioSede
-from apps.parametros.models import Claustro
+from apps.parametros.models import (Claustro, CODIGOS_FECHAS_ADMINISTRATIVAS_RETIRADAS)
 from apps.padron.services import (
     calcular_asignaciones_sede_claustro,
     invalidar_mesas_automaticas_alcance,
@@ -487,7 +487,9 @@ def configurar_eleccion(request, eleccion_id):
             "cantidad_mesas": eleccion.mesas.count(),
             "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),
             "cantidad_partidos": ParticipacionPartido.objects.filter(eleccion=eleccion, activa=True).count(),
-            "cantidad_fechas_administrativas": eleccion.fechas_administrativas.count(),
+            "cantidad_fechas_administrativas": eleccion.fechas_administrativas.exclude(
+                fecha_administrativa__codigo__in=CODIGOS_FECHAS_ADMINISTRATIVAS_RETIRADAS,
+            ).count(),
         },
     )
 

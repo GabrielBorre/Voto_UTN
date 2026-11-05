@@ -7,7 +7,7 @@ from io import StringIO
 
 from apps.auditoria.models import EventoAuditoria
 from apps.justificativos.models import TipoJustificativo
-from apps.notificaciones.models import PlantillaNotificacion
+from apps.notificaciones.models import ComunicacionFechaAdministrativa, PlantillaNotificacion
 from apps.parametros.forms import FormularioFechaAdministrativa
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.partidos.forms import FormularioCargoElectivo
@@ -86,7 +86,13 @@ class CatalogosEstandarTests(TestCase):
         )
         self.assertEqual(Turno.objects.count(), 3)
         self.assertEqual(Departamento.objects.count(), 10)
-        self.assertEqual(FechaAdministrativa.objects.count(), 6)
+        self.assertEqual(FechaAdministrativa.objects.count(), 4)
+        self.assertFalse(FechaAdministrativa.objects.filter(
+            codigo__in=(
+                "exhibicion-padron-provisorio",
+                "publicacion-padron-definitivo",
+            ),
+        ).exists())
         self.assertEqual(PlantillaNotificacion.objects.count(), 26)
         self.assertEqual(OrganoElectivo.objects.count(), 3)
         self.assertEqual(CargoElectivo.objects.count(), 3)
@@ -112,6 +118,26 @@ class CatalogosEstandarTests(TestCase):
         plantilla.refresh_from_db()
         self.assertTrue(plantilla.activa)
         self.assertTrue(Sede.objects.filter(pk=extra.pk).exists())
+
+    def test_carga_estandar_no_reactiva_fechas_ni_comunicaciones_retiradas(self):
+        fecha = FechaAdministrativa.objects.create(
+            codigo="exhibicion-padron-provisorio",
+            nombre="Exhibición del padrón provisorio",
+            activa=False,
+        )
+        comunicacion = ComunicacionFechaAdministrativa.objects.create(
+            fecha_administrativa=fecha,
+            codigo="apertura",
+            nombre="Apertura",
+            activa=False,
+        )
+
+        call_command("cargar_parametros_estandar", stdout=StringIO())
+
+        fecha.refresh_from_db()
+        comunicacion.refresh_from_db()
+        self.assertFalse(fecha.activa)
+        self.assertFalse(comunicacion.activa)
 
 
 class ValidacionesCatalogosTests(TestCase):

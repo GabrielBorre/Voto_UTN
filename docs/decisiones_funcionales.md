@@ -235,6 +235,7 @@ Reglas:
 - Las plantillas usan texto plano y un conjunto controlado de variables; no incluyen DNI, legajo ni adjuntos.
 - Las plantillas automáticas o transaccionales no pueden seleccionarse en la pantalla de envío manual.
 - El calendario por elección y el motor de envíos automáticos quedan fuera de esta entrega. Se conserva temporalmente el calendario electoral existente.
+- El calendario administrativo reutilizable no ofrece «Exhibición del padrón provisorio» ni «Publicación del padrón definitivo». Sus definiciones y comunicaciones existentes se desactivan sin borrar los registros históricos ni las plantillas de notificación; las fechas ya programadas se conservan, pero no se muestran ni cuentan como hitos configurables.
 - Las mesas automáticas se calculan para toda la elección usando la sede electoral asignada, agrupando por claustro, departamento cuando corresponda y sede. «Sede donde cursa» no determina la mesa.
 - El cálculo automático se dispara al cambiar el máximo de electores por mesa o al recalcular las sedes electorales. Solo se aplica cuando todos los claustros tienen máximo configurado y sus electores activos tienen una sede electoral asignada; si no, conserva la distribución anterior e informa lo pendiente.
 - El recálculo reemplaza únicamente mesas automáticas y asignaciones de padrón; conserva las mesas manuales. Se realiza como operación atómica para todos los claustros y no asigna autoridades.

@@ -13,7 +13,9 @@ from apps.asistencia.models import RegistroParticipacion
 from apps.elecciones.models import (
     Eleccion, EleccionClaustro, EleccionClaustroDepartamento,
     EleccionClaustroDepartamentoSede, EleccionClaustroTurno, EleccionSede,
+    FechaAdministrativaEleccion,
 )
+from apps.elecciones.forms import FormularioFechasAdministrativasEleccion
 from apps.elecciones.services import agregar_claustro, eliminar_claustro
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.notificaciones.models import EnvioNotificacion
@@ -23,7 +25,7 @@ from apps.padron.services import (
     estimar_impacto_mesas_por_sede, estimar_mesas_adicionales_por_sede, registrar_emision_padron_imprimible,
     resolver_solicitud_cambio_sede, resolver_solicitudes_pendientes,
 )
-from apps.parametros.models import Claustro, Departamento, Sede, Turno
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 from apps.usuarios.permisos import puede_configurar_eleccion
 
@@ -82,7 +84,25 @@ class CicloConfiguracionTests(TestCase):
             registro_padron=registro or self.registro, sede_origen=self.sedes[0], sede_destino=self.sedes[1],
         )
 
-    def test_publicacion_solicita_plazo_de_sede_y_permite_definir_autoridades_luego(self):
+    def test_fechas_retiradas_no_se_muestran_y_conservan_programaciones_existentes(self):
+        definicion = FechaAdministrativa.objects.create(
+            codigo="exhibicion-padron-provisorio",
+            nombre="Exhibición del padrón provisorio",
+        )
+        programacion = FechaAdministrativaEleccion.objects.create(
+            eleccion=self.eleccion,
+            fecha_administrativa=definicion,
+            fecha=self.eleccion.fecha_inicio,
+        )
+        formulario = FormularioFechasAdministrativasEleccion(data={}, eleccion=self.eleccion)
+
+        self.assertNotIn(f"fecha_{definicion.pk}_seleccionada", formulario.fields)
+        self.assertTrue(formulario.is_valid())
+        formulario.guardar()
+
+        self.assertTrue(FechaAdministrativaEleccion.objects.filter(pk=programacion.pk).exists())
+
+    def test_publicacion_solicita_ambos_plazos_en_dialogo(self):
         respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))
         self.assertContains(respuesta, 'id="dialogo-publicacion"')
         for campo in ("fecha_cierre_solicitudes_cambio_sede", "fecha_limite_justificacion_autoridades"):
