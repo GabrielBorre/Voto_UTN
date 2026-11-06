@@ -28,7 +28,7 @@ from .services import agregar_claustro
 class FormularioFechaLimiteJustificativosElectores(forms.Form):
     fecha_limite_justificacion_electores = forms.DateField(
         label="Último día para presentar justificativos",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
     )
 
     def __init__(self, *args, **kwargs):
@@ -47,7 +47,7 @@ class FormularioFechaLimiteJustificativosElectores(forms.Form):
 class FormularioEditarPlazoJustificativosElectores(forms.Form):
     fecha_limite_justificacion_electores = forms.DateField(
         label="Último día para presentar justificativos",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
     )
 
     def __init__(self, *args, eleccion, **kwargs):
@@ -177,8 +177,8 @@ class FormularioFechasAdministrativasEleccion(forms.Form):
             self.fields[f"fecha_{definicion.id}_valor"] = forms.DateField(
                 required=False,
                 label="Fecha",
-                initial=programacion.fecha if programacion else None,
-                widget=forms.DateInput(attrs={"type": "date"}),
+                initial=programacion.fecha if programacion else timezone.localdate(),
+                widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
             )
 
     def clean(self):
