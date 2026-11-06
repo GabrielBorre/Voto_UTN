@@ -568,7 +568,6 @@ class PadronViewsTests(TestCase):
             reverse("configurar-sedes-claustro", args=(self.eleccion.id, self.eleccion_claustro.id)),
             {"accion": "calcular"},
         )
-
         self.assertEqual(respuesta.status_code, 302)
         self.assertFalse(AsignacionSedePadron.objects.filter(registro_padron=registro).exists())
         self.assertFalse(AsignacionMesa.objects.filter(registro_padron=registro).exists())

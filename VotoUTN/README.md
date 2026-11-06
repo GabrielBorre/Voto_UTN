@@ -14,7 +14,74 @@ static/js/              módulos ES6: camera, scanner, asistencia, api y ui
 
 La vista no conoce la persistencia: `AttendanceBatchAPIView` valida la petición y delega el caso de uso a `AttendanceService`. El modelo impone unicidad por elección/código, que protege también ante dos dispositivos concurrentes. La cámara, el procesamiento QR y la UI están desacoplados en módulos ES6.
 
-El lector toma frames continuamente y analiza las 20 celdas (20 × 1) de la hoja con BarcodeScanner. Los textos detectados se conservan en un `Set`, por lo que una lectura repetida no duplica la asistencia. Al confirmar una página se envía un lote al endpoint REST protegido por sesión y CSRF.
+El lector alterna la detección múltiple con `BarcodeDetector`, cuando está disponible,
+y un barrido complementario con ZXing. El detector nativo recorre la imagen completa y
+cinco ventanas superpuestas (30 % del alto cada una), de modo que los QR pequeños ocupan
+más superficie. El barrido se ejecuta
+aunque el detector nativo repita siempre los mismos códigos, sin requerir movimiento
+de la hoja. Con ZXing, que devuelve un QR por lectura, alterna la imagen completa
+con 30 bandas verticalmente solapadas, de arriba hacia abajo, sin deformar los
+recortes. Cada vuelta cambia el alto y la escala de las bandas (1/12 a escala 1,
+1/9 reducida a 0,75 y 1/16 ampliada a 1,5), lo que simula digitalmente el pequeño
+cambio de muestreo que produce mover la hoja. Si el detector nativo falla, se informa en consola y se continúa con
+ZXing. Así puede acumular los 15 QR de una hoja fija, incluidos
+los extremos. Los textos detectados se conservan en un `Set`, por lo que una lectura
+repetida no duplica la asistencia. Al confirmar una página se envía un lote al
+endpoint REST protegido por sesión y CSRF.
+
+Durante el escaneo de electores, el encabezado muestra el código de mesa y los
+QR únicos acumulados en la sesión (incluidos los pendientes), bajo «QRs Escaneados».
+El botón «Registrar Mesa» pide confirmación con esos datos, los QR pendientes y
+las inasistencias ya registradas antes de finalizar. Cancelar retoma el escaneo;
+el registro automático de hojas no finaliza la mesa ni pide esta confirmación.
+
+### Cámara y alineación de la hoja
+
+- Se solicita cámara trasera en Full HD, adaptada a la orientación inicial del
+  teléfono, con perfiles alternativos de 720p y resolución predeterminada.
+  Son preferencias: el navegador decide la resolución efectiva.
+- Se solicita enfoque continuo solamente si la cámara lo declara compatible.
+  Si el ajuste falla, se informa en la consola y se conserva el enfoque del equipo.
+- La vista muestra el encuadre completo, sin recortar sus extremos. La referencia
+  superior central permite alinear «Comprobante de emisión de voto». Deben quedar
+  visibles también el primer y el último QR.
+- El barrido de regiones es **digital**, no un barrido óptico de enfoque.
+  `pointsOfInterest` y `focusDistance` dependen del navegador y del hardware; no
+  permiten garantizar un barrido vertical de autofocus en todos los celulares.
+  No se fija enfoque manual ni se modifica el zoom, que podrían empeorar la lectura.
+- Reenfoque ante estancamiento (`reactivacion-camara.js`): si durante el escaneo
+  de electores la hoja sigue a la vista (se leen QR ya conocidos) pero pasan 1,2 s
+  sin QR nuevos, se pide un reenfoque puntual (`single-shot`) durante 0,45 s y se
+  vuelve al enfoque continuo. Se hacen como máximo dos intentos, separados por
+  2,5 s; un QR nuevo reinicia los intentos. Si la cámara no admite enfoque puntual
+  o rechaza el ajuste, se desactiva sin interrumpir el video. No se reinicia la cámara.
+- Leer los 15 QR sin mover el teléfono requiere papel plano, cámara paralela,
+  distancia suficiente para encuadrar toda la columna, iluminación uniforme y
+  nitidez. No se puede garantizar esa lectura en todo dispositivo: debe probarse
+  con el teléfono y la hoja impresa reales.
+
+Referencia técnica: [Media Capture Image, W3C](https://w3c.github.io/mediacapture-image/).
+
+### Regresión del lector en navegador
+
+Desde esta carpeta, ejecutar `python -m http.server 8876 --bind 127.0.0.1` y abrir
+`http://127.0.0.1:8876/tests/frontend/escaner.html`. Requiere acceso al CDN de ZXing,
+igual que el escáner de producción. No solicita acceso a la cámara real.
+
+La prueba decodifica una imagen sintética fija de 1080 × 1920 con 15 QR únicos
+(`tests/frontend/hoja_15_qr.png`), comprueba ambos extremos, deduplicación, cobertura
+de las bandas y de sus variantes, ventanas del detector nativo, detección múltiple
+nativa simulada (incluido un detector estancado en los mismos 10 QR y otro que falla),
+el reenfoque ante estancamiento con reloj simulado y perfiles/enfoque de cámara
+simulados. La pestaña debe estar visible: los
+navegadores pueden suspender la decodificación de imágenes en pestañas ocultas.
+El tiempo informado corresponde al equipo de prueba, no garantiza el
+rendimiento ni la nitidez de una cámara real.
+
+`tests/frontend/interfaz-escaner.html`, abierto con un ancho móvil, prueba la
+plantilla y los módulos reales de interfaz con cámara, lector y API simulados,
+sin servicios externos. Verifica el contador acumulado, la confirmación y
+cancelación del registro de mesa, incluidos los casos sin inasistencias.
 
 ## Inicio local (Windows / PowerShell)
 

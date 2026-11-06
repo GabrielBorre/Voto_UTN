@@ -6,6 +6,8 @@ from apps.usuarios.permisos import (
     puede_administrar_parametros,
     puede_crear_elecciones,
     puede_revisar_justificativo,
+    puede_consultar_historial_electoral,
+    es_autoridad_en_eleccion_publicada_o_en_curso,
 )
 from apps.usuarios.services import elector_de_identidad
 
@@ -24,11 +26,13 @@ def navegacion_por_rol(request):
     es_elector = es_elector or AsignacionRol.Rol.ELECTOR in roles
 
     elector = elector_de_identidad(usuario)
-    es_autoridad = AsignacionRol.Rol.AUTORIDAD_MESA in roles
-    if elector is not None:
-        es_autoridad = es_autoridad or AsignacionAutoridad.objects.filter(
-            registro_padron__elector=elector
-        ).exists()
+    tiene_rol_autoridad = AsignacionRol.Rol.AUTORIDAD_MESA in roles
+    historial_autoridad = (
+        elector is not None
+        and AsignacionAutoridad.objects.filter(registro_padron__elector=elector).exists()
+    )
+    es_autoridad = es_autoridad_en_eleccion_publicada_o_en_curso(elector)
+    es_elector_en_menu = es_elector or tiene_rol_autoridad or historial_autoridad
 
     puede_ver_elecciones = not es_elector and (
         usuario.is_superuser
@@ -84,11 +88,12 @@ def navegacion_por_rol(request):
         "configuracion_solo_lectura": configuracion_solo_lectura,
         "nav_eleccion_justificativos": eleccion_justificativos,
         "nav_eleccion_cambio_sede": eleccion_cambio_sede,
-        "nav_es_elector": es_elector,
+        "nav_es_elector": es_elector_en_menu,
         "nav_es_autoridad": es_autoridad,
         "nav_es_administrador_junta": AsignacionRol.Rol.ADMINISTRADOR_JUNTA in roles,
         "nav_es_administrativo_junta": AsignacionRol.Rol.ADMINISTRATIVO_JUNTA in roles,
         "nav_tiene_datos_elector": elector is not None,
+        "nav_puede_consultar_historial_electoral": puede_consultar_historial_electoral(usuario, elector),
         "nav_puede_ver_elecciones": puede_ver_elecciones,
         "nav_hay_eleccion_en_curso": puede_ver_elecciones
         and Eleccion.objects.filter(estado=Eleccion.Estado.EN_CURSO).exists(),

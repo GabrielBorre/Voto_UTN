@@ -31,6 +31,10 @@ destinatarios y evento sugerido. La fecha concreta por elección continúa en
 - `EleccionClaustroDepartamentoSede`
 - `Mesa`
 
+`Eleccion` conserva `justificacion_electores_habilitada_en`, que registra el
+momento en que se abre la carga de justificativos de electores. La apertura se
+realizará desde la web después de completar el escaneo de todas las mesas.
+
 Regla de unicidad del ciclo de vida: como máximo una `Eleccion` puede estar en
 estado `en_preparacion`, `publicada` o `en_curso` considerando esos estados como un
 único grupo. Puede haber varias elecciones `finalizada`.
@@ -99,6 +103,10 @@ turno y en turnos diferentes.
 
 - `RegistroParticipacion`
 
+En el flujo electoral, este registro identifica a un elector que no votó,
+independientemente de que la ausencia se haya cargado por QR o manualmente. Si
+no existe un registro, se presume que votó.
+
 Debe contemplar:
 
 - elección;
@@ -148,6 +156,16 @@ la previsualización, errores, advertencias, usuario y confirmación de cada CSV
 
 - `TipoJustificativo`
 - `JustificativoAusencia`
+
+`JustificativoAusencia.reclamo_participacion` identifica el reclamo «Voté,
+pero aparezco como ausente»: siempre es una ausencia a votar y no tiene
+`tipo` (restricción `justificativo_tipo_o_reclamo_participacion`). Conserva
+`comprobante_extraviado` además del comentario y del adjunto opcional para la
+revisión manual del padrón. `validacion_comprobante` y
+`detalle_validacion_comprobante` guardan el resultado de leer el QR del troquel
+adjunto. Al aprobar el reclamo se elimina el `RegistroParticipacion` y su copia
+queda en `respaldo_participacion` con `participacion_anulada_en`; si luego se
+rechaza, la ausencia se restaura desde esa copia.
 
 ## Notificaciones
 

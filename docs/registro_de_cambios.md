@@ -10,6 +10,137 @@ Este documento registra cambios aplicados al proyecto. Describe los archivos y e
 - Las migraciones `autoridades.0012` y `elecciones.0031` eliminan las suplencias de mesa existentes y bloquean nuevos cupos o designaciones de suplentes, sin modificar candidaturas electorales.
 - `apps/autoridades` y su plantilla: selección de la alternativa directamente desde la comparación, con detalle por opción y confirmación de la propuesta previamente calculada.
 
+## Registro de participación limitado a la elección en curso
+
+- `listar_elecciones` (`apps/elecciones/views.py`) filtra las elecciones del
+  usuario por estado `en_curso`, tanto en la lista móvil como en el tablero de
+  escritorio. Las elecciones finalizadas o publicadas ya no se listan ni se
+  pueden seleccionar mediante `?eleccion=`.
+- Prueba: `apps/asistencia/tests_dashboard.py`.
+
+## Validación del comprobante en reclamos de participación
+
+- Al presentar un reclamo «Voté, pero aparezco como ausente» con una imagen
+  JPG/PNG, el sistema decodifica el QR del troquel (`zxing-cpp`) y verifica
+  firma, elección e identificador del elector. Los PDF quedan para revisión
+  manual y la pérdida declarada se marca como comprobante extraviado.
+- Bandeja, gestión y resolución muestran el estado de la validación; la
+  resolución permite volver a validar.
+- La ausencia solo se anula cuando la Junta aprueba el reclamo: se elimina el
+  `RegistroParticipacion`, se guarda una copia en el justificativo y se audita
+  `participacion.anulada_por_reclamo`. Si la resolución pasa a rechazada se
+  restaura (`participacion.restaurada_por_reclamo`).
+
+Archivos creados:
+
+- [services.py](../VotoUTN/apps/justificativos/services.py).
+- [_validacion_comprobante.html](../VotoUTN/templates/justificativos/_validacion_comprobante.html).
+- [0007_validacion_comprobante_reclamo.py](../VotoUTN/apps/justificativos/migrations/0007_validacion_comprobante_reclamo.py):
+  agrega los campos de validación y respaldo, y marca los reclamos existentes
+  como «Sin validar».
+
+Archivos modificados: `requirements.txt` (`zxing-cpp==3.1.1`; requiere
+reconstruir la imagen), `apps/justificativos/models.py`, `views.py`,
+`tests.py`, y las plantillas `bandeja.html`, `gestion.html` y `resolver.html`.
+Verificación: 374 pruebas correctas.
+
+## Reclamo de participación como casilla
+
+- El tipo reservado «Sí voté» se reemplaza por la casilla «Voté, pero aparezco
+  como ausente» en Mis justificativos. Al marcarla se ocultan «Ausencia a
+  justificar» y «Tipo» y se muestra «Perdí el comprobante de votación».
+- El backend fija ausencia a votar y tipo vacío, exige comprobante o pérdida
+  declarada y comentario, e ignora valores de ausencia o tipo enviados.
+- La casilla solo se ofrece si hay una ausencia registrada por QR y la
+  ausencia a votar no tiene justificativo; sin ausencia registrada el servidor
+  ignora el reclamo y la pérdida de comprobante.
+- Las descripciones de las casillas se muestran como tooltip al pasar el
+  cursor y quedan asociadas con `aria-describedby` para lectores de pantalla.
+- Bandeja, gestión, resolución y CSV muestran el motivo derivado.
+
+Archivos creados:
+
+- [mis-justificativos.js](../VotoUTN/static/js/mis-justificativos.js).
+- [0004_reclamo_participacion_casilla.py](../VotoUTN/apps/justificativos/migrations/0004_reclamo_participacion_casilla.py):
+  agrega la casilla, permite `tipo` vacío y convierte los reclamos existentes
+  antes de quitar el tipo reservado; es reversible.
+- [0005_justificativo_tipo_o_reclamo.py](../VotoUTN/apps/justificativos/migrations/0005_justificativo_tipo_o_reclamo.py):
+  quita `TipoJustificativo.es_reclamo_participacion` y agrega la restricción
+  de coherencia entre tipo y reclamo.
+- [0006_etiqueta_reclamo_participacion.py](../VotoUTN/apps/justificativos/migrations/0006_etiqueta_reclamo_participacion.py):
+  actualiza la etiqueta del campo; no cambia el esquema ni los datos.
+
+Archivos modificados: justificativos [models.py](../VotoUTN/apps/justificativos/models.py),
+[forms.py](../VotoUTN/apps/justificativos/forms.py) y
+[tests.py](../VotoUTN/apps/justificativos/tests.py);
+[reportes/services.py](../VotoUTN/apps/reportes/services.py);
+[parametros/tests.py](../VotoUTN/apps/parametros/tests.py);
+[gestion-electoral.css](../VotoUTN/static/css/gestion-electoral.css) (casillas
+alineadas con su texto); plantillas
+[base.html](../VotoUTN/templates/gestion/base.html),
+[mis_justificativos.html](../VotoUTN/templates/justificativos/mis_justificativos.html),
+[bandeja.html](../VotoUTN/templates/justificativos/bandeja.html),
+[gestion.html](../VotoUTN/templates/justificativos/gestion.html) y
+[resolver.html](../VotoUTN/templates/justificativos/resolver.html); documentación.
+
+Verificación en Docker/PostgreSQL: migraciones aplicadas, revertidas y
+reaplicadas; `check` y `makemigrations --check --dry-run` sin pendientes;
+suite completa de 371 pruebas aprobada. En navegador se verificó la casilla
+para un elector con ausencia registrada: al marcarla se ocultan ausencia y
+tipo y aparece la pérdida de comprobante; al desmarcarla se revierte.
+
+## Plazos de publicación y reclamo «Sí voté»
+
+- Publicación con diálogo y dos fechas obligatorias. Las fechas no limitan el
+  avance de estados; se conservan los controles de configuración y pendientes.
+  El modelo persiste ambos plazos junto con el estado y se auditan sus valores.
+- El plazo de autoridades es inclusivo y se valida en backend. No afecta las
+  presentaciones como elector.
+- Tipo reservado «Sí voté», con comprobante o declaración de pérdida y
+  comentario. Se presenta para revisión manual, sin borrar ni corregir
+  automáticamente la ausencia registrada.
+- Filtro de cambios de sede: acción GET explícita y cantidad/estado visibles.
+  El filtro se aplica al cambiar el desplegable (sin botones «Filtrar» ni
+  «Limpiar filtro»; «Todos» quita el filtro). La URL reportada se verificó: la
+  elección 12 tenía 70 aprobadas y ninguna rechazada; no se reprodujo un fallo
+  del filtro backend. Se añadieron pruebas con estados mezclados y en modo
+  lectura.
+
+Archivos creados:
+
+- [publicar-eleccion.js](../VotoUTN/static/js/publicar-eleccion.js).
+- [0003_reclamo_participacion.py](../VotoUTN/apps/justificativos/migrations/0003_reclamo_participacion.py):
+  migración aditiva que incorpora los campos y el tipo sin borrar datos.
+
+Archivos modificados:
+
+- Elecciones: [forms.py](../VotoUTN/apps/elecciones/forms.py),
+  [models.py](../VotoUTN/apps/elecciones/models.py),
+  [views.py](../VotoUTN/apps/elecciones/views.py) y
+  [tests_ciclo_configuracion.py](../VotoUTN/apps/elecciones/tests_ciclo_configuracion.py).
+- Justificativos: [forms.py](../VotoUTN/apps/justificativos/forms.py),
+  [models.py](../VotoUTN/apps/justificativos/models.py) y
+  [tests.py](../VotoUTN/apps/justificativos/tests.py).
+- Filtro: [views.py](../VotoUTN/apps/padron/views.py).
+- Pruebas existentes adaptadas al nuevo requisito:
+  [asistencia/tests.py](../VotoUTN/apps/asistencia/tests.py),
+  [auditoria/tests.py](../VotoUTN/apps/auditoria/tests.py) y
+  [parametros/tests.py](../VotoUTN/apps/parametros/tests.py).
+- Plantillas: [configurar_eleccion.html](../VotoUTN/templates/elecciones/configurar_eleccion.html),
+  [mis_justificativos.html](../VotoUTN/templates/justificativos/mis_justificativos.html),
+  [resolver.html](../VotoUTN/templates/justificativos/resolver.html) y
+  [gestion_solicitudes_cambio_sede.html](../VotoUTN/templates/padron/gestion_solicitudes_cambio_sede.html).
+- Documentación: [decisiones_funcionales.md](decisiones_funcionales.md),
+  [modelo_dominio.md](modelo_dominio.md) y este registro.
+
+Sin archivos eliminados. Se conserva sin cambios el comando demo preexistente.
+
+Verificación en Docker/PostgreSQL: migración aplicada, estáticos publicados,
+`check`, `makemigrations --check --dry-run` y `migrate --plan` sin pendientes.
+Suite completa de 366 pruebas y regresión final de 85 pruebas aprobadas.
+Diálogo, cancelación/foco, obligatoriedad de fechas y listado vacío filtrado
+verificados en navegador con HTML renderizado, sin modificar la elección real.
+
 ## Nitidez del padrón imprimible
 
 - Troqueles con fondo blanco, sin sombreado gris.

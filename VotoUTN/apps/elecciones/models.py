@@ -28,6 +28,7 @@ class Eleccion(models.Model):
     autoridades_confirmadas_por = models.ForeignKey("auth.User", on_delete=models.PROTECT, null=True, blank=True, editable=False, related_name="confirmaciones_autoridades")
     fecha_limite_justificacion_electores = models.DateField(null=True, blank=True)
     notificaciones_ausentes_confirmadas_en = models.DateTimeField(null=True, blank=True, editable=False)
+    justificacion_electores_habilitada_en = models.DateTimeField(null=True, blank=True, editable=False)
     habilitada = models.BooleanField("habilitada", default=True)
     estado = models.CharField(max_length=16, choices=Estado.choices, default=Estado.EN_PREPARACION)
     maximo_autoridades_por_mesa = models.PositiveSmallIntegerField(default=3)

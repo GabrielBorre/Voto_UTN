@@ -1,13 +1,20 @@
-from datetime import date
+from datetime import date, time, timedelta
 from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
-from apps.elecciones.models import Eleccion
+from apps.autoridades.models import AsignacionAutoridad
+from apps.asistencia.models import RegistroParticipacion
+from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
+from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.padron.models import Elector, RegistroPadron
+from apps.parametros.models import Claustro, Departamento, Turno
 from apps.usuarios.backend_auth import ElectorUser
-from apps.usuarios.models import AsignacionRol
+from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
 class InicioAutenticadoTests(TestCase):
@@ -265,3 +272,306 @@ class InicioAutenticadoTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Mi información electoral")
+
+
+class InicioElectorTests(TestCase):
+    def setUp(self):
+        self.elector = Elector.objects.create(
+            legajo="inicio-elector-1",
+            nombre="Elector",
+            apellido="Prueba",
+            dni="9876543210",
+        )
+        self.claustro = Claustro.objects.create(nombre="Claustro inicio")
+        self.departamento = Departamento.objects.create(nombre="Departamento inicio", codigo="INI")
+        self.eleccion_en_curso = self.crear_eleccion(
+            "Elección en curso",
+            Eleccion.Estado.EN_CURSO,
+        )
+        self.registro_en_curso = self.crear_registro(self.eleccion_en_curso)
+        self.client.force_login(
+            ElectorUser(self.elector.dni),
+            backend="apps.usuarios.backend_auth.ElectorBackend",
+        )
+
+    def crear_eleccion(self, nombre, estado):
+        return Eleccion.objects.create(
+            nombre=nombre,
+            fecha_inicio=date(2026, 10, 1),
+            fecha_fin=date(2026, 10, 2),
+            estado=estado,
+        )
+
+    def crear_registro(self, eleccion):
+        eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=eleccion,
+            claustro=self.claustro,
+        )
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=eleccion_claustro,
+            departamento=self.departamento,
+        )
+        return RegistroPadron.objects.create(
+            elector=self.elector,
+            eleccion=eleccion,
+            eleccion_claustro_departamento=alcance,
+        )
+
+    def crear_asignacion_autoridad(self, registro):
+        mesa = Mesa.objects.create(eleccion=registro.eleccion, numero=1)
+        turno = Turno.objects.create(
+            nombre=f"Turno autoridad {registro.eleccion_id}",
+            hora_inicio=time(8),
+            hora_fin=time(12),
+        )
+        asignador = get_user_model().objects.create_user(
+            username=f"asignador-autoridad-{registro.eleccion_id}",
+        )
+        return AsignacionAutoridad.objects.create(
+            registro_padron=registro,
+            mesa=mesa,
+            turno=turno,
+            asignada_por=asignador,
+        )
+
+    def iniciar_sesion_local_con_rol_autoridad(self, eleccion):
+        usuario = get_user_model().objects.create_user(username=f"autoridad-{eleccion.pk}")
+        PerfilUsuario.objects.create(usuario=usuario, elector=self.elector)
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            rol=AsignacionRol.Rol.AUTORIDAD_MESA,
+            eleccion=eleccion,
+        )
+        self.client.force_login(usuario)
+
+    def test_muestra_rol_autoridad_para_asignacion_de_eleccion_en_curso(self):
+        self.crear_asignacion_autoridad(self.registro_en_curso)
+        self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertTrue(respuesta.context["nav_es_autoridad"])
+
+    def test_muestra_rol_autoridad_para_asignacion_de_eleccion_publicada(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion_en_curso.autoridades_confirmadas_en = timezone.now()
+        self.eleccion_en_curso.save(update_fields=("estado", "autoridades_confirmadas_en"))
+        asignacion = self.crear_asignacion_autoridad(self.registro_en_curso)
+        self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertContains(respuesta, "Se informará cuando la elección esté en curso")
+        self.assertNotContains(respuesta, asignacion.mesa.codigo)
+        self.assertTrue(respuesta.context["nav_es_autoridad"])
+
+    def test_oculta_turno_de_autoridad_provisoria_en_publicada(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+        asignacion = self.crear_asignacion_autoridad(self.registro_en_curso)
+        self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertNotContains(respuesta, str(asignacion.turno))
+        self.assertNotContains(respuesta, "Desempeño como Autoridad de Mesa")
+
+    def test_muestra_rol_elector_para_asignacion_de_eleccion_en_preparacion(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.FINALIZADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+        eleccion_en_preparacion = self.crear_eleccion(
+            "Elección en preparación",
+            Eleccion.Estado.EN_PREPARACION,
+        )
+        registro = self.crear_registro(eleccion_en_preparacion)
+        self.crear_asignacion_autoridad(registro)
+        self.iniciar_sesion_local_con_rol_autoridad(eleccion_en_preparacion)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Elector</b>")
+        self.assertNotContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertFalse(respuesta.context["nav_es_autoridad"])
+
+    def test_asignacion_rechazada_no_muestra_rol_autoridad(self):
+        asignacion = self.crear_asignacion_autoridad(self.registro_en_curso)
+        asignacion.estado = AsignacionAutoridad.Estado.RECHAZADA
+        asignacion.save(update_fields=("estado",))
+        self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Elector</b>")
+        self.assertNotContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertFalse(respuesta.context["nav_es_autoridad"])
+
+    def test_muestra_rol_elector_cuando_solo_tiene_asignaciones_historicas(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.FINALIZADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+        registro = self.eleccion_en_curso.registros_padron.get(elector=self.elector)
+        self.crear_asignacion_autoridad(registro)
+        self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Elector</b>")
+        self.assertNotContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertFalse(respuesta.context["nav_es_autoridad"])
+        self.assertIsNone(respuesta.context["eleccion_en_curso"])
+
+    def test_asignacion_de_eleccion_anterior_no_muestra_rol_autoridad_en_la_actual(self):
+        eleccion_anterior = self.crear_eleccion(
+            "Elección anterior",
+            Eleccion.Estado.FINALIZADA,
+        )
+        registro_anterior = self.crear_registro(eleccion_anterior)
+        self.crear_asignacion_autoridad(registro_anterior)
+        self.iniciar_sesion_local_con_rol_autoridad(eleccion_anterior)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Rol: <b>Elector</b>")
+        self.assertNotContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertContains(respuesta, self.eleccion_en_curso.nombre)
+        self.assertFalse(respuesta.context["nav_es_autoridad"])
+
+    def test_muestra_solo_el_registro_de_la_eleccion_en_curso(self):
+        eleccion_cerrada = self.crear_eleccion(
+            "Elección cerrada anterior",
+            Eleccion.Estado.FINALIZADA,
+        )
+        self.crear_registro(eleccion_cerrada)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, self.eleccion_en_curso.nombre)
+        self.assertNotContains(respuesta, eleccion_cerrada.nombre)
+        self.assertEqual(
+            [registro.eleccion_id for registro in respuesta.context["registros"]],
+            [self.eleccion_en_curso.pk],
+        )
+
+    def test_muestra_sin_padron_si_no_esta_cargado_en_la_eleccion_en_curso(self):
+        self.eleccion_en_curso.registros_padron.all().delete()
+        eleccion_cerrada = self.crear_eleccion(
+            "Elección cerrada anterior",
+            Eleccion.Estado.FINALIZADA,
+        )
+        self.crear_registro(eleccion_cerrada)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertContains(respuesta, "Sin información disponible")
+        self.assertContains(
+            respuesta,
+            "No encontramos un registro de padrón asociado a tu identidad.",
+        )
+        self.assertNotContains(respuesta, "Sin elecciones en curso")
+
+    def test_no_muestra_eleccion_en_preparacion_en_inicio_del_elector(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.EN_PREPARACION
+        self.eleccion_en_curso.save(update_fields=("estado",))
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertNotContains(respuesta, self.eleccion_en_curso.nombre)
+        self.assertContains(respuesta, "Sin elecciones en curso")
+        self.assertIsNone(respuesta.context["eleccion_en_curso"])
+        self.assertFalse(respuesta.context["registros"].exists())
+
+    def test_muestra_eleccion_publicada_en_inicio_del_elector(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+        mesa = Mesa.objects.create(eleccion=self.eleccion_en_curso, numero=23)
+        AsignacionMesa.objects.create(registro_padron=self.registro_en_curso, mesa=mesa)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, self.eleccion_en_curso.nombre)
+        self.assertContains(respuesta, "Se informará cuando la elección esté en curso")
+        self.assertNotContains(respuesta, mesa.codigo)
+        self.assertEqual(
+            [registro.eleccion_id for registro in respuesta.context["registros"]],
+            [self.eleccion_en_curso.pk],
+        )
+
+    def test_muestra_mesa_asignada_cuando_la_eleccion_esta_en_curso(self):
+        mesa = Mesa.objects.create(eleccion=self.eleccion_en_curso, numero=23)
+        AsignacionMesa.objects.create(registro_padron=self.registro_en_curso, mesa=mesa)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, mesa.codigo)
+        self.assertNotContains(respuesta, "Será asignada próximamente")
+
+    def test_muestra_la_situacion_electoral_calculada_por_el_historial(self):
+        url = reverse("inicio-autenticado")
+
+        en_curso = self.client.get(url)
+        self.assertContains(en_curso, "pill info")
+        self.assertContains(en_curso, "En Curso")
+
+        self.eleccion_en_curso.notificaciones_ausentes_confirmadas_en = timezone.now()
+        self.eleccion_en_curso.justificacion_electores_habilitada_en = timezone.now()
+        self.eleccion_en_curso.fecha_limite_justificacion_electores = timezone.localdate() + timedelta(days=5)
+        self.eleccion_en_curso.save(
+            update_fields=(
+                "notificaciones_ausentes_confirmadas_en",
+                "justificacion_electores_habilitada_en",
+                "fecha_limite_justificacion_electores",
+            )
+        )
+
+        voto_emitido = self.client.get(url)
+        self.assertContains(voto_emitido, "pill ok")
+        self.assertContains(voto_emitido, "Voto Emitido")
+
+        mesa = Mesa.objects.create(eleccion=self.eleccion_en_curso, numero=24)
+        usuario = get_user_model().objects.create_user(username="registro-inicio-elector")
+        RegistroParticipacion.objects.create(
+            registro_padron=self.registro_en_curso,
+            mesa=mesa,
+            registrada_por=usuario,
+            metodo=RegistroParticipacion.Metodo.MANUAL,
+        )
+
+        inasistencia = self.client.get(url)
+        self.assertContains(inasistencia, "pill warn")
+        self.assertContains(inasistencia, "En Curso - Voto No Registrado")
+
+        JustificativoAusencia.objects.create(
+            registro_padron=self.registro_en_curso,
+            ausencia=JustificativoAusencia.Ausencia.VOTAR,
+            tipo=TipoJustificativo.objects.create(nombre="Motivo inicio"),
+            detalle="Detalle de prueba.",
+            estado=JustificativoAusencia.Estado.PENDIENTE,
+        )
+        pendiente = self.client.get(url)
+        self.assertContains(pendiente, "pill warn")
+        self.assertContains(pendiente, "Justificativo Pendiente de Revisión")
+
+    def test_muestra_aviso_y_enlace_al_historial_si_no_hay_elecciones_en_curso(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.FINALIZADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertContains(respuesta, "Sin elecciones en curso")
+        self.assertContains(respuesta, "No hay elecciones en curso en este momento.")
+        self.assertContains(
+            respuesta,
+            f'href="{reverse("historial-electoral")}"',
+        )
+        self.assertNotContains(respuesta, "Sin información disponible")

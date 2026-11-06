@@ -48,7 +48,12 @@
     <video id="camera-video" playsinline muted></video>
     <canvas id="scan-canvas" class="d-none"></canvas>
 
-    <div class="camera-guide"></div>
+    <div id="scan-summary" class="scan-mesa-overlay d-none" aria-live="polite" aria-hidden="true">
+      <strong id="detected-mesa"></strong>
+      <span class="scan-mesa-overlay-sep" aria-hidden="true"></span>
+      <span class="scan-mesa-overlay-label">Inasistencias registradas</span>
+      <span id="qr-count" class="scan-mesa-overlay-count">0</span>
+    </div>
 
     <div id="camera-status" class="camera-status">Preparando cámara…</div>
   </section>
@@ -85,6 +90,7 @@
           <path d="M3 7l4.5 4.5L12 3l4.5 8.5L21 7"></path>
           <rect x="9" y="13" width="6" height="6" rx="1"></rect>
         </svg>
+        Registrar Mesa
       </button>
       <button id="manual-load" class="btn scanner-btn-secondary js-manual-load" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -111,11 +117,11 @@
   </div>
 
   <div id="confirm-panel" class="result-panel d-none" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
-    <div class="result-card mobile-dialog">
-      <h2 id="confirm-title">Mesa sin inasistencias</h2>
-      <p id="confirm-text" class="mobile-dialog-text"></p>
+    <div class="result-card mobile-dialog confirm-dialog">
+      <h2 id="confirm-title">Registrar Mesa</h2>
+      <p id="confirm-text" class="mobile-dialog-text confirm-dialog-text"></p>
       <div class="scanner-action-row">
-        <button id="confirm-cancel" class="btn scanner-btn-secondary" type="button">Cancelar</button>
+        <button id="confirm-cancel" class="btn scanner-btn-secondary" type="button">Volver</button>
         <button id="confirm-accept" class="btn scanner-btn-primary" type="button">Confirmar</button>
       </div>
     </div>

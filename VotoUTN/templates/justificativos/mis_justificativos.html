@@ -1,28 +1,40 @@
 {% extends "gestion/base.html" %}
+{% load static %}
 {% block content %}
 <section class="hero">
 	<h1>Mis justificativos</h1>
 	<p>Presente documentación para justificar una ausencia.</p>
 </section>
 <section class="card form-card">
+	{% if eleccion %}<p><strong>Elección:</strong> {{ eleccion.nombre }}</p>{% endif %}
 	{% if not eleccion %}
 	<p class="error">No hay una elección actual habilitada para presentar justificativos.</p>
 	{% elif not estado_habilitado %}
+	<p class="notice">La presentación no está habilitada en esta etapa de la elección.</p>
 	{% elif not registro_padron %}
 	<p class="error">No se encontró un padrón activo para la elección actual.</p>
 	{% elif not puede_presentar %}
-	<div class="notice">Ya presentó todos los justificativos que tiene permitidos. No pueden modificarse.</div>
+	<div class="notice">No hay ausencias disponibles para justificar: ya fueron presentadas o venció el plazo de autoridades.</div>
+	{% if not puede_presentar_justificativo_electoral %}<p class="notice">La justificación por inasistencia estará disponible cuando se habilite el período correspondiente y exista una ausencia registrada.</p>{% endif %}
 	{% else %}
 	<form method="post" enctype="multipart/form-data" id="form-justificativo">
 		{% csrf_token %}
-		<p><strong>Elección:</strong> {{ eleccion.nombre }}</p>
+		{% if formulario.plazo_autoridad_vencido %}<p class="notice">El plazo de autoridades está vencido; no afecta la justificación como elector.</p>{% endif %}
 		{% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
 		{% for field in formulario %}
-		<div class="field">
+		{% if field.is_hidden %}{{ field }}{% else %}
+		<div class="field" data-campo-justificativo="{{ field.name }}">
+			{% if field.widget_type == "checkbox" %}
+			<div class="form-check"{% if field.help_text %} title="{{ field.help_text }}"{% endif %}>{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+			{% if field.help_text %}<span class="visually-hidden" id="ayuda_{{ field.name }}">{{ field.help_text }}</span>{% endif %}
+			{% else %}
 			<label for="{{ field.id_for_label }}">{{ field.label }}</label>
 			{{ field }}
+			{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+			{% endif %}
 			{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
 		</div>
+		{% endif %}
 		{% endfor %}
 		<div class="footer-actions"><button type="button" class="button primary" id="btn-presentar">Presentar</button></div>
 	</form>
@@ -45,6 +57,7 @@
 			document.getElementById("btn-confirmar-justificativo").addEventListener("click", function () { dialogo.close(); formulario.requestSubmit(); });
 		})();
 	</script>
+	<script type="module" src="{% static 'js/mis-justificativos.js' %}?v=20261103.2"></script>
 	{% endif %}
 </section>
 <div class="table-wrap">
@@ -52,7 +65,7 @@
 		<thead><tr><th>Elección</th><th>Ausencia</th><th>Motivo</th><th>Estado</th><th>Fecha</th></tr></thead>
 		<tbody>
 			{% for item in justificativos %}
-			<tr><td>{{ item.registro_padron.eleccion }}</td><td>{{ item.get_ausencia_display }}</td><td>{{ item.tipo }}</td><td>{{ item.get_estado_display }}</td><td>{{ item.presentada_en|date:"d/m/Y" }}</td></tr>
+			<tr><td>{{ item.registro_padron.eleccion }}</td><td>{{ item.get_ausencia_display }}</td><td>{{ item.motivo }}</td><td>{{ item.get_estado_display }}</td><td>{{ item.presentada_en|date:"d/m/Y" }}</td></tr>
 			{% empty %}
 			<tr><td colspan="5">No hay justificativos.</td></tr>
 			{% endfor %}

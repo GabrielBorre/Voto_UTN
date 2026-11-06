@@ -509,7 +509,8 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, 'class="management-panel scopes-panel"')
-        self.assertContains(respuesta, 'class="card management-section"', count=2)
+        self.assertContains(respuesta, 'class="card management-section"', count=1)
+        self.assertContains(respuesta, 'alcances-agregar-claustro')
         self.assertContains(respuesta, "Gestionar sedes del claustro")
         self.assertContains(respuesta, "Sistemas")
         self.assertContains(respuesta, "Gestionar sedes")

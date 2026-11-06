@@ -120,7 +120,7 @@ html, body {
 .camera-panel {
   flex: 1 1 auto;
   position: relative;
-  margin: 0.75rem;
+  margin: 0.35rem;
   min-height: 0;          /* CRÍTICO: permite que flex shrink funcione */
   background: var(--app-black);
   border-radius: 1rem;
@@ -135,21 +135,62 @@ html, body {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 #scan-canvas {
   display: none;
 }
 
-/* Recuadro guía blanco */
-.camera-guide {
+/* Resumen flotante de mesa dentro del área negra de la cámara */
+.scan-mesa-overlay {
   position: absolute;
-  inset: 4%;
-  border: 2.5px solid rgba(255, 255, 255, 0.9);
-  border-radius: 0.875rem;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: calc(100% - 1rem);
+  padding: 0.5rem 0.9rem;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 99px;
+  color: #fff;
+  white-space: nowrap;
   pointer-events: none;
   z-index: 2;
+}
+
+.scan-mesa-overlay strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.scan-mesa-overlay-sep {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.scan-mesa-overlay-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.scan-mesa-overlay-count {
+  min-width: 1.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 99px;
+  background: var(--app-blue);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
 }
 
 /* Status flotante dentro del área negra */
@@ -186,7 +227,7 @@ html, body {
    ============================================ */
 .scanner-actions {
   flex: 0 0 auto;
-  padding: 0.75rem max(1rem, var(--safe-right)) calc(0.75rem + var(--safe-bottom)) max(1rem, var(--safe-left));
+  padding: 0.55rem max(1rem, var(--safe-right)) calc(0.55rem + var(--safe-bottom)) max(1rem, var(--safe-left));
   background: var(--app-bg);
   border-top: 1px solid var(--app-border);
   z-index: 10;
@@ -326,6 +367,19 @@ html, body {
 .mobile-dialog-text {
   margin: 0;
   white-space: pre-line;
+}
+
+/* Diálogo de confirmación de registro de mesa */
+.confirm-dialog h2 {
+  font-size: 1.45rem;
+  text-align: center;
+}
+
+.confirm-dialog-text {
+  font-size: 1.3rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .mobile-dialog input {

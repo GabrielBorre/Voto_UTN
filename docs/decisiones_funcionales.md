@@ -7,6 +7,43 @@
 - No existe una aplicación móvil nativa.
 - El administrativo de junta registra la participación.
 - La autoridad de mesa no registra participación.
+- El registro por QR o carga manual identifica a quienes no votaron; la ausencia
+  de un registro implica que se presume que el elector votó.
+- El historial electoral se muestra a electores y autoridades de mesa, y cada
+  persona solo consulta sus propios registros y justificativos.
+- Un elector autenticado puede acceder al historial aunque todavía no exista en
+  el padrón local; en ese caso se muestra vacío.
+- El inicio del elector muestra la información de la elección únicamente cuando
+  está Publicada o En curso. Una elección En preparación no debe ser visible allí.
+- Las elecciones Publicadas y En curso aparecen en el historial electoral y
+  muestran «En Curso» hasta que el administrador de junta confirma el escaneo de
+  todas las mesas. Esa confirmación actualiza únicamente la situación de los
+  electores de esa elección: «Voto Emitido» si no tienen registro de ausencia o
+  «En Curso - Voto No Registrado» si lo tienen. «Voto Emitido» es definitivo
+  desde esa confirmación. Para quien sí tiene ausencia, «En Curso - Voto No
+  Registrado» se mantiene durante el período de justificación; al vencer el
+  plazo, pasa a «Infractor» si no hay un justificativo que determine otro
+  estado. Los justificativos aplicables conservan prioridad. La confirmación
+  de una elección no modifica las situaciones de las demás elecciones del
+  historial.
+- Al finalizar una elección, quien tenga una ausencia registrada y no haya
+  presentado un justificativo figura como «Infractor», con independencia de que
+  se haya abierto el período de justificación o vencido su fecha límite. Quien
+  no tenga registro de ausencia figura como «Voto Emitido». Los justificativos
+  presentados conservan prioridad y su estado histórico.
+- Dentro del período habilitado, un justificativo pendiente figura como
+  «Pendiente de Revisión»; uno aprobado, como «Inasistencia Justificada»; y uno
+  rechazado, como «Infractor - Justificación Rechazada».
+- Al confirmar el escaneo de todas las mesas, el administrador de junta indica
+  la fecha límite inclusiva para justificar ausencias. La misma acción notifica
+  a los electores ausentes y abre el período de justificativos hasta esa fecha.
+  Si el escaneo ya se había confirmado sin abrir el período, el administrador
+  puede definir el plazo posteriormente sin volver a generar notificaciones.
+- Solo se puede presentar un justificativo electoral durante el período
+  habilitado y si existe un registro de ausencia. La fecha límite configurada
+  es inclusiva. Antes de finalizar la elección, al vencer el plazo la ausencia
+  sin solicitud pasa a «Infractor»; una solicitud pendiente o rechazada conserva
+  su estado propio.
 
 ## Elecciones, claustros, sedes y departamentos
 
@@ -110,6 +147,9 @@ Ejemplo: `Sistemas de Información` / `K`.
 ## Autoridades
 
 - Una autoridad de mesa es también un elector.
+- El rol visible de Autoridad de Mesa requiere una asignación no rechazada en
+  una elección Publicada o En curso. Las asignaciones de elecciones en
+  preparación o finalizadas no modifican el rol visible de Elector.
 - No se crea una identidad duplicada.
 - Debe existir previamente como elector.
 - Debe pertenecer al padrón de la elección.
@@ -239,10 +279,32 @@ Reglas:
 - La presentación de justificativos se habilita únicamente para la elección actual cuando se encuentra publicada (`PREPARADA`) o en curso (`ABIERTA`).
 - La misma regla aplica a electores y autoridades de mesa; el servidor rechaza envíos aunque se intente omitir la restricción de la interfaz.
 - No se habilita la presentación en elecciones en preparación, finalizadas ni cuando no existe una elección actual con padrón activo para la persona.
+- La casilla «Voté, pero aparezco como ausente» permite reclamar una ausencia
+  a votar. Solo se ofrece si la persona tiene una ausencia registrada
+  (`RegistroParticipacion` por escaneo de QR) y todavía no presentó un
+  justificativo de ausencia a votar. Al marcarla se ocultan «Ausencia a
+  justificar» y «Tipo» y aparece «Perdí el comprobante de votación»; el
+  servidor fija la ausencia a votar y no asigna tipo. Las descripciones de
+  ambas casillas se muestran al pasar el cursor. Admite comprobante PDF/imagen
+  o la declaración de comprobante extraviado junto con un comentario para
+  revisar manualmente el padrón.
+- Si el elector adjunta una imagen JPG/PNG del troquel, el sistema lee el QR y
+  verifica la firma, la elección y el identificador del elector. El resultado
+  (válido, no válido, sin QR detectado, revisión manual para PDF o comprobante
+  extraviado) se muestra a la Junta, que puede volver a validarlo. Un resultado
+  no válido no impide la presentación.
+- La validación automática no modifica la ausencia. Solo cuando el
+  administrador o el administrativo de junta aprueba el reclamo se elimina el
+  `RegistroParticipacion`, con copia en el justificativo y evento de auditoría.
+  Si la resolución cambia a rechazada, la ausencia se restaura. Mantiene el
+  límite de una presentación por tipo de ausencia y la validación de adjuntos.
 
 ## Resolución de solicitudes de cambio de sede
 
 - Cada elector puede registrar una única solicitud de cambio de sede por elección, independientemente de su estado (pendiente, aprobada o rechazada).
+- El filtro por estado afecta solo el listado, incluso en modo lectura. Los
+  resúmenes y las acciones masivas continúan abarcando todas las solicitudes
+  pendientes; la cantidad y el estado del listado filtrado se muestran explícitos.
 - La gestión muestra la cantidad actual de mesas de cada sede habilitada para la elección y una estimación de las mesas adicionales necesarias para las solicitudes pendientes.
 - El administrador de junta puede aprobar solicitudes agregando como máximo una cantidad total de mesas nuevas definida en el formulario. El límite se aplica a toda la elección, no por sede.
 - Al elegir la acción con límite, se informa cuántas mesas nuevas se crearían si se aceptaran todas las solicitudes pendientes y se solicita el máximo total permitido antes de confirmar.

@@ -1,0 +1,67 @@
+{% extends "gestion/base.html" %}
+{% load static %}
+
+{% block title %}Historial Electoral | Voto UTN{% endblock %}
+
+{% block styles %}
+<link href="{% static 'css/historial-electoral.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Historial Electoral</h1>
+  <p>Explorá el registro de tus elecciones y la situación de cada participación.</p>
+</section>
+
+<section class="card historial-electoral">
+  <h3>Historial Electoral</h3>
+  <div class="table-wrap historial-electoral__table-wrap">
+    <table class="historial-electoral__table">
+      <thead>
+        <tr>
+          <th scope="col">Año</th>
+          <th scope="col">Elección</th>
+          <th scope="col">Claustro</th>
+          <th scope="col">Situación</th>
+          <th scope="col">Justificativo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in historial %}
+        <tr>
+          <td>{{ item.anio }}</td>
+          <td>{{ item.eleccion.nombre }}</td>
+          <td>{{ item.claustro.nombre }}</td>
+          <td>
+            <span class="pill {{ item.clase_estado }} request-status"
+              {% if item.ayuda_estado %}title="{{ item.ayuda_estado }}"{% endif %}>
+              {% if item.estado == "Voto Emitido" or item.estado == "Inasistencia Justificada" %}
+              <span aria-hidden="true">✔</span>
+              {% elif item.estado == "Infractor - Justificación Rechazada" or item.estado == "Infractor" %}
+              <span aria-hidden="true">❌</span>
+              {% elif item.estado == "Justificativo Pendiente de Revisión" %}
+              <span aria-hidden="true">⏳</span>
+              {% elif item.estado == "En Curso - Voto No Registrado" %}
+              <span aria-hidden="true">⚠</span>
+              {% endif %}
+              &nbsp;{{ item.estado }}
+            </span>
+          </td>
+          <td>
+            {% if item.justificativo %}
+            <a href="{% url 'detalle-justificativo-elector' item.justificativo.pk %}" class="btn small light">Ver solicitud</a>
+            {% elif item.estado == "En Curso - Voto No Registrado" %}
+            <a href="{% url 'mis-justificativos' %}" class="btn small light">Justificar</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="historial-electoral__empty">No hay elecciones disponibles en tu historial.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

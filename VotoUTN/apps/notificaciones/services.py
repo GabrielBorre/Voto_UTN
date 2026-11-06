@@ -192,19 +192,39 @@ def notificar_eleccion_en_curso(eleccion):
 
 
 @transaction.atomic
-def crear_notificaciones_ausentes_confirmadas(eleccion):
+def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificacion_electores):
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
     if eleccion.estado != Eleccion.Estado.EN_CURSO:
         raise ValueError("Las notificaciones de ausentes solo se pueden confirmar durante una elección en curso.")
-    if eleccion.notificaciones_ausentes_confirmadas_en:
+    if fecha_limite_justificacion_electores is None:
+        raise ValueError("Debe indicar la fecha límite para presentar justificativos.")
+    if fecha_limite_justificacion_electores < timezone.localdate():
+        raise ValueError("La fecha límite para presentar justificativos no puede ser anterior a hoy.")
+    if (
+        eleccion.notificaciones_ausentes_confirmadas_en
+        and eleccion.justificacion_electores_habilitada_en
+    ):
         raise ValueError("Las notificaciones a ausentes ya fueron confirmadas para esta elección.")
+
+    momento_confirmacion = timezone.now()
+    if eleccion.notificaciones_ausentes_confirmadas_en:
+        eleccion.justificacion_electores_habilitada_en = momento_confirmacion
+        eleccion.fecha_limite_justificacion_electores = fecha_limite_justificacion_electores
+        eleccion.save(
+            update_fields=(
+                "justificacion_electores_habilitada_en",
+                "fecha_limite_justificacion_electores",
+            )
+        )
+        return []
+
     mesas = Mesa.objects.filter(eleccion=eleccion)
     if not mesas.exists():
         raise ValueError("La elección no tiene mesas para verificar el cierre del escaneo.")
     if mesas.exclude(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA).exists():
         raise ValueError("Todas las mesas deben estar escaneadas y confirmadas antes de notificar a los ausentes.")
 
-    plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+    plantilla, _ = PlantillaNotificacion.objects.update_or_create(
         codigo="aviso-ausentes-eleccion",
         defaults={
             "nombre": "Ausentes: período de justificativos",
@@ -213,7 +233,9 @@ def crear_notificaciones_ausentes_confirmadas(eleccion):
             "contenido": (
                 "Hola {nombre_destinatario},\n\n"
                 "En los registros de la elección {nombre_eleccion} figurás como ausente. "
-                "Podés presentar un justificativo dentro del período habilitado desde Voto UTN.\n\n"
+                "Podés presentar un justificativo hasta el día "
+                "{fecha_limite_justificacion_electores} inclusive, momento en el que finaliza "
+                "el período de justificación de inasistencias electorales.\n\n"
                 "Si considerás que esta información es incorrecta, comunicate con la Junta Electoral.\n\n"
                 "Voto UTN"
             ),
@@ -239,13 +261,22 @@ def crear_notificaciones_ausentes_confirmadas(eleccion):
             contenido=plantilla.contenido.format(
                 nombre_destinatario=registro.elector.nombre_completo,
                 nombre_eleccion=eleccion.nombre,
+                fecha_limite_justificacion_electores=fecha_limite_justificacion_electores.strftime("%d/%m/%Y"),
             ),
         )
         for registro in registros_ausentes
     ]
     EnvioNotificacion.objects.bulk_create(envios)
-    eleccion.notificaciones_ausentes_confirmadas_en = timezone.now()
-    eleccion.save(update_fields=("notificaciones_ausentes_confirmadas_en",))
+    eleccion.notificaciones_ausentes_confirmadas_en = momento_confirmacion
+    eleccion.justificacion_electores_habilitada_en = momento_confirmacion
+    eleccion.fecha_limite_justificacion_electores = fecha_limite_justificacion_electores
+    eleccion.save(
+        update_fields=(
+            "notificaciones_ausentes_confirmadas_en",
+            "justificacion_electores_habilitada_en",
+            "fecha_limite_justificacion_electores",
+        )
+    )
     return envios
 
 
