@@ -85,13 +85,14 @@ class Command(BaseCommand):
         sede = eleccion.elecciones_sede.select_related("sede").first()
         mesa = Mesa.objects.filter(eleccion=eleccion).order_by("numero").first()
         if configuracion is None or sede is None or mesa is None:
-            raise CommandError("La Eleccion Demo 2026 no tiene configurados padron, sede y mesa.")
+            raise CommandError("La Elección 2030 no tiene configurados padrón, sede y mesa.")
 
         admin_junta = self._crear_usuario_interno(USUARIOS["administrador_junta"], eleccion, sede.sede)
         administrativo = self._crear_usuario_interno(USUARIOS["administrativo_junta"], eleccion, sede.sede)
 
-        autoridad = self._crear_elector(USUARIOS["autoridad_mesa"], eleccion, configuracion, sede.sede)
-        autoridad_2 = self._crear_elector(USUARIOS["autoridad_mesa_2"], eleccion, configuracion, sede.sede)
+        autoridad = self._crear_elector(USUARIOS["autoridad_mesa"], eleccion, configuracion, None)
+        # La candidata no cursa en la sede electoral donde se la asigna.
+        autoridad_2 = self._crear_elector(USUARIOS["autoridad_mesa_2"], eleccion, configuracion, None)
         elector = self._crear_elector(USUARIOS["elector"], eleccion, configuracion, sede.sede)
         elector_2 = self._crear_elector(USUARIOS["elector_2"], eleccion, configuracion, sede.sede)  
         candidatura, _ = CandidaturaAutoridad.objects.get_or_create(
@@ -107,7 +108,7 @@ class Command(BaseCommand):
                 .first()
             )
             if turno is None:
-                raise CommandError("La Eleccion Demo 2026 no tiene turnos de autoridades configurados.")
+                raise CommandError("La Elección 2030 no tiene turnos de autoridades configurados.")
             AsignacionAutoridad.objects.update_or_create(
                 registro_padron=autoridad_2[1],
                 defaults={

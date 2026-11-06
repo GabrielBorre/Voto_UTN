@@ -147,17 +147,16 @@ class HistorialElectoralTests(TestCase):
         self.assertEqual(estados, {
             "Elección en curso": "En Curso",
             "Votó": "Voto Emitido",
-            "No registrado": "En Curso - Voto No Registrado",
+            "No registrado": "Infractor",
             "Pendiente": "Justificativo Pendiente de Revisión",
             "Aprobado": "Inasistencia Justificada",
             "Rechazado": "Infractor - Justificación Rechazada",
             "Infractor": "Infractor",
         })
-        self.assertContains(respuesta, "El período de justificación está habilitado.")
+        self.assertNotContains(respuesta, "El período de justificación está habilitado.")
         self.assertContains(respuesta, "Historial Electoral")
         for estado in (
             "Voto Emitido",
-            "En Curso - Voto No Registrado",
             "Justificativo Pendiente de Revisión",
             "Inasistencia Justificada",
             "Infractor - Justificación Rechazada",
@@ -165,9 +164,9 @@ class HistorialElectoralTests(TestCase):
         ):
             self.assertContains(respuesta, estado)
         self.assertContains(respuesta, '<span aria-hidden="true">✔</span>', count=2)
-        self.assertContains(respuesta, '<span aria-hidden="true">❌</span>', count=2)
+        self.assertContains(respuesta, '<span aria-hidden="true">❌</span>', count=3)
         self.assertContains(respuesta, '<span aria-hidden="true">⏳</span>', count=1)
-        self.assertContains(respuesta, '<span aria-hidden="true">⚠</span>', count=1)
+        self.assertNotContains(respuesta, '<span aria-hidden="true">⚠</span>')
 
     def test_eleccion_publicada_antes_del_periodo_aparece_con_situacion_en_curso(self):
         self.eleccion_abierta.estado = Eleccion.Estado.PUBLICADA
@@ -286,7 +285,7 @@ class HistorialElectoralTests(TestCase):
             item["eleccion"].pk: item["estado"]
             for item in respuesta.context["historial"]
         }
-        self.assertEqual(estados[anterior.pk], "En Curso - Voto No Registrado")
+        self.assertEqual(estados[anterior.pk], "Infractor")
         self.assertEqual(estados[self.eleccion_abierta.pk], "En Curso - Voto No Registrado")
 
     def test_justificativo_se_muestra_despues_de_confirmar_notificaciones(self):

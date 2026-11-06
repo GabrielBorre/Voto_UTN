@@ -1,6 +1,7 @@
 import csv
 
 from django.http import Http404, HttpResponse
+from django.db.models import Case, IntegerField, Value, When
 
 from apps.asistencia.models import RegistroParticipacion
 from apps.autoridades.models import AsignacionAutoridad
@@ -95,7 +96,13 @@ def exportar_reporte_eleccion(eleccion, tipo):
             )
     elif tipo == "autoridades":
         escritor.writerow(("nombre", "legajo", "mesa", "turno", "estado", "asignada_en"))
-        for item in AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).select_related("registro_padron__elector", "mesa", "turno"):
+        for item in AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).select_related(
+            "registro_padron__elector", "mesa", "turno",
+        ).order_by(
+            "mesa__numero", "turno__hora_inicio",
+            Case(When(tipo=AsignacionAutoridad.Tipo.TITULAR, then=Value(0)), default=Value(1), output_field=IntegerField()),
+            "orden_suplencia", "registro_padron__elector__apellido", "registro_padron__elector__nombre",
+        ):
             escritor.writerow(
                 (
                     valor_csv(item.registro_padron.elector.nombre_completo),

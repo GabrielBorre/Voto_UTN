@@ -144,7 +144,7 @@
         {% for solicitud in solicitudes %}
         <tr>
           <td>{% if solicitud.estado == 'pendiente' %}<input type="checkbox" name="solicitudes_ids" value="{{ solicitud.id }}" form="aprobar-seleccionadas" class="seleccion-solicitud" aria-label="Seleccionar solicitud de {{ solicitud.registro_padron.elector.nombre_completo }}">{% endif %}</td>
-          <td>{{ solicitud.registro_padron.elector.nombre_completo }}</td>
+          <td>{{ solicitud.registro_padron.elector.nombre_completo }}{% with autoridad=solicitud.registro_padron.asignacion_autoridad %}{% if autoridad.estado == 'asignada' %}<br><strong>Autoridad {{ autoridad.get_tipo_display|lower }}</strong> · {{ autoridad.mesa.sede }} · {{ autoridad.turno }}{% if autoridad.mesa.sede_id != solicitud.sede_destino_id %}<p class="notice">Conflicto: la designación de autoridad corresponde a otra sede.</p>{% endif %}{% endif %}{% endwith %}</td>
           <td>{{ solicitud.registro_padron.eleccion_claustro_departamento.eleccion_claustro.claustro }}</td>
           <td>{{ solicitud.sede_origen }}</td>
           <td>{{ solicitud.sede_destino }}</td>

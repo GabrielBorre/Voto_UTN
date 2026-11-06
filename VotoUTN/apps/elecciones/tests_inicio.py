@@ -356,7 +356,8 @@ class InicioElectorTests(TestCase):
 
     def test_muestra_rol_autoridad_para_asignacion_de_eleccion_publicada(self):
         self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
-        self.eleccion_en_curso.save(update_fields=("estado",))
+        self.eleccion_en_curso.autoridades_confirmadas_en = timezone.now()
+        self.eleccion_en_curso.save(update_fields=("estado", "autoridades_confirmadas_en"))
         asignacion = self.crear_asignacion_autoridad(self.registro_en_curso)
         self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
 
@@ -364,9 +365,20 @@ class InicioElectorTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
-        self.assertContains(respuesta, "Será asignada próximamente")
+        self.assertContains(respuesta, "Se informará cuando la elección esté en curso")
         self.assertNotContains(respuesta, asignacion.mesa.codigo)
         self.assertTrue(respuesta.context["nav_es_autoridad"])
+
+    def test_oculta_turno_de_autoridad_provisoria_en_publicada(self):
+        self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+        asignacion = self.crear_asignacion_autoridad(self.registro_en_curso)
+        self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertNotContains(respuesta, str(asignacion.turno))
+        self.assertNotContains(respuesta, "Desempeño como Autoridad de Mesa")
 
     def test_muestra_rol_elector_para_asignacion_de_eleccion_en_preparacion(self):
         self.eleccion_en_curso.estado = Eleccion.Estado.FINALIZADA
@@ -487,7 +499,7 @@ class InicioElectorTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, self.eleccion_en_curso.nombre)
-        self.assertContains(respuesta, "Será asignada próximamente")
+        self.assertContains(respuesta, "Se informará cuando la elección esté en curso")
         self.assertNotContains(respuesta, mesa.codigo)
         self.assertEqual(
             [registro.eleccion_id for registro in respuesta.context["registros"]],

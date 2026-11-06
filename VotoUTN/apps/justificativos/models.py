@@ -60,6 +60,7 @@ class JustificativoAusencia(models.Model):
     resuelta_por = models.ForeignKey("auth.User", on_delete=models.PROTECT, null=True, blank=True, related_name="justificativos_resueltos")
     resuelta_en = models.DateTimeField(null=True, blank=True)
     observacion_resolucion = models.TextField(blank=True)
+    reemplazo_procesado_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "elecciones_justificativoausencia"

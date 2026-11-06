@@ -1,4 +1,5 @@
 from django import forms
+from django.db import transaction
 
 from apps.elecciones.models import EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede
 from apps.padron.models import (
@@ -28,10 +29,12 @@ class FormularioSolicitudCambioSede(forms.ModelForm):
     def __init__(self, *args, registro_padron, **kwargs):
         super().__init__(*args, **kwargs)
         self.registro_padron = registro_padron
+        asignacion = getattr(registro_padron, "asignacion_sede_padron", None)
+        self.sede_electoral = asignacion.sede if asignacion and asignacion.sede_id else registro_padron.sede
         self.fields["sede_destino"].queryset = Sede.objects.filter(
             activa=True,
             elecciones_departamento_sede__eleccion_claustro_departamento=registro_padron.eleccion_claustro_departamento,
-        ).exclude(pk=registro_padron.sede_id).distinct().order_by("nombre")
+        ).exclude(pk=self.sede_electoral.pk if self.sede_electoral else None).distinct().order_by("nombre")
         sedes_disponibles = list(self.fields["sede_destino"].queryset[:2])
         if len(sedes_disponibles) == 1:
             self.fields["sede_destino"].empty_label = None
@@ -41,10 +44,16 @@ class FormularioSolicitudCambioSede(forms.ModelForm):
     def save(self, commit=True):
         solicitud = super().save(commit=False)
         solicitud.registro_padron = self.registro_padron
-        solicitud.sede_origen = self.registro_padron.sede
+        solicitud.sede_origen = self.sede_electoral
         solicitud.estado = SolicitudCambioSede.Estado.PENDIENTE
         if commit:
-            solicitud.save()
+            from apps.elecciones.models import Eleccion
+            from apps.padron.services import solicitudes_cambio_sede_habilitadas
+            with transaction.atomic():
+                eleccion = Eleccion.objects.select_for_update().get(pk=self.registro_padron.eleccion_id)
+                if eleccion.autoridades_confirmadas_en or not solicitudes_cambio_sede_habilitadas(eleccion):
+                    raise forms.ValidationError("El período para solicitar cambio de sede ya no está habilitado.")
+                solicitud.save()
         return solicitud
 
     def clean(self):

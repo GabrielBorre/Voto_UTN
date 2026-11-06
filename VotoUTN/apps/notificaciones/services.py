@@ -75,6 +75,48 @@ def crear_notificacion_resultado_justificativo(justificativo):
     )
 
 
+def crear_notificacion_convocatoria_autoridad(asignacion, fecha_limite):
+    elector = asignacion.registro_padron.elector
+    eleccion = asignacion.registro_padron.eleccion
+    plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+        codigo="autoridad-convocatoria-definitiva",
+        defaults={"nombre": "Convocatoria como autoridad", "categoria": PlantillaNotificacion.Categoria.TRANSACCIONAL,
+                  "asunto": "Convocatoria como autoridad: {nombre_eleccion}",
+                  "contenido": "Hola {nombre},\n\nFuiste convocado como autoridad para {nombre_eleccion} en {sede}, turno {turno}. Podés justificar tu imposibilidad hasta el {fecha}. La mesa definitiva se informará al comenzar la elección.\n\nVoto UTN",
+                  "roles_destinatarios": [AsignacionRol.Rol.AUTORIDAD_MESA], "permite_envio_manual": False},
+    )
+    return crear_notificacion(plantilla=plantilla, eleccion=eleccion, elector=elector,
+                              contexto={"nombre": elector.nombre_completo, "nombre_eleccion": eleccion.nombre,
+                                        "sede": str(asignacion.mesa.sede), "turno": str(asignacion.turno),
+                                        "fecha": fecha_limite.strftime("%d/%m/%Y")})
+
+
+def crear_notificacion_traslado_autoridad(asignacion, mesa_origen):
+    elector = asignacion.registro_padron.elector
+    eleccion = asignacion.registro_padron.eleccion
+    plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+        codigo="autoridad-cambio-mesa-vacante",
+        defaults={
+            "nombre": "Cambio de mesa de autoridad por vacante",
+            "categoria": PlantillaNotificacion.Categoria.TRANSACCIONAL,
+            "asunto": "Cambio de asignación de autoridad: {nombre_eleccion}",
+            "contenido": (
+                "Hola {nombre_destinatario},\n\n"
+                "Tu asignación como autoridad para {nombre_eleccion} cambió a otra mesa de trabajo "
+                "en {sede}, durante el turno {turno}. La mesa definitiva se informará cuando la "
+                "elección esté en curso; tu mesa de votación no cambia.\n\nVoto UTN"
+            ),
+            "roles_destinatarios": [AsignacionRol.Rol.AUTORIDAD_MESA],
+            "permite_envio_manual": False,
+        },
+    )
+    return crear_notificacion(
+        plantilla=plantilla, eleccion=eleccion, elector=elector,
+        contexto={"nombre_destinatario": elector.nombre_completo, "nombre_eleccion": eleccion.nombre,
+                  "sede": str(asignacion.mesa.sede), "turno": str(asignacion.turno)},
+    )
+
+
 def crear_notificacion_resultado_cambio_sede(solicitud):
     elector = solicitud.registro_padron.elector
     eleccion = solicitud.registro_padron.eleccion

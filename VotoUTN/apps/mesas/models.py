@@ -60,6 +60,7 @@ class Mesa(models.Model):
 class AsignacionMesa(models.Model):
     registro_padron = models.OneToOneField(RegistroPadron, on_delete=models.PROTECT, related_name="asignacion_mesa")
     mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name="asignaciones_padron")
+    autoridad_al_final = models.BooleanField(default=False)
 
     class Meta:
         db_table = "elecciones_asignacionmesa"

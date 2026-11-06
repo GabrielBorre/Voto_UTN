@@ -5,6 +5,21 @@
   <h1>Autoridades de mesa</h1>
   <p>{{ eleccion.nombre }}. Elegí el claustro para configurar sus turnos y autoridades de mesa.</p>
 </section>
+{% if eleccion.estado == 'publicada' %}
+<section class="card management-section">
+  {% if eleccion.autoridades_confirmadas_en %}
+    <h2>Autoridades definitivas confirmadas</h2><p>Plazo para justificar: {{ eleccion.fecha_limite_justificacion_autoridades|date:"d/m/Y" }}.</p>
+  {% else %}
+    <h2>Confirmar autoridades definitivas</h2>
+    <p>Primero deben finalizar los cambios de sede y resolverse todas las solicitudes. Al confirmar, se bloquean los cambios generales y se envían las convocatorias.</p>
+    <form method="post" action="{% url 'confirmar-autoridades-definitivas' eleccion.id %}" onsubmit="return confirm('Las autoridades quedarán confirmadas y se enviarán las convocatorias. ¿Continuar?')">{% csrf_token %}
+      <label for="fecha-limite-autoridades">Fecha límite para presentar justificativos</label>
+      <input id="fecha-limite-autoridades" type="date" name="fecha_limite" required>
+      <button class="button primary" type="submit">Confirmar autoridades definitivas</button>
+    </form>
+  {% endif %}
+</section>
+{% endif %}
 
 <div class="section-title">
   <div>
@@ -21,7 +36,7 @@
         <p><strong>{{ resumen.mesas }}</strong> mesas</p>
         <p><strong>{{ resumen.candidatos }}</strong> candidatos cargados</p>
         <p><strong>{{ resumen.asignadas }}</strong> autoridades asignadas</p>
-        <p><strong>{{ resumen.pendientes }}</strong> pendientes de confirmación</p>
+        <p><strong>{{ resumen.rechazadas }}</strong> asignaciones rechazadas</p>
       </div>
       <a class="button secondary" href="{% url 'gestionar-autoridades-claustro' eleccion.id resumen.eleccion_claustro.id %}">Gestionar claustro</a>
     </article>

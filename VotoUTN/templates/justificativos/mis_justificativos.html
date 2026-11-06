@@ -6,17 +6,19 @@
 	<p>Presente documentación para justificar una ausencia.</p>
 </section>
 <section class="card form-card">
+	{% if eleccion %}<p><strong>Elección:</strong> {{ eleccion.nombre }}</p>{% endif %}
 	{% if not eleccion %}
 	<p class="error">No hay una elección actual habilitada para presentar justificativos.</p>
 	{% elif not estado_habilitado %}
+	<p class="notice">La presentación no está habilitada en esta etapa de la elección.</p>
 	{% elif not registro_padron %}
 	<p class="error">No se encontró un padrón activo para la elección actual.</p>
 	{% elif not puede_presentar %}
 	<div class="notice">No hay ausencias disponibles para justificar: ya fueron presentadas o venció el plazo de autoridades.</div>
+	{% if not puede_presentar_justificativo_electoral %}<p class="notice">La justificación por inasistencia estará disponible cuando se habilite el período correspondiente y exista una ausencia registrada.</p>{% endif %}
 	{% else %}
 	<form method="post" enctype="multipart/form-data" id="form-justificativo">
 		{% csrf_token %}
-		<p><strong>Elección:</strong> {{ eleccion.nombre }}</p>
 		{% if formulario.plazo_autoridad_vencido %}<p class="notice">El plazo de autoridades está vencido; no afecta la justificación como elector.</p>{% endif %}
 		{% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
 		{% for field in formulario %}

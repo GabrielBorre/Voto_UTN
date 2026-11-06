@@ -73,8 +73,9 @@ class ServicioRegistroParticipacion:
         identificador = str(identificador_qr).strip().upper()
         if not identificador or len(identificador) != cls.LONGITUD_IDENTIFICADOR or not identificador.isalnum():
             raise ValueError("El identificador QR debe ser alfanumerico y de longitud 8.")
+        eleccion_token = cls._to_base36(int(eleccion_id), cls.ANCHO_BASE36_ELECCION)
         cuerpo = (
-            cls._to_base36(int(eleccion_id), cls.ANCHO_BASE36_ELECCION)
+            eleccion_token
             + cls._to_base36(int(mesa_numero), cls.ANCHO_BASE36_MESA)
             + identificador
         )
@@ -89,13 +90,12 @@ class ServicioRegistroParticipacion:
         if separador != "." or version != cls.VERSION_QR.upper():
             return None
 
-        longitud_esperada = (
-            cls.ANCHO_BASE36_ELECCION
-            + cls.ANCHO_BASE36_MESA
+        ancho_eleccion = len(contenido) - (
+            cls.ANCHO_BASE36_MESA
             + cls.LONGITUD_IDENTIFICADOR
             + cls.LONGITUD_FIRMA
         )
-        if len(contenido) != longitud_esperada or not contenido.isalnum():
+        if ancho_eleccion < cls.ANCHO_BASE36_ELECCION or not contenido.isalnum():
             return None
 
         cuerpo = contenido[:-cls.LONGITUD_FIRMA]
@@ -104,11 +104,11 @@ class ServicioRegistroParticipacion:
         if not hmac.compare_digest(firma, esperada):
             return None
 
-        eleccion_token = cuerpo[:cls.ANCHO_BASE36_ELECCION]
+        eleccion_token = cuerpo[:ancho_eleccion]
         mesa_token = cuerpo[
-            cls.ANCHO_BASE36_ELECCION: cls.ANCHO_BASE36_ELECCION + cls.ANCHO_BASE36_MESA
+            ancho_eleccion: ancho_eleccion + cls.ANCHO_BASE36_MESA
         ]
-        identificador = cuerpo[cls.ANCHO_BASE36_ELECCION + cls.ANCHO_BASE36_MESA:]
+        identificador = cuerpo[ancho_eleccion + cls.ANCHO_BASE36_MESA:]
         try:
             eleccion_id = cls._from_base36(eleccion_token)
             mesa_numero = cls._from_base36(mesa_token)
@@ -130,13 +130,14 @@ class ServicioRegistroParticipacion:
         version, separador, contenido = codigo.strip().upper().partition(".")
         if separador != "." or version != cls.VERSION_QR_MESA:
             return None
-        largo_cuerpo = cls.ANCHO_BASE36_ELECCION + cls.ANCHO_BASE36_MESA
-        if len(contenido) != largo_cuerpo + cls.LONGITUD_FIRMA or not contenido.isalnum():
+        ancho_eleccion = len(contenido) - cls.ANCHO_BASE36_MESA - cls.LONGITUD_FIRMA
+        if ancho_eleccion < cls.ANCHO_BASE36_ELECCION or not contenido.isalnum():
             return None
+        largo_cuerpo = ancho_eleccion + cls.ANCHO_BASE36_MESA
         cuerpo, firma = contenido[:largo_cuerpo], contenido[largo_cuerpo:]
         if not hmac.compare_digest(firma, cls._firma_corta(f"{version}{cuerpo}")):
             return None
-        return cls._from_base36(cuerpo[:cls.ANCHO_BASE36_ELECCION]), cls._from_base36(cuerpo[cls.ANCHO_BASE36_ELECCION:])
+        return cls._from_base36(cuerpo[:ancho_eleccion]), cls._from_base36(cuerpo[ancho_eleccion:])
 
     @staticmethod
     def _mesas_de(eleccion):
