@@ -4,6 +4,8 @@ from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core import signing
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count
@@ -32,6 +34,7 @@ from apps.padron.services import (
     eliminar_padron_claustro as servicio_eliminar_padron_claustro,
     estado_eliminacion_padron_claustro,
     invalidar_calculo_padrones_votacion,
+    recalcular_asignaciones_sede_y_mesas,
     recalcular_sedes_y_mesas_claustro,
     resolver_solicitud_cambio_sede,
     resolver_solicitudes_pendientes,
@@ -39,6 +42,7 @@ from apps.padron.services import (
     resumen_asignaciones_sede_claustro,
     solicitudes_cambio_sede_habilitadas,
     estimar_impacto_mesas_por_sede,
+    normalizar_prioridades_reglas_sede,
     validar_csv_padron,
 )
 from apps.usuarios.permisos import puede_administrar_elecciones, puede_importar_padron, puede_configurar_eleccion
@@ -50,6 +54,29 @@ from apps.notificaciones.services import (
     enviar_notificacion,
 )
 from apps.usuarios.services import elector_de_identidad
+
+
+def _informar_recalculo_sedes_y_mesas(request, resultado):
+    sedes = resultado["sedes"]
+    resumen_sedes = (
+        f"Asignaciones de sede actualizadas: {sedes['asignadas']} asignadas y "
+        f"{sedes['pendientes']} pendientes."
+    )
+    if resultado["error_mesas"]:
+        detalle = f" {resultado['mesas_invalidadas']} mesas automáticas obsoletas retiradas." if resultado["mesas_invalidadas"] else ""
+        if resultado["bloqueo_invalidacion"]:
+            detalle += f" No se pudieron retirar las mesas anteriores: {resultado['bloqueo_invalidacion']}"
+        messages.warning(
+            request,
+            f"{resumen_sedes} Las mesas no pudieron recalcularse: {resultado['error_mesas']}.{detalle}",
+        )
+        return
+    mesas = resultado["mesas"]
+    messages.success(
+        request,
+        f"{resumen_sedes} Mesas recalculadas automáticamente: "
+        f"{mesas['mesas']} mesas para {mesas['electores']} electores.",
+    )
 
 
 @login_required
@@ -250,6 +277,12 @@ def eliminar_padron_claustro(request, eleccion_id, claustro_id):
         except ValueError as error:
             messages.error(request, str(error))
             return redirect("eliminar-padron-claustro", eleccion_id=eleccion_id, claustro_id=claustro_id)
+        resultado = recalcular_asignaciones_sede_y_mesas(
+            claustro,
+            usuario=request.user,
+            request=request,
+        )
+        _informar_recalculo_sedes_y_mesas(request, resultado)
         messages.success(
             request,
             f"Se eliminaron {resumen['cantidad_registros']} registros del padrón.",
@@ -368,9 +401,14 @@ def configurar_sedes_claustro(request, eleccion_id, claustro_id):
             return redirect("previsualizar-padron", eleccion_id=eleccion_id, claustro_id=claustro_id)
         configuracion = ConfiguracionSedesClaustro.objects.create(eleccion_claustro=claustro)
 
+    if request.method == "POST" and request.POST.get("accion") == "calcular":
+        messages.info(request, "Las asignaciones se actualizan automáticamente al cambiar el padrón, las reglas o las sedes.")
+        return redirect("configurar-sedes-claustro", eleccion_id=eleccion_id, claustro_id=claustro_id)
+
     if request.method == "POST" and request.POST.get("accion") == "eliminar-regla":
         regla = get_object_or_404(ReglaSedeClaustro, pk=request.POST.get("regla_id"), configuracion=configuracion)
         regla.delete()
+        normalizar_prioridades_reglas_sede(configuracion)
         _recalcular_con_mensaje(request, claustro, "La regla se eliminó.")
         return redirect("configurar-sedes-claustro", eleccion_id=eleccion_id, claustro_id=claustro_id)
 
@@ -404,6 +442,7 @@ def configurar_sedes_claustro(request, eleccion_id, claustro_id):
                     vecina.save(update_fields=("orden",))
                     regla.orden = orden_vecina
                     regla.save(update_fields=("orden",))
+                normalizar_prioridades_reglas_sede(configuracion)
                 _recalcular_con_mensaje(request, claustro, "El orden de las reglas se actualizó.")
         else:
             messages.info(request, "La regla ya está en ese extremo del orden.")
@@ -423,6 +462,7 @@ def configurar_sedes_claustro(request, eleccion_id, claustro_id):
         regla.save()
         formulario.save_m2m()
         regla.full_clean()
+        normalizar_prioridades_reglas_sede(configuracion)
         _recalcular_con_mensaje(request, claustro, "La regla se guardó.")
         return redirect("configurar-sedes-claustro", eleccion_id=eleccion_id, claustro_id=claustro_id)
 
@@ -494,9 +534,13 @@ def mis_solicitudes_cambio_sede(request):
                 messages.error(request, "El período para solicitar cambio de sede no está habilitado.")
                 return redirect("mis-solicitudes-cambio-sede")
             if formulario.is_valid():
-                formulario.save()
-                messages.success(request, "La solicitud fue enviada para revisión.")
-                return redirect("mis-solicitudes-cambio-sede")
+                try:
+                    formulario.save()
+                except ValidationError as error:
+                    formulario.add_error(None, error)
+                else:
+                    messages.success(request, "La solicitud fue enviada para revisión.")
+                    return redirect("mis-solicitudes-cambio-sede")
     else:
         solicitud_existente = None
     solicitudes = SolicitudCambioSede.objects.filter(
@@ -521,7 +565,7 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
     if not puede_administrar_elecciones(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para revisar solicitudes de cambio de sede.")
     solo_lectura = (
-        eleccion.estado not in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO)
+        eleccion.estado != Eleccion.Estado.PUBLICADA or eleccion.autoridades_confirmadas_en
         or eleccion_tiene_padron_emitido(eleccion)
     )
     if request.method == "POST":
@@ -529,6 +573,48 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
             return HttpResponseForbidden("Los cambios de sede están en modo lectura.")
         accion = request.POST.get("accion")
         observacion = request.POST.get("observacion_resolucion", "")
+        if accion in {"aprobar", "aprobar_todas", "aprobar_sin_agregar_mesas", "aprobar_con_maximo_mesas", "aprobar_seleccionadas", "confirmar_aprobacion"}:
+            from apps.autoridades.nomina import _huella
+            from apps.padron.previsualizacion_cambios import aplicar_cambios_con_recalculo
+
+            def huellas(actual):
+                return [_huella(c) for c in actual.elecciones_claustro.order_by("pk")]
+
+            try:
+                if accion == "confirmar_aprobacion":
+                    firmado = signing.loads(request.POST.get("propuesta", ""), salt="cambios-sede", max_age=1800)
+                    with transaction.atomic():
+                        actual = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+                        if firmado["eleccion"] != actual.pk or firmado["huellas"] != huellas(actual):
+                            raise ValueError("Los datos cambiaron; revisá una nueva propuesta.")
+                        detalle = aplicar_cambios_con_recalculo(actual, request.user, firmado["datos"])
+                    for solicitud in SolicitudCambioSede.objects.filter(pk__in=detalle["resultado"]["resueltas_ids"]):
+                        enviar_notificacion(crear_notificacion_resultado_cambio_sede(solicitud))
+                    resultado = detalle["resultado"]
+                    messages.success(request, f"Solicitudes resueltas. Aprobadas: {resultado['aprobadas']}. Rechazadas: {resultado['rechazadas']}. Pendientes: {resultado['pendientes']}.")
+                    return redirect("gestionar-solicitudes-cambio-sede", eleccion_id=eleccion.pk)
+                ids = None
+                if accion in {"aprobar", "aprobar_seleccionadas"}:
+                    seleccion = [request.POST.get("solicitud_id", "")] if accion == "aprobar" else request.POST.getlist("solicitudes_ids")
+                    if not seleccion or any(not valor.isdecimal() for valor in seleccion):
+                        raise ValueError("Seleccioná solicitudes válidas.")
+                    ids = [int(valor) for valor in seleccion]
+                maximo = None
+                if accion == "aprobar_con_maximo_mesas":
+                    maximo = int(request.POST.get("maximo_mesas_nuevas", ""))
+                    if maximo < 0:
+                        raise ValueError("El máximo de mesas nuevas debe ser mayor o igual a cero.")
+                datos = {"accion": "aprobar_todas" if accion in {"aprobar", "aprobar_seleccionadas"} else accion,
+                         "ids": ids, "maximo": maximo, "observacion": observacion}
+                firmado = {"eleccion": eleccion.pk, "huellas": huellas(eleccion), "datos": datos}
+                with transaction.atomic():
+                    detalle = aplicar_cambios_con_recalculo(eleccion, request.user, datos)
+                    transaction.set_rollback(True)
+                return render(request, "padron/revisar_cambios_sede.html", {"eleccion": eleccion, "detalle": detalle,
+                              "propuesta": signing.dumps(firmado, salt="cambios-sede")})
+            except (ValueError, ValidationError, signing.BadSignature, KeyError) as error:
+                messages.error(request, " ".join(error.messages) if isinstance(error, ValidationError) else str(error) if isinstance(error, ValueError) else "La propuesta venció; revisala nuevamente.")
+                return redirect("gestionar-solicitudes-cambio-sede", eleccion_id=eleccion.pk)
         if accion in {"aprobar", "rechazar"}:
             solicitud = get_object_or_404(
                 SolicitudCambioSede.objects.select_related("registro_padron__eleccion"),
@@ -602,6 +688,8 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
         registro_padron__eleccion=eleccion,
     ).select_related(
         "registro_padron__elector",
+        "registro_padron__asignacion_autoridad__mesa__sede",
+        "registro_padron__asignacion_autoridad__turno",
         "registro_padron__eleccion_claustro_departamento__eleccion_claustro__claustro",
         "sede_origen",
         "sede_destino",

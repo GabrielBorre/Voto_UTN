@@ -1,0 +1,10 @@
+{% extends "gestion/base.html" %}
+{% block title %}Revisar regreso a mesa electoral{% endblock %}
+{% block content %}
+<section class="hero"><h1>Revisar regreso a mesa electoral</h1><p>{{ eleccion.nombre }} · La propuesta todavía no modificó el padrón.</p></section>
+<section class="card management-section">
+  <p>El regreso de {{ asignacion.registro_padron.elector.nombre_completo }} requiere los siguientes cambios. Las autoridades confirmadas conservan su mesa de votación.</p>
+  <div class="table-wrap"><table><thead><tr><th>Elector</th><th>Mesa anterior</th><th>Mesa propuesta</th></tr></thead><tbody>{% for movimiento in movimientos %}<tr><td>{{ movimiento.elector }}</td><td>{{ movimiento.origen }}</td><td>{{ movimiento.destino }}</td></tr>{% endfor %}</tbody></table></div>
+  <form method="post" onsubmit="return confirm('Se aplicarán los movimientos de mesa indicados. ¿Continuar?')">{% csrf_token %}<input type="hidden" name="propuesta" value="{{ propuesta }}"><button class="button primary">Confirmar movimientos</button> <a class="button light" href="{% url 'gestionar-autoridades-claustro' eleccion.id asignacion.mesa.eleccion_claustro_departamento.eleccion_claustro_id %}">Cancelar</a></form>
+</section>
+{% endblock %}

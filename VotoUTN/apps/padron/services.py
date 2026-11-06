@@ -4,8 +4,9 @@ import io
 from collections import defaultdict
 from dataclasses import dataclass
 
+from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Q
 from django.utils import timezone
 from openpyxl import load_workbook
@@ -31,12 +32,12 @@ from apps.padron.models import (
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.auditoria.services import registrar_evento
-from apps.parametros.models import Departamento, Sede
+from apps.parametros.models import Departamento, Sede, Turno
 
 
 # Campos canónicos que el sistema espera para procesar el padrón
 CANONICAL_FIELDS = ("dni", "legajo", "nombres", "apellidos", "mail", "departamento")
-OPTIONAL_FIELDS = ("tipo_documento", "tiene_discapacidad", "departamento_principal", "sede", "nivel")
+OPTIONAL_FIELDS = ("tipo_documento", "tiene_discapacidad", "departamento_principal", "sede", "turno_cursada", "nivel")
 
 # Cabeceras exactas que se muestran en la plantilla CSV descargada desde la UI.
 PLANTILLA_PADRON_HEADERS = (
@@ -50,6 +51,7 @@ PLANTILLA_PADRON_HEADERS = (
     "TieneDiscapacidad",
     "Departamento Principal",
     "Sede donde cursa",
+    "Turno",
     "Nivel",
 )
 
@@ -65,6 +67,7 @@ PLANTILLA_PADRON_EJEMPLO = [
         "Si",
         "K",
         "Campus",
+        "Mañana",
         "1",
     ),
     (
@@ -78,6 +81,7 @@ PLANTILLA_PADRON_EJEMPLO = [
         "No",
         "K",
         "Campus",
+        "Mañana",
         "1",
     ),
     (
@@ -89,6 +93,46 @@ PLANTILLA_PADRON_EJEMPLO = [
         "K",
         "carlos.lopez@frba.utn.edu.ar",
         "Si",
+        "K",
+        "Campus",
+        "Mañana",
+        "2",
+    ),
+    (
+        "20301234567",
+        "CUIL",
+        "2024004",
+        "Lucia",
+        "Diaz",
+        "K",
+        "lucia.diaz@frba.utn.edu.ar",
+        "No",
+        "K",
+        "Campus",
+        "2",
+    ),
+    (
+        "27301234569",
+        "CUIT",
+        "2024005",
+        "Diego",
+        "Ruiz",
+        "K",
+        "diego.ruiz@frba.utn.edu.ar",
+        "No",
+        "K",
+        "Campus",
+        "2",
+    ),
+    (
+        "PAS123456",
+        "PAS",
+        "2024006",
+        "Sofia",
+        "Torres",
+        "K",
+        "sofia.torres@frba.utn.edu.ar",
+        "No",
         "K",
         "Campus",
         "2",
@@ -155,6 +199,9 @@ HEADER_VARIANTS_TO_CANONICAL = {
     "sede": "sede",
     "sede donde asiste": "sede",
     "sede donde cursa": "sede",
+    "turno": "turno_cursada",
+    "turno de cursada": "turno_cursada",
+    "turno donde cursa": "turno_cursada",
     "tienediscapacidad": "tiene_discapacidad",
     "tiene discapacidad": "tiene_discapacidad",
     "nivel": "nivel",
@@ -256,6 +303,11 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             filas,
             [(None, "archivo", f"Las cabeceras deben incluir: {', '.join(CANONICAL_FIELDS)}. Archivo tiene: {', '.join(fieldnames)}")],
         )
+    if "sede" in canonical_to_original and "turno_cursada" not in canonical_to_original:
+        return ResultadoValidacion(
+            filas,
+            [(None, "turno_cursada", "La columna Turno debe acompañar a Sede donde cursa, aunque algunas filas no tengan valor.")],
+        )
 
     configuraciones = {}
     configuraciones_padron = EleccionClaustroDepartamento.objects.filter(
@@ -272,6 +324,7 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
         configuraciones[departamento.codigo.casefold()] = configuracion
         configuraciones[departamento.nombre.casefold()] = configuracion
     sedes_disponibles = {sede.nombre.casefold() for sede in Sede.objects.filter(activa=True)}
+    turnos_disponibles = {turno.nombre.casefold() for turno in Turno.objects.filter(activo=True)}
     errores = []
     vistos = defaultdict(set)
     electores_existentes = set()
@@ -331,6 +384,10 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             errores.append((numero_fila, "departamento", "El departamento no fue habilitado para este claustro o la fila no corresponde a un claustro sin distinción por departamento."))
         if fila.get("sede") and fila["sede"].casefold() not in sedes_disponibles:
             errores.append((numero_fila, "sede", "La sede donde cursa no está registrada o no está activa."))
+        if fila.get("sede") and not fila.get("turno_cursada"):
+            errores.append((numero_fila, "turno_cursada", "El turno de cursada es obligatorio cuando se informa la sede donde cursa."))
+        if fila.get("turno_cursada") and fila["turno_cursada"].casefold() not in turnos_disponibles:
+            errores.append((numero_fila, "turno_cursada", "El turno de cursada no está registrado o no está activo."))
         if fila.get("nivel"):
             try:
                 int(fila["nivel"])
@@ -384,14 +441,22 @@ def registrar_errores(importacion, errores):
 
 
 @transaction.atomic
-def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None):
-    """Calcula y reemplaza, en una sola operación, las mesas de toda la elección."""
+def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None, recalcular_sedes=True, conservar_mesas=False, confirmar_afectadas=False):
+    """Calcula y reemplaza, en una sola operaciÃ³n, las mesas de toda la elecciÃ³n."""
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
     if eleccion.estado not in (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA):
         raise ValueError("Las mesas solo pueden recalcularse antes de abrir la elección.")
+    if eleccion.autoridades_confirmadas_en:
+        raise ValueError("Las autoridades definitivas ya fueron confirmadas; no se puede recalcular el padrón.")
     claustros = list(EleccionClaustro.objects.filter(eleccion=eleccion).select_related("claustro").order_by("id"))
     if not claustros:
         raise ValueError("La elección no tiene claustros configurados.")
+
+    # Las reglas solo son necesarias para alcances con varias sedes. El
+    # servicio asigna directamente la sede cuando el alcance tiene una sola.
+    if recalcular_sedes:
+        for claustro in claustros:
+            calcular_asignaciones_sede_claustro(claustro)
 
     errores = []
     for claustro in claustros:
@@ -451,8 +516,8 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None)
         errores.append("Ya se emitieron QR para esta elección; no se pueden recalcular sus mesas.")
 
     mesas_anteriores = Mesa.objects.filter(eleccion=eleccion, generada_automaticamente=True)
-    if mesas_anteriores.filter(Q(participaciones__isnull=False) | Q(autoridades__isnull=False)).exists():
-        errores.append("Hay mesas automáticas vinculadas a participaciones o autoridades y no se pueden reemplazar.")
+    if mesas_anteriores.filter(participaciones__isnull=False).exists():
+        errores.append("Hay mesas automÃ¡ticas vinculadas a participaciones o autoridades y no se pueden reemplazar.")
     if AsignacionMesa.objects.filter(
         registro_padron_id__in=registro_ids,
         mesa__eleccion=eleccion,
@@ -462,6 +527,11 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None)
 
     if errores:
         raise ValueError("No se modificó ninguna mesa. Revisá: " + " ".join(dict.fromkeys(errores)))
+
+    from apps.autoridades.models import AsignacionAutoridad
+    if conservar_mesas or mesas_anteriores.exists() or AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).exists():
+        from apps.padron.recalculo_provisorio import recalcular_con_autoridades
+        return recalcular_con_autoridades(eleccion, grupos, usuario=usuario, request=request, confirmar_afectadas=confirmar_afectadas)
 
     maximo_por_claustro = {
         claustro.id: claustro.maximo_votantes_por_mesa
@@ -495,6 +565,24 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None)
             resumen[claustro.claustro.nombre]["electores"] += cantidad
 
     cantidad_mesas_anteriores = mesas_anteriores.count()
+    if mesas_anteriores.filter(autoridades__respondida_en__isnull=False).exists():
+        raise ValueError("Hay avisos de ausencia; gestioná los reemplazos sin regenerar las mesas.")
+    if mesas_anteriores.filter(traslados_autoridad__mesa_traslado__isnull=False).exists():
+        raise ValueError("Hay traslados laborales confirmados; quitalos de la nómina antes de regenerar mesas.")
+    if mesas_anteriores.filter(selecciones_autoridad__mesa_manual__isnull=False).exists():
+        raise ValueError("Hay selecciones manuales de autoridades. Quitalas antes de regenerar las mesas para no perderlas.")
+    if mesas_anteriores.filter(autoridades__isnull=False).exists():
+        raise ValueError("Hay autoridades asignadas; no se regeneran las mesas para conservar sus designaciones. Usá la previsualización de nómina o editá las asignaciones.")
+    if cantidad_mesas_anteriores:
+        from apps.autoridades.models import AsignacionAutoridad
+        from apps.usuarios.models import AsignacionRol
+
+        AsignacionRol.objects.filter(
+            rol=AsignacionRol.Rol.AUTORIDAD_MESA,
+            eleccion=eleccion,
+            mesa__in=mesas_anteriores,
+        ).delete()
+        AsignacionAutoridad.objects.filter(mesa__in=mesas_anteriores).delete()
     AsignacionMesa.objects.filter(mesa__in=mesas_anteriores).delete()
     mesas_anteriores.delete()
     Mesa.objects.bulk_create(mesas_nuevas)
@@ -512,6 +600,26 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None)
             inicio += cantidad
     AsignacionMesa.objects.bulk_create(asignaciones_nuevas)
 
+    from apps.autoridades.models import CandidaturaAutoridad
+    from apps.autoridades.distribucion import configuracion_actual
+    from apps.autoridades.services import redistribuir_autoridades
+
+    resumen_autoridades = {}
+    for claustro in claustros:
+        tiene_candidatos = CandidaturaAutoridad.objects.filter(
+            registro_padron__eleccion_claustro_departamento__eleccion_claustro=claustro,
+            excluida=False,
+        ).exists()
+        if not tiene_candidatos:
+            continue
+        if configuracion_actual(claustro).modo == "nomina":
+            resumen_autoridades[claustro.id] = {"pendiente": "Revisá y confirmá la distribución de la nómina desde autoridades."}
+            continue
+        try:
+            resumen_autoridades[claustro.id] = redistribuir_autoridades(claustro, usuario)
+        except ValidationError as error:
+            resumen_autoridades[claustro.id] = {"pendiente": error.messages[0]}
+
     registrar_evento(
         accion="padron.mesas_automaticas_recalculadas",
         entidad="Eleccion",
@@ -526,7 +634,12 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None)
             "claustros": dict(resumen),
         },
     )
-    return {"mesas": len(mesas_nuevas), "electores": len(asignaciones_nuevas), "claustros": dict(resumen)}
+    return {
+        "mesas": len(mesas_nuevas),
+        "electores": len(asignaciones_nuevas),
+        "claustros": dict(resumen),
+        "autoridades": resumen_autoridades,
+    }
 
 
 def _distribucion_electores_por_mesa(cantidad_electores, maximo_por_mesa):
@@ -593,6 +706,7 @@ def confirmar_importacion(importacion):
         configuraciones[departamento.codigo.casefold()] = configuracion
         configuraciones[departamento.nombre.casefold()] = configuracion
     sedes = {sede.nombre.casefold(): sede for sede in Sede.objects.filter(activa=True)}
+    turnos = {turno.nombre.casefold(): turno for turno in Turno.objects.filter(activo=True)}
     cantidad_creada = 0
     for fila in resultado.filas:
         elector_dni = Elector.objects.filter(dni=fila["dni"]).first()
@@ -601,24 +715,41 @@ def confirmar_importacion(importacion):
             raise ValueError("El padrón contiene un DNI y un legajo asociados a electores distintos.")
         elector = elector_dni or elector_legajo
         if elector is None:
-            elector = Elector.objects.create(
-                dni=fila["dni"],
-                tipo_documento=fila["tipo_documento"],
-                legajo=fila["legajo"],
-                nombre=fila["nombres"],
-                apellido=fila["apellidos"],
-                correo_electronico=fila["mail"],
-                tiene_discapacidad=fila.get("tiene_discapacidad", "").strip().lower() in ("si", "s", "yes", "y", "true", "1"),
-            )
+            try:
+                # El legajo y el DNI son únicos globalmente. Otra confirmación
+                # concurrente puede crear el elector después de la búsqueda;
+                # el savepoint permite recuperar esa carrera sin abortar todo
+                # el lote ni mostrar una IntegrityError al usuario.
+                with transaction.atomic():
+                    elector = Elector.objects.create(
+                        dni=fila["dni"],
+                        tipo_documento=fila["tipo_documento"],
+                        legajo=fila["legajo"],
+                        nombre=fila["nombres"],
+                        apellido=fila["apellidos"],
+                        correo_electronico=fila["mail"],
+                        tiene_discapacidad=fila.get("tiene_discapacidad", "").strip().lower() in ("si", "s", "yes", "y", "true", "1"),
+                    )
+            except IntegrityError:
+                elector_dni = Elector.objects.filter(dni=fila["dni"]).first()
+                elector_legajo = Elector.objects.filter(legajo=fila["legajo"]).first()
+                if elector_dni and elector_legajo and elector_dni.pk == elector_legajo.pk:
+                    elector = elector_dni
+                else:
+                    raise ValueError(
+                        f"No se pudo importar la fila: el DNI {fila['dni']} o el legajo "
+                        f"{fila['legajo']} ya pertenece a otro elector. Revisá los identificadores."
+                    )
             # intentar asignar departamento principal si viene en el CSV
-            dept_principal_code = fila.get("departamento_principal") or ""
-            if dept_principal_code:
-                dept_obj = Departamento.objects.filter(
-                    Q(codigo__iexact=dept_principal_code.strip()) | Q(nombre__iexact=dept_principal_code.strip())
-                ).first()
-                if dept_obj:
-                    elector.departamento_principal = dept_obj
-                    elector.save(update_fields=("departamento_principal",))
+            if elector_dni is None and elector_legajo is None:
+                dept_principal_code = fila.get("departamento_principal") or ""
+                if dept_principal_code:
+                    dept_obj = Departamento.objects.filter(
+                        Q(codigo__iexact=dept_principal_code.strip()) | Q(nombre__iexact=dept_principal_code.strip())
+                    ).first()
+                    if dept_obj:
+                        elector.departamento_principal = dept_obj
+                        elector.save(update_fields=("departamento_principal",))
         else:
             elector.nombre = fila["nombres"]
             elector.tipo_documento = fila["tipo_documento"]
@@ -646,15 +777,21 @@ def confirmar_importacion(importacion):
             defaults={
                 "eleccion_claustro_departamento": configuracion,
                 "sede": sedes.get(fila.get("sede", "").casefold()),
+                "turno_cursada": turnos.get(fila.get("turno_cursada", "").casefold()),
                 "nivel": fila.get("nivel", ""),
             },
         )
         if not creada and registro.eleccion_claustro_departamento_id != configuracion.id:
             raise ValueError("El elector ya figura en esta elección con otro claustro o departamento.")
         sede_donde_cursa = sedes.get(fila.get("sede", "").casefold())
-        if not creada and registro.sede_id != (sede_donde_cursa.id if sede_donde_cursa else None):
+        turno_cursada = turnos.get(fila.get("turno_cursada", "").casefold())
+        if not creada and (
+            registro.sede_id != (sede_donde_cursa.id if sede_donde_cursa else None)
+            or registro.turno_cursada_id != (turno_cursada.id if turno_cursada else None)
+        ):
             registro.sede = sede_donde_cursa
-            registro.save(update_fields=("sede",))
+            registro.turno_cursada = turno_cursada
+            registro.save(update_fields=("sede", "turno_cursada"))
         # actualizar nivel si cambia
         nivel_csv = fila.get("nivel", "")
         if not creada and registro.nivel != nivel_csv:
@@ -707,10 +844,10 @@ def eleccion_tiene_padron_emitido(eleccion):
 
 
 def validar_resolucion_cambios_sede(eleccion):
-    if eleccion.estado not in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO):
-        raise ValueError("Solo se pueden resolver cambios de sede con la elección publicada o en curso.")
     if eleccion_tiene_padron_emitido(eleccion):
         raise ValueError("El padrón imprimible ya fue generado. Los cambios de sede están en modo lectura.")
+    if eleccion.estado != Eleccion.Estado.PUBLICADA or eleccion.autoridades_confirmadas_en:
+        raise ValueError("Los cambios de sede solo pueden resolverse antes de confirmar autoridades, con la elección publicada.")
 
 
 @transaction.atomic
@@ -837,7 +974,99 @@ def alcances_con_sedes_multiples(eleccion_claustro):
 def invalidar_asignaciones_sede_claustro(eleccion_claustro):
     AsignacionSedePadron.objects.filter(
         registro_padron__eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
-    ).delete()
+    ).exclude(registro_padron__asignacion_autoridad__isnull=False).delete()
+
+
+@transaction.atomic
+def normalizar_prioridades_reglas_sede(configuracion):
+    """Mantiene las prioridades consecutivas desde 1, sin cambiar su orden."""
+    reglas = list(configuracion.reglas.order_by("orden", "id"))
+    for prioridad, regla in enumerate(reglas, start=1):
+        if regla.orden != prioridad:
+            ReglaSedeClaustro.objects.filter(pk=regla.pk).update(orden=prioridad)
+
+
+def recalcular_asignaciones_sede_y_mesas(eleccion_claustro, *, usuario=None, request=None):
+    """Actualiza sedes y mesas tras un cambio que afecta el padrón del claustro."""
+    anteriores = dict(
+        AsignacionSedePadron.objects.filter(
+            registro_padron__eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+        ).values_list("registro_padron_id", "sede_id")
+    )
+    resultado_sedes = calcular_asignaciones_sede_claustro(eleccion_claustro)
+    actuales = dict(
+        AsignacionSedePadron.objects.filter(
+            registro_padron__eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+        ).values_list("registro_padron_id", "sede_id")
+    )
+    sedes_cambiaron = anteriores != actuales
+
+    try:
+        resultado_mesas = calcular_mesas_automaticas_eleccion(
+            eleccion_claustro.eleccion,
+            usuario=usuario,
+            request=request,
+            recalcular_sedes=False,
+        )
+    except ValueError as error:
+        mesas_invalidadas = 0
+        bloqueo_invalidacion = ""
+        if sedes_cambiaron or resultado_sedes["pendientes"]:
+            try:
+                mesas_invalidadas = invalidar_mesas_automaticas_alcance(eleccion_claustro)
+            except ValueError as bloqueo:
+                bloqueo_invalidacion = str(bloqueo)
+        return {
+            "sedes": resultado_sedes,
+            "mesas": None,
+            "error_mesas": str(error),
+            "mesas_invalidadas": mesas_invalidadas,
+            "bloqueo_invalidacion": bloqueo_invalidacion,
+        }
+
+    return {
+        "sedes": resultado_sedes,
+        "mesas": resultado_mesas,
+        "error_mesas": "",
+        "mesas_invalidadas": 0,
+        "bloqueo_invalidacion": "",
+    }
+
+
+@transaction.atomic
+def invalidar_mesas_automaticas_alcance(eleccion_claustro, alcances=None):
+    """Quita las mesas automÃ¡ticas obsoletas del alcance que cambiÃ³."""
+    mesas = Mesa.objects.filter(
+        eleccion=eleccion_claustro.eleccion,
+        eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+        generada_automaticamente=True,
+    )
+    if alcances is not None:
+        mesas = mesas.filter(eleccion_claustro_departamento__in=alcances)
+    if RegistroPadron.objects.filter(
+        eleccion=eleccion_claustro.eleccion,
+        qr_generado_en__isnull=False,
+    ).exists():
+        raise ValueError("No se pueden invalidar mesas despuÃ©s de emitir QR.")
+    if mesas.filter(participaciones__isnull=False).exists():
+        raise ValueError("No se pueden invalidar mesas vinculadas a participaciones.")
+    if mesas.filter(autoridades__isnull=False).exists():
+        raise ValueError("No se pueden invalidar mesas con autoridades asignadas; se conservan sus designaciones.")
+
+    cantidad = mesas.count()
+    if cantidad:
+        from apps.autoridades.models import AsignacionAutoridad
+        from apps.usuarios.models import AsignacionRol
+
+        AsignacionRol.objects.filter(
+            rol=AsignacionRol.Rol.AUTORIDAD_MESA,
+            eleccion=eleccion_claustro.eleccion,
+            mesa__in=mesas,
+        ).delete()
+        AsignacionAutoridad.objects.filter(mesa__in=mesas).delete()
+    AsignacionMesa.objects.filter(mesa__in=mesas).delete()
+    mesas.delete()
+    return cantidad
 
 
 def estado_eliminacion_padron_claustro(eleccion_claustro):
@@ -1041,6 +1270,11 @@ def calcular_asignaciones_sede_claustro(eleccion_claustro):
     configuracion, _ = ConfiguracionSedesClaustro.objects.get_or_create(
         eleccion_claustro=eleccion_claustro,
     )
+    protegidas = {
+        a.registro_padron_id: a for a in AsignacionSedePadron.objects.filter(
+            registro_padron__eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+        ).filter(Q(registro_padron__asignacion_autoridad__isnull=False) | Q(registro_padron__solicitudes_cambio_sede__estado=SolicitudCambioSede.Estado.APROBADA)).distinct()
+    }
     reglas = list(configuracion.reglas.prefetch_related("alcances_especificos").order_by("orden", "id"))
     sedes_por_alcance = defaultdict(set)
     for alcance_id, sede_id in EleccionClaustroDepartamentoSede.objects.filter(
@@ -1068,6 +1302,9 @@ def calcular_asignaciones_sede_claustro(eleccion_claustro):
     asignaciones = []
     pendientes = 0
     for registro in registros:
+        if registro.pk in protegidas:
+            pendientes += int(protegidas[registro.pk].estado == AsignacionSedePadron.Estado.PENDIENTE)
+            continue
         alcance = registro.eleccion_claustro_departamento
         sede_ids = sedes_por_alcance[alcance.id]
         sede_elegida = None
@@ -1101,9 +1338,10 @@ def calcular_asignaciones_sede_claustro(eleccion_claustro):
 
     AsignacionSedePadron.objects.filter(
         registro_padron__eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
-    ).delete()
+    ).exclude(registro_padron_id__in=protegidas).delete()
     AsignacionSedePadron.objects.bulk_create(asignaciones)
-    return {"asignadas": len(asignaciones) - pendientes, "pendientes": pendientes}
+    cantidad_protegidas_activas = sum(registro.pk in protegidas for registro in registros)
+    return {"asignadas": len(asignaciones) + cantidad_protegidas_activas - pendientes, "pendientes": pendientes}
 
 
 def recalcular_sedes_y_mesas_claustro(eleccion_claustro, *, usuario=None, request=None):
@@ -1119,12 +1357,19 @@ def recalcular_sedes_y_mesas_claustro(eleccion_claustro, *, usuario=None, reques
             eleccion_claustro.eleccion,
             usuario=usuario,
             request=request,
+            confirmar_afectadas=True,
         )
     except ValueError as error:
         return resultado, False, f"{texto_sedes} Las mesas anteriores se conservaron: {error}"
+    detalle_autoridades = resultado_mesas.get("detalle_autoridades_vacantes", [])
+    texto_autoridades = "; ".join(
+        f"{fila['elector']} (mesa {fila['mesa']}, turno {fila['turno']})" for fila in detalle_autoridades
+    )
     return resultado, True, (
         f"{texto_sedes} Mesas recalculadas para toda la elección: {resultado_mesas['mesas']} mesas y "
-        f"{resultado_mesas['electores']} electores."
+        f"{resultado_mesas['electores']} electores. "
+        f"Designaciones provisorias que quedaron vacantes: {resultado_mesas.get('autoridades_vacantes', 0)}."
+        + (f" Revisá: {texto_autoridades}." if texto_autoridades else "")
     )
 
 
@@ -1163,7 +1408,7 @@ def resumen_asignaciones_sede_claustro(eleccion_claustro):
 
 
 def solicitudes_cambio_sede_habilitadas(eleccion):
-    if eleccion.estado != Eleccion.Estado.PUBLICADA:
+    if eleccion.estado != Eleccion.Estado.PUBLICADA or eleccion.autoridades_confirmadas_en:
         return False
     if not eleccion.fecha_cierre_solicitudes_cambio_sede:
         return False
@@ -1186,7 +1431,7 @@ def estimar_impacto_mesas_por_sede(eleccion, solicitudes, permitir_crear=True):
             "numero": mesa.numero,
             "total": mesa.total,
             "protegida": not mesa.generada_automaticamente or bool(
-                mesa.cantidad_autoridades or mesa.cantidad_participaciones or mesa.cantidad_roles
+                mesa.cantidad_autoridades or mesa.cantidad_participaciones or mesa.cantidad_roles or mesa.referencias_originales
             ),
         }
         for mesa in Mesa.objects.filter(eleccion=eleccion).annotate(
@@ -1194,6 +1439,7 @@ def estimar_impacto_mesas_por_sede(eleccion, solicitudes, permitir_crear=True):
             cantidad_autoridades=Count("autoridades", distinct=True),
             cantidad_participaciones=Count("participaciones", distinct=True),
             cantidad_roles=Count("asignaciones_rol", distinct=True),
+            referencias_originales=Count("autoridades_origen_votacion", distinct=True),
         )
     }
     asignaciones = dict(
@@ -1376,8 +1622,10 @@ def _aplicar_cambio_sede_en_registro(solicitud, permitir_crear_mesa=True):
     if mesa is None:
         raise ValueError("No existe una mesa disponible en la sede solicitada.")
     mesa_origen_id = AsignacionMesa.objects.filter(registro_padron=registro).values_list("mesa_id", flat=True).first()
-    registro.sede = solicitud.sede_destino
-    registro.save(update_fields=("sede",))
+    AsignacionSedePadron.objects.update_or_create(
+        registro_padron=registro,
+        defaults={"sede": solicitud.sede_destino, "estado": AsignacionSedePadron.Estado.ASIGNADA, "regla_aplicada": None},
+    )
     AsignacionMesa.objects.update_or_create(
         registro_padron=registro,
         defaults={"mesa": mesa},
@@ -1394,10 +1642,11 @@ def _quitar_mesa_si_quedo_vacia(mesa_id):
         cantidad_autoridades=Count("autoridades", distinct=True),
         cantidad_participaciones=Count("participaciones", distinct=True),
         cantidad_roles=Count("asignaciones_rol", distinct=True),
+        referencias_originales=Count("autoridades_origen_votacion", distinct=True),
     ).first()
     if mesa is None or not mesa.generada_automaticamente:
         return False
-    if mesa.total or mesa.cantidad_autoridades or mesa.cantidad_participaciones or mesa.cantidad_roles:
+    if mesa.total or mesa.cantidad_autoridades or mesa.cantidad_participaciones or mesa.cantidad_roles or mesa.referencias_originales:
         return False
     mesa.delete()
     return True

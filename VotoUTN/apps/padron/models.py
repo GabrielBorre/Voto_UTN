@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede
-from apps.parametros.models import Sede, Departamento
+from apps.parametros.models import Sede, Departamento, Turno
 
 
 class Elector(models.Model):
@@ -39,6 +39,7 @@ class RegistroPadron(models.Model):
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="registros_padron")
     eleccion_claustro_departamento = models.ForeignKey(EleccionClaustroDepartamento, on_delete=models.PROTECT, related_name="registros_padron")
     sede = models.ForeignKey("parametros.Sede", on_delete=models.PROTECT, related_name="registros_padron", null=True, blank=True, verbose_name="sede donde cursa")
+    turno_cursada = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="registros_padron", null=True, blank=True, verbose_name="turno de cursada")
     nivel = models.CharField(max_length=50, blank=True)
     activo = models.BooleanField(default=True)
     identificador_qr = models.CharField(max_length=LONGITUD_CODIGO_QR, unique=True, blank=True, editable=False)
@@ -51,6 +52,8 @@ class RegistroPadron(models.Model):
 
     def clean(self):
         self.validar_sede()
+        if self.sede_id and not self.turno_cursada_id:
+            raise ValidationError({"turno_cursada": "Indique el turno de cursada cuando informa la sede donde cursa."})
         if self.eleccion_id != self.eleccion_claustro_departamento.eleccion_claustro.eleccion_id:
             raise ValidationError({"eleccion_claustro_departamento": "Debe pertenecer a la misma eleccion."})
 
@@ -153,7 +156,9 @@ class SolicitudCambioSede(models.Model):
     def clean(self):
         if self.sede_origen_id == self.sede_destino_id:
             raise ValidationError({"sede_destino": "La sede solicitada debe ser distinta de la sede actual."})
-        if self.registro_padron_id and self.sede_origen_id and self.registro_padron.sede_id != self.sede_origen_id:
+        asignacion = getattr(self.registro_padron, "asignacion_sede_padron", None) if self.registro_padron_id else None
+        sede_actual_id = asignacion.sede_id if asignacion and asignacion.sede_id else (self.registro_padron.sede_id if self.registro_padron_id else None)
+        if self.registro_padron_id and self.sede_origen_id and sede_actual_id != self.sede_origen_id:
             raise ValidationError({"sede_origen": "La sede de origen debe coincidir con la sede actual del padrón."})
         if self.registro_padron_id and self.sede_destino_id:
             alcance = self.registro_padron.eleccion_claustro_departamento

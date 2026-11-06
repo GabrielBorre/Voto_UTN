@@ -14,7 +14,8 @@ from apps.elecciones.models import (
     EleccionSede,
     FechaAdministrativaEleccion,
 )
-from apps.mesas.models import Mesa
+from apps.mesas.models import AsignacionMesa, Mesa
+from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import puede_crear_elecciones, puede_importar_padron, puede_registrar_participacion, puede_revisar_justificativo
@@ -74,7 +75,7 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         self.eleccion_asignada.estado = Eleccion.Estado.FINALIZADA
         self.eleccion_asignada.save(update_fields=("estado",))
 
-        respuesta = self.client.get(reverse("gestionar-elecciones"))
+        respuesta = self.client.get(reverse("inicio-administrador-junta"))
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertNotContains(respuesta, "option-disabled")
@@ -508,7 +509,8 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, 'class="management-panel scopes-panel"')
-        self.assertContains(respuesta, 'class="card management-section"', count=2)
+        self.assertContains(respuesta, 'class="card management-section"', count=1)
+        self.assertContains(respuesta, 'alcances-agregar-claustro')
         self.assertContains(respuesta, "Gestionar sedes del claustro")
         self.assertContains(respuesta, "Sistemas")
         self.assertContains(respuesta, "Gestionar sedes")
@@ -538,6 +540,53 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
             contenido.index("Guardar sedes"),
             contenido.index("Volver a sedes y departamentos"),
         )
+
+    def test_agregar_sede_sin_reglas_invalida_mesas_automaticas_del_claustro(self):
+        self.eleccion_asignada.estado = Eleccion.Estado.EN_PREPARACION
+        self.eleccion_asignada.save(update_fields=("estado",))
+        EleccionSede.objects.create(eleccion=self.eleccion_asignada, sede=self.sede)
+        claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion_asignada,
+            claustro=self.claustro,
+            maximo_votantes_por_mesa=25,
+        )
+        EleccionClaustroSede.objects.create(eleccion_claustro=claustro, sede=self.sede)
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="SIS", activo=True)
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=claustro,
+            departamento=departamento,
+        )
+        EleccionClaustroDepartamentoSede.objects.create(
+            eleccion_claustro_departamento=alcance,
+            sede=self.sede,
+        )
+        elector = Elector.objects.create(dni="40123456", nombre="Ada", apellido="Lovelace")
+        registro = RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion_asignada,
+            eleccion_claustro_departamento=alcance,
+        )
+        mesa = Mesa.objects.create(
+            eleccion=self.eleccion_asignada,
+            numero=1,
+            eleccion_claustro_departamento=alcance,
+            sede=self.sede,
+            generada_automaticamente=True,
+        )
+        AsignacionMesa.objects.create(registro_padron=registro, mesa=mesa)
+        nueva_sede = Sede.objects.create(nombre="Medrano", activa=True)
+        EleccionSede.objects.create(eleccion=self.eleccion_asignada, sede=nueva_sede)
+
+        respuesta = self.client.post(
+            reverse("editar-alcance-sedes", args=(self.eleccion_asignada.pk, "claustro", claustro.pk)),
+            {"sedes": [self.sede.pk, nueva_sede.pk]},
+            follow=True,
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "electores con sede pendiente")
+        self.assertFalse(Mesa.objects.filter(pk=mesa.pk).exists())
+        self.assertFalse(AsignacionMesa.objects.filter(registro_padron=registro).exists())
 
     def test_el_periodo_puede_comenzar_y_terminar_el_mismo_dia(self):
         eleccion = Eleccion(

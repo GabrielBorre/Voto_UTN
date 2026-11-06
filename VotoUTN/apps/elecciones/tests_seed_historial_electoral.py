@@ -43,7 +43,6 @@ class SeedHistorialElectoralTests(TestCase):
                 "Justificativo Pendiente de Revisión",
                 "Inasistencia Justificada",
                 "Infractor - Justificación Rechazada",
-                "En Curso - Voto No Registrado",
             },
         )
 

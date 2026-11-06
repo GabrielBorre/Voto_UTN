@@ -700,7 +700,7 @@ class Command(BaseCommand):
                 "candidatura": candidatura,
                 "mesa": mesas["mesa_1"],
                 "turno": turno_manana,
-                "estado": AsignacionAutoridad.Estado.CONFIRMADA,
+                "estado": AsignacionAutoridad.Estado.ASIGNADA,
                 "asignada_por": usuarios["admin_junta"],
                 "respondida_en": timezone.now(),
             },

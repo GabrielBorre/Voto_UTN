@@ -39,7 +39,13 @@ from apps.mesas.models import Mesa
 from apps.partidos.models import ParticipacionPartido
 from apps.padron.models import RegistroPadron, SolicitudCambioSede
 from apps.parametros.models import Claustro
-from apps.padron.services import rehabilitar_cambios_padron as servicio_rehabilitar_cambios_padron
+from apps.padron.services import (
+    calcular_asignaciones_sede_claustro,
+    invalidar_mesas_automaticas_alcance,
+    calcular_mesas_automaticas_eleccion,
+    recalcular_asignaciones_sede_y_mesas,
+    rehabilitar_cambios_padron as servicio_rehabilitar_cambios_padron,
+)
 from apps.justificativos.models import JustificativoAusencia
 from apps.notificaciones.services import (
     crear_notificaciones_ausentes_confirmadas,
@@ -744,7 +750,23 @@ def gestionar_departamentos_claustro(request, eleccion_id, claustro_id):
     )
     if request.method == "POST" and formulario.is_valid():
         formulario.guardar()
-        messages.success(request, "Los departamentos habilitados fueron actualizados.")
+        resultado = recalcular_asignaciones_sede_y_mesas(
+            eleccion_claustro,
+            usuario=request.user,
+            request=request,
+        )
+        if resultado["error_mesas"]:
+            messages.warning(
+                request,
+                "Los departamentos habilitados se actualizaron. "
+                f"Las sedes quedaron recalculadas ({resultado['sedes']['pendientes']} pendientes), "
+                f"pero las mesas no pudieron actualizarse: {resultado['error_mesas']}",
+            )
+        else:
+            messages.success(
+                request,
+                "Los departamentos, las asignaciones de sede y las mesas se actualizaron automáticamente.",
+            )
         return redirect("gestionar-alcances", eleccion_id=eleccion.id)
     return render(
         request,
@@ -775,6 +797,51 @@ def editar_alcance_sedes(request, eleccion_id, tipo, objeto_id):
     formulario = FormularioAlcanceSedes(request.POST or None, eleccion=eleccion, objeto=objeto, tipo=tipo)
     if request.method == "POST" and formulario.is_valid():
         formulario.guardar()
-        messages.success(request, "Las sedes habilitadas fueron actualizadas.")
+        if not formulario.cambio_sedes:
+            messages.info(request, "No hubo cambios en las sedes habilitadas.")
+            return redirect("gestionar-alcances", eleccion_id=eleccion.id)
+        claustros_afectados = (
+            [objeto]
+            if tipo == "claustro"
+            else [objeto.eleccion_claustro]
+        )
+        resultados_sedes = [
+            calcular_asignaciones_sede_claustro(claustro)
+            for claustro in claustros_afectados
+        ]
+        pendientes = sum(resultado["pendientes"] for resultado in resultados_sedes)
+        try:
+            resultado_mesas = calcular_mesas_automaticas_eleccion(
+                eleccion,
+                usuario=request.user,
+                request=request,
+            )
+        except ValueError as error:
+            alcance_mesas = None if tipo == "claustro" else [objeto]
+            try:
+                mesas_invalidadas = invalidar_mesas_automaticas_alcance(
+                    claustros_afectados[0],
+                    alcances=alcance_mesas,
+                )
+            except ValueError as bloqueo:
+                messages.error(
+                    request,
+                    "Las sedes se actualizaron, pero no se pudieron recalcular las mesas "
+                    f"({error}). Las mesas vinculadas se conservaron: {bloqueo}",
+                )
+            else:
+                messages.warning(
+                    request,
+                    "Las sedes habilitadas se actualizaron. Hay "
+                    f"{pendientes} electores con sede pendiente, por lo que se quitaron "
+                    f"{mesas_invalidadas} mesas automÃ¡ticas obsoletas del alcance. "
+                    "Configure reglas y vuelva a calcular para generarlas.",
+                )
+        else:
+            messages.success(
+                request,
+                "Las sedes habilitadas se actualizaron; se revisaron sus asignaciones "
+                f"({pendientes} pendientes) y se recalcularon {resultado_mesas['mesas']} mesas.",
+            )
         return redirect("gestionar-alcances", eleccion_id=eleccion.id)
     return render(request, "elecciones/editar_alcance.html", {"eleccion": eleccion, "titulo": titulo, "formulario": formulario})

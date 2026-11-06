@@ -1,0 +1,501 @@
+﻿DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde cursa,Turno,Nivel
+33252458,DNI,2024001,Emiliano,Martinez,K,emiliano.martinez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+33627087,DNI,2024002,Franco,Quiroga,O,franco.quiroga@frba.utn.edu.ar,No,Ingeniería Civil,,,1
+37067558,DNI,2024003,Emiliano,Diaz,I,emiliano.diaz@frba.utn.edu.ar,No,Ingeniería Industrial,,,4
+36749509,DNI,2024004,Federico,Fernandez,K,federico.fernandez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+41541238,DNI,2024005,Micaela,Diaz,I,micaela.diaz@frba.utn.edu.ar,No,Ingeniería Industrial,,,2
+33429607,DNI,2024006,Catalina,Figueroa,V,catalina.figueroa@frba.utn.edu.ar,No,Ingeniería Química,,,3
+33143890,DNI,2024007,Hernan,Ledesma,I,hernan.ledesma@frba.utn.edu.ar,No,Ingeniería Industrial,,,4
+38837869,DNI,2024008,Franco,Torres,K,franco.torres@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+43047882,DNI,2024009,Hernan,Moreno,I,hernan.moreno@frba.utn.edu.ar,No,Ingeniería Industrial,,,1
+42235674,DNI,2024010,Bruno,Benitez,O,bruno.benitez@frba.utn.edu.ar,No,Ingeniería Civil,,,4
+35482877,DNI,2024011,Josefina,Sosa,K,josefina.sosa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+32524764,DNI,2024012,Pablo,Sosa,K,pablo.sosa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+33097022,DNI,2024013,Candela,Correa,K,candela.correa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+31704528,DNI,2024014,Romina,Dominguez,O,romina.dominguez@frba.utn.edu.ar,No,Ingeniería Civil,,,1
+41079674,DNI,2024015,Lucas,Fernandez,K,lucas.fernandez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+44180586,DNI,2024016,Gabriela,Morales,K,gabriela.morales@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+44319043,DNI,2024017,Agustin,Acosta,K,agustin.acosta@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+39587445,DNI,2024018,Abril,Aguirre,K,abril.aguirre@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+40077143,DNI,2024019,Pablo,Mendoza,K,pablo.mendoza@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+38436057,DNI,2024020,Florencia,Gutierrez,O,florencia.gutierrez@frba.utn.edu.ar,No,Ingeniería Civil,,,2
+37400050,DNI,2024021,Ignacio,Villalba,K,ignacio.villalba@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+33050413,DNI,2024022,Ignacio,Martinez,K,ignacio.martinez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+40584847,DNI,2024023,Leandro,Soria,K,leandro.soria@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+43658665,DNI,2024024,Milagros,Suarez,K,milagros.suarez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+38697025,DNI,2024025,Sofia,Gomez,O,sofia.gomez@frba.utn.edu.ar,No,Ingeniería Civil,,,1
+30108894,DNI,2024026,Natalia,Escobar,K,natalia.escobar@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+45793736,DNI,2024027,Santiago,Ponce,S,santiago.ponce@frba.utn.edu.ar,No,Ingeniería Mecánica,,,3
+37336273,DNI,2024028,Ezequiel,Lopez,K,ezequiel.lopez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+40727672,DNI,2024029,Ignacio,Martinez,K,ignacio.martinez2@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+40542261,DNI,2024030,Martin,Molina,I,martin.molina@frba.utn.edu.ar,No,Ingeniería Industrial,,,5
+35341793,DNI,2024031,Facundo,Vazquez,I,facundo.vazquez@frba.utn.edu.ar,No,Ingeniería Industrial,,,5
+38887903,DNI,2024032,Maximiliano,Flores,K,maximiliano.flores@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+44076749,DNI,2024033,Florencia,Ruiz,Q,florencia.ruiz@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,1
+33873143,DNI,2024034,Gabriela,Quiroga,Q,gabriela.quiroga@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,5
+33591531,DNI,2024035,Julieta,Acosta,K,julieta.acosta@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+31299382,DNI,2024036,Hernan,Ibarra,K,hernan.ibarra@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+44836420,DNI,2024037,Lucas,Campos,U,lucas.campos@frba.utn.edu.ar,No,Ingeniería Naval,,,1
+37152271,DNI,2024038,Ignacio,Cabrera,Q,ignacio.cabrera@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,1
+32688094,DNI,2024039,Antonella,Ibarra,K,antonella.ibarra@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+36428696,DNI,2024040,Carlos,Gonzalez,K,carlos.gonzalez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+39627226,DNI,2024041,Rocio,Soria,U,rocio.soria@frba.utn.edu.ar,No,Ingeniería Naval,,,2
+45510878,DNI,2024042,Lucas,Benitez,K,lucas.benitez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+35128503,DNI,2024043,Carolina,Rios,I,carolina.rios@frba.utn.edu.ar,No,Ingeniería Industrial,,,2
+45998367,DNI,2024044,Nicolas,Arias,K,nicolas.arias@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+30056749,DNI,2024045,Emiliano,Rojas,K,emiliano.rojas@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+42716227,DNI,2024046,Antonella,Martinez,I,antonella.martinez@frba.utn.edu.ar,No,Ingeniería Industrial,,,2
+43920656,DNI,2024047,Victoria,Barrios,V,victoria.barrios@frba.utn.edu.ar,No,Ingeniería Química,,,1
+44581540,DNI,2024048,Belen,Campos,S,belen.campos@frba.utn.edu.ar,No,Ingeniería Mecánica,,,1
+36681691,DNI,2024049,Florencia,Aguirre,K,florencia.aguirre@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+39365880,DNI,2024050,Emiliano,Mendoza,K,emiliano.mendoza@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,,,2
+41269173,DNI,2024051,Matias,Moreno,V,matias.moreno@frba.utn.edu.ar,No,Ingeniería Química,,,3
+30324461,DNI,2024052,Hernan,Arias,Q,hernan.arias@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,2
+44421249,DNI,2024053,Emiliano,Arias,Q,emiliano.arias@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,3
+38215552,DNI,2024054,Florencia,Garcia,K,florencia.garcia@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+38327110,DNI,2024055,Ezequiel,Miranda,K,ezequiel.miranda@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+44375853,DNI,2024056,Santiago,Moreno,K,santiago.moreno@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+31908561,DNI,2024057,Facundo,Campos,Q,facundo.campos@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,2
+40525264,DNI,2024058,Franco,Correa,S,franco.correa@frba.utn.edu.ar,No,Ingeniería Mecánica,,,3
+43636992,DNI,2024059,Santiago,Romero,K,santiago.romero@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,,,1
+34643063,DNI,2024060,Emiliano,Luna,K,emiliano.luna@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+44703034,DNI,2024061,Hernan,Castro,R,hernan.castro@frba.utn.edu.ar,No,Ingeniería Electrónica,,,3
+35457765,DNI,2024062,Franco,Lopez,I,franco.lopez@frba.utn.edu.ar,No,Ingeniería Industrial,,,1
+43794303,DNI,2024063,Sebastian,Maidana,R,sebastian.maidana@frba.utn.edu.ar,No,Ingeniería Electrónica,,,2
+35940891,DNI,2024064,Belen,Castro,R,belen.castro@frba.utn.edu.ar,No,Ingeniería Electrónica,,,4
+41867485,DNI,2024065,Constanza,Vazquez,K,constanza.vazquez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+37048998,DNI,2024066,Carlos,Ortiz,K,carlos.ortiz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+43635762,DNI,2024067,Rocio,Peralta,S,rocio.peralta@frba.utn.edu.ar,No,Ingeniería Mecánica,,,1
+34391546,DNI,2024068,Mariana,Escobar,K,mariana.escobar@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+35452654,DNI,2024069,Pilar,Martinez,I,pilar.martinez@frba.utn.edu.ar,No,Ingeniería Industrial,,,3
+34506062,DNI,2024070,Franco,Campos,S,franco.campos@frba.utn.edu.ar,No,Ingeniería Mecánica,,,1
+38749844,DNI,2024071,Nicolas,Rios,V,nicolas.rios@frba.utn.edu.ar,No,Ingeniería Química,,,2
+43814801,DNI,2024072,Luciana,Dominguez,K,luciana.dominguez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+44424652,DNI,2024073,Carolina,Diaz,K,carolina.diaz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+43280369,DNI,2024074,Sofia,Ortiz,K,sofia.ortiz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+30705792,DNI,2024075,Agustina,Dominguez,K,agustina.dominguez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+32917183,DNI,2024076,Santiago,Rojas,O,santiago.rojas@frba.utn.edu.ar,No,Ingeniería Civil,,,2
+37811165,DNI,2024077,Martin,Pereyra,V,martin.pereyra@frba.utn.edu.ar,No,Ingeniería Química,,,2
+31918148,DNI,2024078,Constanza,Medina,O,constanza.medina@frba.utn.edu.ar,No,Ingeniería Civil,,,5
+38082309,DNI,2024079,Camila,Gimenez,V,camila.gimenez@frba.utn.edu.ar,No,Ingeniería Química,,,4
+43625621,DNI,2024080,Damian,Soria,K,damian.soria@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+46260377,DNI,2024081,Santiago,Duarte,O,santiago.duarte@frba.utn.edu.ar,No,Ingeniería Civil,,,5
+36524163,DNI,2024082,Rocio,Fernandez,V,rocio.fernandez@frba.utn.edu.ar,No,Ingeniería Química,,,1
+43460856,DNI,2024083,Damian,Rios,W,damian.rios@frba.utn.edu.ar,No,Ingeniería Textil,,,2
+37880882,DNI,2024084,Ramiro,Maidana,S,ramiro.maidana@frba.utn.edu.ar,No,Ingeniería Mecánica,,,4
+38983893,DNI,2024085,Diego,Aguirre,O,diego.aguirre@frba.utn.edu.ar,No,Ingeniería Civil,,,2
+37682011,DNI,2024086,Natalia,Duarte,K,natalia.duarte@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+32322386,DNI,2024087,Santiago,Soria,S,santiago.soria@frba.utn.edu.ar,No,Ingeniería Mecánica,,,4
+38857829,DNI,2024088,Carolina,Cardozo,K,carolina.cardozo@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+34072118,DNI,2024089,Luciana,Sanchez,K,luciana.sanchez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+38372828,DNI,2024090,Valentina,Fernandez,K,valentina.fernandez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+46329982,DNI,2024091,Federico,Escobar,I,federico.escobar@frba.utn.edu.ar,No,Ingeniería Industrial,,,3
+44165337,DNI,2024092,Lucas,Diaz,O,lucas.diaz@frba.utn.edu.ar,No,Ingeniería Civil,,,1
+37343090,DNI,2024093,Constanza,Campos,K,constanza.campos@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,,,2
+42045349,DNI,2024094,Lucas,Sosa,S,lucas.sosa@frba.utn.edu.ar,No,Ingeniería Mecánica,,,4
+31066449,DNI,2024095,Mariana,Quiroga,R,mariana.quiroga@frba.utn.edu.ar,No,Ingeniería Electrónica,,,2
+30312574,DNI,2024096,Javier,Rojas,K,javier.rojas@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+40522831,DNI,2024097,Javier,Suarez,K,javier.suarez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+40615610,DNI,2024098,Victoria,Escobar,Q,victoria.escobar@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,4
+30019189,DNI,2024099,Camila,Rios,S,camila.rios@frba.utn.edu.ar,No,Ingeniería Mecánica,,,1
+45523222,DNI,2024100,Abril,Acosta,O,abril.acosta@frba.utn.edu.ar,No,Ingeniería Civil,,,2
+31537611,DNI,2024101,Rocio,Arias,W,rocio.arias@frba.utn.edu.ar,No,Ingeniería Textil,,,1
+46004784,DNI,2024102,Damian,Quiroga,W,damian.quiroga@frba.utn.edu.ar,No,Ingeniería Textil,,,1
+45633825,DNI,2024103,Luciana,Rojas,K,luciana.rojas@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+31208903,DNI,2024104,Ignacio,Flores,S,ignacio.flores@frba.utn.edu.ar,No,Ingeniería Mecánica,,,1
+37304829,DNI,2024105,Matias,Navarro,K,matias.navarro@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+44198153,DNI,2024106,Josefina,Navarro,V,josefina.navarro@frba.utn.edu.ar,No,Ingeniería Química,,,4
+37052560,DNI,2024107,Daniela,Perez,K,daniela.perez@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,,,1
+30072322,DNI,2024108,Antonella,Sosa,W,antonella.sosa@frba.utn.edu.ar,No,Ingeniería Textil,,,2
+38382113,DNI,2024109,Martin,Flores,S,martin.flores@frba.utn.edu.ar,No,Ingeniería Mecánica,,,2
+32280388,DNI,2024110,Catalina,Luna,Q,catalina.luna@frba.utn.edu.ar,Sí,Ingeniería en Energía Eléctrica,,,3
+35839388,DNI,2024111,Santiago,Medina,U,santiago.medina@frba.utn.edu.ar,No,Ingeniería Naval,,,1
+36480360,DNI,2024112,Natalia,Vazquez,O,natalia.vazquez@frba.utn.edu.ar,No,Ingeniería Civil,,,1
+36940210,DNI,2024113,Camila,Ibarra,K,camila.ibarra@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+30655383,DNI,2024114,Romina,Gimenez,K,romina.gimenez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+32382132,DNI,2024115,Hernan,Flores,K,hernan.flores@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+31338649,DNI,2024116,Maximiliano,Sanchez,O,maximiliano.sanchez@frba.utn.edu.ar,No,Ingeniería Civil,,,4
+36674349,DNI,2024117,Lorena,Villalba,V,lorena.villalba@frba.utn.edu.ar,No,Ingeniería Química,,,3
+37172169,DNI,2024118,Diego,Cardozo,K,diego.cardozo@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+41344269,DNI,2024119,Gonzalo,Ponce,O,gonzalo.ponce@frba.utn.edu.ar,No,Ingeniería Civil,,,3
+32089290,DNI,2024120,Julieta,Nuñez,I,julieta.nunez@frba.utn.edu.ar,No,Ingeniería Industrial,,,1
+34641643,DNI,2024121,Lorena,Gonzalez,K,lorena.gonzalez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+32299194,DNI,2024122,Martina,Molina,K,martina.molina@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+33285271,DNI,2024123,Sofia,Miranda,V,sofia.miranda@frba.utn.edu.ar,No,Ingeniería Química,,,3
+32644095,DNI,2024124,Antonella,Castro,O,antonella.castro@frba.utn.edu.ar,No,Ingeniería Civil,,,4
+38764927,DNI,2024125,Leandro,Martinez,O,leandro.martinez@frba.utn.edu.ar,No,Ingeniería Civil,,,2
+32329373,DNI,2024126,Emiliano,Romero,K,emiliano.romero@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+30926120,DNI,2024127,Hernan,Vega,K,hernan.vega@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+44212940,DNI,2024128,Diego,Vazquez,K,diego.vazquez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+42421212,DNI,2024129,Carlos,Diaz,K,carlos.diaz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+42221244,DNI,2024130,Javier,Maidana,K,javier.maidana@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+37721369,DNI,2024131,Santiago,Villalba,U,santiago.villalba@frba.utn.edu.ar,No,Ingeniería Naval,,,2
+36389096,DNI,2024132,Lucas,Rios,S,lucas.rios@frba.utn.edu.ar,No,Ingeniería Mecánica,,,2
+37224730,DNI,2024133,Carlos,Campos,R,carlos.campos@frba.utn.edu.ar,No,Ingeniería Electrónica,,,5
+35127293,DNI,2024134,Lorena,Acosta,K,lorena.acosta@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+35742460,DNI,2024135,Sofia,Torres,R,sofia.torres@frba.utn.edu.ar,No,Ingeniería Electrónica,,,2
+32677374,DNI,2024136,Damian,Fernandez,K,damian.fernandez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+30890399,DNI,2024137,Rocio,Rodriguez,Q,rocio.rodriguez@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,2
+43401657,DNI,2024138,Rocio,Barrios,K,rocio.barrios@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+45670747,DNI,2024139,Gonzalo,Ibarra,R,gonzalo.ibarra@frba.utn.edu.ar,No,Ingeniería Electrónica,,,1
+45267547,DNI,2024140,Ignacio,Ortiz,K,ignacio.ortiz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+41111545,DNI,2024141,Franco,Molina,K,franco.molina@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+36235251,DNI,2024142,Luciana,Moreno,O,luciana.moreno@frba.utn.edu.ar,No,Ingeniería Civil,,,3
+33576476,DNI,2024143,Victoria,Rios,S,victoria.rios@frba.utn.edu.ar,No,Ingeniería Mecánica,,,4
+32845266,DNI,2024144,Federico,Maidana,K,federico.maidana@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+45705148,DNI,2024145,Nicolas,Rios,R,nicolas.rios2@frba.utn.edu.ar,No,Ingeniería Electrónica,,,2
+39344146,DNI,2024146,Hernan,Escobar,K,hernan.escobar@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+42134457,DNI,2024147,Romina,Duarte,Q,romina.duarte@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,2
+44631662,DNI,2024148,Camila,Dominguez,R,camila.dominguez@frba.utn.edu.ar,No,Ingeniería Electrónica,,,1
+37685577,DNI,2024149,Antonella,Quiroga,K,antonella.quiroga@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+33112034,DNI,2024150,Carlos,Fernandez,O,carlos.fernandez@frba.utn.edu.ar,No,Ingeniería Civil,,,3
+45877493,DNI,2024151,Lorena,Moreno,S,lorena.moreno@frba.utn.edu.ar,No,Ingeniería Mecánica,,,3
+35580474,DNI,2024152,Tomas,Dominguez,K,tomas.dominguez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+42546466,DNI,2024153,Franco,Ortiz,O,franco.ortiz@frba.utn.edu.ar,Sí,Ingeniería Civil,,,2
+44825539,DNI,2024154,Sebastian,Aguirre,K,sebastian.aguirre@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+46956909,DNI,2024155,Abril,Pereyra,K,abril.pereyra@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+31817683,DNI,2024156,Leandro,Flores,V,leandro.flores@frba.utn.edu.ar,No,Ingeniería Química,,,1
+32395870,DNI,2024157,Tomas,Escobar,S,tomas.escobar@frba.utn.edu.ar,No,Ingeniería Mecánica,,,1
+44759675,DNI,2024158,Agustin,Paz,S,agustin.paz@frba.utn.edu.ar,No,Ingeniería Mecánica,,,2
+41732589,DNI,2024159,Sofia,Cabrera,V,sofia.cabrera@frba.utn.edu.ar,No,Ingeniería Química,,,3
+42732411,DNI,2024160,Bruno,Cabrera,V,bruno.cabrera@frba.utn.edu.ar,No,Ingeniería Química,,,3
+38361706,DNI,2024161,Tomas,Luna,Q,tomas.luna@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,4
+42763469,DNI,2024162,Juan,Arias,R,juan.arias@frba.utn.edu.ar,No,Ingeniería Electrónica,,,2
+41920906,DNI,2024163,Bruno,Gutierrez,O,bruno.gutierrez@frba.utn.edu.ar,Sí,Ingeniería Civil,,,3
+37029889,DNI,2024164,Tomas,Rodriguez,S,tomas.rodriguez@frba.utn.edu.ar,No,Ingeniería Mecánica,,,3
+44193775,DNI,2024165,Daniela,Villalba,K,daniela.villalba@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+46796882,DNI,2024166,Maximiliano,Godoy,K,maximiliano.godoy@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+35128434,DNI,2024167,Camila,Lopez,O,camila.lopez@frba.utn.edu.ar,No,Ingeniería Civil,,,2
+38893824,DNI,2024168,Maria,Diaz,K,maria.diaz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+39323815,DNI,2024169,Agustin,Molina,K,agustin.molina@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+39117246,DNI,2024170,Constanza,Cabrera,Q,constanza.cabrera@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,2
+39283847,DNI,2024171,Ignacio,Aguirre,K,ignacio.aguirre@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+39348367,DNI,2024172,Antonella,Mendoza,K,antonella.mendoza@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,,,3
+32703737,DNI,2024173,Gabriela,Maidana,Q,gabriela.maidana@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,1
+39955862,DNI,2024174,Valentina,Peralta,K,valentina.peralta@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+45213925,DNI,2024175,Javier,Lopez,Q,javier.lopez@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,1
+35282565,DNI,2024176,Ramiro,Diaz,S,ramiro.diaz@frba.utn.edu.ar,No,Ingeniería Mecánica,,,3
+43100380,DNI,2024177,Lucia,Mendoza,K,lucia.mendoza@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+43221125,DNI,2024178,Florencia,Herrera,K,florencia.herrera@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+45281230,DNI,2024179,Maria,Soria,Q,maria.soria@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,4
+42805018,DNI,2024180,Victoria,Dominguez,K,victoria.dominguez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+40240506,DNI,2024181,Ezequiel,Godoy,I,ezequiel.godoy@frba.utn.edu.ar,No,Ingeniería Industrial,,,5
+46588545,DNI,2024182,Rocio,Ruiz,K,rocio.ruiz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+33475786,DNI,2024183,Gabriela,Correa,I,gabriela.correa@frba.utn.edu.ar,No,Ingeniería Industrial,,,4
+37389269,DNI,2024184,Bruno,Paz,S,bruno.paz@frba.utn.edu.ar,No,Ingeniería Mecánica,,,1
+41385106,DNI,2024185,Rocio,Fernandez,S,rocio.fernandez2@frba.utn.edu.ar,No,Ingeniería Mecánica,,,2
+45602414,DNI,2024186,Gonzalo,Paz,Q,gonzalo.paz@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,4
+34022727,DNI,2024187,Daniela,Campos,Q,daniela.campos@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,3
+31283698,DNI,2024188,Romina,Ramirez,O,romina.ramirez@frba.utn.edu.ar,No,Ingeniería Civil,,,4
+33743069,DNI,2024189,Lorena,Sanchez,O,lorena.sanchez@frba.utn.edu.ar,No,Ingeniería Civil,,,5
+43566616,DNI,2024190,Martina,Ponce,V,martina.ponce@frba.utn.edu.ar,No,Ingeniería Química,,,4
+42722004,DNI,2024191,Tomas,Dominguez,O,tomas.dominguez2@frba.utn.edu.ar,No,Ingeniería Civil,,,3
+37636837,DNI,2024192,Belen,Correa,K,belen.correa@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,,,5
+38261616,DNI,2024193,Constanza,Alvarez,K,constanza.alvarez@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,,,4
+46872858,DNI,2024194,Federico,Barrios,K,federico.barrios@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+38958289,DNI,2024195,Franco,Moreno,K,franco.moreno@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+37362568,DNI,2024196,Paula,Morales,W,paula.morales@frba.utn.edu.ar,No,Ingeniería Textil,,,1
+31457954,DNI,2024197,Ezequiel,Torres,K,ezequiel.torres@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+32347931,DNI,2024198,Rocio,Alvarez,O,rocio.alvarez@frba.utn.edu.ar,No,Ingeniería Civil,,,2
+44107837,DNI,2024199,Gonzalo,Alvarez,K,gonzalo.alvarez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+42701506,DNI,2024200,Leandro,Fernandez,S,leandro.fernandez@frba.utn.edu.ar,No,Ingeniería Mecánica,,,5
+32131636,DNI,2024201,Javier,Perez,I,javier.perez@frba.utn.edu.ar,No,Ingeniería Industrial,,,4
+34703737,DNI,2024202,Franco,Ledesma,K,franco.ledesma@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,,,3
+31077105,DNI,2024203,Martin,Vazquez,R,martin.vazquez@frba.utn.edu.ar,No,Ingeniería Electrónica,,,2
+41803066,DNI,2024204,Catalina,Ponce,K,catalina.ponce@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+31943646,DNI,2024205,Tomas,Gutierrez,K,tomas.gutierrez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+39710248,DNI,2024206,Belen,Sosa,S,belen.sosa@frba.utn.edu.ar,No,Ingeniería Mecánica,,,5
+46394887,DNI,2024207,Mariana,Vazquez,K,mariana.vazquez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+41247051,DNI,2024208,Gabriela,Fernandez,W,gabriela.fernandez@frba.utn.edu.ar,No,Ingeniería Textil,,,2
+38027759,DNI,2024209,Nicolas,Gonzalez,K,nicolas.gonzalez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+37106768,DNI,2024210,Agustin,Herrera,K,agustin.herrera@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+37079409,DNI,2024211,Sofia,Fernandez,K,sofia.fernandez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+42241736,DNI,2024212,Ramiro,Ortiz,Q,ramiro.ortiz@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,4
+42884179,DNI,2024213,Carlos,Molina,I,carlos.molina@frba.utn.edu.ar,Sí,Ingeniería Industrial,,,1
+35994562,DNI,2024214,Emiliano,Pereyra,K,emiliano.pereyra@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+30794046,DNI,2024215,Lucia,Lopez,I,lucia.lopez@frba.utn.edu.ar,No,Ingeniería Industrial,,,1
+39522291,DNI,2024216,Antonella,Dominguez,K,antonella.dominguez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+45587707,DNI,2024217,Josefina,Soria,S,josefina.soria@frba.utn.edu.ar,No,Ingeniería Mecánica,,,5
+32434143,DNI,2024218,Lucas,Dominguez,K,lucas.dominguez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+40415948,DNI,2024219,Lucas,Correa,K,lucas.correa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,4
+32443709,DNI,2024220,Maria,Villalba,K,maria.villalba@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,2
+32155162,DNI,2024221,Maria,Pereyra,R,maria.pereyra@frba.utn.edu.ar,No,Ingeniería Electrónica,,,5
+42852531,DNI,2024222,Luis,Figueroa,K,luis.figueroa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+32458221,DNI,2024223,Javier,Ruiz,O,javier.ruiz@frba.utn.edu.ar,No,Ingeniería Civil,,,2
+34060227,DNI,2024224,Abril,Gonzalez,I,abril.gonzalez@frba.utn.edu.ar,Sí,Ingeniería Industrial,,,2
+35217026,DNI,2024225,Candela,Mendoza,K,candela.mendoza@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+44066853,DNI,2024226,Josefina,Correa,Q,josefina.correa@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,4
+38426230,DNI,2024227,Javier,Suarez,K,javier.suarez2@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+33570554,DNI,2024228,Ezequiel,Gonzalez,Q,ezequiel.gonzalez@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,4
+30013621,DNI,2024229,Victoria,Castro,Q,victoria.castro@frba.utn.edu.ar,Sí,Ingeniería en Energía Eléctrica,,,2
+37892133,DNI,2024230,Joaquin,Ibarra,W,joaquin.ibarra@frba.utn.edu.ar,No,Ingeniería Textil,,,2
+30819580,DNI,2024231,Federico,Bustos,Q,federico.bustos@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,1
+39848230,DNI,2024232,Santiago,Figueroa,V,santiago.figueroa@frba.utn.edu.ar,Sí,Ingeniería Química,,,2
+42529912,DNI,2024233,Valentina,Sanchez,S,valentina.sanchez@frba.utn.edu.ar,No,Ingeniería Mecánica,,,2
+40066231,DNI,2024234,Damian,Arias,S,damian.arias@frba.utn.edu.ar,No,Ingeniería Mecánica,,,4
+31550675,DNI,2024235,Joaquin,Villalba,K,joaquin.villalba@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,,,1
+45377510,DNI,2024236,Micaela,Correa,K,micaela.correa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+45149361,DNI,2024237,Franco,Duarte,K,franco.duarte@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+32333883,DNI,2024238,Belen,Bustos,V,belen.bustos@frba.utn.edu.ar,No,Ingeniería Química,,,3
+43370299,DNI,2024239,Josefina,Flores,Q,josefina.flores@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,,,2
+35420686,DNI,2024240,Hernan,Suarez,I,hernan.suarez@frba.utn.edu.ar,No,Ingeniería Industrial,,,3
+31975475,DNI,2024241,Antonella,Nuñez,K,antonella.nunez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+36853801,DNI,2024242,Luis,Moreno,K,luis.moreno@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+46382262,DNI,2024243,Micaela,Ledesma,K,micaela.ledesma@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,1
+45415740,DNI,2024244,Agustina,Navarro,I,agustina.navarro@frba.utn.edu.ar,No,Ingeniería Industrial,,,5
+40318461,DNI,2024245,Candela,Paz,V,candela.paz@frba.utn.edu.ar,No,Ingeniería Química,,,4
+45316317,DNI,2024246,Antonella,Ibarra,S,antonella.ibarra2@frba.utn.edu.ar,No,Ingeniería Mecánica,,,3
+35357277,DNI,2024247,Martina,Morales,K,martina.morales@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,3
+39057945,DNI,2024248,Diego,Escobar,K,diego.escobar@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,,,1
+45927431,DNI,2024249,Romina,Ramirez,O,romina.ramirez2@frba.utn.edu.ar,No,Ingeniería Civil,,,1
+33666460,DNI,2024250,Martin,Vega,K,martin.vega@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,,,5
+43456679,DNI,2024251,Carlos,Perez,Q,carlos.perez@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Medrano,Mañana,1
+37480073,DNI,2024252,Julieta,Medina,O,julieta.medina@frba.utn.edu.ar,No,Ingeniería Civil,Medrano,Tarde,4
+38789760,DNI,2024253,Josefina,Alvarez,R,josefina.alvarez@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Noche,1
+41102537,DNI,2024254,Valentina,Acosta,K,valentina.acosta@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,2
+40377871,DNI,2024255,Bruno,Ortiz,Q,bruno.ortiz@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Medrano,Tarde,1
+44471939,DNI,2024256,Pilar,Fernandez,K,pilar.fernandez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,4
+42146585,DNI,2024257,Joaquin,Gimenez,Q,joaquin.gimenez@frba.utn.edu.ar,Sí,Ingeniería en Energía Eléctrica,Campus,Mañana,1
+33843718,DNI,2024258,Sofia,Arias,U,sofia.arias@frba.utn.edu.ar,No,Ingeniería Naval,Medrano,Tarde,3
+37359183,DNI,2024259,Matias,Quiroga,W,matias.quiroga@frba.utn.edu.ar,Sí,Ingeniería Textil,Medrano,Noche,1
+32220921,DNI,2024260,Martina,Moreno,V,martina.moreno@frba.utn.edu.ar,Sí,Ingeniería Química,Medrano,Mañana,1
+34282478,DNI,2024261,Catalina,Morales,Q,catalina.morales@frba.utn.edu.ar,Sí,Ingeniería en Energía Eléctrica,Campus,Tarde,5
+41294238,DNI,2024262,Sebastian,Ledesma,R,sebastian.ledesma@frba.utn.edu.ar,No,Ingeniería Electrónica,Medrano,Noche,4
+35306893,DNI,2024263,Franco,Romero,Q,franco.romero@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Medrano,Mañana,4
+32529497,DNI,2024264,Julieta,Aguirre,S,julieta.aguirre@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Tarde,4
+32599909,DNI,2024265,Facundo,Cabrera,K,facundo.cabrera@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,1
+39305024,DNI,2024266,Diego,Aguirre,K,diego.aguirre2@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,3
+31479306,DNI,2024267,Leandro,Garcia,K,leandro.garcia@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,2
+39158189,DNI,2024268,Florencia,Escobar,S,florencia.escobar@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Noche,3
+37170629,DNI,2024269,Lorena,Vega,I,lorena.vega@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Mañana,1
+31333508,DNI,2024270,Joaquin,Cardozo,K,joaquin.cardozo@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,2
+44463677,DNI,2024271,Facundo,Perez,K,facundo.perez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,4
+38196824,DNI,2024272,Facundo,Alvarez,U,facundo.alvarez@frba.utn.edu.ar,No,Ingeniería Naval,Campus,Mañana,3
+45860207,DNI,2024273,Facundo,Pereyra,Q,facundo.pereyra@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Medrano,Tarde,4
+45590839,DNI,2024274,Juan,Medina,S,juan.medina@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Noche,4
+40019777,DNI,2024275,Javier,Moreno,W,javier.moreno@frba.utn.edu.ar,No,Ingeniería Textil,Campus,Mañana,1
+41710793,DNI,2024276,Ezequiel,Luna,R,ezequiel.luna@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Tarde,2
+37646997,DNI,2024277,Gabriela,Rodriguez,S,gabriela.rodriguez@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Noche,4
+38214491,DNI,2024278,Daniela,Torres,V,daniela.torres@frba.utn.edu.ar,No,Ingeniería Química,Campus,Mañana,1
+45683010,DNI,2024279,Constanza,Vega,S,constanza.vega@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Tarde,2
+35061037,DNI,2024280,Luciana,Mendoza,K,luciana.mendoza@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Noche,2
+43410124,DNI,2024281,Milagros,Torres,V,milagros.torres@frba.utn.edu.ar,No,Ingeniería Química,Campus,Mañana,2
+43951068,DNI,2024282,Belen,Miranda,K,belen.miranda@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,4
+41087340,DNI,2024283,Ezequiel,Paz,K,ezequiel.paz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,5
+43676765,DNI,2024284,Julieta,Alvarez,K,julieta.alvarez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,5
+35185949,DNI,2024285,Rocio,Ruiz,U,rocio.ruiz2@frba.utn.edu.ar,No,Ingeniería Naval,Medrano,Tarde,4
+40558837,DNI,2024286,Gabriela,Ibarra,S,gabriela.ibarra@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Noche,3
+31054043,DNI,2024287,Natalia,Diaz,K,natalia.diaz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,1
+30904843,DNI,2024288,Lucia,Ledesma,S,lucia.ledesma@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Tarde,5
+34793975,DNI,2024289,Julieta,Lopez,K,julieta.lopez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,5
+45052972,DNI,2024290,Romina,Soria,O,romina.soria@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Mañana,3
+38907573,DNI,2024291,Paula,Vega,O,paula.vega@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Tarde,4
+30197839,DNI,2024292,Candela,Aguirre,K,candela.aguirre@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,1
+43834304,DNI,2024293,Camila,Campos,W,camila.campos@frba.utn.edu.ar,No,Ingeniería Textil,Campus,Mañana,3
+33133554,DNI,2024294,Bruno,Ortiz,K,bruno.ortiz2@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,3
+36437085,DNI,2024295,Carlos,Nuñez,R,carlos.nunez@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Noche,5
+33870226,DNI,2024296,Antonella,Diaz,S,antonella.diaz@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Mañana,4
+35215966,DNI,2024297,Hernan,Nuñez,O,hernan.nunez@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Tarde,2
+33389045,DNI,2024298,Luis,Figueroa,K,luis.figueroa2@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,Campus,Noche,2
+31962373,DNI,2024299,Mariana,Romero,K,mariana.romero@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,3
+35001431,DNI,2024300,Maximiliano,Godoy,U,maximiliano.godoy2@frba.utn.edu.ar,No,Ingeniería Naval,Medrano,Tarde,4
+38875847,DNI,2024301,Federico,Peralta,K,federico.peralta@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Noche,4
+39837430,DNI,2024302,Damian,Ledesma,U,damian.ledesma@frba.utn.edu.ar,Sí,Ingeniería Naval,Campus,Mañana,1
+41505153,DNI,2024303,Rocio,Figueroa,K,rocio.figueroa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,4
+42754919,DNI,2024304,Ignacio,Herrera,R,ignacio.herrera@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Noche,4
+33679214,DNI,2024305,Romina,Herrera,Q,romina.herrera@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Campus,Mañana,3
+44588301,DNI,2024306,Pilar,Ortiz,K,pilar.ortiz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,4
+33245263,DNI,2024307,Daniela,Ledesma,O,daniela.ledesma@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Noche,1
+38912544,DNI,2024308,Federico,Gutierrez,K,federico.gutierrez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,2
+40150790,DNI,2024309,Joaquin,Castro,R,joaquin.castro@frba.utn.edu.ar,No,Ingeniería Electrónica,Medrano,Tarde,4
+35421791,DNI,2024310,Federico,Godoy,R,federico.godoy@frba.utn.edu.ar,No,Ingeniería Electrónica,Medrano,Noche,1
+33354814,DNI,2024311,Daniela,Gonzalez,K,daniela.gonzalez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,3
+43703392,DNI,2024312,Joaquin,Duarte,Q,joaquin.duarte@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Campus,Tarde,2
+33880428,DNI,2024313,Rocio,Navarro,U,rocio.navarro@frba.utn.edu.ar,No,Ingeniería Naval,Medrano,Noche,3
+34308102,DNI,2024314,Pablo,Medina,O,pablo.medina@frba.utn.edu.ar,No,Ingeniería Civil,Medrano,Mañana,2
+40646752,DNI,2024315,Agustina,Campos,K,agustina.campos@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,3
+42835970,DNI,2024316,Ezequiel,Maidana,Q,ezequiel.maidana@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Medrano,Noche,3
+46287807,DNI,2024317,Candela,Correa,U,candela.correa2@frba.utn.edu.ar,No,Ingeniería Naval,Medrano,Mañana,2
+36377985,DNI,2024318,Paula,Bustos,I,paula.bustos@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Tarde,1
+35693898,DNI,2024319,Abril,Paz,O,abril.paz@frba.utn.edu.ar,No,Ingeniería Civil,Medrano,Noche,1
+39138489,DNI,2024320,Sebastian,Figueroa,K,sebastian.figueroa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,5
+37396759,DNI,2024321,Emiliano,Romero,K,emiliano.romero2@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Tarde,4
+36018345,DNI,2024322,Agustina,Pereyra,Q,agustina.pereyra@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Medrano,Noche,1
+38898649,DNI,2024323,Tomas,Medina,Q,tomas.medina@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Medrano,Mañana,3
+39213961,DNI,2024324,Luciana,Martinez,R,luciana.martinez@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Tarde,2
+44962377,DNI,2024325,Ezequiel,Mendoza,K,ezequiel.mendoza@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,1
+44642948,DNI,2024326,Leandro,Navarro,I,leandro.navarro@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Mañana,2
+39571375,DNI,2024327,Romina,Benitez,K,romina.benitez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Tarde,1
+35340453,DNI,2024328,Lorena,Fernandez,S,lorena.fernandez@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Noche,4
+44157347,DNI,2024329,Maria,Escobar,V,maria.escobar@frba.utn.edu.ar,No,Ingeniería Química,Medrano,Mañana,5
+37179067,DNI,2024330,Facundo,Correa,K,facundo.correa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Tarde,4
+33753657,DNI,2024331,Gabriela,Morales,S,gabriela.morales2@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Noche,4
+35194119,DNI,2024332,Leandro,Navarro,I,leandro.navarro2@frba.utn.edu.ar,No,Ingeniería Industrial,Medrano,Mañana,1
+31876966,DNI,2024333,Gabriela,Aguirre,K,gabriela.aguirre@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Tarde,1
+30218062,DNI,2024334,Constanza,Ortiz,O,constanza.ortiz@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Noche,1
+37759847,DNI,2024335,Emiliano,Torres,K,emiliano.torres@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,5
+38318332,DNI,2024336,Abril,Barrios,K,abril.barrios@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,2
+40876872,DNI,2024337,Natalia,Quiroga,K,natalia.quiroga@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,Medrano,Noche,3
+38186759,DNI,2024338,Candela,Ramirez,U,candela.ramirez@frba.utn.edu.ar,No,Ingeniería Naval,Campus,Mañana,1
+45341910,DNI,2024339,Diego,Sanchez,Q,diego.sanchez@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Campus,Tarde,2
+41416912,DNI,2024340,Maximiliano,Paz,R,maximiliano.paz@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Noche,4
+44700199,DNI,2024341,Pablo,Gimenez,O,pablo.gimenez@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Mañana,1
+37188594,DNI,2024342,Franco,Sanchez,S,franco.sanchez@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Tarde,5
+34188470,DNI,2024343,Victoria,Diaz,O,victoria.diaz@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Noche,3
+31685049,DNI,2024344,Hernan,Correa,I,hernan.correa@frba.utn.edu.ar,No,Ingeniería Industrial,Medrano,Mañana,5
+33302355,DNI,2024345,Damian,Mendoza,I,damian.mendoza@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Tarde,1
+38816145,DNI,2024346,Antonella,Gimenez,S,antonella.gimenez@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Noche,4
+30118973,DNI,2024347,Paula,Fernandez,I,paula.fernandez@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Mañana,4
+39228452,DNI,2024348,Milagros,Garcia,K,milagros.garcia@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,2
+34944378,DNI,2024349,Camila,Torres,K,camila.torres@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Noche,1
+40014145,DNI,2024350,Javier,Luna,S,javier.luna@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Mañana,3
+34969202,DNI,2024351,Martina,Perez,K,martina.perez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Tarde,1
+43906332,DNI,2024352,Agustina,Silva,S,agustina.silva@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Noche,4
+34444504,DNI,2024353,Lorena,Rodriguez,O,lorena.rodriguez@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Mañana,2
+36382351,DNI,2024354,Martin,Escobar,K,martin.escobar@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,3
+46295412,DNI,2024355,Ramiro,Castro,K,ramiro.castro@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Noche,3
+38275445,DNI,2024356,Ezequiel,Fernandez,I,ezequiel.fernandez@frba.utn.edu.ar,No,Ingeniería Industrial,Medrano,Mañana,1
+46392408,DNI,2024357,Julieta,Herrera,S,julieta.herrera@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Tarde,4
+35537982,DNI,2024358,Diego,Suarez,K,diego.suarez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,4
+38343522,DNI,2024359,Facundo,Barrios,U,facundo.barrios@frba.utn.edu.ar,No,Ingeniería Naval,Campus,Mañana,3
+30495191,DNI,2024360,Belen,Vazquez,K,belen.vazquez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Tarde,4
+46151708,DNI,2024361,Agustin,Luna,K,agustin.luna@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Noche,4
+45947830,DNI,2024362,Agustin,Gutierrez,R,agustin.gutierrez@frba.utn.edu.ar,No,Ingeniería Electrónica,Medrano,Mañana,2
+44869000,DNI,2024363,Lorena,Quiroga,O,lorena.quiroga@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Tarde,2
+40196351,DNI,2024364,Rocio,Moreno,K,rocio.moreno@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,3
+39346424,DNI,2024365,Pilar,Moreno,R,pilar.moreno@frba.utn.edu.ar,No,Ingeniería Electrónica,Medrano,Mañana,4
+37986110,DNI,2024366,Victoria,Correa,R,victoria.correa@frba.utn.edu.ar,No,Ingeniería Electrónica,Medrano,Tarde,1
+44060021,DNI,2024367,Juan,Flores,O,juan.flores@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Noche,5
+37806804,DNI,2024368,Pilar,Lopez,Q,pilar.lopez@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Campus,Mañana,4
+45942930,DNI,2024369,Leandro,Flores,S,leandro.flores2@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Tarde,2
+31697462,DNI,2024370,Ignacio,Gomez,V,ignacio.gomez@frba.utn.edu.ar,No,Ingeniería Química,Medrano,Noche,1
+34271069,DNI,2024371,Luis,Duarte,S,luis.duarte@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Mañana,5
+35524305,DNI,2024372,Franco,Herrera,O,franco.herrera@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Tarde,2
+34682115,DNI,2024373,Gabriela,Suarez,K,gabriela.suarez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Noche,2
+44097677,DNI,2024374,Lorena,Maidana,R,lorena.maidana@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Mañana,4
+37539591,DNI,2024375,Juan,Barrios,S,juan.barrios@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Tarde,2
+46559643,DNI,2024376,Martina,Perez,K,martina.perez2@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,Medrano,Noche,3
+38217207,DNI,2024377,Antonella,Suarez,R,antonella.suarez@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Mañana,1
+38952514,DNI,2024378,Martin,Diaz,K,martin.diaz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Tarde,5
+40343433,DNI,2024379,Valentina,Silva,K,valentina.silva@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,5
+34685216,DNI,2024380,Matias,Cabrera,R,matias.cabrera@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Mañana,1
+45396513,DNI,2024381,Emiliano,Vazquez,K,emiliano.vazquez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,2
+38874003,DNI,2024382,Mariana,Molina,K,mariana.molina@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,2
+42748244,DNI,2024383,Diego,Escobar,I,diego.escobar2@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Mañana,3
+33129379,DNI,2024384,Agustin,Rojas,V,agustin.rojas@frba.utn.edu.ar,No,Ingeniería Química,Medrano,Tarde,3
+37537689,DNI,2024385,Sebastian,Rojas,I,sebastian.rojas@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Noche,1
+45101835,DNI,2024386,Victoria,Suarez,K,victoria.suarez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,1
+42179613,DNI,2024387,Leandro,Diaz,O,leandro.diaz@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Tarde,2
+37931579,DNI,2024388,Victoria,Suarez,I,victoria.suarez2@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Noche,1
+40609146,DNI,2024389,Damian,Godoy,K,damian.godoy@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,2
+36452134,DNI,2024390,Lucas,Gomez,O,lucas.gomez@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Tarde,5
+37489709,DNI,2024391,Luciana,Molina,S,luciana.molina@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Noche,3
+32033823,DNI,2024392,Mariano,Soria,K,mariano.soria@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,Medrano,Mañana,1
+38295988,DNI,2024393,Damian,Figueroa,R,damian.figueroa@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Tarde,4
+45870338,DNI,2024394,Luis,Escobar,V,luis.escobar@frba.utn.edu.ar,No,Ingeniería Química,Medrano,Noche,3
+30186053,DNI,2024395,Bruno,Luna,O,bruno.luna@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Mañana,1
+35991741,DNI,2024396,Federico,Benitez,I,federico.benitez@frba.utn.edu.ar,No,Ingeniería Industrial,Medrano,Tarde,1
+40881122,DNI,2024397,Javier,Dominguez,I,javier.dominguez@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Noche,3
+38547069,DNI,2024398,Ezequiel,Gimenez,R,ezequiel.gimenez@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Mañana,5
+45445213,DNI,2024399,Romina,Figueroa,Q,romina.figueroa@frba.utn.edu.ar,Sí,Ingeniería en Energía Eléctrica,Medrano,Tarde,2
+36671884,DNI,2024400,Lucia,Morales,K,lucia.morales@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,3
+41146294,DNI,2024401,Ezequiel,Alvarez,O,ezequiel.alvarez@frba.utn.edu.ar,No,Ingeniería Civil,Medrano,Mañana,1
+46751421,DNI,2024402,Ezequiel,Gonzalez,K,ezequiel.gonzalez2@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,2
+38898737,DNI,2024403,Pablo,Romero,R,pablo.romero@frba.utn.edu.ar,No,Ingeniería Electrónica,Medrano,Noche,2
+36156836,DNI,2024404,Josefina,Campos,O,josefina.campos@frba.utn.edu.ar,No,Ingeniería Civil,Medrano,Mañana,1
+30839221,DNI,2024405,Mariana,Gimenez,S,mariana.gimenez@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Tarde,4
+43548459,DNI,2024406,Micaela,Herrera,K,micaela.herrera@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,5
+39334531,DNI,2024407,Milagros,Pereyra,K,milagros.pereyra@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,3
+32261579,DNI,2024408,Mariana,Ponce,K,mariana.ponce@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,1
+40045483,DNI,2024409,Martin,Ramirez,K,martin.ramirez@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,Campus,Noche,3
+41599334,DNI,2024410,Daniela,Torres,K,daniela.torres2@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,1
+35293105,DNI,2024411,Abril,Herrera,O,abril.herrera@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Tarde,4
+43410981,DNI,2024412,Nicolas,Arias,W,nicolas.arias2@frba.utn.edu.ar,No,Ingeniería Textil,Medrano,Noche,1
+41888253,DNI,2024413,Natalia,Molina,Q,natalia.molina@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Medrano,Mañana,2
+31967477,DNI,2024414,Antonella,Escobar,U,antonella.escobar@frba.utn.edu.ar,No,Ingeniería Naval,Campus,Tarde,3
+34219822,DNI,2024415,Rocio,Duarte,Q,rocio.duarte@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Campus,Noche,3
+40533261,DNI,2024416,Natalia,Ledesma,K,natalia.ledesma@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,4
+41782508,DNI,2024417,Federico,Correa,O,federico.correa@frba.utn.edu.ar,No,Ingeniería Civil,Medrano,Tarde,3
+46974673,DNI,2024418,Lorena,Duarte,Q,lorena.duarte@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Medrano,Noche,2
+31489364,DNI,2024419,Daniela,Ramirez,K,daniela.ramirez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,3
+33439167,DNI,2024420,Diego,Flores,S,diego.flores@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Tarde,3
+42388832,DNI,2024421,Luciana,Cardozo,K,luciana.cardozo@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,2
+37134562,DNI,2024422,Sebastian,Flores,K,sebastian.flores@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,4
+36696552,DNI,2024423,Martin,Gimenez,U,martin.gimenez@frba.utn.edu.ar,No,Ingeniería Naval,Campus,Tarde,1
+41414394,DNI,2024424,Martina,Gimenez,S,martina.gimenez@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Noche,4
+39454171,DNI,2024425,Agustina,Dominguez,K,agustina.dominguez2@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,2
+45224441,DNI,2024426,Luis,Medina,O,luis.medina@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Tarde,1
+46937544,DNI,2024427,Martina,Gimenez,R,martina.gimenez2@frba.utn.edu.ar,No,Ingeniería Electrónica,Medrano,Noche,5
+39562590,DNI,2024428,Maximiliano,Sosa,K,maximiliano.sosa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,4
+32045396,DNI,2024429,Paula,Romero,K,paula.romero@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,1
+35368105,DNI,2024430,Gonzalo,Silva,K,gonzalo.silva@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,4
+32750906,DNI,2024431,Tomas,Suarez,I,tomas.suarez@frba.utn.edu.ar,Sí,Ingeniería Industrial,Medrano,Mañana,3
+44155998,DNI,2024432,Santiago,Gonzalez,S,santiago.gonzalez@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Tarde,2
+43502316,DNI,2024433,Carolina,Nuñez,R,carolina.nunez@frba.utn.edu.ar,Sí,Ingeniería Electrónica,Campus,Noche,1
+44850299,DNI,2024434,Facundo,Nuñez,K,facundo.nunez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,2
+42399271,DNI,2024435,Natalia,Acosta,O,natalia.acosta@frba.utn.edu.ar,No,Ingeniería Civil,Medrano,Tarde,1
+42910648,DNI,2024436,Ignacio,Alvarez,U,ignacio.alvarez@frba.utn.edu.ar,No,Ingeniería Naval,Campus,Noche,2
+44624228,DNI,2024437,Ezequiel,Moreno,O,ezequiel.moreno@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Mañana,3
+40098202,DNI,2024438,Hernan,Figueroa,Q,hernan.figueroa@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Campus,Tarde,3
+32874052,DNI,2024439,Constanza,Gimenez,K,constanza.gimenez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Noche,3
+36611401,DNI,2024440,Lucia,Moreno,K,lucia.moreno@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,1
+43387959,DNI,2024441,Rocio,Lopez,V,rocio.lopez@frba.utn.edu.ar,No,Ingeniería Química,Medrano,Tarde,4
+34439648,DNI,2024442,Daniela,Diaz,R,daniela.diaz@frba.utn.edu.ar,No,Ingeniería Electrónica,Medrano,Noche,1
+42006085,DNI,2024443,Sebastian,Figueroa,R,sebastian.figueroa2@frba.utn.edu.ar,Sí,Ingeniería Electrónica,Medrano,Mañana,1
+38008971,DNI,2024444,Gonzalo,Paz,K,gonzalo.paz2@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Tarde,2
+33735650,DNI,2024445,Josefina,Figueroa,O,josefina.figueroa@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Noche,2
+46958713,DNI,2024446,Ezequiel,Rios,V,ezequiel.rios@frba.utn.edu.ar,No,Ingeniería Química,Medrano,Mañana,4
+32148352,DNI,2024447,Valentina,Ibarra,S,valentina.ibarra@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Tarde,1
+41278635,DNI,2024448,Candela,Duarte,K,candela.duarte@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,3
+38153634,DNI,2024449,Tomas,Mendoza,Q,tomas.mendoza@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Campus,Mañana,2
+32308253,DNI,2024450,Sofia,Moreno,K,sofia.moreno@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,Campus,Tarde,2
+34181731,DNI,2024451,Carolina,Villalba,K,carolina.villalba@frba.utn.edu.ar,Sí,Ingeniería en Sistemas de Información,Campus,Noche,5
+32642648,DNI,2024452,Javier,Gonzalez,K,javier.gonzalez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,5
+40459463,DNI,2024453,Luciana,Ibarra,I,luciana.ibarra@frba.utn.edu.ar,No,Ingeniería Industrial,Medrano,Tarde,3
+30262499,DNI,2024454,Matias,Mendoza,I,matias.mendoza@frba.utn.edu.ar,No,Ingeniería Industrial,Medrano,Noche,4
+44350791,DNI,2024455,Leandro,Benitez,K,leandro.benitez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,1
+33449181,DNI,2024456,Josefina,Paz,S,josefina.paz@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Tarde,3
+34276362,DNI,2024457,Martin,Cabrera,K,martin.cabrera@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,4
+30653531,DNI,2024458,Lorena,Arias,W,lorena.arias@frba.utn.edu.ar,No,Ingeniería Textil,Medrano,Mañana,1
+43085780,DNI,2024459,Gonzalo,Navarro,O,gonzalo.navarro@frba.utn.edu.ar,Sí,Ingeniería Civil,Campus,Tarde,1
+30831692,DNI,2024460,Gonzalo,Benitez,S,gonzalo.benitez@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Noche,2
+41014643,DNI,2024461,Victoria,Garcia,I,victoria.garcia@frba.utn.edu.ar,No,Ingeniería Industrial,Medrano,Mañana,2
+43509728,DNI,2024462,Lucia,Ledesma,Q,lucia.ledesma2@frba.utn.edu.ar,No,Ingeniería en Energía Eléctrica,Campus,Tarde,4
+31403543,DNI,2024463,Constanza,Miranda,O,constanza.miranda@frba.utn.edu.ar,Sí,Ingeniería Civil,Medrano,Noche,1
+40944882,DNI,2024464,Lorena,Duarte,I,lorena.duarte2@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Mañana,1
+33753864,DNI,2024465,Paula,Silva,W,paula.silva@frba.utn.edu.ar,No,Ingeniería Textil,Medrano,Tarde,5
+36371915,DNI,2024466,Lucia,Soria,R,lucia.soria@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Noche,4
+30999828,DNI,2024467,Carolina,Figueroa,K,carolina.figueroa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,4
+38953167,DNI,2024468,Catalina,Gimenez,K,catalina.gimenez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,1
+42925013,DNI,2024469,Valentina,Paz,K,valentina.paz@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Noche,1
+30241284,DNI,2024470,Constanza,Navarro,S,constanza.navarro@frba.utn.edu.ar,No,Ingeniería Mecánica,Campus,Mañana,3
+38034686,DNI,2024471,Matias,Nuñez,O,matias.nunez@frba.utn.edu.ar,No,Ingeniería Civil,Medrano,Tarde,3
+31580963,DNI,2024472,Mariano,Dominguez,K,mariano.dominguez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,2
+44265539,DNI,2024473,Candela,Flores,K,candela.flores@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,4
+34389579,DNI,2024474,Natalia,Herrera,K,natalia.herrera@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Tarde,3
+37369062,DNI,2024475,Mariano,Soria,S,mariano.soria2@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Noche,1
+44212844,DNI,2024476,Agustina,Paz,R,agustina.paz@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Mañana,1
+43068673,DNI,2024477,Gabriela,Nuñez,K,gabriela.nunez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Tarde,3
+34951672,DNI,2024478,Constanza,Vazquez,K,constanza.vazquez2@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,1
+46307133,DNI,2024479,Mariano,Correa,K,mariano.correa@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,1
+45072954,DNI,2024480,Maximiliano,Dominguez,O,maximiliano.dominguez@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Tarde,4
+43275203,DNI,2024481,Gabriela,Ponce,S,gabriela.ponce@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Noche,2
+35901777,DNI,2024482,Lucia,Gonzalez,K,lucia.gonzalez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,5
+46295441,DNI,2024483,Martina,Torres,V,martina.torres@frba.utn.edu.ar,No,Ingeniería Química,Campus,Tarde,2
+37868298,DNI,2024484,Martin,Mendoza,K,martin.mendoza@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Noche,1
+33637385,DNI,2024485,Agustina,Quiroga,K,agustina.quiroga@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,2
+35540741,DNI,2024486,Lorena,Fernandez,V,lorena.fernandez2@frba.utn.edu.ar,No,Ingeniería Química,Medrano,Tarde,1
+36831592,DNI,2024487,Juan,Rojas,I,juan.rojas@frba.utn.edu.ar,No,Ingeniería Industrial,Medrano,Noche,1
+34474117,DNI,2024488,Sofia,Ibarra,K,sofia.ibarra@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,3
+30973911,DNI,2024489,Bruno,Castro,K,bruno.castro@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,1
+33165048,DNI,2024490,Ignacio,Escobar,O,ignacio.escobar@frba.utn.edu.ar,No,Ingeniería Civil,Campus,Noche,4
+37943586,DNI,2024491,Victoria,Perez,K,victoria.perez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,4
+44823878,DNI,2024492,Lucas,Martinez,S,lucas.martinez@frba.utn.edu.ar,No,Ingeniería Mecánica,Medrano,Tarde,1
+32377578,DNI,2024493,Franco,Escobar,I,franco.escobar@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Noche,3
+37463637,DNI,2024494,Martina,Villalba,K,martina.villalba@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Mañana,5
+40812889,DNI,2024495,Gonzalo,Romero,K,gonzalo.romero@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Campus,Tarde,2
+31682497,DNI,2024496,Antonella,Sanchez,I,antonella.sanchez@frba.utn.edu.ar,Sí,Ingeniería Industrial,Campus,Noche,3
+30385239,DNI,2024497,Rocio,Dominguez,K,rocio.dominguez@frba.utn.edu.ar,No,Ingeniería en Sistemas de Información,Medrano,Mañana,3
+41192300,DNI,2024498,Daniela,Gonzalez,Q,daniela.gonzalez2@frba.utn.edu.ar,Sí,Ingeniería en Energía Eléctrica,Medrano,Tarde,1
+39327246,DNI,2024499,Martin,Miranda,R,martin.miranda@frba.utn.edu.ar,No,Ingeniería Electrónica,Campus,Noche,1
+39920542,DNI,2024500,Milagros,Diaz,I,milagros.diaz@frba.utn.edu.ar,No,Ingeniería Industrial,Campus,Mañana,1

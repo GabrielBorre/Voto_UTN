@@ -23,6 +23,9 @@ from reportlab.platypus import Paragraph, Table, TableStyle
 from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.elecciones.models import Eleccion
 from apps.padron.models import RegistroPadron
+from apps.elecciones.models import EleccionClaustroTurno
+from apps.mesas.models import Mesa
+from apps.autoridades.models import AsignacionAutoridad
 
 PAGINA = portrait(legal)
 ANCHO_PAGINA, ALTO_PAGINA = PAGINA
@@ -72,6 +75,26 @@ def validar_padron_para_pdf(eleccion) -> ValidacionPadronPDF:
     if sin_qr:
         motivos.append(f"Hay {sin_qr} elector(es) sin identificador QR generado.")
 
+    for mesa in Mesa.objects.filter(eleccion=eleccion).select_related("eleccion_claustro_departamento__eleccion_claustro__claustro"):
+        if mesa.eleccion_claustro_departamento_id is None:
+            motivos.append(f"La mesa {mesa.numero} no tiene un claustro/departamento asignado para validar sus autoridades.")
+            continue
+        configuraciones = EleccionClaustroTurno.objects.filter(
+            eleccion_claustro=mesa.eleccion_claustro_departamento.eleccion_claustro,
+        ).select_related("turno")
+        if not configuraciones.exists():
+            motivos.append(f"La mesa {mesa.numero} no tiene turnos de autoridades configurados.")
+            continue
+        for configuracion in configuraciones:
+            cubierta = AsignacionAutoridad.objects.filter(
+                mesa=mesa,
+                turno=configuracion.turno,
+                tipo=AsignacionAutoridad.Tipo.TITULAR,
+                estado=AsignacionAutoridad.Estado.ASIGNADA,
+            ).exists()
+            if not cubierta:
+                motivos.append(f"La mesa {mesa.numero} no tiene titular asignado para el turno {configuracion.turno}.")
+
     return ValidacionPadronPDF(apto=not motivos, motivos=motivos)
 
 
@@ -116,7 +139,7 @@ def _agrupar_padrones_por_mesa(eleccion):
             "asignacion_mesa__mesa__eleccion_claustro_departamento__eleccion_claustro__claustro",
             "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
         )
-        .order_by("elector__nombre", "elector__legajo")
+        .order_by("asignacion_mesa__autoridad_al_final", "elector__apellido", "elector__nombre", "elector__legajo")
     )
     grupos = {}
     for padron in padrones:

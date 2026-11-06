@@ -76,6 +76,11 @@ def navegacion_por_rol(request):
                 "cambiar-estado-eleccion", "dashboard-historial-eleccion",
             )
         )
+        if eleccion_configuracion and eleccion_configuracion.estado == Eleccion.Estado.PUBLICADA and (
+            coincidencia.url_name in ("gestionar-autoridades", "gestionar-autoridades-claustro", "previsualizar-recalculo-mesas")
+            or (coincidencia.url_name == "seleccionar-autoridades-mesa" and not eleccion_configuracion.autoridades_confirmadas_en)
+        ):
+            configuracion_solo_lectura = False
 
     puede_gestionar_elecciones = puede_administrar_elecciones(usuario)
 

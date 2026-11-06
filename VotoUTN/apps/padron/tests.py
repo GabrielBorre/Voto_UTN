@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError
 from django.db.models import Count
 from django.test import TestCase
 from django.urls import reverse
@@ -53,6 +54,8 @@ from apps.padron.services import (
     recalcular_sedes_y_mesas_claustro,
     resolver_solicitud_cambio_sede,
     resolver_solicitudes_pendientes,
+
+    invalidar_mesas_automaticas_alcance,
 )
 from apps.partidos.models import CargoElectivo, OrganoElectivo, PuestoEleccion
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
@@ -143,10 +146,10 @@ class PadronViewsTests(TestCase):
             archivo=SimpleUploadedFile(
                 "estudiantes.csv",
                 (
-                    "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
-                    "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
-                    "40123457,DNI,2024002,Ana,Gomez,K,ana.gomez@frba.utn.edu.ar,Campus\n"
-                    "40123458,DNI,2024003,Carlos,,K,carlos.lopez@frba.utn.edu.ar,Campus\n"
+                    "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste,Turno\n"
+                    "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus,Manana\n"
+                    "40123457,DNI,2024002,Ana,Gomez,K,ana.gomez@frba.utn.edu.ar,Campus,Manana\n"
+                    "40123458,DNI,2024003,Carlos,,K,carlos.lopez@frba.utn.edu.ar,Campus,Manana\n"
                 ).encode(),
             ),
             nombre_archivo="estudiantes.csv",
@@ -205,8 +208,8 @@ class PadronViewsTests(TestCase):
             sede=self.sede,
         )
         contenido = (
-            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
-            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste,Turno\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus,Manana\n"
         ).encode("utf-8")
         self.client.force_login(self.usuario)
 
@@ -247,10 +250,10 @@ class PadronViewsTests(TestCase):
             sede=self.sede,
         )
         contenido = (
-            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
-            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
-            "40123457,DNI,2024002,Ana,Gomez,K,ana.gomez@frba.utn.edu.ar,Campus\n"
-            "40123458,DNI,2024003,Carlos,,K,carlos.lopez@frba.utn.edu.ar,Campus\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste,Turno\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus,Manana\n"
+            "40123457,DNI,2024002,Ana,Gomez,K,ana.gomez@frba.utn.edu.ar,Campus,Manana\n"
+            "40123458,DNI,2024003,Carlos,,K,carlos.lopez@frba.utn.edu.ar,Campus,Manana\n"
         ).encode("utf-8")
         self.client.force_login(self.usuario)
 
@@ -504,7 +507,7 @@ class PadronViewsTests(TestCase):
             set(self.eleccion_claustro.sedes_habilitadas.values_list("id", flat=True)),
             sedes_anteriores,
         )
-        self.assertFalse(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).exists())
+        self.assertTrue(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).exists())
 
     def test_cambiar_maximo_recalcula_mesas_si_todas_las_sedes_estan_asignadas(self):
         administrador = get_user_model().objects.create_user(username="admin-maximo-mesas")
@@ -551,6 +554,23 @@ class PadronViewsTests(TestCase):
         self.assertTrue(mesas_ok)
         self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=registro).sede, self.sede)
         self.assertTrue(registro.asignacion_mesa.mesa.generada_automaticamente)
+
+    def test_accion_calcular_retirada_no_recalcula_sedes(self):
+        elector = Elector.objects.create(legajo="99004", dni="49990004", nombre="Elector sin recalculo")
+        registro = RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("configurar-sedes-claustro", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            {"accion": "calcular"},
+        )
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertFalse(AsignacionSedePadron.objects.filter(registro_padron=registro).exists())
+        self.assertFalse(AsignacionMesa.objects.filter(registro_padron=registro).exists())
 
     def test_autoguardado_persiste_fecha_y_maximo_sin_pulsar_el_boton(self):
         administrador = get_user_model().objects.create_user(username="autoguardado-padron")
@@ -625,8 +645,8 @@ class PadronViewsTests(TestCase):
         contenido = respuesta.content.decode("utf-8-sig")
         lineas = contenido.splitlines()
         self.assertGreaterEqual(len(lineas), 2)
-        self.assertEqual(lineas[0], "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde cursa,Nivel")
-        self.assertEqual(lineas[1], "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1")
+        self.assertEqual(lineas[0], "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde cursa,Turno,Nivel")
+        self.assertEqual(lineas[1], "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,Mañana,1")
         tipos = {fila.split(",")[1] for fila in lineas[1:]}
         self.assertTrue({"DNI", "CUIL", "CUIT", "PAS"}.issubset(tipos))
 
@@ -647,8 +667,8 @@ class PadronViewsTests(TestCase):
 
     def test_validar_csv_padron_mapea_departamento_principal_correctamente(self):
         contenido = (
-            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
-            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Turno,Nivel\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,Manana,1\n"
         ).encode("utf-8")
 
         from apps.padron.models import ImportacionPadron
@@ -682,10 +702,49 @@ class PadronViewsTests(TestCase):
         self.assertFalse(validacion_repeticion.errores)
         self.assertEqual(validacion_repeticion.cantidad_existentes, 1)
 
+    def test_confirmar_importacion_recupera_identidad_creada_en_paralelo(self):
+        from apps.padron.services import confirmar_importacion
+
+        contenido = (
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Departamento Principal\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,K\n"
+        ).encode("utf-8")
+        elector = Elector.objects.create(
+            dni="40123456", legajo="2024001", nombre="Juan", apellido="Perez"
+        )
+        importacion = ImportacionPadron.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro=self.eleccion_claustro,
+            archivo=SimpleUploadedFile("padron.csv", contenido, content_type="text/csv"),
+            nombre_archivo="padron.csv",
+            huella_archivo=__import__("hashlib").sha256(contenido).hexdigest(),
+            usuario=self.usuario,
+        )
+        filtro_original = Elector.objects.filter
+        cantidad_consultas = 0
+
+        def filtro_con_creacion_concurrente(**criterios):
+            nonlocal cantidad_consultas
+            cantidad_consultas += 1
+            # Simula que otra confirmación inserta la identidad justo después
+            # de nuestras búsquedas iniciales y antes del INSERT.
+            if cantidad_consultas <= 2:
+                return Elector.objects.none()
+            return filtro_original(**criterios)
+
+        with (
+            patch.object(Elector.objects, "filter", side_effect=filtro_con_creacion_concurrente),
+            patch.object(Elector.objects, "create", side_effect=IntegrityError("legajo único")),
+        ):
+            cantidad = confirmar_importacion(importacion)
+
+        self.assertEqual(cantidad, 1)
+        self.assertEqual(importacion.eleccion.registros_padron.get().elector, elector)
+
     def test_validar_csv_padron_acepta_dni_numerico_de_excel(self):
         contenido = (
-            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
-            "40123456.0,DNI,2024004,Lucia,Diaz,K,lucia.diaz@frba.utn.edu.ar,No,K,Campus,1\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Turno,Nivel\n"
+            "40123456.0,DNI,2024004,Lucia,Diaz,K,lucia.diaz@frba.utn.edu.ar,No,K,Campus,Manana,1\n"
         ).encode("utf-8")
 
         from apps.padron.services import validar_csv_padron
@@ -701,8 +760,8 @@ class PadronViewsTests(TestCase):
 
         Elector.objects.create(dni="40123456", legajo="2024999", nombre="Juan", apellido="Perez")
         contenido = (
-            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
-            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste,Turno\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus,Manana\n"
         ).encode("utf-8")
 
         validacion = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
@@ -714,8 +773,8 @@ class PadronViewsTests(TestCase):
         self.eleccion_claustro.maximo_votantes_por_mesa = None
         self.eleccion_claustro.save(update_fields=("maximo_votantes_por_mesa",))
         contenido = (
-            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Nivel\n"
-            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,1\n"
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Turno,Nivel\n"
+            "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,Manana,1\n"
         ).encode("utf-8")
 
         from apps.padron.models import ImportacionPadron
@@ -824,6 +883,34 @@ class CalculoMesasAutomaticasEleccionTests(TestCase):
             2,
         )
 
+    def test_calculo_asigna_automaticamente_alcances_con_una_sola_sede(self):
+        registro = self.crear_elector("15", self.alcance_a, asignar_sede=False)
+
+        resultado = calcular_mesas_automaticas_eleccion(self.eleccion)
+
+        asignacion_sede = AsignacionSedePadron.objects.get(registro_padron=registro)
+        self.assertEqual(asignacion_sede.sede, self.sede_electoral)
+        self.assertEqual(asignacion_sede.estado, AsignacionSedePadron.Estado.ASIGNADA)
+        self.assertEqual(resultado["electores"], 1)
+        self.assertTrue(AsignacionMesa.objects.filter(registro_padron=registro).exists())
+
+    def test_cambio_de_sedes_puede_invalidar_mesas_automaticas_obsoletas(self):
+        registro = self.crear_elector("16", self.alcance_a)
+        mesa = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=1,
+            eleccion_claustro_departamento=self.alcance_a,
+            sede=self.sede_electoral,
+            generada_automaticamente=True,
+        )
+        AsignacionMesa.objects.create(registro_padron=registro, mesa=mesa)
+
+        cantidad = invalidar_mesas_automaticas_alcance(self.claustro_a)
+
+        self.assertEqual(cantidad, 1)
+        self.assertFalse(Mesa.objects.filter(pk=mesa.pk).exists())
+        self.assertFalse(AsignacionMesa.objects.filter(registro_padron=registro).exists())
+
     def test_reparte_el_remanente_entre_las_dos_ultimas_mesas(self):
         self.claustro_a.maximo_votantes_por_mesa = 50
         self.claustro_a.save(update_fields=("maximo_votantes_por_mesa",))
@@ -840,7 +927,7 @@ class CalculoMesasAutomaticasEleccionTests(TestCase):
         )
         self.assertEqual(cantidades, [50, 26, 25])
 
-    def test_recalculo_reemplaza_solo_mesas_automaticas(self):
+    def test_recalculo_conserva_mesas_existentes_y_agrega_las_necesarias(self):
         registros = [self.crear_elector(str(numero), self.alcance_a) for numero in range(20, 23)]
         mesa_manual = Mesa.objects.create(
             eleccion=self.eleccion,
@@ -858,7 +945,7 @@ class CalculoMesasAutomaticasEleccionTests(TestCase):
         self.assertEqual(resultado["mesas"], 3)
         self.assertTrue(Mesa.objects.filter(pk=mesa_manual.pk).exists())
         self.assertEqual(AsignacionMesa.objects.filter(registro_padron__in=registros).count(), 3)
-        self.assertFalse(Mesa.objects.filter(pk__in=ids_anteriores).exists())
+        self.assertEqual(set(Mesa.objects.filter(pk__in=ids_anteriores).values_list("pk", flat=True)), ids_anteriores)
         self.assertTrue(all(registro.asignacion_mesa.mesa.generada_automaticamente for registro in registros))
 
     def test_error_en_un_claustro_no_borra_la_distribucion_anterior(self):
@@ -889,20 +976,17 @@ class CalculoMesasAutomaticasEleccionTests(TestCase):
         self.assertEqual(resultado["mesas"], 2)
         self.assertEqual(AsignacionMesa.objects.filter(registro_padron__in=registros).count(), 3)
 
-    def test_elector_sin_sede_asignada_impide_el_calculo_completo(self):
-        self.crear_elector("30", self.alcance_a, asignar_sede=False)
-        mesa_anterior = Mesa.objects.create(
-            eleccion=self.eleccion,
-            numero=1,
-            eleccion_claustro_departamento=self.alcance_a,
-            sede=self.sede_electoral,
-            generada_automaticamente=True,
+    def test_elector_sin_asignacion_previa_se_asigna_si_su_alcance_tiene_una_sede(self):
+        registro = self.crear_elector("30", self.alcance_a, asignar_sede=False)
+
+        resultado = calcular_mesas_automaticas_eleccion(self.eleccion)
+
+        self.assertEqual(resultado["electores"], 1)
+        self.assertEqual(
+            AsignacionSedePadron.objects.get(registro_padron=registro).sede,
+            self.sede_electoral,
         )
-
-        with self.assertRaisesMessage(ValueError, "sin sede electoral asignada"):
-            calcular_mesas_automaticas_eleccion(self.eleccion)
-
-        self.assertTrue(Mesa.objects.filter(pk=mesa_anterior.pk).exists())
+        self.assertTrue(AsignacionMesa.objects.filter(registro_padron=registro).exists())
 
 
 class FormularioArchivoPadronTests(TestCase):
@@ -951,8 +1035,8 @@ class FormularioArchivoPadronTests(TestCase):
 
         libro = Workbook()
         hoja = libro.active
-        hoja.append(["DNI", "Tipo Documento", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail", "Sede"])
-        hoja.append(["40123457", "DNI", "2024007", "Ana", "Perez", "KX", "ana.perez@frba.utn.edu.ar", "Campus XLSX"])
+        hoja.append(["DNI", "Tipo Documento", "Legajo", "Nombre", "Apellido", "Depto/Carrera", "Mail", "Sede", "Turno"])
+        hoja.append(["40123457", "DNI", "2024007", "Ana", "Perez", "KX", "ana.perez@frba.utn.edu.ar", "Campus XLSX", "Manana XLSX"])
         contenido = io.BytesIO()
         libro.save(contenido)
         contenido.seek(0)
@@ -1195,6 +1279,36 @@ class AsignacionSedesClaustroTests(TestCase):
             respuesta.context["formulario"].fields["alcances_especificos"].widget.__class__.__name__,
             "CheckboxSelectMultiple",
         )
+        self.assertNotContains(respuesta, "Calcular asignaciones")
+
+    def test_eliminar_regla_compacta_prioridades_y_recalcula_sedes_y_mesas(self):
+        usuario = get_user_model().objects.create_user(username="junta-regla-automatica", password="clave")
+        AsignacionRol.objects.create(
+            usuario=usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.claustro.maximo_votantes_por_mesa = 20
+        self.claustro.save(update_fields=("maximo_votantes_por_mesa",))
+        regla_inicial = self.crear_regla(3, "nivel", "2", self.medrano)
+        regla_restante = self.crear_regla(4, "nivel", "2", self.campus)
+        self.client.force_login(usuario)
+        url = reverse("configurar-sedes-claustro", args=(self.eleccion.id, self.claustro.id))
+
+        respuesta = self.client.post(url, {
+            "accion": "eliminar-regla",
+            "regla_id": regla_inicial.id,
+        })
+
+        self.assertRedirects(respuesta, url)
+        regla_restante.refresh_from_db()
+        self.assertEqual(regla_restante.orden, 1)
+        self.assertFalse(ReglaSedeClaustro.objects.filter(pk=regla_inicial.pk).exists())
+        for registro in (self.registro_a, self.registro_b):
+            asignacion = AsignacionSedePadron.objects.get(registro_padron=registro)
+            self.assertEqual(asignacion.sede, self.campus)
+            self.assertEqual(asignacion.regla_aplicada, regla_restante)
+        self.assertEqual(Mesa.objects.filter(eleccion=self.eleccion, generada_automaticamente=True).count(), 2)
 
     def test_reglas_se_pueden_reordenar_hacia_arriba_y_abajo(self):
         usuario = get_user_model().objects.create_user(username="junta-reorden-reglas", password="clave")
@@ -1682,7 +1796,8 @@ class SolicitudCambioSedeTests(TestCase):
 
         self.registro.refresh_from_db()
         solicitud.refresh_from_db()
-        self.assertEqual(self.registro.sede, self.sede_destino)
+        self.assertEqual(self.registro.sede, self.sede_origen)
+        self.assertEqual(self.registro.asignacion_sede_padron.sede, self.sede_destino)
         self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.APROBADA)
         self.assertEqual(self.registro.asignacion_mesa.mesa.sede, self.sede_destino)
 

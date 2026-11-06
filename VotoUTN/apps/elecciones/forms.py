@@ -13,6 +13,7 @@ from .models import (
     FechaAdministrativaEleccion,
 )
 from apps.mesas.models import Mesa
+from apps.padron.models import RegistroPadron
 from apps.padron.services import claustro_tiene_emision_vigente
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede
 from .services import agregar_claustro
@@ -106,6 +107,7 @@ class FormularioPublicarEleccion(forms.Form):
     )
     fecha_limite_justificacion_autoridades = forms.DateField(
         label="Fecha límite para justificar inasistencia como autoridad de mesa",
+        required=False,
         widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
     )
 
@@ -119,6 +121,7 @@ class FormularioPublicarEleccion(forms.Form):
         for nombre in self.fields:
             setattr(self.eleccion, nombre, self.cleaned_data[nombre])
         self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
+        self.eleccion.save(update_fields=tuple(self.fields))
 
 
 class FormularioFechasAdministrativasEleccion(forms.Form):
@@ -228,8 +231,15 @@ class FormularioAlcanceSedes(forms.Form):
             mesas = Mesa.objects.filter(eleccion_claustro_departamento__eleccion_claustro=self.objeto, sede_id__in=removidas)
         else:
             mesas = Mesa.objects.filter(eleccion_claustro_departamento=self.objeto, sede_id__in=removidas)
-        if mesas.exists():
-            raise forms.ValidationError("No se puede quitar una sede utilizada por mesas existentes.")
+        if RegistroPadron.objects.filter(
+            eleccion=self.eleccion,
+            qr_generado_en__isnull=False,
+        ).exists():
+            raise forms.ValidationError("No se pueden cambiar sedes después de emitir QR.")
+        if mesas.filter(generada_automaticamente=False).exists():
+            raise forms.ValidationError("No se puede quitar una sede utilizada por mesas manuales.")
+        if mesas.filter(Q(participaciones__isnull=False) | Q(autoridades__isnull=False)).exists():
+            raise forms.ValidationError("No se puede quitar una sede de mesas vinculadas a participaciones o autoridades.")
         return sedes
 
     @transaction.atomic
@@ -238,6 +248,9 @@ class FormularioAlcanceSedes(forms.Form):
         actuales = set(self.fields["sedes"].initial)
         nuevas = seleccionadas - actuales
         removidas = actuales - seleccionadas
+        self.cambio_sedes = bool(nuevas or removidas)
+        if not self.cambio_sedes:
+            return False
         if self.tipo == "claustro":
             for sede_id in nuevas:
                 EleccionClaustroSede.objects.get_or_create(eleccion_claustro=self.objeto, sede_id=sede_id)
@@ -253,6 +266,7 @@ class FormularioAlcanceSedes(forms.Form):
 
         eleccion_claustro = self.objeto if self.tipo == "claustro" else self.objeto.eleccion_claustro
         calcular_asignaciones_sede_claustro(eleccion_claustro)
+        return True
 
 
 class FormularioDepartamentosClaustro(forms.Form):

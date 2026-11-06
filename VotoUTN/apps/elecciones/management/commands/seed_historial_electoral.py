@@ -200,11 +200,11 @@ class Command(BaseCommand):
                 "fecha_fin": fecha_fin,
                 "fecha_limite_justificacion_electores": fecha_limite,
                 "justificacion_electores_habilitada_en": self._instante_habilitacion(fecha_fin),
-                "estado": Eleccion.Estado.CERRADA,
+                "estado": Eleccion.Estado.FINALIZADA,
                 "habilitada": False,
             },
         )
-        if eleccion.estado != Eleccion.Estado.CERRADA or eleccion.habilitada:
+        if eleccion.estado != Eleccion.Estado.FINALIZADA or eleccion.habilitada:
             raise CommandError(f'La eleccion existente "{nombre}" no es una eleccion demo cerrada.')
         if (
             eleccion.fecha_limite_justificacion_electores != fecha_limite
