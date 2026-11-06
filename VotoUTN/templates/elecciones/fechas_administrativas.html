@@ -39,7 +39,7 @@
                 {{ formulario_plazo.fecha_limite_justificacion_electores }}
                 {% for error in formulario_plazo.fecha_limite_justificacion_electores.errors %}<div class="error">{{ error }}</div>{% endfor %}
               </div>
-              <button class="button secondary" type="button" id="abrir-dialogo-editar-plazo">Modificar fecha límite</button>
+              <button class="button secondary btn_editar_plazo" type="button" id="abrir-dialogo-editar-plazo">Modificar fecha límite</button>
               <dialog class="utn-dialogo" id="dialogo-editar-plazo-justificativos" aria-labelledby="titulo-dialogo-editar-plazo" aria-describedby="ayuda-dialogo-editar-plazo">
                 <h2 id="titulo-dialogo-editar-plazo">Confirmar cambio del plazo</h2>
                 <p id="ayuda-dialogo-editar-plazo">
