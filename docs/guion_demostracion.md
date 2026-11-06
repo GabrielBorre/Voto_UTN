@@ -30,6 +30,7 @@ Se presenta una única elección de Estudiantes, desde su preparación hasta el 
 | 2 | Configuración: sedes, padrón, asignación de sedes y mesas | 2:30 | 02:30 – 05:00 |
 | 3 | Autoridades de mesa | 1:30 | 05:00 – 06:30 |
 | 4 | Publicación y cambios de sede | 1:30 | 06:30 – 08:00 |
+| 4.1 | Generacion de boletas
 | 5 | Inicio de la elección y padrón imprimible con QR | 1:30 | 08:00 – 09:30 |
 | 6 | Jornada electoral: escaneo QR con el celular | 3:30 | 09:30 – 13:00 |
 | 7 | Tablero de participación y notificación a ausentes | 2:00 | 13:00 – 15:00 |
