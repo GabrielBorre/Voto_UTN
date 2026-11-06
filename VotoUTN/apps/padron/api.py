@@ -28,7 +28,7 @@ class APIVistaConsultaPadron(APIView):
                 eleccion__habilitada=True,
                 eleccion__estado=Eleccion.Estado.EN_CURSO,
             )
-            .filter(Q(elector__dni=codigo) | Q(elector__legajo=codigo))
+            .filter(Q(dni=codigo) | Q(legajo=codigo))
             .select_related(
                 "elector",
                 "sede",
@@ -56,7 +56,7 @@ class APIVistaConsultaPadron(APIView):
                 "claustro": registro.eleccion_claustro_departamento.eleccion_claustro.claustro.nombre,
                 "nombre": registro.elector.nombre,
                 "apellido": registro.elector.apellido,
-                "dni": registro.elector.dni,
+                "dni": registro.dni,
                 "sede": registro.sede.nombre if registro.sede else "No informada",
                 "especialidad": registro.eleccion_claustro_departamento.departamento.nombre,
                 "mesa": mesa,

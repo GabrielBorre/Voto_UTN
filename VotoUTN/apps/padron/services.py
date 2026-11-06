@@ -336,30 +336,33 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
                 int(fila["nivel"])
             except ValueError:
                 errores.append((numero_fila, "nivel", "Nivel debe ser un número entero."))
-        elector_dni = Elector.objects.filter(dni=fila["dni"]).first()
-        elector_legajo = Elector.objects.filter(legajo=fila["legajo"]).first()
-        if elector_dni and elector_legajo and elector_dni.pk != elector_legajo.pk:
+        registro_dni = RegistroPadron.objects.filter(
+            eleccion=eleccion_claustro.eleccion,
+            dni=fila["dni"],
+        ).select_related("elector").first()
+        registro_legajo = RegistroPadron.objects.filter(
+            eleccion=eleccion_claustro.eleccion,
+            legajo=fila["legajo"],
+        ).select_related("elector").first()
+        if registro_dni and registro_legajo and registro_dni.elector_id != registro_legajo.elector_id:
             errores.append((numero_fila, "dni", "El DNI y el legajo ya pertenecen a electores distintos."))
         else:
-            elector_existente = elector_dni or elector_legajo
-            if elector_existente:
+            registro_existente = registro_dni or registro_legajo
+            elector_existente = registro_existente.elector if registro_existente else None
+            if registro_existente:
                 identificadores_coinciden = (
-                    elector_dni is not None
-                    and elector_legajo is not None
-                    and elector_dni.pk == elector_legajo.pk
+                    registro_dni is not None
+                    and registro_legajo is not None
+                    and registro_dni.elector_id == registro_legajo.elector_id
                 )
-                if identificadores_coinciden and RegistroPadron.objects.filter(
-                    elector=elector_existente,
-                    eleccion=eleccion_claustro.eleccion,
-                ).exists():
+                if identificadores_coinciden:
                     elector_existente_en_padron = elector_existente.pk
-                if elector_existente.dni != fila["dni"]:
+                if registro_existente.dni != fila["dni"]:
                     errores.append((numero_fila, "dni", "El DNI no coincide con el elector existente."))
-                if elector_existente.legajo != fila["legajo"]:
+                if registro_existente.legajo != fila["legajo"]:
                     errores.append((numero_fila, "legajo", "El legajo no coincide con el elector existente."))
             if elector_existente and configuracion:
-                registro = RegistroPadron.objects.filter(elector=elector_existente, eleccion=eleccion_claustro.eleccion).first()
-                if registro and registro.eleccion_claustro_departamento_id != configuracion.id:
+                if registro_existente.eleccion_claustro_departamento_id != configuracion.id:
                     errores.append((numero_fila, "departamento", "El elector ya pertenece a otro claustro o departamento en esta elección."))
         if len(errores) == errores_fila_inicio:
             cantidad_validas += 1
@@ -410,7 +413,7 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None)
             "eleccion_claustro_departamento__departamento__nombre",
             "elector__apellido",
             "elector__nombre",
-            "elector__legajo",
+            "legajo",
         )
     )
     claustros_con_electores = {
@@ -595,11 +598,23 @@ def confirmar_importacion(importacion):
     sedes = {sede.nombre.casefold(): sede for sede in Sede.objects.filter(activa=True)}
     cantidad_creada = 0
     for fila in resultado.filas:
-        elector_dni = Elector.objects.filter(dni=fila["dni"]).first()
-        elector_legajo = Elector.objects.filter(legajo=fila["legajo"]).first()
-        if elector_dni and elector_legajo and elector_dni.pk != elector_legajo.pk:
+        registro_dni = RegistroPadron.objects.filter(
+            eleccion=importacion.eleccion,
+            dni=fila["dni"],
+        ).select_related("elector").first()
+        registro_legajo = RegistroPadron.objects.filter(
+            eleccion=importacion.eleccion,
+            legajo=fila["legajo"],
+        ).select_related("elector").first()
+        if registro_dni and registro_legajo and registro_dni.elector_id != registro_legajo.elector_id:
             raise ValueError("El padrón contiene un DNI y un legajo asociados a electores distintos.")
-        elector = elector_dni or elector_legajo
+        registro_existente = registro_dni or registro_legajo
+        elector = registro_existente.elector if registro_existente else None
+        if registro_existente and (
+            registro_existente.dni != fila["dni"]
+            or registro_existente.legajo != fila["legajo"]
+        ):
+            raise ValueError("El padrón ya contiene un DNI o legajo distinto para esta identidad.")
         if elector is None:
             elector = Elector.objects.create(
                 dni=fila["dni"],

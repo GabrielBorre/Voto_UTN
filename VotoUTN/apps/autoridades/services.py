@@ -217,8 +217,8 @@ def validar_csv_autoridades(contenido, eleccion_claustro, nombre_archivo=""):
         padron = RegistroPadron.objects.filter(
             eleccion=eleccion_claustro.eleccion,
             eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
-            elector__dni=fila["dni"],
-            elector__legajo=fila["legajo"],
+            dni=fila["dni"],
+            legajo=fila["legajo"],
             activo=True,
         ).select_related("elector", "eleccion_claustro_departamento__departamento").first()
 
@@ -276,8 +276,8 @@ def importar_autoridades(contenido, eleccion_claustro, usuario, nombre_archivo="
         padron = RegistroPadron.objects.get(
             eleccion=eleccion_claustro.eleccion,
             eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
-            elector__dni=fila["dni"],
-            elector__legajo=fila["legajo"],
+            dni=fila["dni"],
+            legajo=fila["legajo"],
         )
         _, creada = CandidaturaAutoridad.objects.get_or_create(registro_padron=padron, defaults={"cargada_por": usuario})
         creadas += int(creada)

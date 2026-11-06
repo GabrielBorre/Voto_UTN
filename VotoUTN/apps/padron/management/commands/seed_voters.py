@@ -58,7 +58,7 @@ class Command(BaseCommand):
                 eleccion_claustro_departamento=configuracion,
                 activo=True,
             )
-            .order_by("elector__legajo")
+            .order_by("legajo")
         )
         if not padrones.exists():
             raise CommandError("No hay registros de padron activos para esa eleccion/configuracion.")
@@ -67,7 +67,7 @@ class Command(BaseCommand):
             mesa = getattr(getattr(registro_padron, "asignacion_mesa", None), "mesa", None)
             if registro_padron.qr_generado_en and mesa and registro_padron.numero_mesa_qr != mesa.numero:
                 raise CommandError(
-                    f"El QR del legajo {registro_padron.elector.legajo} fue emitido para la mesa "
+                    f"El QR del legajo {registro_padron.legajo} fue emitido para la mesa "
                     f"{registro_padron.numero_mesa_qr}; no puede regenerarse para la mesa {mesa.numero}."
                 )
 
@@ -88,7 +88,7 @@ class Command(BaseCommand):
                 identificador_qr=registro_padron.identificador_qr,
             )
             qr = self.generar_qr(payload)
-            legajo = registro_padron.elector.legajo
+            legajo = registro_padron.legajo
             qr_images[legajo] = qr
             qr.save(output / f"mesa_{mesa.numero}_legajo_{legajo}.png")
             registros_qr.append((registro_padron.elector, mesa.numero, registro_padron.pk))

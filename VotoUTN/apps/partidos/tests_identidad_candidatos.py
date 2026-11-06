@@ -33,7 +33,7 @@ class IdentidadCandidatoTests(PartidosBaseTests):
         return SimpleUploadedFile("candidatos.csv", "\n".join(filas).encode("utf-8"), content_type="text/csv")
 
     def preview(self, tipo, documento):
-        return previsualizar_candidatos_lista(participacion=self.participacion, usuario=self.usuario,
+        return previsualizar_candidatos_lista(lista=self.lista, usuario=self.usuario,
             archivo=self.archivo([
                 "organo;puesto;departamento;tipo_documento;documento;tipo_candidatura;orden",
                 f"Consejo Departamental;Consejero/a;Sistemas;{tipo};{documento};titular;1",
@@ -151,7 +151,7 @@ class IdentidadCandidatoTests(PartidosBaseTests):
         importacion = self.preview("LEGAJO", self.elector.legajo)
         self.assertEqual(importacion.errores, [])
         self.assertEqual(importacion.filas[0]["nombre"], self.elector.nombre_completo)
-        self.assertEqual(confirmar_candidatos_lista(importacion, self.participacion), 1)
+        self.assertEqual(confirmar_candidatos_lista(importacion, self.lista), 1)
         self.assertEqual(Candidato.objects.get().elector, self.elector)
 
     def test_csv_cuil_previsualiza_y_confirma(self):
@@ -159,7 +159,7 @@ class IdentidadCandidatoTests(PartidosBaseTests):
         self.elector.save()
         importacion = self.preview("CUIL", "20-30111222-3")
         self.assertEqual(importacion.errores, [])
-        confirmar_candidatos_lista(importacion, self.participacion)
+        confirmar_candidatos_lista(importacion, self.lista)
         self.assertEqual(Candidato.objects.get().dni, self.elector.dni)
 
     def test_csv_revalida_tipo_documento_al_confirmar(self):
@@ -168,7 +168,7 @@ class IdentidadCandidatoTests(PartidosBaseTests):
         self.elector.tipo_documento = "CUIL"
         self.elector.save()
         with self.assertRaises(ValidationError):
-            confirmar_candidatos_lista(importacion, self.participacion)
+            confirmar_candidatos_lista(importacion, self.lista)
         self.assertFalse(Candidato.objects.exists())
         importacion.refresh_from_db()
         self.assertEqual(importacion.estado, ImportacionCandidaturas.Estado.PREVISUALIZADA)

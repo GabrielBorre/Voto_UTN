@@ -111,18 +111,27 @@ class Command(BaseCommand):
         if mesa.eleccion_claustro_departamento_id != alcance.pk or mesa.sede_id != sede.pk:
             raise CommandError("La mesa 1 existente no coincide con el alcance de la eleccion demo.")
 
-        elector = Elector.objects.filter(dni="38999222").first()
+        registro_dni = RegistroPadron.objects.filter(
+            eleccion=eleccion,
+            dni="38999222",
+        ).select_related("elector").first()
+        registro_legajo = RegistroPadron.objects.filter(
+            eleccion=eleccion,
+            legajo="SEED-38999222",
+        ).select_related("elector").first()
+        if registro_dni and registro_legajo and registro_dni.elector_id != registro_legajo.elector_id:
+            raise CommandError("El DNI y el legajo ya pertenecen a electores distintos en esta elección.")
+        registro = registro_dni or registro_legajo
+        if registro and (registro.dni != "38999222" or registro.legajo != "SEED-38999222"):
+            raise CommandError("Los datos del elector demo no coinciden con la identidad existente en esta elección.")
+        elector = registro.elector if registro else None
         if elector is None:
-            if Elector.objects.filter(legajo="SEED-38999222").exists():
-                raise CommandError("El legajo SEED-38999222 ya pertenece a otro elector.")
             elector = Elector.objects.create(
                 legajo="SEED-38999222",
                 nombre="Elector de prueba",
                 apellido="Verificacion",
                 dni="38999222",
             )
-        elif Elector.objects.filter(legajo="SEED-38999222").exclude(pk=elector.pk).exists():
-            raise CommandError("El legajo SEED-38999222 ya pertenece a otro elector.")
 
         registro_padron, _ = RegistroPadron.objects.get_or_create(
             elector=elector,

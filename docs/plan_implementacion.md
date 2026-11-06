@@ -49,6 +49,9 @@ gestion de mesas.
 **Estado:** completada
 
 Incluye CSV, previsualizacion, validacion, confirmacion, errores e historial.
+La validacion de DNI y legajo se limita a la eleccion importada; la unicidad se
+garantiza por eleccion y los registros historicos no impiden crear identidades
+electorales en una eleccion distinta.
 
 ### Etapa 7 - Autoridades de mesa
 **Estado:** completada
@@ -90,6 +93,13 @@ Incluye presentaciones propias de cada elección, puestos configurables por alca
 listas, candidatos nuevos vinculados obligatoriamente a un elector del padrón e importación CSV con
 previsualización. La carga manual y CSV comparten búsqueda por DNI, CUIL o legajo,
 con consulta del nombre antes del guardado y revalidación del padrón al confirmar.
+La creación manual de una lista permite asociarle puestos existentes o configurar
+un puesto nuevo en el mismo formulario, y continuar directamente con la carga de
+candidatos. Al configurar departamentos de Estudiantes, Docentes y Graduados,
+se habilitan automáticamente los puestos departamentales estándar de cinco
+titulares y cinco suplentes, excepto Ciencias Básicas. Al abrir Partidos y
+candidatos también se completa de forma idempotente la configuración automática
+de los departamentos ya seleccionados.
 
 ### Cierre de modularizacion
 **Estado:** completado

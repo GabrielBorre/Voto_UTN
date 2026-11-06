@@ -4,7 +4,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.files.base import ContentFile
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -205,6 +205,27 @@ class Command(BaseCommand):
         counters["created" if created else "updated"] += 1
         return instance
 
+    def _upsert_elector_en_eleccion(self, counters, eleccion, *, dni, legajo, defaults):
+        registro_dni = RegistroPadron.objects.filter(eleccion=eleccion, dni=dni).select_related("elector").first()
+        registro_legajo = RegistroPadron.objects.filter(
+            eleccion=eleccion,
+            legajo=legajo,
+        ).select_related("elector").first()
+        if registro_dni and registro_legajo and registro_dni.elector_id != registro_legajo.elector_id:
+            raise CommandError("El DNI y el legajo de los datos demo pertenecen a electores distintos en esta elección.")
+        registro = registro_dni or registro_legajo
+        if registro and (registro.dni != dni or registro.legajo != legajo):
+            raise CommandError("Los datos demo no coinciden con la identidad existente en esta elección.")
+        if registro is None:
+            counters["created"] += 1
+            return Elector.objects.create(dni=dni, legajo=legajo, **defaults)
+        elector = registro.elector
+        for campo, valor in {"dni": dni, "legajo": legajo, **defaults}.items():
+            setattr(elector, campo, valor)
+        elector.save(update_fields=("dni", "legajo", *defaults.keys()))
+        counters["updated"] += 1
+        return elector
+
     def _seed_catalogos(self):
         claustros = {
             nombre: Claustro.objects.get(nombre=nombre)
@@ -385,14 +406,14 @@ class Command(BaseCommand):
                 )
                 for orden, (identificador, nombre) in enumerate(candidatos, 1):
                     apellido, _, nombres = nombre.partition(",")
-                    elector = self._upsert(
+                    elector = self._upsert_elector_en_eleccion(
                         counters,
-                        Elector.objects,
+                        eleccion,
                         legajo=f"DC-{claustro_nombre[:2].upper()}-{identificador}",
+                        dni=f"8{personas_demo[(claustro_nombre, identificador)]:07d}",
                         defaults={
                             "nombre": nombres.strip() or apellido.strip(),
                             "apellido": apellido.strip() if nombres else "",
-                            "dni": f"8{personas_demo[(claustro_nombre, identificador)]:07d}",
                         },
                     )
                     self._upsert(
@@ -592,13 +613,13 @@ class Command(BaseCommand):
 
         padrones = {}
         for data in electores_data:
-            elector = self._upsert(
+            elector = self._upsert_elector_en_eleccion(
                 counters,
-                Elector.objects,
+                eleccion,
                 legajo=data["legajo"],
+                dni=data["dni"],
                 defaults={
                     "nombre": data["nombre"],
-                    "dni": data["dni"],
                     "correo_electronico": data["correo"],
                 },
             )

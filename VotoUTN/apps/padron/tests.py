@@ -1,4 +1,5 @@
 import io
+import hashlib
 from datetime import datetime, time, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -8,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.test import TestCase
 from django.urls import reverse
@@ -699,7 +701,12 @@ class PadronViewsTests(TestCase):
         from apps.padron.models import Elector
         from apps.padron.services import validar_csv_padron
 
-        Elector.objects.create(dni="40123456", legajo="2024999", nombre="Juan", apellido="Perez")
+        elector = Elector.objects.create(dni="40123456", legajo="2024999", nombre="Juan", apellido="Perez")
+        RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+        )
         contenido = (
             "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Sede donde asiste\n"
             "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Campus\n"
@@ -709,6 +716,88 @@ class PadronViewsTests(TestCase):
 
         self.assertIn((2, "legajo", "El legajo no coincide con el elector existente."), validacion.errores)
         self.assertNotIn((2, "dni", "El DNI no coincide con el elector existente."), validacion.errores)
+
+    def test_importacion_busca_identidades_solo_en_la_eleccion_actual(self):
+        from apps.padron.models import Elector, ImportacionPadron
+        from apps.padron.services import confirmar_importacion, validar_csv_padron
+
+        eleccion_anterior = Eleccion.objects.create(
+            nombre="Eleccion anterior",
+            fecha_inicio=make_aware(datetime(2025, 8, 3, 8)),
+            fecha_fin=make_aware(datetime(2025, 8, 3, 16)),
+            estado=Eleccion.Estado.FINALIZADA,
+        )
+        claustro_anterior = EleccionClaustro.objects.create(
+            eleccion=eleccion_anterior,
+            claustro=self.claustro,
+        )
+        configuracion_anterior = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=claustro_anterior,
+            departamento=self.departamento,
+        )
+        elector_anterior = Elector.objects.create(
+            dni="40123456",
+            legajo="2024999",
+            nombre="Juan",
+            apellido="Anterior",
+        )
+        RegistroPadron.objects.create(
+            elector=elector_anterior,
+            eleccion=eleccion_anterior,
+            eleccion_claustro_departamento=configuracion_anterior,
+        )
+        contenido = (
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n"
+            "40123457,DNI,2024999,Ana,Nueva,K,ana.nueva@frba.utn.edu.ar\n"
+        ).encode()
+
+        validacion = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
+
+        self.assertFalse(validacion.errores)
+        importacion = ImportacionPadron.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro=self.eleccion_claustro,
+            archivo=SimpleUploadedFile("padron.csv", contenido, content_type="text/csv"),
+            nombre_archivo="padron.csv",
+            huella_archivo=hashlib.sha256(contenido).hexdigest(),
+            usuario=self.usuario,
+        )
+
+        cantidad = confirmar_importacion(importacion)
+
+        self.assertEqual(cantidad, 1)
+        registro_nuevo = RegistroPadron.objects.get(eleccion=self.eleccion, legajo="2024999")
+        self.assertNotEqual(registro_nuevo.elector_id, elector_anterior.pk)
+        self.assertEqual(registro_nuevo.elector.dni, "40123457")
+        self.assertEqual(
+            RegistroPadron.objects.get(eleccion=eleccion_anterior, legajo="2024999").elector_id,
+            elector_anterior.pk,
+        )
+
+    def test_registros_de_padron_rechazan_dni_o_legajo_duplicado_en_la_misma_eleccion(self):
+        elector = Elector.objects.create(dni="40123456", legajo="LEGAJO-1", nombre="Primero")
+        RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+        )
+        elector_mismo_dni = Elector.objects.create(dni="40123456", legajo="LEGAJO-2", nombre="Segundo")
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                RegistroPadron.objects.create(
+                    elector=elector_mismo_dni,
+                    eleccion=self.eleccion,
+                    eleccion_claustro_departamento=self.configuracion,
+                )
+
+        elector_mismo_legajo = Elector.objects.create(dni="40123457", legajo="LEGAJO-1", nombre="Tercero")
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                RegistroPadron.objects.create(
+                    elector=elector_mismo_legajo,
+                    eleccion=self.eleccion,
+                    eleccion_claustro_departamento=self.configuracion,
+                )
 
     def test_confirmar_importacion_no_requiere_maximo_por_mesa(self):
         self.eleccion_claustro.maximo_votantes_por_mesa = None

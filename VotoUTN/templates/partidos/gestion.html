@@ -4,16 +4,107 @@
 {% block title %}Listas y candidaturas | {{ eleccion.nombre }}{% endblock %}
 
 {% block content %}
+{% if claustro_seleccionado %}
 <section class="hero">
-  <h1>Listas y candidaturas</h1>
-  <p>{{ eleccion.nombre }}. Definí los puestos y administrá las listas. La carga de candidatos se hace dentro de cada lista.</p>
+  <h1>Listas de {{ claustro_seleccionado.claustro }}</h1>
+  <p>{{ eleccion.nombre }}. Configurá una lista para este claustro, asociá sus puestos y continuá con la carga de candidatos.</p>
+  <div class="hero-botones">
+    <a class="button hero-boton" href="{% url 'gestionar-partidos' eleccion.id %}">Elegir otro claustro</a>
+  </div>
 </section>
 
+<nav class="gestion-nav" aria-label="Gestión de listas, puestos y candidatos">
+  <a class="{% if pestana == 'lista' %}active{% endif %}" href="?claustro={{ claustro_seleccionado.id }}&amp;pestana=lista">Crear lista</a>
+  <a class="{% if pestana == 'puesto' %}active{% endif %}" href="?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto">Cargar puesto</a>
+  <a class="{% if pestana == 'candidatos' %}active{% endif %}" href="?claustro={{ claustro_seleccionado.id }}&amp;pestana=candidatos">Cargar candidatos</a>
+</nav>
+
+{% if pestana == 'lista' %}
 <div class="management-panel candidaturas-panel">
-  <section class="card management-section">
+  <section class="card management-section" id="listas">
     <div class="section-title">
       <div>
-        <h2>Habilitar un puesto</h2>
+        <h2>Crear una lista</h2>
+        <p>Elegí uno o más puestos habilitados para {{ claustro_seleccionado.claustro }}. Después podrás cargar sus candidatos.</p>
+      </div>
+      <span class="tag">{{ claustro_seleccionado.claustro }}</span>
+    </div>
+    <form method="post" data-formulario-lista>
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="crear_presentacion">
+      {% for error in formulario_participacion.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+      <div class="field">
+        <span class="puesto-filtro-etiqueta">{{ formulario_participacion.eleccion_claustro.label }}</span>
+        <p>{{ claustro_seleccionado.claustro }}</p>
+        {{ formulario_participacion.eleccion_claustro.as_hidden }}
+        {% for error in formulario_participacion.eleccion_claustro.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="gestion-form-grid">
+        {% for field in formulario_participacion %}
+          {% if field.name != "eleccion_claustro" and field.name != "puestos_eleccion" and field.name != "puesto_nuevo" and field.name != "departamento_puesto_nuevo" and field.name != "cantidad_titulares_nueva" and field.name != "cantidad_suplentes_nueva" %}
+          <div class="field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<small class="muted field-help">{{ field.help_text }}</small>{% endif %}
+            {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="field">
+        <span class="puesto-filtro-etiqueta">{{ formulario_participacion.puestos_eleccion.label }}</span>
+        {% if hay_puestos_disponibles_presentacion %}
+          {% if formulario_participacion.puestos_eleccion.help_text %}<small class="muted field-help">{{ formulario_participacion.puestos_eleccion.help_text }}</small>{% endif %}
+          {% for grupo in puestos_seleccionables_por_claustro %}
+            {% for categoria in grupo.categorias %}
+              <details class="candidaturas-subsection">
+                <summary>{{ categoria.nombre }} <span class="tag">{{ categoria.puestos|length }} puestos</span></summary>
+                <div class="checkbox-list">
+                  {% for puesto in categoria.puestos %}
+                    <div class="field-checkbox">
+                      {{ puesto.opcion.tag }}
+                      <label for="{{ puesto.opcion.id_for_label }}">
+                        {{ puesto.configuracion.puesto }}
+                        {% if puesto.configuracion.eleccion_claustro_departamento_id %} — {{ puesto.configuracion.eleccion_claustro_departamento.departamento }}{% else %} — General{% endif %}
+                        ({{ puesto.configuracion.cantidad_titulares }} titulares, {{ puesto.configuracion.cantidad_suplentes }} suplentes)
+                      </label>
+                    </div>
+                  {% endfor %}
+                </div>
+              </details>
+            {% endfor %}
+          {% endfor %}
+        {% else %}
+          <p class="muted">Todavía no hay puestos habilitados para este claustro. Podés crear el primero en la sección de administración de puestos.</p>
+        {% endif %}
+        {% for error in formulario_participacion.puestos_eleccion.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+      <details class="candidaturas-subsection" {% if formulario_participacion.puesto_nuevo.errors or formulario_participacion.departamento_puesto_nuevo.errors or formulario_participacion.cantidad_titulares_nueva.errors or formulario_participacion.cantidad_suplentes_nueva.errors %}open{% endif %}>
+        <summary>¿No está el puesto? Crear uno nuevo para esta lista</summary>
+        <p class="muted">El nuevo puesto se asociará automáticamente a la lista. Según la configuración del puesto, se habilitará para el claustro seleccionado o para todos los claustros. El departamento es opcional; si no lo indicás, el alcance será general.</p>
+        <div class="gestion-form-grid">
+          {% for field in formulario_participacion %}
+            {% if field.name == "puesto_nuevo" or field.name == "departamento_puesto_nuevo" or field.name == "cantidad_titulares_nueva" or field.name == "cantidad_suplentes_nueva" %}
+              <div class="field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<small class="muted field-help">{{ field.help_text }}</small>{% endif %}
+                {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </details>
+      <div class="footer-actions"><button class="button primary" type="submit">Crear lista y continuar</button></div>
+    </form>
+  </section>
+</div>
+{% elif pestana == 'puesto' %}
+<div class="management-panel candidaturas-panel">
+  <section class="card management-section" id="puestos">
+    <div class="section-title">
+      <div>
+        <h2>Cargar puesto</h2>
         <p>Elegí el puesto, su alcance y la cantidad de personas candidatas.</p>
       </div>
       <a class="button light" href="{% url 'catalogos-candidaturas' %}">Administrar parámetros de puestos</a>
@@ -31,21 +122,12 @@
       <div class="puesto-filtro" data-filtro-puesto>
         <div class="puesto-filtro-encabezado">
           <div>
-            <h3>Claustros</h3>
-            <p>Sin filtro, el puesto se habilita en todos los claustros de la elección.</p>
-          </div>
-          <div class="field-checkbox puesto-filtro-control">
-            {{ formulario_puesto.limitar_por_claustros }}
-            <label for="{{ formulario_puesto.limitar_por_claustros.id_for_label }}">{{ formulario_puesto.limitar_por_claustros.label }}</label>
+            <h3>Claustro</h3>
+            <p>El puesto se asociará únicamente a este claustro.</p>
           </div>
         </div>
-        {% for error in formulario_puesto.limitar_por_claustros.errors %}<div class="error">{{ error }}</div>{% endfor %}
-        <div class="puesto-filtro-opciones" data-opciones data-tiene-errores="{% if formulario_puesto.claustros.errors %}true{% else %}false{% endif %}">
-          <span class="puesto-filtro-etiqueta">{{ formulario_puesto.claustros.label }}</span>
-          {{ formulario_puesto.claustros }}
-          {% if formulario_puesto.claustros.help_text %}<small class="muted field-help">{{ formulario_puesto.claustros.help_text }}</small>{% endif %}
-          {% for error in formulario_puesto.claustros.errors %}<div class="error">{{ error }}</div>{% endfor %}
-        </div>
+        <p><strong>{{ claustro_seleccionado.claustro }}</strong></p>
+        {% for error in formulario_puesto.claustros.errors %}<div class="error">{{ error }}</div>{% endfor %}
       </div>
 
       <div class="puesto-filtro" data-filtro-puesto>
@@ -84,7 +166,7 @@
         <label for="{{ formulario_puesto.activo.id_for_label }}">{{ formulario_puesto.activo.label }}</label>
         {% for error in formulario_puesto.activo.errors %}<div class="error">{{ error }}</div>{% endfor %}
       </div>
-      <div class="footer-actions"><button class="button primary" type="submit">Habilitar puesto</button></div>
+      <div class="footer-actions"><button class="button primary" type="submit">Cargar puesto</button></div>
     </form>
   </section>
 
@@ -110,11 +192,21 @@
               <td>{% if configuracion.activo %}<span class="pill ok">Activo</span>{% else %}<span class="pill gray">Inactivo</span>{% endif %}</td>
               <td class="actions">
                 <a class="button light small" href="{% url 'editar-puesto-eleccion' eleccion.id configuracion.id %}">Editar</a>
-                <form class="inline-form" method="post" action="{% url 'cambiar-estado-puesto-eleccion' eleccion.id configuracion.id %}">
+                <form class="inline-form" method="post" action="{% url 'cambiar-estado-puesto-eleccion' eleccion.id configuracion.id %}?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto">
                   {% csrf_token %}
                   <input type="hidden" name="activo" value="{% if configuracion.activo %}0{% else %}1{% endif %}">
                   <button class="button secondary small">{% if configuracion.activo %}Desactivar{% else %}Activar{% endif %}</button>
                 </form>
+                {% if configuracion.cantidad_listas %}
+                  <span title="El puesto está asociado a listas y no se puede eliminar.">
+                    <button class="button light small" type="button" disabled>En uso</button>
+                  </span>
+                {% else %}
+                  <form class="inline-form" method="post" action="{% url 'eliminar-puesto-eleccion' eleccion.id configuracion.id %}?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto" onsubmit="return confirm('¿Eliminar este puesto de la elección? Esta acción no se puede deshacer.');">
+                    {% csrf_token %}
+                    <button class="button light small" type="submit">Eliminar</button>
+                  </form>
+                {% endif %}
               </td>
             </tr>
           {% empty %}
@@ -124,68 +216,78 @@
       </table>
     </div>
   </section>
-
-  <section class="card management-section">
+</div>
+{% else %}
+<div class="management-panel candidaturas-panel">
+  <section class="card management-section" id="candidatos">
     <div class="section-title">
       <div>
-        <h2>Listas de la elección</h2>
-        <p>Creá una lista con su claustro y apoderado. Después podrás editarla o gestionar sus candidatos.</p>
+        <h2>Cargar candidatos</h2>
+        <p>Elegí una lista de {{ claustro_seleccionado.claustro }} para agregar o importar sus candidatos.</p>
       </div>
       <span class="tag">{{ participaciones|length }} listas</span>
     </div>
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="accion" value="crear_presentacion">
-      {% for error in formulario_participacion.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
-      <div class="gestion-form-grid">
-        {% for field in formulario_participacion %}
-          <div class="field">
-            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {{ field }}
-            {% if field.help_text %}<small class="muted field-help">{{ field.help_text }}</small>{% endif %}
-            {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
-          </div>
-        {% endfor %}
-      </div>
-      <div class="footer-actions"><button class="button primary" type="submit">Crear lista</button></div>
-    </form>
-    <div class="section-title candidaturas-subsection">
-      <div><h3>Listas registradas</h3><p>Editá sus datos o abrí la carga de candidatos.</p></div>
-    </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Número</th><th>Nombre</th><th>Claustro</th><th>Apoderado/a</th><th>Puestos</th><th>Personas</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Número</th><th>Lista</th><th>Apoderado/a</th><th>Puestos</th><th>Candidatos</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           {% for participacion in participaciones %}
             <tr>
               <td>{{ participacion.numero_lista }}</td>
               <td>{{ participacion.nombre_lista|default:participacion.partido }}</td>
-              <td>{{ participacion.eleccion_claustro.claustro|default:"Sin especificar" }}</td>
               <td>{{ participacion.apoderado_nombre|default:"—" }}</td>
               <td>{{ participacion.cantidad_listas }}</td>
               <td>{{ participacion.cantidad_candidatos }}</td>
               <td><span class="pill {% if participacion.activa %}ok{% else %}gray{% endif %}">{% if participacion.activa %}Activa{% else %}Inactiva{% endif %}</span></td>
               <td class="actions">
-                <a class="button light small" href="{% url 'editar-participacion-partido' eleccion.id participacion.id %}">Editar</a>
-                <a class="button light small" href="{% url 'detalle-participacion-partido' eleccion.id participacion.id %}">Gestionar candidatos</a>
-                <form class="inline-form" method="post" action="{% url 'cambiar-estado-participacion-partido' eleccion.id participacion.id %}">
-                  {% csrf_token %}
-                  <input type="hidden" name="activo" value="{% if participacion.activa %}0{% else %}1{% endif %}">
-                  <button class="button secondary small">{% if participacion.activa %}Desactivar{% else %}Activar{% endif %}</button>
-                </form>
+                <a class="button primary small" href="{% url 'detalle-participacion-partido' eleccion.id participacion.id %}">Cargar candidatos</a>
+                <a class="button light small" href="{% url 'editar-participacion-partido' eleccion.id participacion.id %}">Editar lista</a>
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="8" class="muted">No hay listas cargadas.</td></tr>
+            <tr><td colspan="7" class="muted">Todavía no hay listas para este claustro. Primero creá una en la pestaña “Crear lista”.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </section>
-
 </div>
+{% endif %}
+{% else %}
+<section class="hero">
+  <h1>Listas y candidaturas</h1>
+  <p>{{ eleccion.nombre }}. Elegí un claustro para crear y gestionar sus listas electorales.</p>
+</section>
+
+<div class="section-title">
+  <div>
+    <h2>Gestión por claustro</h2>
+    <p>Al entrar en un claustro vas a configurar una lista y asociar los puestos por los que se presenta.</p>
+  </div>
+</div>
+<section class="toolbar configuration-grid padron-cloister-grid">
+  {% for item in claustros %}
+    <article class="option">
+      <h2>{{ item.claustro }}</h2>
+      <div class="option-summary">
+        <p><strong>{{ item.cantidad_listas }}</strong> listas registradas</p>
+        <p><strong>{{ item.cantidad_candidatos }}</strong> candidatos cargados</p>
+        <p><strong>{{ item.cantidad_puestos }}</strong> puestos habilitados</p>
+      </div>
+      <a class="button primary" href="?claustro={{ item.id }}">Gestionar listas de {{ item.claustro }}</a>
+    </article>
+  {% empty %}
+    <article class="card empty-state">
+      <h2>No hay claustros configurados</h2>
+      <p>Primero agregá al menos un claustro en la configuración general de la elección.</p>
+    </article>
+  {% endfor %}
+</section>
+{% endif %}
 
 {% include "elecciones/_volver_configuracion.html" %}
 {% endblock %}
 
-{% block scripts %}<script src="{% static 'js/filtros-puestos.js' %}" defer></script>{% endblock %}
+{% block scripts %}
+<script src="{% static 'js/filtros-puestos.js' %}" defer></script>
+{% endblock %}
