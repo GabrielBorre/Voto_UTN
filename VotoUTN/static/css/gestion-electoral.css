@@ -1742,6 +1742,39 @@ th a.table-sort-link:focus-visible {
     padding: 14px 0;
 }
 
+.plazo-actual {
+    margin: 1em 0;
+}
+
+.plazo-edicion {
+    display: inline-block;
+    margin-left: .35rem;
+    vertical-align: middle;
+}
+
+.plazo-edicion__activador {
+    align-items: center;
+    border-radius: 6px;
+    color: var(--azul-900);
+    cursor: pointer;
+    display: inline-flex;
+    list-style: none;
+    padding: 4px;
+}
+
+.plazo-edicion__activador::-webkit-details-marker {
+    display: none;
+}
+
+.plazo-edicion__activador:hover,
+.plazo-edicion__activador:focus-visible {
+    background: var(--azul-100);
+}
+
+.plazo-edicion__contenido {
+    margin: 12px 0;
+}
+
 .filters {
     align-items: end;
     display: flex;

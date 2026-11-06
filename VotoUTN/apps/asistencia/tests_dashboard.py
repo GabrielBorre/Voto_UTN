@@ -16,7 +16,7 @@ from apps.mesas.models import AsignacionMesa, Mesa
 from apps.notificaciones.models import EnvioNotificacion
 from apps.notificaciones.services import crear_notificaciones_ausentes_confirmadas
 from apps.padron.models import Elector, RegistroPadron
-from apps.parametros.models import Claustro, Departamento, Sede
+from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
@@ -82,6 +82,11 @@ class DashboardParticipacionTests(TestCase):
             rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
             eleccion=self.eleccion,
         )
+        fecha_administrativa = FechaAdministrativa.objects.create(
+            codigo="prueba-fecha-administrativa",
+            nombre="Fecha de prueba",
+            roles_destinatarios=[FechaAdministrativa.RolDestinatario.ELECTOR],
+        )
         self.client.force_login(administrador)
         url = reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,))
 
@@ -91,6 +96,10 @@ class DashboardParticipacionTests(TestCase):
             "Se definirá próximamente. Será solicitada la fecha límite al notificar las ausencias electorales.",
         )
         self.assertNotContains(antes, "Modificar fecha límite")
+        self.assertContains(
+            antes,
+            f'name="fecha_{fecha_administrativa.pk}_valor" value="{timezone.localdate().isoformat()}"',
+        )
 
         inicio = timezone.now() - timedelta(days=2)
         limite = timezone.localdate() + timedelta(days=5)
@@ -105,10 +114,45 @@ class DashboardParticipacionTests(TestCase):
 
         despues = self.client.get(url)
 
-        self.assertContains(despues, inicio.strftime("%d/%m/%Y"))
+        self.assertContains(despues, timezone.localtime(inicio).strftime("%d/%m/%Y"))
         self.assertContains(despues, limite.strftime("%d/%m/%Y"))
+        self.assertContains(despues, 'class="plazo-edicion"')
+        self.assertNotContains(despues, 'class="plazo-edicion" open')
+        self.assertContains(
+            despues,
+            f'name="fecha_limite_justificacion_electores" value="{limite.isoformat()}"',
+        )
         self.assertContains(despues, "Modificar fecha límite")
         self.assertContains(despues, "Confirmar y notificar")
+
+    def test_formulario_plazo_se_expande_al_mostrar_errores_de_validacion(self):
+        administrador = get_user_model().objects.create_user(username="admin-plazo-invalido")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        ayer = timezone.localdate() - timedelta(days=1)
+        self.eleccion.notificaciones_ausentes_confirmadas_en = timezone.now() - timedelta(days=2)
+        self.eleccion.justificacion_electores_habilitada_en = self.eleccion.notificaciones_ausentes_confirmadas_en
+        self.eleccion.fecha_limite_justificacion_electores = timezone.localdate() + timedelta(days=2)
+        self.eleccion.save(update_fields=(
+            "notificaciones_ausentes_confirmadas_en",
+            "justificacion_electores_habilitada_en",
+            "fecha_limite_justificacion_electores",
+        ))
+        self.client.force_login(administrador)
+
+        respuesta = self.client.post(
+            reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,)),
+            {
+                "accion": "actualizar_plazo_justificativos",
+                "fecha_limite_justificacion_electores": ayer.isoformat(),
+            },
+        )
+
+        self.assertContains(respuesta, 'class="plazo-edicion" open')
+        self.assertContains(respuesta, "La fecha límite no puede ser anterior a hoy.")
 
     def test_editar_plazo_preserva_inicio_y_notifica_solo_ausentes_sin_justificativo_electoral(self):
         administrador = get_user_model().objects.create_user(username="admin-edita-periodo")
