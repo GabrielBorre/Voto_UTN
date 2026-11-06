@@ -189,28 +189,34 @@ class ServicioRegistroParticipacion:
             "registrados": mesa.participaciones.filter(registro_padron__activo=True).count(),
         }
 
+    @staticmethod
+    def _pasar_a_en_proceso(mesa_bloqueada: Mesa, usuario, origen="qr"):
+        """Mueve una mesa pendiente (ya bloqueada con select_for_update) al estado En proceso."""
+        if mesa_bloqueada.estado_escaneo != Mesa.EstadoEscaneo.PENDIENTE:
+            return
+        mesa_bloqueada.estado_escaneo = Mesa.EstadoEscaneo.EN_PROCESO
+        mesa_bloqueada.escaneo_iniciado_en = timezone.now()
+        mesa_bloqueada.save(update_fields=["estado_escaneo", "escaneo_iniciado_en"])
+        registrar_evento(
+            accion="mesa.escaneo_iniciado",
+            entidad="Mesa",
+            entidad_id=mesa_bloqueada.pk,
+            eleccion=mesa_bloqueada.eleccion,
+            usuario=usuario,
+            datos_nuevos={"estado": mesa_bloqueada.estado_escaneo, "origen": origen},
+        )
+
     @classmethod
     def iniciar_escaneo_mesa(cls, *, mesa: Mesa, usuario) -> Mesa:
         with transaction.atomic():
             mesa = Mesa.objects.select_for_update().get(pk=mesa.pk)
             if mesa.estado_escaneo == Mesa.EstadoEscaneo.PROCESADA:
                 raise ErrorEscaneoMesa("La mesa ya fue procesada.")
-            if mesa.estado_escaneo == Mesa.EstadoEscaneo.PENDIENTE:
-                mesa.estado_escaneo = Mesa.EstadoEscaneo.EN_PROCESO
-                mesa.escaneo_iniciado_en = timezone.now()
-                mesa.save(update_fields=["estado_escaneo", "escaneo_iniciado_en"])
-                registrar_evento(
-                    accion="mesa.escaneo_iniciado",
-                    entidad="Mesa",
-                    entidad_id=mesa.pk,
-                    eleccion=mesa.eleccion,
-                    usuario=usuario,
-                    datos_nuevos={"estado": mesa.estado_escaneo},
-                )
+            cls._pasar_a_en_proceso(mesa, usuario)
         return mesa
 
     @classmethod
-    def finalizar_escaneo_mesa(cls, *, mesa: Mesa, usuario, confirmar_sin_inasistencias=False) -> Mesa:
+    def finalizar_escaneo_mesa(cls, *, mesa: Mesa, usuario, confirmar_sin_inasistencias=False, origen="qr") -> Mesa:
         with transaction.atomic():
             mesa = Mesa.objects.select_for_update().get(pk=mesa.pk)
             if mesa.estado_escaneo != Mesa.EstadoEscaneo.EN_PROCESO:
@@ -227,9 +233,25 @@ class ServicioRegistroParticipacion:
                 entidad_id=mesa.pk,
                 eleccion=mesa.eleccion,
                 usuario=usuario,
-                datos_nuevos={"estado": mesa.estado_escaneo, "sin_inasistencias": sin_registros},
+                datos_nuevos={"estado": mesa.estado_escaneo, "sin_inasistencias": sin_registros, "origen": origen},
             )
         return mesa
+
+    @classmethod
+    def procesar_mesa_manual(cls, *, mesa: Mesa, usuario) -> Mesa:
+        """Registra la mesa desde el tablero de escritorio con las inasistencias ya cargadas."""
+        with transaction.atomic():
+            bloqueada = Mesa.objects.select_for_update().get(pk=mesa.pk)
+            if bloqueada.estado_escaneo == Mesa.EstadoEscaneo.PROCESADA:
+                raise ErrorEscaneoMesa("La mesa ya fue procesada.")
+            cls._pasar_a_en_proceso(bloqueada, usuario, origen="manual")
+            # El usuario confirmó en el diálogo la cantidad de inasistencias, incluso si es cero.
+            return cls.finalizar_escaneo_mesa(
+                mesa=bloqueada,
+                usuario=usuario,
+                confirmar_sin_inasistencias=True,
+                origen="manual",
+            )
 
     @classmethod
     def registrar_lote(cls, *, eleccion: Eleccion, mesa: Mesa, codigos_qr: list, usuario) -> ResultadoParticipacion:
@@ -334,19 +356,21 @@ class ServicioRegistroParticipacion:
                 mesa_numero=mesa.numero,
                 departamento_codigo=mesa.eleccion_claustro_departamento.departamento.codigo if mesa.eleccion_claustro_departamento_id else None,
             )
-        participacion = RegistroParticipacion.objects.create(registro_padron=padron, mesa=mesa, registrada_por=usuario, metodo=RegistroParticipacion.Metodo.MANUAL)
-        registrar_evento(
-            accion="participacion.registrada_manual",
-            entidad="RegistroParticipacion",
-            entidad_id=participacion.pk,
-            eleccion=eleccion,
-            usuario=usuario,
-            datos_nuevos={
-                "registro_padron_id": participacion.registro_padron_id,
-                "mesa_id": participacion.mesa_id,
-                "metodo": participacion.metodo,
-            },
-        )
+        with transaction.atomic():
+            participacion = RegistroParticipacion.objects.create(registro_padron=padron, mesa=mesa, registrada_por=usuario, metodo=RegistroParticipacion.Metodo.MANUAL)
+            cls._pasar_a_en_proceso(Mesa.objects.select_for_update().get(pk=mesa.pk), usuario, origen="manual")
+            registrar_evento(
+                accion="participacion.registrada_manual",
+                entidad="RegistroParticipacion",
+                entidad_id=participacion.pk,
+                eleccion=eleccion,
+                usuario=usuario,
+                datos_nuevos={
+                    "registro_padron_id": participacion.registro_padron_id,
+                    "mesa_id": participacion.mesa_id,
+                    "metodo": participacion.metodo,
+                },
+            )
         return ResultadoParticipacion(
             [padron.identificador_qr],
             [],

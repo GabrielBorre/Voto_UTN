@@ -1,5 +1,6 @@
+import csv
 import re
-from io import BytesIO
+from io import BytesIO, StringIO
 from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
@@ -12,6 +13,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfgen.canvas import Canvas
 
+from apps.asistencia.models import RegistroParticipacion
 from apps.asistencia.services import ServicioRegistroParticipacion
 
 from apps.elecciones.models import (
@@ -22,6 +24,7 @@ from apps.elecciones.models import (
     EleccionSede,
     EleccionClaustroTurno,
 )
+from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import EmisionPadronImprimible, Elector, RegistroPadron
@@ -150,6 +153,104 @@ class ReportesViewsTests(TestCase):
         )
         mensajes = [str(mensaje) for mensaje in respuesta.context["messages"]]
         self.assertTrue(any("no tiene listas activas con candidatos" in mensaje for mensaje in mensajes))
+
+
+class ExportarInfractoresTests(TestCase):
+    def setUp(self):
+        inicio = make_aware(datetime(2026, 8, 3, 8))
+        self.eleccion = Eleccion.objects.create(
+            nombre="Eleccion Infractores",
+            fecha_inicio=inicio,
+            fecha_fin=inicio + timedelta(hours=8),
+            estado=Eleccion.Estado.FINALIZADA,
+        )
+        self.sede = Sede.objects.create(nombre="Medrano")
+        claustro = Claustro.objects.create(nombre="Estudiantes")
+        departamento = Departamento.objects.create(nombre="Sistemas", codigo="K")
+        EleccionSede.objects.create(eleccion=self.eleccion, sede=self.sede)
+        eleccion_claustro = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=claustro)
+        self.configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=eleccion_claustro,
+            departamento=departamento,
+        )
+        EleccionClaustroDepartamentoSede.objects.create(eleccion_claustro_departamento=self.configuracion, sede=self.sede)
+        self.mesa = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=1,
+            eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede,
+            estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
+        )
+        self.usuario = get_user_model().objects.create_user(username="admin-infractores", password="clave")
+        AsignacionRol.objects.create(usuario=self.usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion)
+        self.tipo = TipoJustificativo.objects.create(nombre="Enfermedad")
+
+    def crear_registro(self, dni, *, ausente):
+        elector = Elector.objects.create(legajo=f"L{dni}", nombre=f"Elector {dni}", dni=dni)
+        registro = RegistroPadron.objects.create(
+            elector=elector,
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede,
+        )
+        AsignacionMesa.objects.create(registro_padron=registro, mesa=self.mesa)
+        if ausente:
+            RegistroParticipacion.objects.create(
+                registro_padron=registro,
+                mesa=self.mesa,
+                registrada_por=self.usuario,
+                metodo=RegistroParticipacion.Metodo.QR,
+            )
+        return registro
+
+    def crear_justificativo(self, registro, estado, ausencia=JustificativoAusencia.Ausencia.VOTAR):
+        return JustificativoAusencia.objects.create(
+            registro_padron=registro,
+            ausencia=ausencia,
+            tipo=self.tipo,
+            detalle="Detalle",
+            estado=estado,
+        )
+
+    def exportar(self):
+        self.client.force_login(self.usuario)
+        return self.client.get(reverse("exportar-reporte", args=(self.eleccion.id, "infractores")))
+
+    def test_lista_solo_ausentes_sin_justificativo_aprobado(self):
+        self.crear_registro("30000001", ausente=False)
+        self.crear_registro("30000002", ausente=True)
+        justificado = self.crear_registro("30000003", ausente=True)
+        self.crear_justificativo(justificado, JustificativoAusencia.Estado.APROBADO)
+        rechazado = self.crear_registro("30000004", ausente=True)
+        self.crear_justificativo(rechazado, JustificativoAusencia.Estado.RECHAZADO)
+        justificado_como_autoridad = self.crear_registro("30000005", ausente=True)
+        self.crear_justificativo(
+            justificado_como_autoridad,
+            JustificativoAusencia.Estado.APROBADO,
+            ausencia=JustificativoAusencia.Ausencia.AUTORIDAD,
+        )
+
+        respuesta = self.exportar()
+
+        self.assertEqual(respuesta.status_code, 200)
+        filas = list(csv.reader(StringIO(respuesta.content.decode("utf-8-sig"))))
+        estados_por_dni = {fila[2]: fila[5] for fila in filas[1:]}
+        self.assertEqual(
+            estados_por_dni,
+            {
+                "30000002": "sin_justificativo",
+                "30000004": "rechazado",
+                "30000005": "sin_justificativo",
+            },
+        )
+
+    def test_no_exporta_infractores_si_la_eleccion_no_esta_finalizada(self):
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.EN_CURSO)
+        self.crear_registro("30000002", ausente=True)
+
+        respuesta = self.exportar()
+
+        self.assertEqual(respuesta.status_code, 403)
 
 
 class PadronPDFTests(TestCase):

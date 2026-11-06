@@ -1,5 +1,6 @@
 import csv
 import hashlib
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -10,6 +11,7 @@ from django.db import transaction
 from django.db.models import Count
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from apps.elecciones.forms import FormularioPrepararClaustro
 from apps.elecciones.models import Eleccion, EleccionClaustro
@@ -632,7 +634,11 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
                 envio = crear_notificacion_resultado_cambio_sede(solicitud)
                 enviar_notificacion(envio)
                 messages.success(request, "La solicitud fue resuelta y se notificó al elector.")
-            return redirect("gestionar-solicitudes-cambio-sede", eleccion_id=eleccion.id)
+            destino = reverse("gestionar-solicitudes-cambio-sede", args=(eleccion.id,))
+            estado_filtro = request.GET.get("estado", "")
+            if estado_filtro in SolicitudCambioSede.Estado.values:
+                destino = f"{destino}?{urlencode({'estado': estado_filtro})}"
+            return redirect(destino)
 
         if accion in {
             "aprobar_todas",

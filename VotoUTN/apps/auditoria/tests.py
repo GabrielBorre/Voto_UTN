@@ -113,11 +113,13 @@ class AuditoriaParticipacionTests(BaseAuditoriaElectoralTests):
         )
 
         participacion = RegistroParticipacion.objects.get()
-        evento = EventoAuditoria.objects.get()
+        evento = EventoAuditoria.objects.get(accion="participacion.registrada_manual")
         self.assertEqual(resultado.creados, [padron.identificador_qr])
-        self.assertEqual(evento.accion, "participacion.registrada_manual")
         self.assertEqual(evento.entidad_id, str(participacion.id))
         self.assertEqual(evento.datos_nuevos["metodo"], RegistroParticipacion.Metodo.MANUAL)
+        inicio_mesa = EventoAuditoria.objects.get(accion="mesa.escaneo_iniciado")
+        self.assertEqual(inicio_mesa.entidad_id, str(self.mesa.id))
+        self.assertEqual(inicio_mesa.datos_nuevos["origen"], "manual")
 
 
 class AuditoriaEleccionTests(BaseAuditoriaElectoralTests):

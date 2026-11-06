@@ -1986,3 +1986,32 @@ class SolicitudCambioSedeTests(TestCase):
         )
         self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.PENDIENTE)
         self.assertFalse(Mesa.objects.filter(eleccion=self.eleccion, sede=self.sede_destino).exists())
+
+    def _resolver_individual(self, accion, consulta):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        self.client.force_login(self.usuario)
+        url = reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.id,))
+        respuesta = self.client.post(f"{url}{consulta}", {"accion": accion, "solicitud_id": solicitud.pk})
+        solicitud.refresh_from_db()
+        return url, respuesta, solicitud
+
+    def test_resolucion_individual_conserva_el_filtro_de_estado(self):
+        url, respuesta, solicitud = self._resolver_individual("rechazar", "?estado=pendiente")
+
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.RECHAZADA)
+        self.assertRedirects(respuesta, f"{url}?estado=pendiente", fetch_redirect_response=False)
+
+    def test_resolucion_individual_descarta_un_filtro_de_estado_invalido(self):
+        url, respuesta, solicitud = self._resolver_individual("aprobar", "?estado=otro&x=1")
+
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.APROBADA)
+        self.assertRedirects(respuesta, url, fetch_redirect_response=False)

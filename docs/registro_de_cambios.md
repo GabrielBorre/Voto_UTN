@@ -2,6 +2,21 @@
 
 Este documento registra cambios aplicados al proyecto. Describe los archivos y el efecto de cada cambio; no reemplaza el historial de Git ni las migraciones de Django.
 
+## Exportación de infractores alineada con el registro de ausencias
+
+- `exportar_reporte_eleccion` (`apps/reportes/services.py`) filtraba electores
+  de mesas procesadas **sin** `RegistroParticipacion`, criterio anterior a la
+  regla vigente: un registro de participación representa una ausencia (QR del
+  troquel escaneado o carga manual). El CSV listaba a quienes votaron.
+- Ahora exporta a los electores con ausencia registrada que no tienen un
+  justificativo aprobado de «Ausencia a votar», el mismo criterio del
+  historial electoral. Un justificativo aprobado como autoridad de mesa no
+  excluye la infracción como elector. Sin cambios de esquema ni de vistas.
+- Pruebas: `ExportarInfractoresTests` en `apps/reportes/tests.py` (votante,
+  ausente, justificado, rechazado, justificado solo como autoridad, y bloqueo
+  si la elección no está finalizada).
+- Documentación: [guion_demostracion.md](guion_demostracion.md), guion de la
+  demostración de 20 minutos.
 ## Importación y cobertura de autoridades
 
 - `apps/autoridades`: historial de archivos de nómina, estados y errores, CSV con coma o punto y coma y migración aditiva `0010`.
@@ -994,6 +1009,16 @@ Fecha de implementación: 2026-10-19
 - `elecciones.0028_eleccion_notificaciones_ausentes_confirmadas_en` agrega el marcador de confirmación sin alterar datos existentes.
 - Se agregaron pruebas para confirmar que no se notifica antes de procesar todas las mesas, para la autorización exclusiva de junta y para la idempotencia del envío.
 
+## Registro manual de mesas desde el tablero
+
+Fecha de implementación: 2026-11-05
+
+- La tabla de mesas del tablero de participación (escritorio) agrega la columna «Registro» con el botón «Registrar» para cada mesa no procesada.
+- El botón abre un diálogo con la cantidad de electores y de inasistencias cargadas; al confirmar, el servidor valida permisos y estado y deja la mesa procesada (pasando por En proceso si estaba pendiente). Se audita con `origen: manual`.
+- La carga manual de una inasistencia por DNI pasa la mesa de Pendiente a En proceso dentro de la misma transacción.
+- La carátula de mesa muestra el claustro encima de «Información de mesa».
+- En «Solicitudes de cambio de sede», aplicar el filtro de estado conserva la posición de desplazamiento.
+- Se agregaron pruebas en `apps/asistencia/tests_procesamiento_manual.py`.
 ## Autoridades: tres modos y decisiones C/C
 
 Fecha: 2026-10-23.
