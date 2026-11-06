@@ -14,7 +14,10 @@ from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.justificativos.services import puede_presentar_justificativo_electoral
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.notificaciones.models import EnvioNotificacion
-from apps.notificaciones.services import crear_notificaciones_ausentes_confirmadas
+from apps.notificaciones.services import (
+    actualizar_plazo_justificativos_electores,
+    crear_notificaciones_ausentes_confirmadas,
+)
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
@@ -120,10 +123,53 @@ class DashboardParticipacionTests(TestCase):
         self.assertNotContains(despues, 'class="plazo-edicion" open')
         self.assertContains(
             despues,
-            f'name="fecha_limite_justificacion_electores" value="{limite.isoformat()}"',
+            f'name="fecha_limite_justificacion_electores" value="{(limite + timedelta(days=1)).isoformat()}"',
+        )
+        self.assertContains(despues, f'min="{(limite + timedelta(days=1)).isoformat()}"')
+        html = despues.content.decode()
+        self.assertLess(html.index("Extender período"), html.index("Último día para presentar justificativos"))
+        self.assertLess(
+            html.index("Último día para presentar justificativos"),
+            html.index('name="fecha_limite_justificacion_electores"'),
         )
         self.assertContains(despues, "Modificar fecha límite")
         self.assertContains(despues, "Confirmar y notificar")
+
+    def test_no_se_puede_acortar_el_periodo_de_justificativos(self):
+        administrador = get_user_model().objects.create_user(username="admin-no-acorta-periodo")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        fecha_vigente = timezone.localdate() + timedelta(days=5)
+        fecha_menor = fecha_vigente - timedelta(days=1)
+        self.eleccion.notificaciones_ausentes_confirmadas_en = timezone.now()
+        self.eleccion.justificacion_electores_habilitada_en = timezone.now()
+        self.eleccion.fecha_limite_justificacion_electores = fecha_vigente
+        self.eleccion.save(update_fields=(
+            "notificaciones_ausentes_confirmadas_en",
+            "justificacion_electores_habilitada_en",
+            "fecha_limite_justificacion_electores",
+        ))
+        self.client.force_login(administrador)
+        url = reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,))
+
+        respuesta = self.client.post(url, {
+            "accion": "actualizar_plazo_justificativos",
+            "fecha_limite_justificacion_electores": fecha_menor.isoformat(),
+        })
+
+        self.assertContains(respuesta, "No se puede acortar el período de justificativos.")
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.fecha_limite_justificacion_electores, fecha_vigente)
+        self.assertEqual(EnvioNotificacion.objects.count(), 0)
+        with self.assertRaisesMessage(ValueError, "No se puede acortar el período de justificativos."):
+            actualizar_plazo_justificativos_electores(self.eleccion, fecha_menor)
+        with self.assertRaisesMessage(ValueError, "La nueva fecha límite debe ser posterior a la actual."):
+            actualizar_plazo_justificativos_electores(self.eleccion, fecha_vigente)
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.fecha_limite_justificacion_electores, fecha_vigente)
 
     def test_formulario_plazo_se_expande_al_mostrar_errores_de_validacion(self):
         administrador = get_user_model().objects.create_user(username="admin-plazo-invalido")

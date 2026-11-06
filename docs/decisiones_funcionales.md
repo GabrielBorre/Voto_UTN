@@ -47,11 +47,13 @@
   sus comunicaciones de calendario quedan inactivas sin eliminar su historial.
 - Mientras la elección siga En curso, el administrador de junta puede cambiar
   el plazo desde Fechas administrativas, incluso después de su vencimiento. El
-  inicio no cambia; una fecha futura vuelve a habilitar la presentación. El
-  cambio requiere confirmación y genera nuevas notificaciones solo para
-  electores ausentes que no hayan presentado un justificativo electoral. Los
-  envíos previos se conservan como historial; los errores de correo se informan
-  sin revertir el plazo ni los envíos ya realizados.
+  cambio solo puede extender el período: la nueva fecha límite debe ser
+  posterior a la vigente y no anterior a la fecha actual. El inicio no cambia;
+  una fecha futura vuelve a habilitar la presentación. El cambio requiere confirmación y
+  genera nuevas notificaciones solo para electores ausentes que no hayan
+  presentado un justificativo electoral. Los envíos previos se conservan como
+  historial; los errores de correo se informan sin revertir el plazo ni los
+  envíos ya realizados.
 - Solo se puede presentar un justificativo electoral durante el período
   habilitado y si existe un registro de ausencia. La fecha límite configurada
   es inclusiva. Antes de finalizar la elección, al vencer el plazo la ausencia

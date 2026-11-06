@@ -21,41 +21,42 @@
     <div class="plazo-actual">
       <div class="plazo-actual__linea">
         <span class="plazo-actual__texto"><strong>Hasta (inclusive):</strong> {{ eleccion.fecha_limite_justificacion_electores|date:"d/m/Y" }}</span>
-        {% if puede_editar_plazo_justificativos %}
-          <details class="plazo-edicion"{% if formulario_plazo.errors %} open{% endif %}>
-            <summary class="plazo-edicion__activador" aria-label="Editar fecha límite de justificativos" title="Editar fecha límite">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 20h9"></path>
-                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path>
-              </svg>
-            </summary>
-            <div class="plazo-edicion__contenido">
-              <form method="post" id="formulario-editar-plazo-justificativos">
-                {% csrf_token %}
-                <input type="hidden" name="accion" value="actualizar_plazo_justificativos">
-                <div class="field">
-                  <label for="{{ formulario_plazo.fecha_limite_justificacion_electores.id_for_label }}">
-                    {{ formulario_plazo.fecha_limite_justificacion_electores.label }}
-                  </label>
-                  {{ formulario_plazo.fecha_limite_justificacion_electores }}
-                  {% for error in formulario_plazo.fecha_limite_justificacion_electores.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      {% if puede_editar_plazo_justificativos %}
+        <details class="plazo-edicion"{% if formulario_plazo.errors %} open{% endif %}>
+          <summary class="plazo-edicion__activador" aria-label="Editar fecha límite de justificativos" title="Editar fecha límite">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path>
+            </svg>
+          </summary>
+          <div class="plazo-edicion__contenido">
+            <form method="post" id="formulario-editar-plazo-justificativos">
+              {% csrf_token %}
+              <input type="hidden" name="accion" value="actualizar_plazo_justificativos">
+              <h3>Extender período</h3>
+              <div class="field">
+                <label for="{{ formulario_plazo.fecha_limite_justificacion_electores.id_for_label }}">
+                  {{ formulario_plazo.fecha_limite_justificacion_electores.label }}
+                </label>
+                {{ formulario_plazo.fecha_limite_justificacion_electores }}
+                {% for error in formulario_plazo.fecha_limite_justificacion_electores.errors %}<div class="error">{{ error }}</div>{% endfor %}
+              </div>
+              <button class="button secondary btn_editar_plazo" type="button" id="abrir-dialogo-editar-plazo">Modificar fecha límite</button>
+              <dialog class="utn-dialogo" id="dialogo-editar-plazo-justificativos" aria-labelledby="titulo-dialogo-editar-plazo" aria-describedby="ayuda-dialogo-editar-plazo">
+                <h2 id="titulo-dialogo-editar-plazo">Confirmar cambio del plazo</h2>
+                <p id="ayuda-dialogo-editar-plazo">
+                  ¿Confirmás cambiar la fecha límite al <strong><output id="nueva-fecha-limite-justificativos"></output></strong>?
+                  Se notificará la nueva fecha a los electores ausentes que todavía no presentaron un justificativo electoral.
+                </p>
+                <div class="footer-actions">
+                  <button class="button primary" type="submit">Confirmar y notificar</button>
+                  <button class="button light" type="button" id="cancelar-dialogo-editar-plazo">Cancelar</button>
                 </div>
-                <button class="button secondary btn_editar_plazo" type="button" id="abrir-dialogo-editar-plazo">Modificar fecha límite</button>
-                <dialog class="utn-dialogo" id="dialogo-editar-plazo-justificativos" aria-labelledby="titulo-dialogo-editar-plazo" aria-describedby="ayuda-dialogo-editar-plazo">
-                  <h2 id="titulo-dialogo-editar-plazo">Confirmar cambio del plazo</h2>
-                  <p id="ayuda-dialogo-editar-plazo">
-                    ¿Confirmás cambiar la fecha límite al <strong><output id="nueva-fecha-limite-justificativos"></output></strong>?
-                    Se notificará la nueva fecha a los electores ausentes que todavía no presentaron un justificativo electoral.
-                  </p>
-                  <div class="footer-actions">
-                    <button class="button primary" type="submit">Confirmar y notificar</button>
-                    <button class="button light" type="button" id="cancelar-dialogo-editar-plazo">Cancelar</button>
-                  </div>
-                </dialog>
-              </form>
-            </div>
-          </details>
-        {% endif %}
+              </dialog>
+            </form>
+          </div>
+        </details>
+      {% endif %}
       </div>
     </div>
   {% else %}

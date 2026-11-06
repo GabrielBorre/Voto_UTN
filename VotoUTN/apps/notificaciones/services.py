@@ -273,8 +273,13 @@ def actualizar_plazo_justificativos_electores(eleccion, nueva_fecha_limite):
         raise ValueError("El período de justificativos todavía no fue abierto.")
     if nueva_fecha_limite is None or nueva_fecha_limite < timezone.localdate():
         raise ValueError("La nueva fecha límite debe ser igual o posterior a hoy.")
+    if (
+        eleccion.fecha_limite_justificacion_electores
+        and nueva_fecha_limite < eleccion.fecha_limite_justificacion_electores
+    ):
+        raise ValueError("No se puede acortar el período de justificativos.")
     if nueva_fecha_limite == eleccion.fecha_limite_justificacion_electores:
-        raise ValueError("La nueva fecha límite debe ser diferente de la actual.")
+        raise ValueError("La nueva fecha límite debe ser posterior a la actual.")
 
     fecha_anterior = eleccion.fecha_limite_justificacion_electores
     eleccion.fecha_limite_justificacion_electores = nueva_fecha_limite

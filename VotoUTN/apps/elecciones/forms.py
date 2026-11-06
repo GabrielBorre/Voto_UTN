@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django import forms
 from django.db import transaction
 from django.db.models import Q
@@ -53,19 +55,28 @@ class FormularioEditarPlazoJustificativosElectores(forms.Form):
     def __init__(self, *args, eleccion, **kwargs):
         super().__init__(*args, **kwargs)
         self.eleccion = eleccion
-        self.fields["fecha_limite_justificacion_electores"].initial = (
-            eleccion.fecha_limite_justificacion_electores
-        )
+        fecha_minima = timezone.localdate()
+        if eleccion.fecha_limite_justificacion_electores:
+            fecha_minima = max(
+                fecha_minima,
+                eleccion.fecha_limite_justificacion_electores + timedelta(days=1),
+            )
+        self.fields["fecha_limite_justificacion_electores"].initial = fecha_minima
         self.fields["fecha_limite_justificacion_electores"].widget.attrs["min"] = (
-            timezone.localdate().isoformat()
+            fecha_minima.isoformat()
         )
 
     def clean_fecha_limite_justificacion_electores(self):
         fecha = self.cleaned_data["fecha_limite_justificacion_electores"]
         if fecha < timezone.localdate():
             raise forms.ValidationError("La fecha límite no puede ser anterior a hoy.")
+        if (
+            self.eleccion.fecha_limite_justificacion_electores
+            and fecha < self.eleccion.fecha_limite_justificacion_electores
+        ):
+            raise forms.ValidationError("No se puede acortar el período de justificativos.")
         if fecha == self.eleccion.fecha_limite_justificacion_electores:
-            raise forms.ValidationError("La fecha límite nueva debe ser diferente de la actual.")
+            raise forms.ValidationError("La nueva fecha límite debe ser posterior a la actual.")
         return fecha
 
 
