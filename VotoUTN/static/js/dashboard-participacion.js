@@ -4,6 +4,34 @@ document.querySelectorAll("[data-autoenviar]").forEach((selector) => {
   selector.addEventListener("change", () => selector.form.requestSubmit());
 });
 
+function prepararRegistroManualMesas() {
+  const dialogo = document.getElementById("dialogo-registrar-mesa");
+  if (!dialogo) return;
+  const formulario = document.getElementById("formulario-registrar-mesa");
+  const cancelar = document.getElementById("cancelar-registrar-mesa");
+  const campos = {
+    codigo: dialogo.querySelector("[data-registrar-codigo]"),
+    electores: dialogo.querySelector("[data-registrar-electores]"),
+    inasistencias: dialogo.querySelector("[data-registrar-inasistencias]"),
+  };
+
+  document.querySelectorAll("[data-registrar-mesa]").forEach((boton) => {
+    boton.addEventListener("click", () => {
+      formulario.action = boton.dataset.accion;
+      campos.codigo.textContent = boton.dataset.codigo;
+      campos.electores.textContent = boton.dataset.electores;
+      campos.inasistencias.textContent = boton.dataset.inasistencias;
+      dialogo.showModal();
+    });
+  });
+  cancelar.addEventListener("click", () => dialogo.close());
+  formulario.addEventListener("submit", () => {
+    formulario.querySelector("button[type='submit']").disabled = true;
+  });
+}
+
+prepararRegistroManualMesas();
+
 function dibujarHistorial() {
   const lienzo = document.getElementById("grafico-historial");
   const datos = document.getElementById("historial-datos");

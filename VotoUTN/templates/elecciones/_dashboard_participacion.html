@@ -150,7 +150,7 @@
     {% if pagina_mesas.object_list %}
     <div class="table-wrap">
       <table>
-        <thead><tr><th scope="col">Mesa</th><th scope="col">Sede</th><th scope="col">Claustro</th><th scope="col">Departamento</th><th scope="col">Estado</th><th scope="col">Electores</th><th scope="col">Votaron</th></tr></thead>
+        <thead><tr><th scope="col">Mesa</th><th scope="col">Sede</th><th scope="col">Claustro</th><th scope="col">Departamento</th><th scope="col">Estado</th><th scope="col">Electores</th><th scope="col">Votaron</th>{% if puede_registrar_mesas %}<th scope="col">Registro</th>{% endif %}</tr></thead>
         <tbody>
           {% for mesa in pagina_mesas %}
           <tr>
@@ -161,11 +161,46 @@
             <td><span class="pill {% if mesa.estado_escaneo == 'procesada' %}ok{% elif mesa.estado_escaneo == 'en_proceso' %}warn{% else %}gray{% endif %}">{{ mesa.get_estado_escaneo_display }}</span></td>
             <td>{{ mesa.cantidad_electores }}</td>
             <td>{% if mesa.estado_escaneo == 'procesada' %}{{ mesa.cantidad_votaron }}{% else %}-{% endif %}</td>
+            {% if puede_registrar_mesas %}
+            <td>
+              {% if mesa.estado_escaneo == 'procesada' %}
+              <span class="muted">Registrada</span>
+              {% else %}
+              <button
+                class="button primary small"
+                type="button"
+                data-registrar-mesa
+                data-accion="{% url 'procesar-mesa-manual' eleccion_actual.pk mesa.pk %}"
+                data-codigo="{{ mesa.codigo }}"
+                data-electores="{{ mesa.cantidad_electores }}"
+                data-inasistencias="{{ mesa.cantidad_participaron }}"
+                aria-haspopup="dialog"
+                aria-controls="dialogo-registrar-mesa"
+              >Registrar</button>
+              {% endif %}
+            </td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {% if puede_registrar_mesas %}
+    <dialog class="dialogo-limite-mesas" id="dialogo-registrar-mesa" aria-labelledby="titulo-registrar-mesa">
+      <form method="post" id="formulario-registrar-mesa">
+        {% csrf_token %}
+        <input type="hidden" name="filtros" value="{{ filtros_tablero }}">
+        <h2 id="titulo-registrar-mesa">Registrar mesa <span data-registrar-codigo></span></h2>
+        <p>Cantidad de electores: <strong data-registrar-electores></strong></p>
+        <p>Cantidad de inasistencias: <strong data-registrar-inasistencias></strong></p>
+        <p class="muted">Al confirmar, la mesa queda procesada con las inasistencias cargadas hasta el momento.</p>
+        <div class="footer-actions">
+          <button class="button primary" type="submit">Confirmar registro</button>
+          <button class="button light" type="button" id="cancelar-registrar-mesa">Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+    {% endif %}
     <nav class="paginacion" aria-label="Paginación de mesas">
       <span class="muted">Mostrando {{ pagina_mesas.start_index }}–{{ pagina_mesas.end_index }} de {{ pagina_mesas.paginator.count }} mesas</span>
       <div class="paginacion-botones">

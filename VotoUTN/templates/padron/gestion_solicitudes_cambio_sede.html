@@ -8,7 +8,7 @@
 </section>
 {% if solo_lectura %}<div class="notice">Cambios de sede en modo lectura: el padrón imprimible ya fue generado o el estado de la elección no permite resolver solicitudes.</div>{% endif %}
 <fieldset class="configuracion-campos" {% if solo_lectura %}disabled{% endif %}>
-<section class="card management-section resolucion-masiva-layout">
+<section class="card management-section resolucion-masiva-layout" data-conservar-scroll>
   <div class="resolucion-masiva-acciones">
     <div class="section-title">
       <div>
@@ -122,7 +122,7 @@
 {% endif %}
 
 </fieldset>
-<section class="card management-section">
+<section class="card management-section" data-conservar-scroll>
   <form method="get" action="{% url 'gestionar-solicitudes-cambio-sede' eleccion.id %}" class="filtros-solicitudes" id="filtro-solicitudes" aria-label="Filtrar solicitudes">
     <div class="field">
       <label for="filtro-estado-solicitud">Estado</label>
@@ -177,5 +177,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module" src="{% static 'js/solicitudes-cambio-sede.js' %}?v=20261102.1"></script>
+<script type="module" src="{% static 'js/solicitudes-cambio-sede.js' %}?v=20261105.1"></script>
 {% endblock %}

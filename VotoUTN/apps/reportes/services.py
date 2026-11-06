@@ -140,13 +140,17 @@ def exportar_reporte_eleccion(eleccion, tipo):
                 escritor.writerow([valor_csv(valor) for valor in (error.nombre_archivo, detalle.fila, detalle.campo, detalle.mensaje)])
     elif tipo == "infractores":
         escritor.writerow(("elector", "legajo", "dni", "sede", "mesa", "estado_justificativo"))
+        # Un RegistroParticipacion es una ausencia registrada (QR del troquel escaneado o carga manual).
         ausentes = eleccion.registros_padron.filter(
             activo=True,
             asignacion_mesa__mesa__estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
-            participaciones__isnull=True,
+            participaciones__isnull=False,
         ).select_related("elector", "sede", "asignacion_mesa__mesa").distinct()
         for registro in ausentes:
-            justificativos = JustificativoAusencia.objects.filter(registro_padron=registro)
+            justificativos = JustificativoAusencia.objects.filter(
+                registro_padron=registro,
+                ausencia=JustificativoAusencia.Ausencia.VOTAR,
+            )
             if justificativos.filter(estado=JustificativoAusencia.Estado.APROBADO).exists():
                 continue
             estado_justificativo = "rechazado" if justificativos.filter(estado=JustificativoAusencia.Estado.RECHAZADO).exists() else "sin_justificativo"

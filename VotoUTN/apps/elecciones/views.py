@@ -54,6 +54,7 @@ from apps.usuarios.permisos import (
     puede_administrar_elecciones,
     puede_configurar_eleccion,
     puede_crear_elecciones,
+    puede_registrar_participacion,
     es_autoridad_en_eleccion_publicada_o_en_curso,
 )
 from apps.usuarios.models import AsignacionRol
@@ -271,6 +272,12 @@ def listar_elecciones(request):
             )
         )
         contexto["puede_confirmar_notificaciones_ausentes"] = puede_confirmar_ausentes
+        contexto["puede_registrar_mesas"] = (
+            eleccion_actual.estado == Eleccion.Estado.EN_CURSO
+            and eleccion_actual.habilitada
+            and puede_registrar_participacion(request.user, eleccion_actual)
+        )
+        contexto["filtros_tablero"] = request.GET.urlencode()
         contexto["periodo_justificacion_pendiente_habilitacion"] = periodo_pendiente_habilitacion
         contexto["fecha_minima_justificacion_electores"] = timezone.localdate()
     return render(request, "elecciones/list.html", contexto)
