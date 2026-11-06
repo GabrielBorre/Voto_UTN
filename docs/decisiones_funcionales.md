@@ -39,6 +39,19 @@
   a los electores ausentes y abre el período de justificativos hasta esa fecha.
   Si el escaneo ya se había confirmado sin abrir el período, el administrador
   puede definir el plazo posteriormente sin volver a generar notificaciones.
+- La pantalla de fechas administrativas muestra el período real de justificativos
+  electorales: su inicio es la fecha local de la primera notificación y su fin
+  es el plazo inclusivo ingresado al abrirlo. Antes de abrirlo, informa que la
+  fecha límite se solicitará al notificar las ausencias. No se configura ese
+  plazo como una fecha administrativa independiente; la definición genérica y
+  sus comunicaciones de calendario quedan inactivas sin eliminar su historial.
+- Mientras la elección siga En curso, el administrador de junta puede cambiar
+  el plazo desde Fechas administrativas, incluso después de su vencimiento. El
+  inicio no cambia; una fecha futura vuelve a habilitar la presentación. El
+  cambio requiere confirmación y genera nuevas notificaciones solo para
+  electores ausentes que no hayan presentado un justificativo electoral. Los
+  envíos previos se conservan como historial; los errores de correo se informan
+  sin revertir el plazo ni los envíos ya realizados.
 - Solo se puede presentar un justificativo electoral durante el período
   habilitado y si existe un registro de ausencia. La fecha límite configurada
   es inclusiva. Antes de finalizar la elección, al vencer el plazo la ausencia

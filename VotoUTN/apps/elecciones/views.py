@@ -15,6 +15,7 @@ from .forms import (
     FormularioDepartamentosClaustro,
     FormularioEleccion,
     FormularioEditarEleccion,
+    FormularioEditarPlazoJustificativosElectores,
     FormularioFechasAdministrativasEleccion,
     FormularioFechaLimiteJustificativosElectores,
     FormularioPublicarEleccion,
@@ -48,6 +49,7 @@ from apps.padron.services import (
 )
 from apps.justificativos.models import JustificativoAusencia
 from apps.notificaciones.services import (
+    actualizar_plazo_justificativos_electores,
     crear_notificaciones_ausentes_confirmadas,
     enviar_notificacion,
     notificar_eleccion_en_curso,
@@ -499,11 +501,77 @@ def gestionar_fechas_administrativas(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion) or eleccion.estado == Eleccion.Estado.FINALIZADA:
         return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
-    formulario_fechas = FormularioFechasAdministrativasEleccion(
-        request.POST if request.method == "POST" else None,
+    accion_editar_plazo = (
+        request.method == "POST"
+        and request.POST.get("accion") == "actualizar_plazo_justificativos"
+    )
+    formulario_plazo = FormularioEditarPlazoJustificativosElectores(
+        request.POST if accion_editar_plazo else None,
         eleccion=eleccion,
     )
-    if request.method == "POST" and formulario_fechas.is_valid():
+    if accion_editar_plazo:
+        if (
+            eleccion.estado != Eleccion.Estado.EN_CURSO
+            or not eleccion.notificaciones_ausentes_confirmadas_en
+            or not eleccion.justificacion_electores_habilitada_en
+        ):
+            return HttpResponseForbidden("El plazo solo puede modificarse después de abrir los justificativos.")
+        if formulario_plazo.is_valid():
+            try:
+                fecha_anterior, envios = actualizar_plazo_justificativos_electores(
+                    eleccion,
+                    formulario_plazo.cleaned_data["fecha_limite_justificacion_electores"],
+                )
+            except ValueError as error:
+                formulario_plazo.add_error("fecha_limite_justificacion_electores", str(error))
+            else:
+                enviados = sum(enviar_notificacion(envio) for envio in envios)
+                registrar_evento(
+                    accion="eleccion.plazo_justificativos_electores_modificado",
+                    entidad="Eleccion",
+                    entidad_id=eleccion.pk,
+                    eleccion=eleccion,
+                    usuario=request.user,
+                    request=request,
+                    datos_anteriores={
+                        "fecha_limite_justificacion_electores": (
+                            fecha_anterior.isoformat() if fecha_anterior else None
+                        ),
+                    },
+                    datos_nuevos={
+                        "fecha_limite_justificacion_electores": (
+                            formulario_plazo.cleaned_data[
+                                "fecha_limite_justificacion_electores"
+                            ].isoformat()
+                        ),
+                        "notificaciones_creadas": len(envios),
+                        "correos_enviados": enviados,
+                        "correos_no_enviados": len(envios) - enviados,
+                    },
+                )
+                if not envios:
+                    messages.success(
+                        request,
+                        "Se actualizó el plazo. No hay ausentes sin justificativo electoral para notificar.",
+                    )
+                elif enviados == len(envios):
+                    messages.success(
+                        request,
+                        f"Se actualizó el plazo y se notificó a {enviados} electores ausentes.",
+                    )
+                else:
+                    messages.warning(
+                        request,
+                        f"Se actualizó el plazo. Se notificó a {enviados} de {len(envios)} electores; "
+                        f"{len(envios) - enviados} correos no pudieron enviarse.",
+                    )
+                return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
+
+    formulario_fechas = FormularioFechasAdministrativasEleccion(
+        request.POST if request.method == "POST" and not accion_editar_plazo else None,
+        eleccion=eleccion,
+    )
+    if request.method == "POST" and not accion_editar_plazo and formulario_fechas.is_valid():
         formulario_fechas.guardar()
         messages.success(request, "Las fechas administrativas fueron actualizadas.")
         return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
@@ -514,6 +582,13 @@ def gestionar_fechas_administrativas(request, eleccion_id):
             "eleccion": eleccion,
             "formulario_fechas": formulario_fechas,
             "fechas_administrativas": contexto_fechas_administrativas(formulario_fechas),
+            "formulario_plazo": formulario_plazo,
+            "puede_editar_plazo_justificativos": (
+                eleccion.estado == Eleccion.Estado.EN_CURSO
+                and eleccion.notificaciones_ausentes_confirmadas_en is not None
+                and eleccion.justificacion_electores_habilitada_en is not None
+                and eleccion.fecha_limite_justificacion_electores is not None
+            ),
         },
     )
 

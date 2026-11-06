@@ -80,7 +80,6 @@ PUESTOS_ELECTIVOS = (
 )
 
 FECHAS = (
-    ("justificacion-ausencia-electoral", "Justificación ausencia electoral", "duracion", 30, ROL_ELECTOR, "electores_ausentes_confirmados", "ausencia_electoral"),
     ("justificacion-ausencia-autoridad", "Justificación ausencia autoridad", "duracion", 15, ROL_AUTORIDAD, "autoridades_ausentes_confirmadas", "ausencia_autoridad"),
     ("cambio-turno-autoridades", "Cambio turno autoridades", "duracion", 15, ROL_AUTORIDAD, "autoridades_asignadas", "designacion_autoridad"),
     ("capacitacion-obligatoria-autoridades", "Capacitación obligatoria autoridades", "fecha_unica", None, ROL_AUTORIDAD, "autoridades_asignadas", "capacitacion_autoridad"),
@@ -116,9 +115,6 @@ PLANTILLAS = (
 )
 
 COMUNICACIONES = (
-    ("justificacion-ausencia-electoral", "apertura", "Apertura", "inicio", 0, (("ausencia-electoral-apertura", "", 1),)),
-    ("justificacion-ausencia-electoral", "recordatorio", "Recordatorio intermedio", "inicio", 14, (("ausencia-electoral-recordatorio", "sin_solicitud_presentada", 1),)),
-    ("justificacion-ausencia-electoral", "ultimo-dia", "Último día", "fin", 0, (("ausencia-electoral-ultimo-dia", "sin_solicitud_presentada", 1),)),
     ("justificacion-ausencia-autoridad", "apertura", "Apertura", "inicio", 0, (("ausencia-autoridad-apertura", "", 1),)),
     ("justificacion-ausencia-autoridad", "ultimo-dia", "Último día", "fin", 0, (("ausencia-autoridad-ultimo-dia", "sin_solicitud_presentada", 1),)),
     ("cambio-turno-autoridades", "designacion", "Designación", "inicio", 0, (("autoridad-designacion", "", 1),)),

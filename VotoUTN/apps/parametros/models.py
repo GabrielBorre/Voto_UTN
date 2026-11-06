@@ -5,6 +5,7 @@ from django.db import models
 CODIGOS_FECHAS_ADMINISTRATIVAS_RETIRADAS = (
     "exhibicion-padron-provisorio",
     "publicacion-padron-definitivo",
+    "justificacion-ausencia-electoral",
 )
 
 

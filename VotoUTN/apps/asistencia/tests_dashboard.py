@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -10,7 +11,10 @@ from apps.asistencia.models import RegistroParticipacion
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EleccionSede
 from apps.elecciones.views import MESAS_POR_PAGINA
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
+from apps.justificativos.services import puede_presentar_justificativo_electoral
 from apps.mesas.models import AsignacionMesa, Mesa
+from apps.notificaciones.models import EnvioNotificacion
+from apps.notificaciones.services import crear_notificaciones_ausentes_confirmadas
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
@@ -70,6 +74,131 @@ class DashboardParticipacionTests(TestCase):
 
     def pendientes(self, datos):
         return [mesa.numero for mesa in datos["mesas"] if mesa.estado_escaneo != Mesa.EstadoEscaneo.PROCESADA]
+
+    def test_fechas_administrativas_muestra_aviso_y_luego_el_periodo_real(self):
+        administrador = get_user_model().objects.create_user(username="admin-periodo-fechas")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(administrador)
+        url = reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,))
+
+        antes = self.client.get(url)
+        self.assertContains(
+            antes,
+            "Se definirá próximamente. Será solicitada la fecha límite al notificar las ausencias electorales.",
+        )
+        self.assertNotContains(antes, "Modificar fecha límite")
+
+        inicio = timezone.now() - timedelta(days=2)
+        limite = timezone.localdate() + timedelta(days=5)
+        self.eleccion.notificaciones_ausentes_confirmadas_en = inicio
+        self.eleccion.justificacion_electores_habilitada_en = inicio
+        self.eleccion.fecha_limite_justificacion_electores = limite
+        self.eleccion.save(update_fields=(
+            "notificaciones_ausentes_confirmadas_en",
+            "justificacion_electores_habilitada_en",
+            "fecha_limite_justificacion_electores",
+        ))
+
+        despues = self.client.get(url)
+
+        self.assertContains(despues, inicio.strftime("%d/%m/%Y"))
+        self.assertContains(despues, limite.strftime("%d/%m/%Y"))
+        self.assertContains(despues, "Modificar fecha límite")
+        self.assertContains(despues, "Confirmar y notificar")
+
+    def test_editar_plazo_preserva_inicio_y_notifica_solo_ausentes_sin_justificativo_electoral(self):
+        administrador = get_user_model().objects.create_user(username="admin-edita-periodo")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(administrador)
+        for registro, mesa in (
+            (self.registros_a[0], self.mesa_a),
+            (self.registros_a[1], self.mesa_a),
+            (self.registros_b[0], self.mesa_b),
+            (self.registros_b[1], self.mesa_b),
+        ):
+            self.registrar_participacion(registro, mesa)
+
+        fecha_inicial = timezone.localdate() + timedelta(days=3)
+        envios_iniciales = crear_notificaciones_ausentes_confirmadas(self.eleccion, fecha_inicial)
+        self.eleccion.refresh_from_db()
+        inicio_original = self.eleccion.justificacion_electores_habilitada_en
+        ids_envios_iniciales = [envio.pk for envio in envios_iniciales]
+        self.assertEqual(len(ids_envios_iniciales), 4)
+
+        tipo_electoral = TipoJustificativo.objects.create(nombre="Justificativo electoral")
+        JustificativoAusencia.objects.create(
+            registro_padron=self.registros_a[0],
+            ausencia=JustificativoAusencia.Ausencia.VOTAR,
+            tipo=tipo_electoral,
+            detalle="Ya presentó justificativo electoral.",
+        )
+        tipo_autoridad = TipoJustificativo.objects.create(nombre="Justificativo autoridad")
+        JustificativoAusencia.objects.create(
+            registro_padron=self.registros_b[0],
+            ausencia=JustificativoAusencia.Ausencia.AUTORIDAD,
+            tipo=tipo_autoridad,
+            detalle="Solo justificó su ausencia como autoridad.",
+        )
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(
+            fecha_limite_justificacion_electores=timezone.localdate() - timedelta(days=1),
+        )
+        nueva_fecha = timezone.localdate() + timedelta(days=8)
+        url = reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,))
+
+        with patch(
+            "apps.notificaciones.services.send_mail",
+            side_effect=[1, 0, 1],
+        ), self.assertLogs("apps.notificaciones.services", level="WARNING"):
+            respuesta = self.client.post(url, {
+                "accion": "actualizar_plazo_justificativos",
+                "fecha_limite_justificacion_electores": nueva_fecha.isoformat(),
+            }, follow=True)
+
+        self.assertRedirects(respuesta, url, fetch_redirect_response=False)
+        self.assertContains(respuesta, "Se notificó a 2 de 3 electores")
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.fecha_limite_justificacion_electores, nueva_fecha)
+        self.assertEqual(self.eleccion.justificacion_electores_habilitada_en, inicio_original)
+        self.assertTrue(puede_presentar_justificativo_electoral(self.registros_a[1]))
+        nuevos_envios = EnvioNotificacion.objects.exclude(pk__in=ids_envios_iniciales)
+        self.assertEqual(nuevos_envios.count(), 3)
+        self.assertEqual(
+            nuevos_envios.filter(estado=EnvioNotificacion.Estado.ERROR).count(),
+            1,
+        )
+        self.assertSetEqual(
+            set(nuevos_envios.values_list("elector_id", flat=True)),
+            {
+                self.registros_a[1].elector_id,
+                self.registros_b[0].elector_id,
+                self.registros_b[1].elector_id,
+            },
+        )
+        aviso_anterior = EnvioNotificacion.objects.get(pk=ids_envios_iniciales[0])
+        self.assertIn(fecha_inicial.strftime("%d/%m/%Y"), aviso_anterior.contenido)
+
+    def test_elector_no_puede_modificar_el_plazo_desde_fechas_administrativas(self):
+        self.client.force_login(self.administrativo)
+
+        respuesta = self.client.post(
+            reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,)),
+            {
+                "accion": "actualizar_plazo_justificativos",
+                "fecha_limite_justificacion_electores": (
+                    timezone.localdate() + timedelta(days=4)
+                ).isoformat(),
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 403)
 
     def test_calcula_porcentajes_y_mesas_pendientes(self):
         self.registrar_participacion(self.registros_a[0], self.mesa_a)
