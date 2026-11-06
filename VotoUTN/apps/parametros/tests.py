@@ -86,11 +86,12 @@ class CatalogosEstandarTests(TestCase):
         )
         self.assertEqual(Turno.objects.count(), 3)
         self.assertEqual(Departamento.objects.count(), 10)
-        self.assertEqual(FechaAdministrativa.objects.count(), 4)
+        self.assertEqual(FechaAdministrativa.objects.count(), 3)
         self.assertFalse(FechaAdministrativa.objects.filter(
             codigo__in=(
                 "exhibicion-padron-provisorio",
                 "publicacion-padron-definitivo",
+                "justificacion-ausencia-electoral",
             ),
         ).exists())
         self.assertEqual(PlantillaNotificacion.objects.count(), 26)
@@ -138,6 +139,25 @@ class CatalogosEstandarTests(TestCase):
         comunicacion.refresh_from_db()
         self.assertFalse(fecha.activa)
         self.assertFalse(comunicacion.activa)
+
+        fecha_justificativos = FechaAdministrativa.objects.create(
+            codigo="justificacion-ausencia-electoral",
+            nombre="Justificación ausencia electoral",
+            activa=False,
+        )
+        comunicacion_justificativos = ComunicacionFechaAdministrativa.objects.create(
+            fecha_administrativa=fecha_justificativos,
+            codigo="apertura",
+            nombre="Apertura de justificativos",
+            activa=False,
+        )
+
+        call_command("cargar_parametros_estandar", stdout=StringIO())
+
+        fecha_justificativos.refresh_from_db()
+        comunicacion_justificativos.refresh_from_db()
+        self.assertFalse(fecha_justificativos.activa)
+        self.assertFalse(comunicacion_justificativos.activa)
 
 
 class ValidacionesCatalogosTests(TestCase):

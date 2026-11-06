@@ -85,22 +85,30 @@ class CicloConfiguracionTests(TestCase):
         )
 
     def test_fechas_retiradas_no_se_muestran_y_conservan_programaciones_existentes(self):
-        definicion = FechaAdministrativa.objects.create(
-            codigo="exhibicion-padron-provisorio",
-            nombre="Exhibición del padrón provisorio",
-        )
-        programacion = FechaAdministrativaEleccion.objects.create(
-            eleccion=self.eleccion,
-            fecha_administrativa=definicion,
-            fecha=self.eleccion.fecha_inicio,
-        )
+        definiciones = [
+            FechaAdministrativa.objects.create(codigo=codigo, nombre=nombre)
+            for codigo, nombre in (
+                ("exhibicion-padron-provisorio", "Exhibición del padrón provisorio"),
+                ("justificacion-ausencia-electoral", "Justificación ausencia electoral"),
+            )
+        ]
+        programaciones = [
+            FechaAdministrativaEleccion.objects.create(
+                eleccion=self.eleccion,
+                fecha_administrativa=definicion,
+                fecha=self.eleccion.fecha_inicio,
+            )
+            for definicion in definiciones
+        ]
         formulario = FormularioFechasAdministrativasEleccion(data={}, eleccion=self.eleccion)
 
-        self.assertNotIn(f"fecha_{definicion.pk}_seleccionada", formulario.fields)
+        for definicion in definiciones:
+            self.assertNotIn(f"fecha_{definicion.pk}_seleccionada", formulario.fields)
         self.assertTrue(formulario.is_valid())
         formulario.guardar()
 
-        self.assertTrue(FechaAdministrativaEleccion.objects.filter(pk=programacion.pk).exists())
+        for programacion in programaciones:
+            self.assertTrue(FechaAdministrativaEleccion.objects.filter(pk=programacion.pk).exists())
 
     def test_publicacion_solicita_ambos_plazos_en_dialogo(self):
         respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))

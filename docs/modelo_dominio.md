@@ -33,7 +33,10 @@ destinatarios y evento sugerido. La fecha concreta por elección continúa en
 
 `Eleccion` conserva `justificacion_electores_habilitada_en`, que registra el
 momento en que se abre la carga de justificativos de electores. La apertura se
-realizará desde la web después de completar el escaneo de todas las mesas.
+realiza desde la web después de completar el escaneo de todas las mesas. Ese
+momento y `fecha_limite_justificacion_electores` son la fuente del período
+mostrado en Fechas administrativas; su plazo puede modificarse sin alterar el
+inicio registrado.
 
 Regla de unicidad del ciclo de vida: como máximo una `Eleccion` puede estar en
 estado `en_preparacion`, `publicada` o `en_curso` considerando esos estados como un

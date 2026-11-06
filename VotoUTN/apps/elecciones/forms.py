@@ -44,6 +44,31 @@ class FormularioFechaLimiteJustificativosElectores(forms.Form):
         return fecha
 
 
+class FormularioEditarPlazoJustificativosElectores(forms.Form):
+    fecha_limite_justificacion_electores = forms.DateField(
+        label="Último día para presentar justificativos",
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
+    def __init__(self, *args, eleccion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eleccion = eleccion
+        self.fields["fecha_limite_justificacion_electores"].initial = (
+            eleccion.fecha_limite_justificacion_electores
+        )
+        self.fields["fecha_limite_justificacion_electores"].widget.attrs["min"] = (
+            timezone.localdate().isoformat()
+        )
+
+    def clean_fecha_limite_justificacion_electores(self):
+        fecha = self.cleaned_data["fecha_limite_justificacion_electores"]
+        if fecha < timezone.localdate():
+            raise forms.ValidationError("La fecha límite no puede ser anterior a hoy.")
+        if fecha == self.eleccion.fecha_limite_justificacion_electores:
+            raise forms.ValidationError("La fecha límite nueva debe ser diferente de la actual.")
+        return fecha
+
+
 class FormularioEleccion(forms.ModelForm):
     sedes = forms.ModelMultipleChoiceField(queryset=Sede.objects.none(), widget=forms.CheckboxSelectMultiple)
     claustros = forms.ModelMultipleChoiceField(queryset=Claustro.objects.none(), widget=forms.CheckboxSelectMultiple)
