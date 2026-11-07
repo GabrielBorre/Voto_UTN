@@ -77,8 +77,9 @@ de confirmar autoridades.
 
 ## Confirmación y justificativos
 
-1. Completá la cobertura, cerrá el plazo y resolvé todas las solicitudes de
-   cambio de sede. Confirmá las autoridades y fijá el plazo para justificar.
+1. Completá la cobertura y resolvé todas las solicitudes de cambio de sede.
+   Confirmá las autoridades y fijá el plazo para justificar. La confirmación
+   cierra nuevas solicitudes aunque la fecha de cierre todavía no haya pasado.
 2. Ingresá con `alumnocg`, si Carlos quedó asignado, y presentá un justificativo
    por imposibilidad de ser autoridad. Desde la Junta, aprobalo y revisá la mesa
    afectada en el listado de Autoridades.

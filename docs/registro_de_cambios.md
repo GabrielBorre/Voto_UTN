@@ -1,5 +1,11 @@
 # Registro de cambios por etapa
 
+## Autoridades y plazos para demostraciones
+
+- La Junta puede confirmar autoridades antes del vencimiento del plazo de cambios de sede si no quedan solicitudes pendientes. La confirmación cierra nuevas solicitudes y la interfaz lo informa.
+- Publicar no exige turnos de autoridad provisorios; siguen siendo necesarios para iniciar la elección.
+- Las confirmaciones de autoridades utilizan el modal interno de la aplicación; cancelar no envía los formularios y se conserva la acción elegida al confirmar.
+
 Este documento registra cambios aplicados al proyecto. Describe los archivos y el efecto de cada cambio; no reemplaza el historial de Git ni las migraciones de Django.
 
 ## Exportación de infractores alineada con el registro de ausencias

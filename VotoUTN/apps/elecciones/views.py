@@ -412,7 +412,7 @@ def configurar_eleccion(request, eleccion_id):
         return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
     pendientes_configuracion = []
     try:
-        eleccion.validar_configuracion()
+        eleccion.validar_configuracion(validar_turnos=eleccion.estado == Eleccion.Estado.EN_CURSO)
     except ValidationError as error:
         pendientes_configuracion = error.messages
     estados = [

@@ -39,16 +39,27 @@ class ConfirmacionAutoridadesTests(TestCase):
         ConfiguracionAutoridades.objects.create(eleccion_claustro=self.eleccion_claustro, modo="aleatorio")
         distribuir(self.eleccion_claustro, self.usuario)
 
-    def test_exige_resolver_solicitudes_y_fin_de_plazo(self):
+    def test_exige_resolver_solicitudes_aunque_el_plazo_este_abierto(self):
         limite = timezone.localdate() + timedelta(days=3)
-        Eleccion.objects.filter(pk=self.eleccion.pk).update(fecha_cierre_solicitudes_cambio_sede=timezone.localdate())
-        with self.assertRaisesMessage(ValidationError, "plazo"):
-            confirmar_autoridades(self.eleccion.pk, self.usuario, limite)
-        Eleccion.objects.filter(pk=self.eleccion.pk).update(fecha_cierre_solicitudes_cambio_sede=timezone.localdate() - timedelta(days=1))
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(fecha_cierre_solicitudes_cambio_sede=limite)
         SolicitudCambioSede.objects.create(registro_padron=self.registros[1], sede_origen=self.sede_votacion, sede_destino=self.sede)
         with self.assertRaisesMessage(ValidationError, "solicitudes"):
             confirmar_autoridades(self.eleccion.pk, self.usuario, limite)
         self.assertFalse(EnvioNotificacion.objects.filter(plantilla__codigo="autoridad-convocatoria-definitiva").exists())
+
+    def test_confirma_con_plazo_futuro_y_cierra_nuevas_solicitudes(self):
+        from apps.padron.services import solicitudes_cambio_sede_habilitadas
+
+        limite = timezone.localdate() + timedelta(days=3)
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(fecha_cierre_solicitudes_cambio_sede=limite)
+        self.eleccion.refresh_from_db()
+        self.assertTrue(solicitudes_cambio_sede_habilitadas(self.eleccion))
+        with patch("apps.notificaciones.services.enviar_notificacion"):
+            confirmar_autoridades(self.eleccion.pk, self.usuario, limite)
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.fecha_cierre_solicitudes_cambio_sede, limite)
+        self.assertTrue(self.eleccion.autoridades_confirmadas_en)
+        self.assertFalse(solicitudes_cambio_sede_habilitadas(self.eleccion))
 
     def test_no_confirma_si_hay_electores_sin_mesa(self):
         from apps.mesas.models import AsignacionMesa

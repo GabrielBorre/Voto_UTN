@@ -468,20 +468,18 @@ class CicloDeVidaEleccionTests(TestCase):
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.FINALIZADA)
         self.assertFalse(self.eleccion.habilitada)
 
-    def test_preparar_y_abrir_siguen_exigiendo_turnos_de_autoridades(self):
+    def test_publicar_no_exige_turnos_pero_iniciar_si(self):
         self.eleccion_claustro.turnos_autoridad.all().delete()
         Mesa.objects.create(eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion, sede=self.sede)
-        for estado_actual, estado_destino in (
-            (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA),
-            (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO),
-        ):
-            with self.subTest(estado_destino=estado_destino):
-                self.eleccion.estado = estado_actual
-                self.eleccion.save(update_fields=("estado",))
-                with self.assertRaisesMessage(ValidationError, "Cada claustro debe tener al menos un turno"):
-                    self.eleccion.cambiar_estado(estado_destino)
-                self.eleccion.refresh_from_db()
-                self.assertEqual(self.eleccion.estado, estado_actual)
+        RegistroPadron.objects.create(
+            elector=Elector.objects.create(dni="40180009", legajo="40180009", nombre="Elector ciclo"),
+            eleccion=self.eleccion, eleccion_claustro_departamento=self.configuracion,
+        )
+        self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
+        with self.assertRaisesMessage(ValidationError, "configurá los turnos y asigná autoridades de mesa"):
+            self.eleccion.cambiar_estado(Eleccion.Estado.EN_CURSO)
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
 
     def test_no_permite_quitar_una_sede_utilizada_por_mesas(self):
         otra_sede = Sede.objects.create(nombre="Sede B")

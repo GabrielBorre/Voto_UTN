@@ -123,7 +123,7 @@ class CicloConfiguracionTests(TestCase):
                 # La publicación no elimina las validaciones para iniciar la elección.
 
     def test_publicacion_fallida_no_guarda_plazos(self):
-        self.configuracion.turnos_autoridad.all().delete()
+        self.configuracion.sedes_habilitadas.all().delete()
         self.client.post(reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {
             "estado": "publicada",
             "fecha_cierre_solicitudes_cambio_sede": "2026-10-01",
@@ -133,6 +133,25 @@ class CicloConfiguracionTests(TestCase):
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.EN_PREPARACION)
         self.assertIsNone(self.eleccion.fecha_cierre_solicitudes_cambio_sede)
         self.assertIsNone(self.eleccion.fecha_limite_justificacion_autoridades)
+
+    def test_puede_publicar_sin_turnos_provisorios_y_no_muestra_advertencia(self):
+        self.configuracion.turnos_autoridad.all().delete()
+        respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))
+        self.assertNotContains(respuesta, "configurá los turnos y asigná autoridades de mesa")
+        self.client.post(reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {
+            "estado": "publicada",
+            "fecha_cierre_solicitudes_cambio_sede": (timezone.localdate() + timedelta(days=3)).isoformat(),
+        })
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
+
+    def test_no_inicia_eleccion_sin_turnos_configurados(self):
+        from django.core.exceptions import ValidationError
+
+        self.configuracion.turnos_autoridad.all().delete()
+        self.estado(Eleccion.Estado.PUBLICADA)
+        with self.assertRaisesMessage(ValidationError, "configurá los turnos y asigná autoridades de mesa"):
+            self.eleccion.cambiar_estado(Eleccion.Estado.EN_CURSO)
 
     def test_publicacion_permite_definir_plazo_de_autoridades_mas_adelante(self):
         limite = timezone.localdate() + timedelta(days=1)

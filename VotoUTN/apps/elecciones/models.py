@@ -73,7 +73,7 @@ class Eleccion(models.Model):
             raise ValidationError("La elección debe tener sedes y claustros configurados.")
         for eleccion_claustro in self.elecciones_claustro.all():
             if validar_turnos and not eleccion_claustro.turnos_autoridad.exists():
-                raise ValidationError("Cada claustro debe tener al menos un turno de autoridades configurado.")
+                raise ValidationError("Para pasar a En curso, configurá los turnos y asigná autoridades de mesa en cada claustro.")
             if not eleccion_claustro.sedes_habilitadas.exists():
                 raise ValidationError("Cada claustro debe tener al menos una sede habilitada.")
             for configuracion in eleccion_claustro.departamentos.all():
@@ -91,7 +91,7 @@ class Eleccion(models.Model):
         if transiciones.get(self.estado) != nuevo_estado:
             raise ValidationError("La transicion de estado solicitada no esta permitida.")
         self._validar_estado_unico(nuevo_estado)
-        self.validar_configuracion(validar_turnos=nuevo_estado != self.Estado.FINALIZADA)
+        self.validar_configuracion(validar_turnos=nuevo_estado == self.Estado.EN_CURSO)
         if nuevo_estado == self.Estado.EN_CURSO and not self.mesas.exists():
             raise ValidationError("La eleccion debe tener al menos una mesa antes de iniciarse.")
         if nuevo_estado == self.Estado.EN_CURSO:

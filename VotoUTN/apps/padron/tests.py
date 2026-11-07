@@ -2011,7 +2011,7 @@ class SolicitudCambioSedeTests(TestCase):
         self.assertRedirects(respuesta, f"{url}?estado=pendiente", fetch_redirect_response=False)
 
     def test_resolucion_individual_descarta_un_filtro_de_estado_invalido(self):
-        url, respuesta, solicitud = self._resolver_individual("aprobar", "?estado=otro&x=1")
+        url, respuesta, solicitud = self._resolver_individual("rechazar", "?estado=otro&x=1")
 
-        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.APROBADA)
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.RECHAZADA)
         self.assertRedirects(respuesta, url, fetch_redirect_response=False)
