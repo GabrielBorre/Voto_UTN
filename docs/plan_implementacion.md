@@ -59,8 +59,8 @@ previsualiza antes de confirmarse; conserva las designaciones existentes y
 permite reordenar padrones y mesas según las opciones de movilidad. Se eliminan
 las suplencias de mesa y una vacante puede cubrirse mediante una propuesta de
 traslado de un titular que debe confirmar la Junta. La confirmación definitiva
-requiere que termine el plazo de cambios de sede y no haya solicitudes pendientes;
-establece el plazo de justificación, registra y envía convocatorias y bloquea la
+requiere que no haya solicitudes de cambio de sede pendientes, sin esperar al vencimiento del plazo;
+cierra nuevas solicitudes, establece el plazo de justificación, registra y envía convocatorias y bloquea la
 edición general. El inicio exige resolver los justificativos pendientes
 de autoridades y los traslados respetan el mínimo configurado por mesa y turno.
 El recálculo y la aprobación de cambios de sede muestran movimientos y vacantes

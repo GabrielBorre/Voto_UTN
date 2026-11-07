@@ -18,8 +18,6 @@ def confirmar_autoridades(eleccion_id, usuario, fecha_limite):
         raise PermissionDenied("Solo la Junta puede confirmar autoridades.")
     if eleccion.estado != Eleccion.Estado.PUBLICADA or eleccion.autoridades_confirmadas_en:
         raise ValidationError("Solo se pueden confirmar autoridades una vez, mientras la elección está publicada.")
-    if not eleccion.fecha_cierre_solicitudes_cambio_sede or timezone.localdate() <= eleccion.fecha_cierre_solicitudes_cambio_sede:
-        raise ValidationError("Debe haber finalizado el plazo para solicitar cambios de sede.")
     if SolicitudCambioSede.objects.filter(registro_padron__eleccion=eleccion, estado=SolicitudCambioSede.Estado.PENDIENTE).exists():
         raise ValidationError("Resolvé todas las solicitudes de cambio de sede pendientes.")
     if eleccion.registros_padron.filter(activo=True, asignacion_mesa__isnull=True).exists():

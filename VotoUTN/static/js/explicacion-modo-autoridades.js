@@ -8,13 +8,6 @@ const botonRecalcular = document.querySelector("[data-boton-recalcular]");
 const formularioModo = document.querySelector("#formulario-modo-autoridades");
 const selectorTurnos = document.querySelector("input[name='configuracion-turnos']")?.form;
 
-formularioModo?.addEventListener("submit", (evento) => {
-  if (formularioModo.dataset.provisoria === "1" && evento.submitter?.name === "aplicar-modo" && selectorModo?.value === "aleatorio" &&
-      !confirm("Este sorteo es provisorio y puede cambiar antes de la confirmación definitiva. ¿Querés aplicarlo?")) {
-    evento.preventDefault();
-  }
-});
-
 for (const boton of document.querySelectorAll("[data-detalle-mesa]")) {
   boton.addEventListener("click", () => {
     const detalle = document.getElementById(boton.dataset.detalleMesa);
@@ -69,6 +62,15 @@ if (selectorModo && explicaciones.length) {
         accionesModo.prepend(botonAplicar);
       }
       botonAplicar.textContent = textoAplicar;
+      if (formularioModo?.dataset.provisoria === "1" && selectorModo.value === "aleatorio") {
+        botonAplicar.dataset.confirm = "Este sorteo es provisorio y puede cambiar antes de la confirmación definitiva. ¿Querés aplicarlo?";
+        botonAplicar.dataset.confirmTitle = "Sorteo provisorio";
+        botonAplicar.dataset.confirmAccept = "Aplicar sorteo";
+      } else {
+        delete botonAplicar.dataset.confirm;
+        delete botonAplicar.dataset.confirmTitle;
+        delete botonAplicar.dataset.confirmAccept;
+      }
     }
     if (botonRecalcular) {
       botonRecalcular.hidden = selectorModo.value !== formularioModo?.dataset.modoGuardado;
