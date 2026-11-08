@@ -4,6 +4,7 @@ from urllib.parse import parse_qs, urlparse
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils.formats import date_format
 from django.utils import timezone
 
 from apps.autoridades.models import AsignacionAutoridad
@@ -515,6 +516,44 @@ class InicioElectorTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, mesa.codigo)
         self.assertNotContains(respuesta, "Será asignada próximamente")
+
+    def test_oculta_tarjetas_de_periodos_sin_fecha_limite(self):
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertNotContains(respuesta, "Eximición de autoridades de mesa")
+        self.assertNotContains(respuesta, "Justificación de inasistencia electoral")
+        self.assertNotContains(respuesta, "Solicitud de cambio de sede")
+        self.assertNotContains(respuesta, "A confirmar")
+
+    def test_muestra_titulo_y_fecha_limite_solo_de_periodos_iniciados(self):
+        fecha_inicio = timezone.now()
+        limite_eximicion = timezone.localdate() + timedelta(days=4)
+        limite_justificativo = timezone.localdate() + timedelta(days=5)
+        limite_cambio_sede = timezone.localdate() + timedelta(days=2)
+        self.eleccion_en_curso.autoridades_confirmadas_en = fecha_inicio
+        self.eleccion_en_curso.fecha_limite_justificacion_autoridades = limite_eximicion
+        self.eleccion_en_curso.justificacion_electores_habilitada_en = fecha_inicio
+        self.eleccion_en_curso.fecha_limite_justificacion_electores = limite_justificativo
+        self.eleccion_en_curso.solicitudes_cambio_sede_habilitadas_en = fecha_inicio
+        self.eleccion_en_curso.fecha_cierre_solicitudes_cambio_sede = limite_cambio_sede
+        self.eleccion_en_curso.save(update_fields=(
+            "autoridades_confirmadas_en",
+            "fecha_limite_justificacion_autoridades",
+            "justificacion_electores_habilitada_en",
+            "fecha_limite_justificacion_electores",
+            "solicitudes_cambio_sede_habilitadas_en",
+            "fecha_cierre_solicitudes_cambio_sede",
+        ))
+        self.crear_asignacion_autoridad(self.registro_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+
+        self.assertContains(respuesta, "Eximición de autoridades de mesa")
+        self.assertContains(respuesta, "Justificación de inasistencia electoral")
+        self.assertContains(respuesta, "Solicitud de cambio de sede")
+        for fecha in (limite_eximicion, limite_justificativo, limite_cambio_sede):
+            self.assertContains(respuesta, date_format(fecha, "j \\d\\e F \\d\\e Y"))
+        self.assertNotContains(respuesta, "A confirmar")
 
     def test_muestra_la_situacion_electoral_calculada_por_el_historial(self):
         url = reverse("inicio-autenticado")
