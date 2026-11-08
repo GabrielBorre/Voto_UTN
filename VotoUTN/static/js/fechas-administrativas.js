@@ -23,3 +23,36 @@ if (formulario && botonAbrir && dialogo && botonCancelar && fecha && fechaConfir
   fecha.addEventListener("change", mostrarFechaConfirmacion);
   botonCancelar.addEventListener("click", () => dialogo.close());
 }
+
+const formularioCambioSede = document.getElementById("formulario-editar-plazo-cambio-sede");
+const botonAbrirCambioSede = document.getElementById("abrir-dialogo-editar-plazo-cambio-sede");
+const dialogoCambioSede = document.getElementById("dialogo-editar-plazo-cambio-sede");
+const botonCancelarCambioSede = document.getElementById("cancelar-dialogo-editar-plazo-cambio-sede");
+const fechaCambioSede = document.getElementById("id_fecha_cierre_solicitudes_cambio_sede");
+const fechaConfirmacionCambioSede = document.getElementById("nueva-fecha-limite-cambio-sede");
+
+function mostrarFechaCambioSede() {
+  if (!fechaCambioSede.value) {
+  fechaConfirmacionCambioSede.textContent = "";
+  return;
+  }
+  const [anio, mes, dia] = fechaCambioSede.value.split("-");
+  fechaConfirmacionCambioSede.textContent = `${dia}/${mes}/${anio}`;
+}
+
+if (
+  formularioCambioSede
+  && botonAbrirCambioSede
+  && dialogoCambioSede
+  && botonCancelarCambioSede
+  && fechaCambioSede
+  && fechaConfirmacionCambioSede
+) {
+  botonAbrirCambioSede.addEventListener("click", () => {
+  if (!formularioCambioSede.reportValidity()) return;
+  mostrarFechaCambioSede();
+  dialogoCambioSede.showModal();
+  });
+  fechaCambioSede.addEventListener("change", mostrarFechaCambioSede);
+  botonCancelarCambioSede.addEventListener("click", () => dialogoCambioSede.close());
+}

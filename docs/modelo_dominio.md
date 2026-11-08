@@ -38,6 +38,12 @@ momento y `fecha_limite_justificacion_electores` son la fuente del período
 mostrado en Fechas administrativas; su plazo puede modificarse sin alterar el
 inicio registrado.
 
+`Eleccion` conserva `solicitudes_cambio_sede_habilitadas_en`, el momento en que
+pasa a estado Publicada, y `fecha_cierre_solicitudes_cambio_sede`, la fecha
+límite solicitada al publicar. El límite puede editarse desde Fechas
+administrativas hasta confirmar las autoridades; esa confirmación cierra el
+período y deja sus fechas en modo informativo.
+
 Regla de unicidad del ciclo de vida: como máximo una `Eleccion` puede estar en
 estado `en_preparacion`, `publicada` o `en_curso` considerando esos estados como un
 único grupo. Puede haber varias elecciones `finalizada`.

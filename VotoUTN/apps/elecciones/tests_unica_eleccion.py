@@ -55,6 +55,14 @@ class EleccionUnicaNoCerradaTests(TestCase):
         self.assertIn("fecha_cierre_solicitudes_cambio_sede", formulario_publicacion.fields)
         self.assertTrue(formulario_publicacion.fields["fecha_cierre_solicitudes_cambio_sede"].required)
 
+    def test_formulario_editar_muestra_fechas_persistidas_y_no_incluye_plazo_de_autoridades(self):
+        eleccion = self.crear_eleccion("Eleccion en preparación", Eleccion.Estado.EN_PREPARACION)
+        formulario = FormularioEditarEleccion(instance=eleccion)
+
+        self.assertNotIn("fecha_limite_justificacion_autoridades", formulario.fields)
+        self.assertIn('value="2026-10-07"', str(formulario["fecha_inicio"]))
+        self.assertIn('value="2026-10-08"', str(formulario["fecha_fin"]))
+
     def test_formulario_rechaza_crear_otra_eleccion_no_cerrada(self):
         self.crear_eleccion("Eleccion existente", Eleccion.Estado.EN_CURSO)
         sede = Sede.objects.create(nombre="Sede de prueba")
