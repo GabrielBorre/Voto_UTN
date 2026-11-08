@@ -76,6 +76,65 @@
     {% endif %}
   {% endif %}
 </section>
+<section class="card form-card" aria-labelledby="periodo-eximicion-autoridades-titulo">
+  <div class="section-title">
+    <div>
+      <h2 id="periodo-eximicion-autoridades-titulo">Eximición de autoridades de mesa</h2>
+      <p>Apertura del período de justificación</p>
+    </div>
+    <span class="tag">Período de eximición</span>
+  </div>
+  {% if eleccion.autoridades_confirmadas_en %}
+    <p><strong>Desde:</strong> {{ eleccion.autoridades_confirmadas_en|date:"d/m/Y" }}</p>
+    {% if eleccion.fecha_limite_justificacion_autoridades %}
+      <p><strong>Hasta (inclusive):</strong> {{ eleccion.fecha_limite_justificacion_autoridades|date:"d/m/Y" }}</p>
+    {% else %}
+      <p class="muted">La fecha límite todavía no fue definida.</p>
+    {% endif %}
+    {% if puede_editar_plazo_eximicion %}
+      <div class="plazo-actual">
+        <div class="plazo-actual__linea">
+          <span class="plazo-actual__texto">La fecha límite puede modificarse mientras la elección siga publicada.</span>
+          <details class="plazo-edicion"{% if formulario_plazo_eximicion.errors %} open{% endif %}>
+            <summary class="plazo-edicion__activador" aria-label="Editar fecha límite de eximición" title="Editar fecha límite">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path>
+              </svg>
+            </summary>
+            <div class="plazo-edicion__contenido">
+              <form method="post" id="formulario-editar-plazo-eximicion">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="actualizar_plazo_eximicion_autoridades">
+                <h3>Modificar fecha límite</h3>
+                <div class="field">
+                  <label for="{{ formulario_plazo_eximicion.fecha_limite_justificacion_autoridades.id_for_label }}">
+                    {{ formulario_plazo_eximicion.fecha_limite_justificacion_autoridades.label }}
+                  </label>
+                  {{ formulario_plazo_eximicion.fecha_limite_justificacion_autoridades }}
+                  {% for error in formulario_plazo_eximicion.fecha_limite_justificacion_autoridades.errors %}<div class="error">{{ error }}</div>{% endfor %}
+                </div>
+                <button class="button secondary btn_editar_plazo" type="button" id="abrir-dialogo-editar-plazo-eximicion">Modificar fecha límite</button>
+                <dialog class="utn-dialogo" id="dialogo-editar-plazo-eximicion" aria-labelledby="titulo-dialogo-editar-plazo-eximicion" aria-describedby="ayuda-dialogo-editar-plazo-eximicion">
+                  <h2 id="titulo-dialogo-editar-plazo-eximicion">Confirmar cambio de fecha</h2>
+                  <p id="ayuda-dialogo-editar-plazo-eximicion">¿Confirmás modificar la fecha límite al <strong><output id="nueva-fecha-limite-eximicion"></output></strong>?</p>
+                  <div class="footer-actions">
+                    <button class="button primary" type="submit">Confirmar modificación</button>
+                    <button class="button light" type="button" id="cancelar-dialogo-editar-plazo-eximicion">Cancelar</button>
+                  </div>
+                </dialog>
+              </form>
+            </div>
+          </details>
+        </div>
+      </div>
+    {% else %}
+      <p class="muted">La elección está en curso. El período y su fecha límite son solo informativos.</p>
+    {% endif %}
+  {% else %}
+    <p class="muted">El período se iniciará al confirmar las autoridades definitivas. En ese momento se solicitará su fecha límite.</p>
+  {% endif %}
+</section>
 <section class="card form-card" aria-labelledby="periodo-justificativos-titulo">
   <div class="section-title">
     <div>
@@ -157,5 +216,5 @@
   <button class="button primary" type="submit" form="formulario-fechas-administrativas">Guardar fechas administrativas</button>
   <a class="button light" href="{% url 'configurar-eleccion' eleccion.id %}">Volver a configuración</a>
 </div>
-<script type="module" src="{% static 'js/fechas-administrativas.js' %}?v=20261108.1"></script>
+<script type="module" src="{% static 'js/fechas-administrativas.js' %}?v=20261108.2"></script>
 {% endblock %}

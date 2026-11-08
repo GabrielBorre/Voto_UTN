@@ -73,6 +73,12 @@
   desde Fechas administrativas hasta confirmar las autoridades definitivas; a
   partir de esa confirmación el período queda cerrado y la tarjeta es solo
   informativa.
+- Al confirmar las autoridades definitivas se inicia el período de eximición de
+  autoridades de mesa y en esa misma acción se solicita su fecha límite. El
+  administrador de junta puede modificarla desde Fechas administrativas
+  mientras la elección siga Publicada. Al pasar a En curso, el inicio y el fin
+  quedan únicamente como información. Cada modificación notifica a las
+  autoridades confirmadas.
 - Solo se pueden agregar o quitar claustros en **En preparación**. Los nuevos
   heredan las sedes de la elección; eliminar un claustro con datos vinculados
   se rechaza sin borrar padrones ni modificar sus alcances.
