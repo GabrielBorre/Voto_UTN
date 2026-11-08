@@ -588,34 +588,42 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
                         if firmado["eleccion"] != actual.pk or firmado["huellas"] != huellas(actual):
                             raise ValueError("Los datos cambiaron; revisá una nueva propuesta.")
                         detalle = aplicar_cambios_con_recalculo(actual, request.user, firmado["datos"])
-                    for solicitud in SolicitudCambioSede.objects.filter(pk__in=detalle["resultado"]["resueltas_ids"]):
-                        enviar_notificacion(crear_notificacion_resultado_cambio_sede(solicitud))
-                    resultado = detalle["resultado"]
-                    messages.success(request, f"Solicitudes resueltas. Aprobadas: {resultado['aprobadas']}. Rechazadas: {resultado['rechazadas']}. Pendientes: {resultado['pendientes']}.")
-                    return redirect("gestionar-solicitudes-cambio-sede", eleccion_id=eleccion.pk)
-                ids = None
-                if accion in {"aprobar", "aprobar_seleccionadas"}:
-                    seleccion = [request.POST.get("solicitud_id", "")] if accion == "aprobar" else request.POST.getlist("solicitudes_ids")
-                    if not seleccion or any(not valor.isdecimal() for valor in seleccion):
-                        raise ValueError("Seleccioná solicitudes válidas.")
-                    ids = [int(valor) for valor in seleccion]
-                maximo = None
-                if accion == "aprobar_con_maximo_mesas":
-                    maximo = int(request.POST.get("maximo_mesas_nuevas", ""))
-                    if maximo < 0:
-                        raise ValueError("El máximo de mesas nuevas debe ser mayor o igual a cero.")
-                datos = {"accion": "aprobar_todas" if accion in {"aprobar", "aprobar_seleccionadas"} else accion,
-                         "ids": ids, "maximo": maximo, "observacion": observacion}
-                firmado = {"eleccion": eleccion.pk, "huellas": huellas(eleccion), "datos": datos}
-                with transaction.atomic():
-                    detalle = aplicar_cambios_con_recalculo(eleccion, request.user, datos)
-                    transaction.set_rollback(True)
-                return render(request, "padron/revisar_cambios_sede.html", {"eleccion": eleccion, "detalle": detalle,
-                              "propuesta": signing.dumps(firmado, salt="cambios-sede")})
+                else:
+                    ids = None
+                    if accion in {"aprobar", "aprobar_seleccionadas"}:
+                        seleccion = [request.POST.get("solicitud_id", "")] if accion == "aprobar" else request.POST.getlist("solicitudes_ids")
+                        if not seleccion or any(not valor.isdecimal() for valor in seleccion):
+                            raise ValueError("Seleccioná solicitudes válidas.")
+                        ids = [int(valor) for valor in seleccion]
+                    maximo = None
+                    if accion == "aprobar_con_maximo_mesas":
+                        maximo = int(request.POST.get("maximo_mesas_nuevas", ""))
+                        if maximo < 0:
+                            raise ValueError("El máximo de mesas nuevas debe ser mayor o igual a cero.")
+                    datos = {"accion": "aprobar_todas" if accion in {"aprobar", "aprobar_seleccionadas"} else accion,
+                             "ids": ids, "maximo": maximo, "observacion": observacion}
+                    firmado = {"eleccion": eleccion.pk, "huellas": huellas(eleccion), "datos": datos}
+                    with transaction.atomic():
+                        actual = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+                        detalle = aplicar_cambios_con_recalculo(actual, request.user, datos)
+                        if accion != "aprobar":
+                            transaction.set_rollback(True)
+                    if accion != "aprobar":
+                        return render(request, "padron/revisar_cambios_sede.html", {"eleccion": eleccion, "detalle": detalle,
+                                      "propuesta": signing.dumps(firmado, salt="cambios-sede")})
+                for solicitud in SolicitudCambioSede.objects.filter(pk__in=detalle["resultado"]["resueltas_ids"]):
+                    enviar_notificacion(crear_notificacion_resultado_cambio_sede(solicitud))
+                resultado = detalle["resultado"]
+                messages.success(request, f"Solicitudes resueltas. Aprobadas: {resultado['aprobadas']}. Rechazadas: {resultado['rechazadas']}. Pendientes: {resultado['pendientes']}.")
+                destino = reverse("gestionar-solicitudes-cambio-sede", args=(eleccion.pk,))
+                estado_filtro = request.GET.get("estado", "")
+                if estado_filtro in SolicitudCambioSede.Estado.values:
+                    destino = f"{destino}?{urlencode({'estado': estado_filtro})}"
+                return redirect(destino)
             except (ValueError, ValidationError, signing.BadSignature, KeyError) as error:
                 messages.error(request, " ".join(error.messages) if isinstance(error, ValidationError) else str(error) if isinstance(error, ValueError) else "La propuesta venció; revisala nuevamente.")
                 return redirect("gestionar-solicitudes-cambio-sede", eleccion_id=eleccion.pk)
-        if accion in {"aprobar", "rechazar"}:
+        if accion == "rechazar":
             solicitud = get_object_or_404(
                 SolicitudCambioSede.objects.select_related("registro_padron__eleccion"),
                 pk=request.POST.get("solicitud_id"),
@@ -624,7 +632,7 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
             try:
                 solicitud = resolver_solicitud_cambio_sede(
                     solicitud,
-                    SolicitudCambioSede.Estado.APROBADA if accion == "aprobar" else SolicitudCambioSede.Estado.RECHAZADA,
+                    SolicitudCambioSede.Estado.RECHAZADA,
                     request.user,
                     observacion,
                 )

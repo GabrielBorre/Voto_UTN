@@ -11,6 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.db.models import Count
 from django.test import TestCase
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import make_aware
@@ -28,6 +29,7 @@ from apps.elecciones.models import (
     EleccionClaustroSede,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
+from apps.notificaciones.models import EnvioNotificacion
 from apps.padron.forms import FormularioArchivoPadron, FormularioReglaSedeClaustro
 from apps.padron.management.commands.seed_voters import Command as ComandoGenerarQr
 from apps.padron.models import (
@@ -2009,6 +2011,134 @@ class SolicitudCambioSedeTests(TestCase):
 
         self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.RECHAZADA)
         self.assertRedirects(respuesta, f"{url}?estado=pendiente", fetch_redirect_response=False)
+
+    def test_aprobacion_individual_aplica_sin_pantalla_de_revision(self):
+        url, respuesta, solicitud = self._resolver_individual("aprobar", "?estado=pendiente")
+
+        self.assertRedirects(respuesta, f"{url}?estado=pendiente", fetch_redirect_response=False)
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.APROBADA)
+        self.assertEqual(solicitud.resuelta_por, self.usuario)
+        self.registro.refresh_from_db()
+        self.assertEqual(self.registro.asignacion_sede_padron.sede, self.sede_destino)
+        self.assertEqual(self.registro.asignacion_mesa.mesa.sede, self.sede_destino)
+        self.assertEqual(EnvioNotificacion.objects.count(), 1)
+
+    def test_aprobacion_individual_no_reenvia_solicitud_resuelta(self):
+        url, _, solicitud = self._resolver_individual("aprobar", "")
+        respuesta = self.client.post(url, {"accion": "aprobar", "solicitud_id": solicitud.pk})
+
+        self.assertRedirects(respuesta, url, fetch_redirect_response=False)
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.APROBADA)
+        self.assertEqual(EnvioNotificacion.objects.count(), 1)
+
+    def test_aprobacion_individual_se_bloquea_con_padron_emitido(self):
+        self.registro.qr_generado_en = timezone.now()
+        self.registro.numero_mesa_qr = self.mesa_origen.numero
+        self.registro.save(update_fields=("qr_generado_en", "numero_mesa_qr"))
+
+        _, respuesta, solicitud = self._resolver_individual("aprobar", "")
+
+        self.assertEqual(respuesta.status_code, 403)
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.PENDIENTE)
+        self.assertEqual(self.registro.asignacion_mesa.mesa, self.mesa_origen)
+        self.assertFalse(EnvioNotificacion.objects.exists())
+
+    def test_aprobacion_individual_revierte_si_falla_el_recalculo(self):
+        with patch(
+            "apps.padron.previsualizacion_cambios.calcular_mesas_automaticas_eleccion",
+            side_effect=ValueError("No se puede recalcular."),
+        ):
+            url, respuesta, solicitud = self._resolver_individual("aprobar", "")
+
+        self.assertRedirects(respuesta, url, fetch_redirect_response=False)
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.PENDIENTE)
+        self.assertEqual(self.registro.asignacion_mesa.mesa, self.mesa_origen)
+        self.assertFalse(EnvioNotificacion.objects.exists())
+        self.assertFalse(Mesa.objects.filter(eleccion=self.eleccion, sede=self.sede_destino).exists())
+
+    def test_aprobacion_individual_exige_permiso_de_junta(self):
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        self.client.force_login(self.usuario_elector)
+
+        respuesta = self.client.post(
+            reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,)),
+            {"accion": "aprobar", "solicitud_id": solicitud.pk},
+        )
+
+        self.assertEqual(respuesta.status_code, 403)
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.PENDIENTE)
+        self.assertFalse(EnvioNotificacion.objects.exists())
+
+    def test_gestion_carga_unica_url_del_modulo_de_dialogos(self):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(
+            reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.id,))
+        )
+
+        self.assertContains(respuesta, '<script type="module" src="/static/js/interfaz.js"></script>')
+        self.assertNotContains(respuesta, '/static/js/interfaz.js?v=')
+
+    def test_plantillas_base_comparten_url_con_imports_de_dialogos(self):
+        for plantilla in ("base.html", "gestion/base.html", "elecciones/base_publica.html"):
+            with self.subTest(plantilla=plantilla):
+                contenido = render_to_string(plantilla)
+                self.assertIn('<script type="module" src="/static/js/interfaz.js"></script>', contenido)
+                self.assertNotIn('/static/js/interfaz.js?v=', contenido)
+
+    def _confirmar_aprobacion_masiva(self, accion, **datos):
+        AsignacionRol.objects.create(
+            usuario=self.usuario,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro,
+            sede_origen=self.sede_origen,
+            sede_destino=self.sede_destino,
+        )
+        self.client.force_login(self.usuario)
+        url = reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,))
+        if accion == "aprobar_seleccionadas":
+            datos["solicitudes_ids"] = [solicitud.pk]
+
+        revision = self.client.post(url, {"accion": accion, **datos})
+
+        self.assertEqual(revision.status_code, 200)
+        self.assertTemplateUsed(revision, "padron/revisar_cambios_sede.html")
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.PENDIENTE)
+        self.assertFalse(EnvioNotificacion.objects.exists())
+
+        respuesta = self.client.post(
+            url,
+            {"accion": "confirmar_aprobacion", "propuesta": revision.context["propuesta"]},
+        )
+
+        self.assertRedirects(respuesta, url, fetch_redirect_response=False)
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.APROBADA)
+        self.assertEqual(EnvioNotificacion.objects.count(), 1)
+
+    def test_aprobar_todas_conserva_revision_y_confirmacion(self):
+        self._confirmar_aprobacion_masiva("aprobar_todas")
+
+    def test_aprobar_con_limite_conserva_revision_y_confirmacion(self):
+        self._confirmar_aprobacion_masiva("aprobar_con_maximo_mesas", maximo_mesas_nuevas=1)
+
+    def test_aprobar_seleccionadas_conserva_revision_y_confirmacion(self):
+        self._confirmar_aprobacion_masiva("aprobar_seleccionadas")
 
     def test_resolucion_individual_descarta_un_filtro_de_estado_invalido(self):
         url, respuesta, solicitud = self._resolver_individual("rechazar", "?estado=otro&x=1")
