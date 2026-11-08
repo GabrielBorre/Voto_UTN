@@ -519,6 +519,8 @@ class PartidosViewsTests(PartidosBaseTests):
         self.assertNotContains(detalle, "Puestos por los que se presenta")
         self.assertContains(detalle, "Agregar otro puesto (opcional)")
         self.assertContains(detalle, "Agregar puesto a la lista")
+        self.assertContains(detalle, "Candidatos cargados")
+        self.assertContains(detalle, "0 candidatos cargados")
 
     def test_puede_agregar_otro_puesto_despues_de_crear_la_lista(self):
         segunda_configuracion = PuestoEleccion.objects.create(

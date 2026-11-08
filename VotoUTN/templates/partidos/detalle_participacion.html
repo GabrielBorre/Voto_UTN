@@ -67,7 +67,7 @@
         {% endif %}
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Puesto</th><th>Departamento</th><th>Personas</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th>Puesto</th><th>Departamento</th><th>Candidatos cargados</th><th>Estado</th><th></th></tr></thead>
             <tbody>
               {% for asociacion in asociaciones %}
                 <tr{% if asociacion_seleccionada.id == asociacion.id %} class="candidaturas-puesto-seleccionado"{% endif %}>
@@ -155,7 +155,7 @@
         {% endif %}
 
         <div class="candidaturas-subsection">
-          <div class="section-title"><div><h3>Candidatos de este puesto</h3><p>Titulares y suplentes ya cargados.</p></div><span class="tag">{{ asociacion_seleccionada.candidatos.count }} personas</span></div>
+          <div class="section-title"><div><h3>Candidatos de este puesto</h3><p>Titulares y suplentes ya cargados.</p></div><span class="tag">{{ asociacion_seleccionada.candidatos.count }} candidatos cargados</span></div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Orden</th><th>Nombre</th><th>Documento</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
