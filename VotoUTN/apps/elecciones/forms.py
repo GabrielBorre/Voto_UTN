@@ -113,6 +113,36 @@ class FormularioEditarPlazoCambioSede(forms.Form):
         return fecha
 
 
+class FormularioEditarPlazoEximicionAutoridades(forms.Form):
+    fecha_limite_justificacion_autoridades = forms.DateField(
+        label="Último día para justificar inasistencia como autoridad de mesa",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
+    )
+
+    def __init__(self, *args, eleccion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eleccion = eleccion
+        fecha_minima = timezone.localdate()
+        self.fields["fecha_limite_justificacion_autoridades"].initial = (
+            eleccion.fecha_limite_justificacion_autoridades or fecha_minima
+        )
+        self.fields["fecha_limite_justificacion_autoridades"].widget.attrs["min"] = (
+            fecha_minima.isoformat()
+        )
+
+    def clean_fecha_limite_justificacion_autoridades(self):
+        fecha = self.cleaned_data["fecha_limite_justificacion_autoridades"]
+        if fecha < timezone.localdate():
+            raise forms.ValidationError("La fecha límite no puede ser anterior a hoy.")
+        if self.eleccion.autoridades_confirmadas_en:
+            fecha_inicio = timezone.localtime(self.eleccion.autoridades_confirmadas_en).date()
+            if fecha < fecha_inicio:
+                raise forms.ValidationError(
+                    "La fecha límite no puede ser anterior al inicio del período."
+                )
+        return fecha
+
+
 class FormularioEleccion(forms.ModelForm):
     sedes = forms.ModelMultipleChoiceField(queryset=Sede.objects.none(), widget=forms.CheckboxSelectMultiple)
     claustros = forms.ModelMultipleChoiceField(queryset=Claustro.objects.none(), widget=forms.CheckboxSelectMultiple)
@@ -175,11 +205,6 @@ class FormularioAgregarClaustro(forms.Form):
 class FormularioPublicarEleccion(forms.Form):
     fecha_cierre_solicitudes_cambio_sede = forms.DateField(
         label="Fecha límite para solicitar cambio de sede",
-        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
-    )
-    fecha_limite_justificacion_autoridades = forms.DateField(
-        label="Fecha límite para justificar inasistencia como autoridad de mesa",
-        required=False,
         widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
     )
 

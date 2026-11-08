@@ -16,6 +16,7 @@ from .forms import (
     FormularioEleccion,
     FormularioEditarEleccion,
     FormularioEditarPlazoCambioSede,
+    FormularioEditarPlazoEximicionAutoridades,
     FormularioEditarPlazoJustificativosElectores,
     FormularioFechasAdministrativasEleccion,
     FormularioFechaLimiteJustificativosElectores,
@@ -51,6 +52,7 @@ from apps.padron.services import (
 from apps.justificativos.models import JustificativoAusencia
 from apps.notificaciones.services import (
     actualizar_plazo_justificativos_electores,
+    crear_notificacion_cambio_plazo_eximicion_autoridad,
     crear_notificaciones_ausentes_confirmadas,
     enviar_notificacion,
     notificar_eleccion_en_curso,
@@ -549,6 +551,82 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                 )
                 messages.success(request, "Se actualizó la fecha límite para solicitar cambio de sede.")
                 return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
+    accion_editar_plazo_eximicion = (
+        request.method == "POST"
+        and request.POST.get("accion") == "actualizar_plazo_eximicion_autoridades"
+    )
+    formulario_plazo_eximicion = FormularioEditarPlazoEximicionAutoridades(
+        eleccion=eleccion,
+    )
+    if accion_editar_plazo_eximicion:
+        with transaction.atomic():
+            eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+            if (
+                eleccion.estado != Eleccion.Estado.PUBLICADA
+                or not eleccion.autoridades_confirmadas_en
+            ):
+                return HttpResponseForbidden(
+                    "El plazo de eximición solo puede modificarse después de confirmar autoridades y antes de iniciar la elección."
+                )
+            formulario_plazo_eximicion = FormularioEditarPlazoEximicionAutoridades(
+                request.POST,
+                eleccion=eleccion,
+            )
+            if formulario_plazo_eximicion.is_valid():
+                fecha_anterior = eleccion.fecha_limite_justificacion_autoridades
+                nueva_fecha = formulario_plazo_eximicion.cleaned_data[
+                    "fecha_limite_justificacion_autoridades"
+                ]
+                if fecha_anterior == nueva_fecha:
+                    messages.info(request, "La fecha límite no tuvo cambios.")
+                    return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
+                eleccion.fecha_limite_justificacion_autoridades = nueva_fecha
+                eleccion.save(update_fields=("fecha_limite_justificacion_autoridades",))
+                asignaciones = AsignacionAutoridad.objects.filter(
+                    registro_padron__eleccion=eleccion,
+                    estado=AsignacionAutoridad.Estado.ASIGNADA,
+                ).select_related(
+                    "registro_padron__elector",
+                    "registro_padron__eleccion",
+                )
+                envios = [
+                    crear_notificacion_cambio_plazo_eximicion_autoridad(
+                        asignacion,
+                        nueva_fecha,
+                    )
+                    for asignacion in asignaciones
+                ]
+                transaction.on_commit(
+                    lambda: [enviar_notificacion(envio) for envio in envios]
+                )
+                registrar_evento(
+                    accion="eleccion.plazo_eximicion_autoridades_modificado",
+                    entidad="Eleccion",
+                    entidad_id=eleccion.pk,
+                    eleccion=eleccion,
+                    usuario=request.user,
+                    request=request,
+                    datos_anteriores={
+                        "fecha_limite_justificacion_autoridades": (
+                            fecha_anterior.isoformat() if fecha_anterior else None
+                        ),
+                    },
+                    datos_nuevos={
+                        "fecha_limite_justificacion_autoridades": nueva_fecha.isoformat(),
+                        "notificaciones_creadas": len(envios),
+                    },
+                )
+                if envios:
+                    messages.success(
+                        request,
+                        f"Se actualizó la fecha límite y se notificó a {len(envios)} autoridades.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        "Se actualizó la fecha límite. No hay autoridades asignadas para notificar.",
+                    )
+                return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
     accion_editar_plazo = (
         request.method == "POST"
         and request.POST.get("accion") == "actualizar_plazo_justificativos"
@@ -617,7 +695,12 @@ def gestionar_fechas_administrativas(request, eleccion_id):
 
     formulario_fechas = FormularioFechasAdministrativasEleccion(
         request.POST
-        if request.method == "POST" and not accion_editar_plazo and not accion_editar_plazo_cambio_sede
+        if (
+            request.method == "POST"
+            and not accion_editar_plazo
+            and not accion_editar_plazo_cambio_sede
+            and not accion_editar_plazo_eximicion
+        )
         else None,
         eleccion=eleccion,
     )
@@ -625,6 +708,7 @@ def gestionar_fechas_administrativas(request, eleccion_id):
         request.method == "POST"
         and not accion_editar_plazo
         and not accion_editar_plazo_cambio_sede
+        and not accion_editar_plazo_eximicion
         and formulario_fechas.is_valid()
     ):
         formulario_fechas.guardar()
@@ -642,6 +726,11 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                 eleccion.estado == Eleccion.Estado.PUBLICADA
                 and eleccion.autoridades_confirmadas_en is None
                 and eleccion.solicitudes_cambio_sede_habilitadas_en is not None
+            ),
+            "formulario_plazo_eximicion": formulario_plazo_eximicion,
+            "puede_editar_plazo_eximicion": (
+                eleccion.estado == Eleccion.Estado.PUBLICADA
+                and eleccion.autoridades_confirmadas_en is not None
             ),
             "formulario_plazo": formulario_plazo,
             "puede_editar_plazo_justificativos": (

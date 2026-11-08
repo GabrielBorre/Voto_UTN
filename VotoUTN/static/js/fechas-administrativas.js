@@ -56,3 +56,36 @@ if (
   fechaCambioSede.addEventListener("change", mostrarFechaCambioSede);
   botonCancelarCambioSede.addEventListener("click", () => dialogoCambioSede.close());
 }
+
+const formularioEximicion = document.getElementById("formulario-editar-plazo-eximicion");
+const botonAbrirEximicion = document.getElementById("abrir-dialogo-editar-plazo-eximicion");
+const dialogoEximicion = document.getElementById("dialogo-editar-plazo-eximicion");
+const botonCancelarEximicion = document.getElementById("cancelar-dialogo-editar-plazo-eximicion");
+const fechaEximicion = document.getElementById("id_fecha_limite_justificacion_autoridades");
+const fechaConfirmacionEximicion = document.getElementById("nueva-fecha-limite-eximicion");
+
+function mostrarFechaEximicion() {
+  if (!fechaEximicion.value) {
+    fechaConfirmacionEximicion.textContent = "";
+    return;
+  }
+  const [anio, mes, dia] = fechaEximicion.value.split("-");
+  fechaConfirmacionEximicion.textContent = `${dia}/${mes}/${anio}`;
+}
+
+if (
+  formularioEximicion
+  && botonAbrirEximicion
+  && dialogoEximicion
+  && botonCancelarEximicion
+  && fechaEximicion
+  && fechaConfirmacionEximicion
+) {
+  botonAbrirEximicion.addEventListener("click", () => {
+    if (!formularioEximicion.reportValidity()) return;
+    mostrarFechaEximicion();
+    dialogoEximicion.showModal();
+  });
+  fechaEximicion.addEventListener("change", mostrarFechaEximicion);
+  botonCancelarEximicion.addEventListener("click", () => dialogoEximicion.close());
+}

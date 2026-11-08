@@ -44,6 +44,11 @@ límite solicitada al publicar. El límite puede editarse desde Fechas
 administrativas hasta confirmar las autoridades; esa confirmación cierra el
 período y deja sus fechas en modo informativo.
 
+`autoridades_confirmadas_en` es el inicio del período de eximición de
+autoridades y `fecha_limite_justificacion_autoridades` es su fecha límite,
+solicitada al confirmar las designaciones definitivas. El límite puede editarse
+mientras la elección siga Publicada y queda informativo al pasar a En curso.
+
 Regla de unicidad del ciclo de vida: como máximo una `Eleccion` puede estar en
 estado `en_preparacion`, `publicada` o `en_curso` considerando esos estados como un
 único grupo. Puede haber varias elecciones `finalizada`.

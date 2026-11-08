@@ -17,6 +17,7 @@ from apps.elecciones.models import (
 )
 from apps.elecciones.forms import (
     FormularioEditarPlazoCambioSede,
+    FormularioEditarPlazoEximicionAutoridades,
     FormularioFechasAdministrativasEleccion,
 )
 from apps.elecciones.services import agregar_claustro, eliminar_claustro
@@ -113,19 +114,19 @@ class CicloConfiguracionTests(TestCase):
         for programacion in programaciones:
             self.assertTrue(FechaAdministrativaEleccion.objects.filter(pk=programacion.pk).exists())
 
-    def test_publicacion_solicita_ambos_plazos_en_dialogo(self):
+    def test_publicacion_solicita_solo_plazo_de_cambio_sede(self):
         respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))
         self.assertContains(respuesta, 'id="dialogo-publicacion"')
-        for campo in ("fecha_cierre_solicitudes_cambio_sede", "fecha_limite_justificacion_autoridades"):
-            self.assertContains(respuesta, f'name="{campo}"')
+        self.assertContains(respuesta, 'name="fecha_cierre_solicitudes_cambio_sede"')
+        self.assertNotContains(respuesta, 'name="fecha_limite_justificacion_autoridades"')
         self.assertTrue(respuesta.context["formulario_publicacion"].fields["fecha_cierre_solicitudes_cambio_sede"].required)
-        self.assertFalse(respuesta.context["formulario_publicacion"].fields["fecha_limite_justificacion_autoridades"].required)
+        self.assertNotIn("fecha_limite_justificacion_autoridades", respuesta.context["formulario_publicacion"].fields)
 
     def test_publicacion_rechaza_plazos_omitidos_o_invalidos(self):
         url = reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,))
         for datos in (
             {},
-            {"fecha_cierre_solicitudes_cambio_sede": "inválida", "fecha_limite_justificacion_autoridades": "2026-10-01"},
+            {"fecha_cierre_solicitudes_cambio_sede": "inválida"},
         ):
             with self.subTest(datos=datos):
                 respuesta = self.client.post(url, {"estado": "publicada", **datos}, follow=True)
@@ -145,7 +146,6 @@ class CicloConfiguracionTests(TestCase):
                 self.client.post(url, {
                     "estado": "publicada",
                     "fecha_cierre_solicitudes_cambio_sede": limite.isoformat(),
-                    "fecha_limite_justificacion_autoridades": limite.isoformat(),
                 })
                 self.eleccion.refresh_from_db()
                 self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
@@ -155,7 +155,7 @@ class CicloConfiguracionTests(TestCase):
                     timezone.localdate(self.eleccion.solicitudes_cambio_sede_habilitadas_en),
                     timezone.localdate(),
                 )
-                self.assertEqual(self.eleccion.fecha_limite_justificacion_autoridades, limite)
+                self.assertIsNone(self.eleccion.fecha_limite_justificacion_autoridades)
                 # La publicación no elimina las validaciones para iniciar la elección.
 
     def test_plazo_cambio_sede_es_editable_hasta_confirmar_autoridades(self):
@@ -220,12 +220,90 @@ class CicloConfiguracionTests(TestCase):
             formulario.errors,
         )
 
+    def test_plazo_eximicion_se_edita_en_publicada_y_queda_informativo_en_curso(self):
+        fecha_inicio_periodo = timezone.now() - timedelta(days=2)
+        fecha_limite = timezone.localdate() + timedelta(days=3)
+        AsignacionAutoridad.objects.create(
+            registro_padron=self.registro,
+            mesa=self.mesa,
+            turno=self.turno,
+            asignada_por=self.usuario,
+        )
+        self.eleccion.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion.autoridades_confirmadas_en = fecha_inicio_periodo
+        self.eleccion.fecha_limite_justificacion_autoridades = fecha_limite
+        self.eleccion.save(update_fields=(
+            "estado",
+            "autoridades_confirmadas_en",
+            "fecha_limite_justificacion_autoridades",
+        ))
+        url = reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,))
+        respuesta = self.client.get(url)
+
+        self.assertTrue(respuesta.context["puede_editar_plazo_eximicion"])
+        self.assertContains(respuesta, "Eximición de autoridades de mesa")
+        self.assertContains(respuesta, fecha_inicio_periodo.strftime("%d/%m/%Y"))
+        self.assertContains(respuesta, 'id="abrir-dialogo-editar-plazo-eximicion"')
+        self.assertIn(
+            f'value="{fecha_limite.isoformat()}"',
+            str(respuesta.context["formulario_plazo_eximicion"][
+                "fecha_limite_justificacion_autoridades"
+            ]),
+        )
+
+        nueva_fecha_limite = timezone.localdate() + timedelta(days=5)
+        with patch("apps.elecciones.views.enviar_notificacion") as enviar:
+            with self.captureOnCommitCallbacks(execute=True):
+                respuesta = self.client.post(url, {
+                    "accion": "actualizar_plazo_eximicion_autoridades",
+                    "fecha_limite_justificacion_autoridades": nueva_fecha_limite.isoformat(),
+                })
+            enviar.assert_called_once()
+        self.assertEqual(respuesta.status_code, 302)
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.fecha_limite_justificacion_autoridades, nueva_fecha_limite)
+        self.assertEqual(
+            EnvioNotificacion.objects.filter(
+                plantilla__codigo="autoridad-plazo-eximicion-modificado",
+            ).count(),
+            1,
+        )
+
+        self.estado(Eleccion.Estado.EN_CURSO)
+        respuesta = self.client.get(url)
+        self.assertFalse(respuesta.context["puede_editar_plazo_eximicion"])
+        self.assertNotContains(respuesta, 'id="abrir-dialogo-editar-plazo-eximicion"')
+        self.assertContains(respuesta, "solo informativos")
+        respuesta = self.client.post(url, {
+            "accion": "actualizar_plazo_eximicion_autoridades",
+            "fecha_limite_justificacion_autoridades": (
+                nueva_fecha_limite + timedelta(days=2)
+            ).isoformat(),
+        })
+
+        self.assertEqual(respuesta.status_code, 403)
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.fecha_limite_justificacion_autoridades, nueva_fecha_limite)
+
+    def test_formulario_eximicion_no_acepta_fecha_limite_anterior_a_hoy(self):
+        self.eleccion.autoridades_confirmadas_en = timezone.now()
+        formulario = FormularioEditarPlazoEximicionAutoridades(
+            data={
+                "fecha_limite_justificacion_autoridades": (
+                    timezone.localdate() - timedelta(days=1)
+                ).isoformat(),
+            },
+            eleccion=self.eleccion,
+        )
+
+        self.assertFalse(formulario.is_valid())
+        self.assertIn("fecha_limite_justificacion_autoridades", formulario.errors)
+
     def test_publicacion_fallida_no_guarda_plazos(self):
         self.configuracion.sedes_habilitadas.all().delete()
         self.client.post(reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {
             "estado": "publicada",
             "fecha_cierre_solicitudes_cambio_sede": "2026-10-01",
-            "fecha_limite_justificacion_autoridades": "2026-10-02",
         })
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.EN_PREPARACION)
@@ -251,10 +329,12 @@ class CicloConfiguracionTests(TestCase):
         with self.assertRaisesMessage(ValidationError, "configurá los turnos y asigná autoridades de mesa"):
             self.eleccion.cambiar_estado(Eleccion.Estado.EN_CURSO)
 
-    def test_publicacion_permite_definir_plazo_de_autoridades_mas_adelante(self):
+    def test_publicacion_no_define_plazo_de_eximicion_de_autoridades(self):
         limite = timezone.localdate() + timedelta(days=1)
         self.client.post(reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {
-            "estado": "publicada", "fecha_cierre_solicitudes_cambio_sede": limite.isoformat(),
+            "estado": "publicada",
+            "fecha_cierre_solicitudes_cambio_sede": limite.isoformat(),
+            "fecha_limite_justificacion_autoridades": (limite + timedelta(days=1)).isoformat(),
         })
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
@@ -266,7 +346,6 @@ class CicloConfiguracionTests(TestCase):
         respuesta = self.client.post(reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {
             "estado": "publicada",
             "fecha_cierre_solicitudes_cambio_sede": "2026-10-01",
-            "fecha_limite_justificacion_autoridades": "2026-10-02",
         })
         self.assertEqual(respuesta.status_code, 403)
         self.eleccion.refresh_from_db()

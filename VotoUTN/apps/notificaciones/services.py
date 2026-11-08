@@ -91,6 +91,37 @@ def crear_notificacion_convocatoria_autoridad(asignacion, fecha_limite):
                                         "fecha": fecha_limite.strftime("%d/%m/%Y")})
 
 
+def crear_notificacion_cambio_plazo_eximicion_autoridad(asignacion, fecha_limite):
+    elector = asignacion.registro_padron.elector
+    eleccion = asignacion.registro_padron.eleccion
+    plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+        codigo="autoridad-plazo-eximicion-modificado",
+        defaults={
+            "nombre": "Autoridad: modificación del plazo de eximición",
+            "categoria": PlantillaNotificacion.Categoria.TRANSACCIONAL,
+            "asunto": "Nueva fecha límite para justificar inasistencia: {nombre_eleccion}",
+            "contenido": (
+                "Hola {nombre},\n\n"
+                "Se actualizó la fecha límite para justificar una inasistencia como autoridad "
+                "de mesa en {nombre_eleccion}. Podés presentar tu justificativo hasta el "
+                "{fecha} inclusive.\n\nVoto UTN"
+            ),
+            "roles_destinatarios": [AsignacionRol.Rol.AUTORIDAD_MESA],
+            "permite_envio_manual": False,
+        },
+    )
+    return crear_notificacion(
+        plantilla=plantilla,
+        eleccion=eleccion,
+        elector=elector,
+        contexto={
+            "nombre": elector.nombre_completo,
+            "nombre_eleccion": eleccion.nombre,
+            "fecha": fecha_limite.strftime("%d/%m/%Y"),
+        },
+    )
+
+
 def crear_notificacion_traslado_autoridad(asignacion, mesa_origen):
     elector = asignacion.registro_padron.elector
     eleccion = asignacion.registro_padron.eleccion
