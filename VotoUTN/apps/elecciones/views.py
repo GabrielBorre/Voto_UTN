@@ -15,6 +15,7 @@ from .forms import (
     FormularioDepartamentosClaustro,
     FormularioEleccion,
     FormularioEditarEleccion,
+    FormularioEditarPlazoCambioSede,
     FormularioEditarPlazoJustificativosElectores,
     FormularioFechasAdministrativasEleccion,
     FormularioFechaLimiteJustificativosElectores,
@@ -88,7 +89,7 @@ def contexto_formulario_eleccion(formulario, incluir_parametros=False):
         "campos_generales": [
             formulario[nombre]
             for nombre in (
-                "nombre", "fecha_inicio", "fecha_fin", "fecha_limite_justificacion_autoridades",
+                "nombre", "fecha_inicio", "fecha_fin",
             )
             if nombre in formulario.fields
         ],
@@ -501,6 +502,53 @@ def gestionar_fechas_administrativas(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_administrar_elecciones(request.user, eleccion) or eleccion.estado == Eleccion.Estado.FINALIZADA:
         return HttpResponseForbidden("No tiene permiso para configurar esta eleccion.")
+    accion_editar_plazo_cambio_sede = (
+        request.method == "POST"
+        and request.POST.get("accion") == "actualizar_plazo_cambio_sede"
+    )
+    formulario_plazo_cambio_sede = FormularioEditarPlazoCambioSede(
+        eleccion=eleccion,
+    )
+    if accion_editar_plazo_cambio_sede:
+        with transaction.atomic():
+            eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+            if (
+                eleccion.estado != Eleccion.Estado.PUBLICADA
+                or eleccion.autoridades_confirmadas_en
+                or not eleccion.solicitudes_cambio_sede_habilitadas_en
+            ):
+                return HttpResponseForbidden(
+                    "El plazo de cambio de sede solo puede modificarse antes de confirmar las autoridades."
+                )
+            formulario_plazo_cambio_sede = FormularioEditarPlazoCambioSede(
+                request.POST,
+                eleccion=eleccion,
+            )
+            if formulario_plazo_cambio_sede.is_valid():
+                fecha_anterior = eleccion.fecha_cierre_solicitudes_cambio_sede
+                nueva_fecha = formulario_plazo_cambio_sede.cleaned_data[
+                    "fecha_cierre_solicitudes_cambio_sede"
+                ]
+                eleccion.fecha_cierre_solicitudes_cambio_sede = nueva_fecha
+                eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
+                registrar_evento(
+                    accion="eleccion.plazo_cambio_sede_modificado",
+                    entidad="Eleccion",
+                    entidad_id=eleccion.pk,
+                    eleccion=eleccion,
+                    usuario=request.user,
+                    request=request,
+                    datos_anteriores={
+                        "fecha_cierre_solicitudes_cambio_sede": (
+                            fecha_anterior.isoformat() if fecha_anterior else None
+                        ),
+                    },
+                    datos_nuevos={
+                        "fecha_cierre_solicitudes_cambio_sede": nueva_fecha.isoformat(),
+                    },
+                )
+                messages.success(request, "Se actualizó la fecha límite para solicitar cambio de sede.")
+                return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
     accion_editar_plazo = (
         request.method == "POST"
         and request.POST.get("accion") == "actualizar_plazo_justificativos"
@@ -568,10 +616,17 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                 return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
 
     formulario_fechas = FormularioFechasAdministrativasEleccion(
-        request.POST if request.method == "POST" and not accion_editar_plazo else None,
+        request.POST
+        if request.method == "POST" and not accion_editar_plazo and not accion_editar_plazo_cambio_sede
+        else None,
         eleccion=eleccion,
     )
-    if request.method == "POST" and not accion_editar_plazo and formulario_fechas.is_valid():
+    if (
+        request.method == "POST"
+        and not accion_editar_plazo
+        and not accion_editar_plazo_cambio_sede
+        and formulario_fechas.is_valid()
+    ):
         formulario_fechas.guardar()
         messages.success(request, "Las fechas administrativas fueron actualizadas.")
         return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
@@ -582,6 +637,12 @@ def gestionar_fechas_administrativas(request, eleccion_id):
             "eleccion": eleccion,
             "formulario_fechas": formulario_fechas,
             "fechas_administrativas": contexto_fechas_administrativas(formulario_fechas),
+            "formulario_plazo_cambio_sede": formulario_plazo_cambio_sede,
+            "puede_editar_plazo_cambio_sede": (
+                eleccion.estado == Eleccion.Estado.PUBLICADA
+                and eleccion.autoridades_confirmadas_en is None
+                and eleccion.solicitudes_cambio_sede_habilitadas_en is not None
+            ),
             "formulario_plazo": formulario_plazo,
             "puede_editar_plazo_justificativos": (
                 eleccion.estado == Eleccion.Estado.EN_CURSO
@@ -744,6 +805,11 @@ def cambiar_estado_eleccion(request, eleccion_id):
             datos_nuevos={
                 "estado": eleccion.estado,
                 "habilitada": eleccion.habilitada,
+                "solicitudes_cambio_sede_habilitadas_en": (
+                    eleccion.solicitudes_cambio_sede_habilitadas_en.isoformat()
+                    if eleccion.solicitudes_cambio_sede_habilitadas_en
+                    else None
+                ),
                 **{
                     nombre: valor.isoformat() if valor else None
                     for nombre in plazos_anteriores

@@ -67,6 +67,12 @@
   fechas administrativas existentes, la emisión del padrón imprimible y el
   avance a Finalizada. No se incorpora por ahora la solicitud de fechas al
   cambiar de estado ni una nueva clasificación de fechas por estado.
+- Al pasar una elección a **Publicada** se inicia el período de solicitudes de
+  cambio de sede. En esa transición se solicita su fecha límite y se registra
+  el inicio real. El administrador de junta puede modificar la fecha límite
+  desde Fechas administrativas hasta confirmar las autoridades definitivas; a
+  partir de esa confirmación el período queda cerrado y la tarjeta es solo
+  informativa.
 - Solo se pueden agregar o quitar claustros en **En preparación**. Los nuevos
   heredan las sedes de la elección; eliminar un claustro con datos vinculados
   se rechaza sin borrar padrones ni modificar sus alcances.

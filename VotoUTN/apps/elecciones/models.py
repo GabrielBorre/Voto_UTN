@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.utils import timezone
 
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 
@@ -22,6 +23,7 @@ class Eleccion(models.Model):
     fecha_cierre_padron_provisorio = models.DateField(null=True, blank=True)
     fecha_cierre_candidaturas = models.DateField(null=True, blank=True)
     fecha_publicacion_padron_definitivo = models.DateField(null=True, blank=True)
+    solicitudes_cambio_sede_habilitadas_en = models.DateTimeField(null=True, blank=True, editable=False)
     fecha_cierre_solicitudes_cambio_sede = models.DateField(null=True, blank=True)
     fecha_limite_justificacion_autoridades = models.DateField(null=True, blank=True)
     autoridades_confirmadas_en = models.DateTimeField(null=True, blank=True, editable=False)
@@ -127,7 +129,11 @@ class Eleccion(models.Model):
                 raise ValidationError("Debe existir al menos una importación de padrón válida por cada claustro antes de publicar la elección.")
         self.estado = nuevo_estado
         self.habilitada = nuevo_estado in (self.Estado.PUBLICADA, self.Estado.EN_CURSO)
-        self.save(update_fields=("estado", "habilitada"))
+        campos_actualizados = ["estado", "habilitada"]
+        if nuevo_estado == self.Estado.PUBLICADA:
+            self.solicitudes_cambio_sede_habilitadas_en = timezone.now()
+            campos_actualizados.append("solicitudes_cambio_sede_habilitadas_en")
+        self.save(update_fields=tuple(campos_actualizados))
 
     def __str__(self):
         return self.nombre

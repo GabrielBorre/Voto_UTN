@@ -80,6 +80,39 @@ class FormularioEditarPlazoJustificativosElectores(forms.Form):
         return fecha
 
 
+class FormularioEditarPlazoCambioSede(forms.Form):
+    fecha_cierre_solicitudes_cambio_sede = forms.DateField(
+        label="Fecha límite para solicitar cambio de sede",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
+    )
+
+    def __init__(self, *args, eleccion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eleccion = eleccion
+        self.fields["fecha_cierre_solicitudes_cambio_sede"].initial = (
+            eleccion.fecha_cierre_solicitudes_cambio_sede
+        )
+        if eleccion.solicitudes_cambio_sede_habilitadas_en:
+            fecha_inicio = timezone.localtime(
+                eleccion.solicitudes_cambio_sede_habilitadas_en
+            ).date()
+            self.fields["fecha_cierre_solicitudes_cambio_sede"].widget.attrs["min"] = (
+                fecha_inicio.isoformat()
+            )
+
+    def clean_fecha_cierre_solicitudes_cambio_sede(self):
+        fecha = self.cleaned_data["fecha_cierre_solicitudes_cambio_sede"]
+        if self.eleccion.solicitudes_cambio_sede_habilitadas_en:
+            fecha_inicio = timezone.localtime(
+                self.eleccion.solicitudes_cambio_sede_habilitadas_en
+            ).date()
+            if fecha < fecha_inicio:
+                raise forms.ValidationError(
+                    "La fecha límite no puede ser anterior al inicio del período."
+                )
+        return fecha
+
+
 class FormularioEleccion(forms.ModelForm):
     sedes = forms.ModelMultipleChoiceField(queryset=Sede.objects.none(), widget=forms.CheckboxSelectMultiple)
     claustros = forms.ModelMultipleChoiceField(queryset=Claustro.objects.none(), widget=forms.CheckboxSelectMultiple)
@@ -97,8 +130,8 @@ class FormularioEleccion(forms.ModelForm):
             "fecha_fin": "Fin del proceso electoral",
         }
         widgets = {
-            "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
-            "fecha_fin": forms.DateInput(attrs={"type": "date"}),
+            "fecha_inicio": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+            "fecha_fin": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -226,15 +259,11 @@ class FormularioFechasAdministrativasEleccion(forms.Form):
 class FormularioEditarEleccion(forms.ModelForm):
     class Meta:
         model = Eleccion
-        fields = (*FormularioEleccion.Meta.fields, "fecha_limite_justificacion_autoridades")
-        labels = {
-            **FormularioEleccion.Meta.labels,
-            "fecha_limite_justificacion_autoridades": "Fecha límite para justificar inasistencia como autoridad de mesa",
-        }
+        fields = FormularioEleccion.Meta.fields
+        labels = FormularioEleccion.Meta.labels
         widgets = {
-            "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
-            "fecha_fin": forms.DateInput(attrs={"type": "date"}),
-            "fecha_limite_justificacion_autoridades": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+            "fecha_inicio": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+            "fecha_fin": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):

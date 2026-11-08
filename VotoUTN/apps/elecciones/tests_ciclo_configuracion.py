@@ -15,7 +15,10 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamentoSede, EleccionClaustroTurno, EleccionSede,
     FechaAdministrativaEleccion,
 )
-from apps.elecciones.forms import FormularioFechasAdministrativasEleccion
+from apps.elecciones.forms import (
+    FormularioEditarPlazoCambioSede,
+    FormularioFechasAdministrativasEleccion,
+)
 from apps.elecciones.services import agregar_claustro, eliminar_claustro
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.notificaciones.models import EnvioNotificacion
@@ -147,8 +150,75 @@ class CicloConfiguracionTests(TestCase):
                 self.eleccion.refresh_from_db()
                 self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
                 self.assertEqual(self.eleccion.fecha_cierre_solicitudes_cambio_sede, limite)
+                self.assertIsNotNone(self.eleccion.solicitudes_cambio_sede_habilitadas_en)
+                self.assertEqual(
+                    timezone.localdate(self.eleccion.solicitudes_cambio_sede_habilitadas_en),
+                    timezone.localdate(),
+                )
                 self.assertEqual(self.eleccion.fecha_limite_justificacion_autoridades, limite)
                 # La publicación no elimina las validaciones para iniciar la elección.
+
+    def test_plazo_cambio_sede_es_editable_hasta_confirmar_autoridades(self):
+        fecha_inicio_periodo = timezone.now() - timedelta(days=2)
+        fecha_vencida = timezone.localdate() - timedelta(days=1)
+        self.eleccion.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion.solicitudes_cambio_sede_habilitadas_en = fecha_inicio_periodo
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = fecha_vencida
+        self.eleccion.save(update_fields=(
+            "estado",
+            "solicitudes_cambio_sede_habilitadas_en",
+            "fecha_cierre_solicitudes_cambio_sede",
+        ))
+        url = reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,))
+        respuesta = self.client.get(url)
+
+        self.assertTrue(respuesta.context["puede_editar_plazo_cambio_sede"])
+        self.assertContains(respuesta, "Solicitudes de cambio de sede")
+        self.assertContains(respuesta, fecha_inicio_periodo.strftime("%d/%m/%Y"))
+        self.assertContains(respuesta, 'id="abrir-dialogo-editar-plazo-cambio-sede"')
+
+        nueva_fecha = timezone.localdate() + timedelta(days=3)
+        respuesta = self.client.post(url, {
+            "accion": "actualizar_plazo_cambio_sede",
+            "fecha_cierre_solicitudes_cambio_sede": nueva_fecha.isoformat(),
+        })
+        self.assertEqual(respuesta.status_code, 302)
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.fecha_cierre_solicitudes_cambio_sede, nueva_fecha)
+
+        fecha_confirmacion = timezone.now()
+        self.eleccion.autoridades_confirmadas_en = fecha_confirmacion
+        self.eleccion.save(update_fields=("autoridades_confirmadas_en",))
+        fecha_rechazada = nueva_fecha + timedelta(days=2)
+        respuesta = self.client.post(url, {
+            "accion": "actualizar_plazo_cambio_sede",
+            "fecha_cierre_solicitudes_cambio_sede": fecha_rechazada.isoformat(),
+        })
+
+        self.assertEqual(respuesta.status_code, 403)
+        respuesta = self.client.get(url)
+        self.assertFalse(respuesta.context["puede_editar_plazo_cambio_sede"])
+        self.assertNotContains(respuesta, 'id="abrir-dialogo-editar-plazo-cambio-sede"')
+        self.assertContains(respuesta, "Período cerrado al confirmar las autoridades")
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.fecha_cierre_solicitudes_cambio_sede, nueva_fecha)
+
+    def test_formulario_plazo_cambio_sede_no_acepta_fin_anterior_al_inicio(self):
+        self.eleccion.solicitudes_cambio_sede_habilitadas_en = timezone.now()
+        formulario = FormularioEditarPlazoCambioSede(
+            data={
+                "fecha_cierre_solicitudes_cambio_sede": (
+                    timezone.localdate() - timedelta(days=1)
+                ).isoformat(),
+            },
+            eleccion=self.eleccion,
+        )
+
+        self.assertFalse(formulario.is_valid())
+        self.assertIn(
+            "fecha_cierre_solicitudes_cambio_sede",
+            formulario.errors,
+        )
 
     def test_publicacion_fallida_no_guarda_plazos(self):
         self.configuracion.sedes_habilitadas.all().delete()
