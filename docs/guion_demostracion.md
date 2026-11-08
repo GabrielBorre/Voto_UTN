@@ -299,12 +299,12 @@ Se muestran en vivo solo las validaciones más representativas. El resto se menc
    3. Importar el padrón CSV (por ejemplo, `padron_estudiantes_500.csv`). Debe incluir a `alumnocg` (DNI 38999222) y `autmesa` (DNI 28111333) con el mismo DNI, legajo, nombre y correo que tienen en Keycloak.
    4. Configurar las reglas de asignación de sedes y el **máximo de electores por mesa**. Se recomienda 30 o menos, para que `MESA_DEMO` tenga carátula y dos hojas.
    5. Importar las autoridades por CSV (por ejemplo, `plantilla_autoridades_5_Estudiantes.csv`) incluyendo a `autmesa`. **Dejar su asignación pendiente** para confirmarla en vivo (etapa 3).
-   6. **Publicar elección**, completando las dos fechas límite.
-   7. Generar y aprobar al menos una solicitud de cambio de sede con un elector que **no sea** Carlos, para que la pantalla de la etapa 4 tenga datos. Solo hay cuatro usuarios en el realm de Keycloak; si hace falta otro elector, crearlo en Keycloak con un DNI del padrón.
+   6. **Publicar elección**, completando las fechas solicitadas. Se generan automáticamente hasta 70 solicitudes ficticias de cambio de sede, según los electores y sedes elegibles.
+   7. Revisar y resolver las solicitudes pendientes antes de confirmar las autoridades definitivas. Para mostrar una solicitud en la etapa 4, aprobar al menos una de un elector que **no sea** Carlos.
    8. **Iniciar elección** y **Generar padrón imprimible**.
 5. Anotar `MESA_DEMO` (la mesa de Carlos, que figura en su Inicio) y elegir `MESA_MANUAL`.
 6. **Procesar todas las demás mesas** antes de la demo con el botón **Registrar** del tablero. Solo deben quedar pendientes `MESA_DEMO` y `MESA_MANUAL`.
-7. **No dejar justificativos pendientes** que no sean el de la demo; si no, no se puede finalizar. Si se usa `generar_solicitudes_justificativos_demo`, resolver antes todo lo que genere.
+7. **No dejar justificativos pendientes** que no sean el de la demo; si no, no se puede finalizar. Los comandos `generar_justificativos_electores_demo` y `generar_justificativos_autoridades_demo` crean dos cada uno cuando hay registros elegibles.
 
 > Los nombres `padron_estudiantes_500.csv` y `plantilla_autoridades_5_Estudiantes.csv` son los archivos del equipo. No están en el repositorio y **no hay un comando que arme este escenario automáticamente**: hay que prepararlo con el flujo anterior.
 

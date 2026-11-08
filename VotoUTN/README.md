@@ -112,6 +112,34 @@ cancelación del registro de mesa, incluidos los casos sin inasistencias.
 
 4. Abrir `http://127.0.0.1:8000/admin/`, crear una Elección habilitada y luego acceder con el usuario creado a `http://127.0.0.1:8000/`.
 
+### Datos de demostración para solicitudes y justificativos
+
+**Al publicar cualquier elección**, incluso fuera de un entorno de prueba, se crean
+automáticamente hasta 70 solicitudes ficticias de cambio de sede para electores
+activos sin solicitudes previas. Se prioriza una misma sede de destino cuando
+está habilitada para sus departamentos. Si no hay suficientes candidatos, se
+crean las posibles y se registra el faltante en los logs.
+
+Los siguientes comandos se ejecutan manualmente y crean dos justificativos
+pendientes por defecto. El primero requiere electores con ausencias registradas;
+el segundo requiere autoridades asignadas. Ambos requieren tipos de justificativo
+activos. Son datos ficticios: usalos únicamente con padrones de demostración.
+
+```powershell
+python manage.py generar_justificativos_electores_demo
+python manage.py generar_justificativos_autoridades_demo
+```
+
+Para generar manualmente más solicitudes en una elección publicada sin
+autoridades confirmadas, ejecutar `python manage.py generar_solicitudes_cambio_sede_demo`.
+Cada comando admite `--cantidad` y `--semilla`. Una nueva ejecución agrega
+registros para otros electores elegibles, sin duplicar la misma solicitud o el
+mismo tipo de ausencia. Los comandos de justificativos crean datos de demo
+directamente y no comprueban si el período de presentación está abierto.
+
+Con Docker, desde la raíz del repositorio, anteponer
+`docker compose exec web` a cada comando `python manage.py`.
+
 Para usar la cámara desde el teléfono, ambos equipos deben estar en la misma red Wi‑Fi. `getUserMedia` exige **HTTPS** cuando la página no es `localhost`; el servidor HTTP básico sólo sirve para probar desde la PC. Para desarrollo móvil, generá un certificado local confiable con [mkcert](https://github.com/FiloSottile/mkcert) y ejecutá:
 
 ```powershell
