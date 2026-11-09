@@ -531,6 +531,7 @@ class InicioElectorTests(TestCase):
         limite_justificativo = timezone.localdate() + timedelta(days=5)
         limite_cambio_sede = timezone.localdate() + timedelta(days=2)
         self.eleccion_en_curso.autoridades_confirmadas_en = fecha_inicio
+        self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
         self.eleccion_en_curso.fecha_limite_justificacion_autoridades = limite_eximicion
         self.eleccion_en_curso.justificacion_electores_habilitada_en = fecha_inicio
         self.eleccion_en_curso.fecha_limite_justificacion_electores = limite_justificativo
@@ -538,6 +539,7 @@ class InicioElectorTests(TestCase):
         self.eleccion_en_curso.fecha_cierre_solicitudes_cambio_sede = limite_cambio_sede
         self.eleccion_en_curso.save(update_fields=(
             "autoridades_confirmadas_en",
+            "estado",
             "fecha_limite_justificacion_autoridades",
             "justificacion_electores_habilitada_en",
             "fecha_limite_justificacion_electores",
@@ -550,10 +552,67 @@ class InicioElectorTests(TestCase):
 
         self.assertContains(respuesta, "Eximición de autoridades de mesa")
         self.assertContains(respuesta, "Justificación de inasistencia electoral")
-        self.assertContains(respuesta, "Solicitud de cambio de sede")
-        for fecha in (limite_eximicion, limite_justificativo, limite_cambio_sede):
+        self.assertNotContains(respuesta, "Solicitud de cambio de sede")
+        for fecha in (limite_eximicion, limite_justificativo):
             self.assertContains(respuesta, date_format(fecha, "j \\d\\e F \\d\\e Y"))
         self.assertNotContains(respuesta, "A confirmar")
+
+    def test_muestra_cambio_sede_solo_publicada_antes_de_confirmar_autoridades(self):
+        fecha_inicio = timezone.now()
+        limite_cambio_sede = timezone.localdate() + timedelta(days=2)
+        self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion_en_curso.solicitudes_cambio_sede_habilitadas_en = fecha_inicio
+        self.eleccion_en_curso.fecha_cierre_solicitudes_cambio_sede = limite_cambio_sede
+        self.eleccion_en_curso.save(update_fields=(
+            "estado",
+            "solicitudes_cambio_sede_habilitadas_en",
+            "fecha_cierre_solicitudes_cambio_sede",
+        ))
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+        self.assertContains(respuesta, "Solicitud de cambio de sede")
+
+        self.eleccion_en_curso.autoridades_confirmadas_en = fecha_inicio + timedelta(minutes=1)
+        self.eleccion_en_curso.save(update_fields=("autoridades_confirmadas_en",))
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+        self.assertNotContains(respuesta, "Solicitud de cambio de sede")
+
+    def test_oculta_periodos_cerrados_por_fecha_o_evento_de_estado(self):
+        fecha_inicio = timezone.now() - timedelta(days=4)
+        fecha_futura = timezone.localdate() + timedelta(days=3)
+        fecha_vencida = timezone.localdate() - timedelta(days=1)
+        self.eleccion_en_curso.autoridades_confirmadas_en = fecha_inicio
+        self.eleccion_en_curso.solicitudes_cambio_sede_habilitadas_en = fecha_inicio
+        self.eleccion_en_curso.fecha_cierre_solicitudes_cambio_sede = fecha_futura
+        self.eleccion_en_curso.fecha_limite_justificacion_autoridades = fecha_futura
+        self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion_en_curso.save(update_fields=(
+            "autoridades_confirmadas_en",
+            "solicitudes_cambio_sede_habilitadas_en",
+            "fecha_cierre_solicitudes_cambio_sede",
+            "fecha_limite_justificacion_autoridades",
+            "estado",
+        ))
+        self.crear_asignacion_autoridad(self.registro_en_curso)
+
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+        self.assertNotContains(respuesta, "Solicitud de cambio de sede")
+        self.assertContains(respuesta, "Eximición de autoridades de mesa")
+
+        self.eleccion_en_curso.fecha_limite_justificacion_autoridades = fecha_vencida
+        self.eleccion_en_curso.save(update_fields=("fecha_limite_justificacion_autoridades",))
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+        self.assertNotContains(respuesta, "Eximición de autoridades de mesa")
+
+        self.eleccion_en_curso.fecha_limite_justificacion_autoridades = fecha_futura
+        self.eleccion_en_curso.estado = Eleccion.Estado.EN_CURSO
+        self.eleccion_en_curso.save(update_fields=(
+            "fecha_limite_justificacion_autoridades",
+            "estado",
+        ))
+        respuesta = self.client.get(reverse("inicio-autenticado"))
+        self.assertNotContains(respuesta, "Solicitud de cambio de sede")
+        self.assertNotContains(respuesta, "Eximición de autoridades de mesa")
 
     def test_muestra_la_situacion_electoral_calculada_por_el_historial(self):
         url = reverse("inicio-autenticado")

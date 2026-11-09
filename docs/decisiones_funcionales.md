@@ -71,14 +71,17 @@
   cambio de sede. En esa transición se solicita su fecha límite y se registra
   el inicio real. El administrador de junta puede modificar la fecha límite
   desde Fechas administrativas hasta confirmar las autoridades definitivas; a
-  partir de esa confirmación el período queda cerrado y la tarjeta es solo
-  informativa.
+  partir de esa confirmación el período queda cerrado. En el inicio del elector
+  se muestra mientras la elección siga Publicada, no se hayan confirmado las
+  autoridades y no haya vencido el plazo; cierra por la fecha o por la
+  confirmación, lo que ocurra primero.
 - Al confirmar las autoridades definitivas se inicia el período de eximición de
   autoridades de mesa y en esa misma acción se solicita su fecha límite. El
   administrador de junta puede modificarla desde Fechas administrativas
-  mientras la elección siga Publicada. Al pasar a En curso, el inicio y el fin
-  quedan únicamente como información. Cada modificación notifica a las
-  autoridades confirmadas.
+  mientras la elección siga Publicada. En el inicio del elector se muestra a
+  las autoridades asignadas hasta la fecha límite inclusive o hasta que la
+  elección pase a En curso, lo que ocurra primero. Cada modificación notifica a
+  las autoridades confirmadas.
 - Solo se pueden agregar o quitar claustros en **En preparación**. Los nuevos
   heredan las sedes de la elección; eliminar un claustro con datos vinculados
   se rechaza sin borrar padrones ni modificar sus alcances.

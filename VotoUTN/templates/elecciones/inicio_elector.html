@@ -48,7 +48,7 @@
         <p><strong>Inicio:</strong> {{ registro.eleccion.fecha_inicio|date:"j \d\e F \d\e Y" }}</p>
         <p><strong>Fin:</strong> {{ registro.eleccion.fecha_fin|date:"j \d\e F \d\e Y" }}</p>
       </div>
-      {% if registro.asignacion_autoridad.estado == "asignada" and registro.eleccion.autoridades_confirmadas_en and registro.eleccion.fecha_limite_justificacion_autoridades %}
+      {% if registro.mostrar_periodo_eximicion_autoridades %}
       <div class="option">
         <h3>Eximición de autoridades de mesa</h3>
         <p>Fecha límite:</p>
@@ -62,7 +62,7 @@
         <p><strong>{{ registro.eleccion.fecha_limite_justificacion_electores|date:"j \d\e F \d\e Y" }}</strong></p>
       </div>
       {% endif %}
-      {% if registro.eleccion.solicitudes_cambio_sede_habilitadas_en and registro.eleccion.fecha_cierre_solicitudes_cambio_sede %}
+      {% if registro.mostrar_periodo_cambio_sede %}
       <div class="option">
         <h3>Solicitud de cambio de sede</h3>
         <p>Fecha límite:</p>
