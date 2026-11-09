@@ -59,6 +59,11 @@
   es inclusiva. Antes de finalizar la elección, al vencer el plazo la ausencia
   sin solicitud pasa a «Infractor»; una solicitud pendiente o rechazada conserva
   su estado propio.
+- La tarjeta «Justificación de inasistencia electoral» del inicio se muestra
+  únicamente a registros con estado «En Curso - Voto No Registrado» o
+  «Justificativo Pendiente de Revisión». Se oculta para quienes figuran como
+  «Voto Emitido», «Inasistencia Justificada», «Infractor - Justificación
+  Rechazada» o «Infractor».
 
 ## Elecciones, claustros, sedes y departamentos
 

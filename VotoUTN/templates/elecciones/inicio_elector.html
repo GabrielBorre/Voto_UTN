@@ -55,7 +55,7 @@
         <p><strong>{{ registro.eleccion.fecha_limite_justificacion_autoridades|date:"j \d\e F \d\e Y" }}</strong></p>
       </div>
       {% endif %}
-      {% if registro.eleccion.justificacion_electores_habilitada_en and registro.eleccion.fecha_limite_justificacion_electores %}
+      {% if registro.mostrar_periodo_justificacion_electores %}
       <div class="option">
         <h3>Justificación de inasistencia electoral</h3>
         <p>Fecha límite:</p>
