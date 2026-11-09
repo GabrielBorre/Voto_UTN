@@ -158,7 +158,25 @@ def inicio_autenticado(request):
                 for item in construir_historial_electoral(elector)
             }
             for registro in registros:
+                asignacion_autoridad = getattr(registro, "asignacion_autoridad", None)
                 registro.situacion_electoral = situaciones_por_eleccion.get(registro.eleccion_id)
+                registro.mostrar_periodo_cambio_sede = bool(
+                    registro.eleccion.estado == Eleccion.Estado.PUBLICADA
+                    and registro.eleccion.autoridades_confirmadas_en is None
+                    and registro.eleccion.solicitudes_cambio_sede_habilitadas_en
+                    and registro.eleccion.fecha_cierre_solicitudes_cambio_sede
+                    and timezone.localdate()
+                    <= registro.eleccion.fecha_cierre_solicitudes_cambio_sede
+                )
+                registro.mostrar_periodo_eximicion_autoridades = bool(
+                    asignacion_autoridad
+                    and asignacion_autoridad.estado == AsignacionAutoridad.Estado.ASIGNADA
+                    and registro.eleccion.estado == Eleccion.Estado.PUBLICADA
+                    and registro.eleccion.autoridades_confirmadas_en
+                    and registro.eleccion.fecha_limite_justificacion_autoridades
+                    and timezone.localdate()
+                    <= registro.eleccion.fecha_limite_justificacion_autoridades
+                )
         es_autoridad = es_autoridad_en_eleccion_publicada_o_en_curso(elector)
         return render(
             request,
