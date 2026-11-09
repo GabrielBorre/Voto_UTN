@@ -666,6 +666,13 @@ def cambiar_estado_candidato(request, eleccion_id, candidato_id):
     candidato = get_object_or_404(Candidato.objects.select_related("lista__participacion__eleccion"), pk=candidato_id, lista__participacion__eleccion_id=eleccion_id)
     if not _tiene_permiso(request, candidato.lista.participacion.eleccion):
         return HttpResponseForbidden("No tiene permiso para modificar este candidato.")
+    if request.method == "POST" and request.POST.get("activo") == "1":
+        candidato.activo = True
+        try:
+            candidato.full_clean()
+        except ValidationError as error:
+            messages.error(request, " ".join(error.messages))
+            return redirect(_url_gestion(eleccion_id, candidato.lista.participacion_id, candidato.lista_id))
     return _cambiar_estado(
         request, candidato, "activo",
         _url_gestion(eleccion_id, candidato.lista.participacion_id, candidato.lista_id),

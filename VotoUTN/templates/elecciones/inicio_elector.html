@@ -9,22 +9,39 @@
 </section>
 
 <section class="grid-1">
+  {% if eleccion_en_curso %}
   {% for registro in registros %}
   <div class="card">
-    <h2>{{ registro.eleccion }}</h2>
+    <div class="inicio-elector__titulo-eleccion">
+      <h2>{{ registro.eleccion }}</h2>
+      {% if registro.situacion_electoral %}
+      <span class="pill {{ registro.situacion_electoral.clase_estado }}">
+        {% if registro.situacion_electoral.estado == "Voto Emitido" or registro.situacion_electoral.estado == "Inasistencia Justificada" %}
+        <span aria-hidden="true">✔</span>
+        {% elif registro.situacion_electoral.estado == "Infractor - Justificación Rechazada" or registro.situacion_electoral.estado == "Infractor" %}
+        <span aria-hidden="true">❌</span>
+        {% elif registro.situacion_electoral.estado == "Justificativo Pendiente de Revisión" %}
+        <span aria-hidden="true">⏳</span>
+        {% elif registro.situacion_electoral.estado == "En Curso - Voto No Registrado" %}
+        <span aria-hidden="true">⚠</span>
+        {% endif %}
+        &nbsp;{{ registro.situacion_electoral.estado }}
+      </span>
+      {% endif %}
+    </div>
     <section class="toolbar">
-      {% if registro.asignacion_autoridad %}
+      {% if registro.asignacion_autoridad.estado == 'asignada' and registro.eleccion.autoridades_confirmadas_en or registro.asignacion_autoridad.estado == 'asignada' and registro.eleccion.estado == 'en_curso' or registro.asignacion_autoridad.estado == 'asignada' and registro.eleccion.estado == 'finalizada' %}
       <div class="option">
         <h3>Desempeño como Autoridad de Mesa</h3>
-        <p><strong>Mesa:</strong> {{ registro.asignacion_autoridad.mesa.codigo|default:"Sin asignar" }}</p>
+        {% if registro.eleccion.estado == 'en_curso' or registro.eleccion.estado == 'finalizada' %}<p><strong>Mesa:</strong> {{ registro.asignacion_autoridad.mesa.codigo|default:"Sin asignar" }}</p>{% else %}<p><strong>Mesa:</strong> Se informará cuando la elección esté en curso.</p>{% endif %}
         <p><strong>Sede:</strong> {{ registro.asignacion_autoridad.mesa.sede|default:"Sin asignar" }}</p>
         <p><strong>Turno de trabajo:</strong> {{ registro.asignacion_autoridad.turno|default:"Sin asignar" }}</p>
       </div>
       {% endif %}
       <div class="option">
         <h3>Mesa y sede de votación</h3>
-        <p><strong>Mesa:</strong> {{ registro.asignacion_mesa.mesa.codigo|default:"Sin asignar" }}</p>
-        <p><strong>Sede:</strong> {{ registro.sede|default:"Sin asignar" }}</p>
+        {% if registro.eleccion.estado == 'en_curso' or registro.eleccion.estado == 'finalizada' %}<p><strong>Mesa:</strong> {{ registro.asignacion_mesa.mesa.codigo|default:"Sin asignar" }}</p>{% else %}<p><strong>Mesa:</strong> Se informará cuando la elección esté en curso.</p>{% endif %}
+        <p><strong>Sede:</strong> {{ registro.asignacion_sede_padron.sede|default:registro.asignacion_mesa.mesa.sede|default:"Sin asignar" }}</p>
       </div>
       <div class="option">
         <h3>Fecha de la elección</h3>
@@ -33,7 +50,7 @@
       </div>
       <div class="option">
         <h3>Justificación </h3>
-                    {% if registro.asignacion_autoridad %}
+                    {% if registro.asignacion_autoridad.estado == 'asignada' and registro.eleccion.autoridades_confirmadas_en %}
         <p>Fecha límite de carga autoridades de mesa:</p>
         <p><strong>{{ registro.eleccion.fecha_limite_justificacion_autoridades|date:"j \d\e F \d\e Y"|default:"A confirmar" }}</strong></p>
             {% endif %}
@@ -50,6 +67,16 @@
     <p class="muted">No encontramos un registro de padrón asociado a tu identidad.</p>
   </div>
   {% endfor %}
+  {% else %}
+  <div class="card">
+    <h2>Sin elecciones en curso</h2>
+    <p class="muted">
+      No hay elecciones en curso en este momento. Puede consultar su
+      <a href="{% url 'historial-electoral' %}">historial electoral</a>
+      en la sección correspondiente.
+    </p>
+  </div>
+  {% endif %}
 
 </section>
 {% endblock %}

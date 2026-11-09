@@ -295,6 +295,9 @@ class Candidato(models.Model):
             errores["__all__"] = "El candidato debe ser un elector del padrón de esta elección."
         if self.lista_id and self.elector_id:
             eleccion_id = self.lista.participacion.eleccion_id
+            from apps.autoridades.models import AsignacionAutoridad
+            if self.activo and AsignacionAutoridad.objects.filter(registro_padron__elector_id=self.elector_id, registro_padron__eleccion_id=eleccion_id, estado="asignada").exists():
+                errores["__all__"] = "El elector es autoridad de mesa. Quitá su designación antes de incorporarlo como candidato electoral."
             registro = self.elector.registros_padron.filter(eleccion_id=eleccion_id, activo=True).select_related(
                 "eleccion_claustro_departamento",
             ).first()

@@ -1,8 +1,9 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.asistencia.dashboard import FiltrosDashboard, construir_dashboard
 from apps.asistencia.models import RegistroParticipacion
@@ -12,7 +13,7 @@ from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede
-from apps.usuarios.models import AsignacionRol
+from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
 class DashboardParticipacionTests(TestCase):
@@ -236,6 +237,32 @@ class DashboardParticipacionTests(TestCase):
         self.assertEqual(respuesta.context["eleccion_actual"], self.eleccion)
         self.assertEqual(respuesta.context["dashboard"]["electores_total"], 4)
 
+    def test_registro_participacion_muestra_solo_la_eleccion_en_curso(self):
+        finalizada = Eleccion.objects.create(
+            nombre="Eleccion Finalizada Habilitada",
+            fecha_inicio=date(2027, 8, 3),
+            fecha_fin=date(2027, 8, 3),
+            estado=Eleccion.Estado.FINALIZADA,
+            habilitada=True,
+        )
+        AsignacionRol.objects.create(
+            usuario=self.administrativo, rol=AsignacionRol.Rol.ADMINISTRATIVO_JUNTA, eleccion=finalizada
+        )
+        self.client.force_login(self.administrativo)
+
+        respuesta = self.client.get(reverse("lista-elecciones"), {"eleccion": finalizada.pk})
+
+        self.assertEqual(list(respuesta.context["elecciones"]), [self.eleccion])
+        self.assertEqual(respuesta.context["eleccion_actual"], self.eleccion)
+        self.assertNotContains(respuesta, "Eleccion Finalizada Habilitada")
+        self.assertNotContains(respuesta, reverse("escanear", args=(finalizada.pk,)))
+        self.assertContains(respuesta, reverse("escanear", args=(self.eleccion.pk,)))
+
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.FINALIZADA)
+        respuesta = self.client.get(reverse("lista-elecciones"))
+        self.assertFalse(respuesta.context["elecciones"].exists())
+        self.assertContains(respuesta, "Debe haber una elección en curso para poder registrar participación.")
+
     def test_admin_confirma_notificaciones_solo_con_todas_las_mesas_procesadas_y_no_duplica(self):
         self.eleccion.estado = Eleccion.Estado.EN_CURSO
         self.eleccion.save(update_fields=("estado",))
@@ -248,9 +275,13 @@ class DashboardParticipacionTests(TestCase):
         self.client.force_login(administrador)
         url = reverse("confirmar-notificaciones-ausentes", args=(self.eleccion.pk,))
         destino = f"{reverse('lista-elecciones')}?eleccion={self.eleccion.pk}"
+        fecha_limite = timezone.localdate() + timedelta(days=5)
+        datos_confirmacion = {
+            "fecha_limite_justificacion_electores": fecha_limite.isoformat(),
+        }
 
         Mesa.objects.filter(pk=self.mesa_a.pk).update(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
-        incompleto = self.client.post(url)
+        incompleto = self.client.post(url, datos_confirmacion)
         self.assertRedirects(incompleto, destino, fetch_redirect_response=False)
         self.assertEqual(self.eleccion.envios_notificacion.count(), 0)
 
@@ -263,16 +294,126 @@ class DashboardParticipacionTests(TestCase):
         )
         dashboard = self.client.get(reverse("lista-elecciones"), {"eleccion": self.eleccion.pk})
         self.assertContains(dashboard, "Confirmar escaneo y notificar ausentes")
+        self.assertContains(dashboard, 'name="fecha_limite_justificacion_electores"')
+        self.assertContains(dashboard, 'id="dialogo-confirmar-notificaciones-ausentes"')
+        self.assertContains(dashboard, "dialogo.showModal()")
 
-        respuesta = self.client.post(url)
+        respuesta = self.client.post(url, datos_confirmacion)
         self.assertRedirects(respuesta, destino, fetch_redirect_response=False)
         self.assertEqual(self.eleccion.envios_notificacion.count(), 1)
         self.eleccion.refresh_from_db()
         self.assertIsNotNone(self.eleccion.notificaciones_ausentes_confirmadas_en)
+        self.assertEqual(
+            self.eleccion.justificacion_electores_habilitada_en,
+            self.eleccion.notificaciones_ausentes_confirmadas_en,
+        )
+        self.assertEqual(self.eleccion.fecha_limite_justificacion_electores, fecha_limite)
         self.assertEqual(self.eleccion.envios_notificacion.get().elector, self.registros_a[0].elector)
 
-        self.client.post(url)
+        self.client.post(url, datos_confirmacion)
         self.assertEqual(self.eleccion.envios_notificacion.count(), 1)
+
+    def test_confirmacion_requiere_fecha_limite_futura_o_de_hoy(self):
+        self.eleccion.estado = Eleccion.Estado.EN_CURSO
+        self.eleccion.save(update_fields=("estado",))
+        administrador = get_user_model().objects.create_user(username="admin-fecha-ausentes")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        Mesa.objects.filter(eleccion=self.eleccion).update(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
+        self.client.force_login(administrador)
+        url = reverse("confirmar-notificaciones-ausentes", args=(self.eleccion.pk,))
+        destino = f"{reverse('lista-elecciones')}?eleccion={self.eleccion.pk}"
+
+        for datos in (
+            {},
+            {"fecha_limite_justificacion_electores": (timezone.localdate() - timedelta(days=1)).isoformat()},
+        ):
+            with self.subTest(datos=datos):
+                respuesta = self.client.post(url, datos)
+                self.assertRedirects(respuesta, destino, fetch_redirect_response=False)
+                self.eleccion.refresh_from_db()
+                self.assertIsNone(self.eleccion.notificaciones_ausentes_confirmadas_en)
+                self.assertIsNone(self.eleccion.justificacion_electores_habilitada_en)
+                self.assertEqual(self.eleccion.envios_notificacion.count(), 0)
+
+    def test_confirmacion_previa_puede_habilitar_periodo_sin_reenviar_notificaciones(self):
+        self.eleccion.estado = Eleccion.Estado.EN_CURSO
+        self.eleccion.notificaciones_ausentes_confirmadas_en = timezone.now()
+        self.eleccion.save(update_fields=("estado", "notificaciones_ausentes_confirmadas_en"))
+        administrador = get_user_model().objects.create_user(username="admin-reabre-plazo-ausentes")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        self.client.force_login(administrador)
+        url = reverse("confirmar-notificaciones-ausentes", args=(self.eleccion.pk,))
+        fecha_limite = timezone.localdate() + timedelta(days=3)
+
+        respuesta = self.client.post(
+            url,
+            {"fecha_limite_justificacion_electores": fecha_limite.isoformat()},
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.eleccion.refresh_from_db()
+        self.assertIsNotNone(self.eleccion.justificacion_electores_habilitada_en)
+        self.assertEqual(self.eleccion.fecha_limite_justificacion_electores, fecha_limite)
+        self.assertEqual(self.eleccion.envios_notificacion.count(), 0)
+
+    def test_confirmacion_habilita_al_elector_ausente_a_presentar_justificativo(self):
+        self.eleccion.estado = Eleccion.Estado.EN_CURSO
+        self.eleccion.save(update_fields=("estado",))
+        administrador = get_user_model().objects.create_user(username="admin-abre-justificativos")
+        AsignacionRol.objects.create(
+            usuario=administrador,
+            rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+            eleccion=self.eleccion,
+        )
+        Mesa.objects.filter(eleccion=self.eleccion).update(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA)
+        RegistroParticipacion.objects.create(
+            registro_padron=self.registros_a[0],
+            mesa=self.mesa_a,
+            registrada_por=self.administrativo,
+            metodo=RegistroParticipacion.Metodo.MANUAL,
+        )
+        fecha_limite = timezone.localdate() + timedelta(days=5)
+        self.client.force_login(administrador)
+
+        respuesta = self.client.post(
+            reverse("confirmar-notificaciones-ausentes", args=(self.eleccion.pk,)),
+            {"fecha_limite_justificacion_electores": fecha_limite.isoformat()},
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        elector = self.registros_a[0].elector
+        usuario_elector = get_user_model().objects.create_user(username="elector-justifica-ausencia")
+        PerfilUsuario.objects.create(usuario=usuario_elector, elector=elector)
+        self.client.force_login(usuario_elector)
+        respuesta = self.client.get(reverse("mis-justificativos"))
+
+        self.assertTrue(respuesta.context["puede_presentar_justificativo_electoral"])
+        self.assertContains(respuesta, 'id="btn-presentar"')
+        tipo = TipoJustificativo.objects.create(nombre="Motivo posterior al escaneo")
+        respuesta = self.client.post(
+            reverse("mis-justificativos"),
+            {
+                "ausencia": JustificativoAusencia.Ausencia.VOTAR,
+                "tipo": tipo.pk,
+                "detalle": "Justificativo presentado luego de confirmar la ausencia.",
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertTrue(
+            JustificativoAusencia.objects.filter(
+                registro_padron=self.registros_a[0],
+                ausencia=JustificativoAusencia.Ausencia.VOTAR,
+            ).exists()
+        )
 
     def test_administrativo_no_puede_confirmar_notificaciones_a_ausentes(self):
         self.eleccion.estado = Eleccion.Estado.EN_CURSO

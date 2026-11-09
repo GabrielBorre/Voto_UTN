@@ -82,6 +82,120 @@ class CicloConfiguracionTests(TestCase):
             registro_padron=registro or self.registro, sede_origen=self.sedes[0], sede_destino=self.sedes[1],
         )
 
+    def test_publicacion_solicita_plazo_de_sede_y_permite_definir_autoridades_luego(self):
+        respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))
+        self.assertContains(respuesta, 'id="dialogo-publicacion"')
+        for campo in ("fecha_cierre_solicitudes_cambio_sede", "fecha_limite_justificacion_autoridades"):
+            self.assertContains(respuesta, f'name="{campo}"')
+        self.assertTrue(respuesta.context["formulario_publicacion"].fields["fecha_cierre_solicitudes_cambio_sede"].required)
+        self.assertFalse(respuesta.context["formulario_publicacion"].fields["fecha_limite_justificacion_autoridades"].required)
+
+    def test_publicacion_rechaza_plazos_omitidos_o_invalidos(self):
+        url = reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,))
+        for datos in (
+            {},
+            {"fecha_cierre_solicitudes_cambio_sede": "inválida", "fecha_limite_justificacion_autoridades": "2026-10-01"},
+        ):
+            with self.subTest(datos=datos):
+                respuesta = self.client.post(url, {"estado": "publicada", **datos}, follow=True)
+                self.eleccion.refresh_from_db()
+                self.assertEqual(self.eleccion.estado, Eleccion.Estado.EN_PREPARACION)
+                self.assertIsNone(self.eleccion.fecha_cierre_solicitudes_cambio_sede)
+                self.assertContains(respuesta, "data-popup-mensaje")
+
+    def test_estados_avanzan_con_plazos_pasados_y_futuros(self):
+        url = reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,))
+        self.mesa.estado_escaneo = Mesa.EstadoEscaneo.PROCESADA
+        self.mesa.save(update_fields=("estado_escaneo",))
+        for desplazamiento in (-30, 30):
+            with self.subTest(desplazamiento=desplazamiento):
+                self.estado(Eleccion.Estado.EN_PREPARACION)
+                limite = timezone.localdate() + timedelta(days=desplazamiento)
+                self.client.post(url, {
+                    "estado": "publicada",
+                    "fecha_cierre_solicitudes_cambio_sede": limite.isoformat(),
+                    "fecha_limite_justificacion_autoridades": limite.isoformat(),
+                })
+                self.eleccion.refresh_from_db()
+                self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
+                self.assertEqual(self.eleccion.fecha_cierre_solicitudes_cambio_sede, limite)
+                self.assertEqual(self.eleccion.fecha_limite_justificacion_autoridades, limite)
+                # La publicación no elimina las validaciones para iniciar la elección.
+
+    def test_publicacion_fallida_no_guarda_plazos(self):
+        self.configuracion.sedes_habilitadas.all().delete()
+        self.client.post(reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {
+            "estado": "publicada",
+            "fecha_cierre_solicitudes_cambio_sede": "2026-10-01",
+            "fecha_limite_justificacion_autoridades": "2026-10-02",
+        })
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.EN_PREPARACION)
+        self.assertIsNone(self.eleccion.fecha_cierre_solicitudes_cambio_sede)
+        self.assertIsNone(self.eleccion.fecha_limite_justificacion_autoridades)
+
+    def test_puede_publicar_sin_turnos_provisorios_y_no_muestra_advertencia(self):
+        self.configuracion.turnos_autoridad.all().delete()
+        respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))
+        self.assertNotContains(respuesta, "configurá los turnos y asigná autoridades de mesa")
+        self.client.post(reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {
+            "estado": "publicada",
+            "fecha_cierre_solicitudes_cambio_sede": (timezone.localdate() + timedelta(days=3)).isoformat(),
+        })
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
+
+    def test_no_inicia_eleccion_sin_turnos_configurados(self):
+        from django.core.exceptions import ValidationError
+
+        self.configuracion.turnos_autoridad.all().delete()
+        self.estado(Eleccion.Estado.PUBLICADA)
+        with self.assertRaisesMessage(ValidationError, "configurá los turnos y asigná autoridades de mesa"):
+            self.eleccion.cambiar_estado(Eleccion.Estado.EN_CURSO)
+
+    def test_publicacion_permite_definir_plazo_de_autoridades_mas_adelante(self):
+        limite = timezone.localdate() + timedelta(days=1)
+        self.client.post(reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {
+            "estado": "publicada", "fecha_cierre_solicitudes_cambio_sede": limite.isoformat(),
+        })
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
+        self.assertEqual(self.eleccion.fecha_cierre_solicitudes_cambio_sede, limite)
+        self.assertIsNone(self.eleccion.fecha_limite_justificacion_autoridades)
+
+    def test_publicacion_sin_permiso_no_modifica_estado_ni_plazos(self):
+        self.client.force_login(get_user_model().objects.create_user(username="sin-permiso-publicar"))
+        respuesta = self.client.post(reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)), {
+            "estado": "publicada",
+            "fecha_cierre_solicitudes_cambio_sede": "2026-10-01",
+            "fecha_limite_justificacion_autoridades": "2026-10-02",
+        })
+        self.assertEqual(respuesta.status_code, 403)
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.EN_PREPARACION)
+        self.assertIsNone(self.eleccion.fecha_cierre_solicitudes_cambio_sede)
+
+    def test_filtro_solicitudes_con_estados_mezclados_y_en_modo_lectura(self):
+        self.estado(Eleccion.Estado.PUBLICADA)
+        solicitudes = []
+        for indice, estado in enumerate(SolicitudCambioSede.Estado.values):
+            solicitud = self.solicitud(self.crear_registro(f"4010010{indice}"))
+            solicitud.estado = estado
+            solicitud.save(update_fields=("estado",))
+            solicitudes.append(solicitud)
+        url = reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,))
+        for estado_eleccion in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.FINALIZADA):
+            self.estado(estado_eleccion)
+            for solicitud in solicitudes:
+                with self.subTest(estado=solicitud.estado, eleccion=estado_eleccion):
+                    respuesta = self.client.get(url, {"estado": solicitud.estado})
+                    self.assertEqual(list(respuesta.context["solicitudes"]), [solicitud])
+                    self.assertContains(respuesta, f"Estado: {solicitud.get_estado_display()}")
+                    self.assertContains(respuesta, f'value="{solicitud.estado}" selected')
+                    self.assertContains(respuesta, 'id="filtro-solicitudes"')
+                    self.assertNotContains(respuesta, "Limpiar filtro")
+            self.assertEqual(self.client.get(url).context["solicitudes"].count(), 3)
+
     def test_configuracion_en_curso_es_consultable_pero_post_bloqueado(self):
         self.verificar_configuracion_solo_lectura(Eleccion.Estado.EN_CURSO)
 
@@ -107,6 +221,8 @@ class CicloConfiguracionTests(TestCase):
         self.assertFalse(puede_configurar_eleccion(self.usuario, self.eleccion))
         self.assertTrue(puede_configurar_eleccion(self.usuario, self.eleccion, solo_consulta=True))
         for nombre, argumentos in rutas:
+            if estado == Eleccion.Estado.PUBLICADA and nombre in ("gestionar-autoridades", "gestionar-autoridades-claustro"):
+                continue
             with self.subTest(ruta=nombre):
                 url = reverse(nombre, args=argumentos)
                 respuesta = self.client.get(url)
@@ -144,6 +260,48 @@ class CicloConfiguracionTests(TestCase):
         self.assertContains(respuesta, 'data-popup-titulo="No se puede cambiar el estado"')
         self.assertContains(respuesta, "No se puede finalizar la elección con mesas pendientes de escaneo.")
 
+    def test_popup_finalizacion_informa_periodo_de_justificacion_vigente_sin_bloquear(self):
+        self.estado(Eleccion.Estado.EN_CURSO)
+        fecha_limite = timezone.localdate() + timedelta(days=3)
+        self.eleccion.justificacion_electores_habilitada_en = timezone.now()
+        self.eleccion.fecha_limite_justificacion_electores = fecha_limite
+        self.eleccion.save(
+            update_fields=(
+                "justificacion_electores_habilitada_en",
+                "fecha_limite_justificacion_electores",
+            )
+        )
+        self.mesa.estado_escaneo = Mesa.EstadoEscaneo.PROCESADA
+        self.mesa.save(update_fields=("estado_escaneo",))
+
+        respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))
+
+        self.assertContains(respuesta, "Aún se encuentra vigente el período de justificación")
+        self.assertContains(respuesta, f"{fecha_limite:%d/%m/%Y} inclusive.")
+        self.assertContains(respuesta, "⚠ Aún se encuentra vigente el período de justificación")
+        finalizacion = self.client.post(
+            reverse("cambiar-estado-eleccion", args=(self.eleccion.pk,)),
+            {"estado": Eleccion.Estado.FINALIZADA},
+        )
+        self.eleccion.refresh_from_db()
+        self.assertEqual(finalizacion.status_code, 302)
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.FINALIZADA)
+
+    def test_popup_finalizacion_no_muestra_periodo_de_justificacion_vencido(self):
+        self.estado(Eleccion.Estado.EN_CURSO)
+        self.eleccion.justificacion_electores_habilitada_en = timezone.now() - timedelta(days=10)
+        self.eleccion.fecha_limite_justificacion_electores = timezone.localdate() - timedelta(days=1)
+        self.eleccion.save(
+            update_fields=(
+                "justificacion_electores_habilitada_en",
+                "fecha_limite_justificacion_electores",
+            )
+        )
+
+        respuesta = self.client.get(reverse("configurar-eleccion", args=(self.eleccion.pk,)))
+
+        self.assertNotContains(respuesta, "Aún se encuentra vigente el período de justificación")
+
     def test_claustro_nuevo_hereda_sedes_y_se_elimina_sin_borrar_padrones(self):
         otro = Claustro.objects.create(
             nombre="No docentes", organizacion_departamentos=Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO,
@@ -180,18 +338,25 @@ class CicloConfiguracionTests(TestCase):
                 }).status_code, 403)
 
     def test_seleccion_estima_y_aprueba_solo_las_solicitudes_marcadas(self):
-        self.estado(Eleccion.Estado.EN_CURSO)
+        from apps.padron.models import AsignacionSedePadron
+        self.estado(Eleccion.Estado.PUBLICADA)
+        self.mesa.generada_automaticamente = True
+        self.mesa.save(update_fields=("generada_automaticamente",))
         seleccionada = self.solicitud()
         no_seleccionada = self.solicitud(self.crear_registro("40100002"))
+        for registro in (seleccionada.registro_padron, no_seleccionada.registro_padron):
+            AsignacionSedePadron.objects.create(registro_padron=registro, sede=self.sedes[0], estado="asignada")
         url = reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,))
         respuesta = self.client.get(url, {"accion": "estimar_seleccion", "solicitudes_ids": [seleccionada.pk]})
         self.assertEqual(respuesta.json(), {
-            "mesas_por_sede": {str(self.sedes[1].pk): 1}, "mesas_quitadas_por_sede": {},
-            "total": 1, "total_quitadas": 0, "seleccionadas": 1,
+            "mesas_por_sede": {str(self.sedes[1].pk): 1}, "mesas_quitadas_por_sede": {str(self.sedes[0].pk): 1},
+            "total": 1, "total_quitadas": 1, "seleccionadas": 1,
         })
-        self.assertEqual(self.client.post(url, {
+        respuesta = self.client.post(url, {
             "accion": "aprobar_seleccionadas", "solicitudes_ids": [seleccionada.pk],
-        }).status_code, 302)
+        })
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(self.client.post(url, {"accion": "confirmar_aprobacion", "propuesta": respuesta.context["propuesta"]}).status_code, 302)
         seleccionada.refresh_from_db()
         no_seleccionada.refresh_from_db()
         self.assertEqual(seleccionada.estado, SolicitudCambioSede.Estado.APROBADA)

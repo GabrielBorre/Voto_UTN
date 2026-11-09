@@ -36,7 +36,7 @@
     <br>
     
 
-    <form method="get" class="filtros-tablero" aria-label="Filtro de estado">
+    <form method="get" class="filtros-tablero" aria-label="Filtro de estado" data-conservar-scroll>
       <input type="hidden" name="pestana" value="{{ pestana }}">
       <div class="field">
         <label for="filtro-estado">Estado</label>
@@ -64,7 +64,7 @@
           {% for item in justificativos %}
             <tr>
               <td><strong>{{ item.registro_padron.elector.nombre_completo }}</strong></td>
-              <td>{{ item.tipo }}</td>
+              <td>{{ item.motivo }}{% if item.reclamo_participacion %}<br>{% include "justificativos/_validacion_comprobante.html" with justificativo=item %}{% endif %}</td>
               <td>{{ item.presentada_en|date:"d/m/Y H:i" }}</td>
               <td>
                 {% if item.estado == "pendiente" %}
@@ -77,7 +77,7 @@
               </td>
               <td>
                 {% if item.documento %}
-                  <a class="button light small" href="{{ item.documento.url }}">Ver adjunto</a>
+                  <a class="button light small" href="{% url 'documento-justificativo-gestion' item.pk %}">Ver adjunto</a>
                 {% else %}
                   <span class="muted">Sin adjunto</span>
                 {% endif %}

@@ -7,6 +7,43 @@
 - No existe una aplicación móvil nativa.
 - El administrativo de junta registra la participación.
 - La autoridad de mesa no registra participación.
+- El registro por QR o carga manual identifica a quienes no votaron; la ausencia
+  de un registro implica que se presume que el elector votó.
+- El historial electoral se muestra a electores y autoridades de mesa, y cada
+  persona solo consulta sus propios registros y justificativos.
+- Un elector autenticado puede acceder al historial aunque todavía no exista en
+  el padrón local; en ese caso se muestra vacío.
+- El inicio del elector muestra la información de la elección únicamente cuando
+  está Publicada o En curso. Una elección En preparación no debe ser visible allí.
+- Las elecciones Publicadas y En curso aparecen en el historial electoral y
+  muestran «En Curso» hasta que el administrador de junta confirma el escaneo de
+  todas las mesas. Esa confirmación actualiza únicamente la situación de los
+  electores de esa elección: «Voto Emitido» si no tienen registro de ausencia o
+  «En Curso - Voto No Registrado» si lo tienen. «Voto Emitido» es definitivo
+  desde esa confirmación. Para quien sí tiene ausencia, «En Curso - Voto No
+  Registrado» se mantiene durante el período de justificación; al vencer el
+  plazo, pasa a «Infractor» si no hay un justificativo que determine otro
+  estado. Los justificativos aplicables conservan prioridad. La confirmación
+  de una elección no modifica las situaciones de las demás elecciones del
+  historial.
+- Al finalizar una elección, quien tenga una ausencia registrada y no haya
+  presentado un justificativo figura como «Infractor», con independencia de que
+  se haya abierto el período de justificación o vencido su fecha límite. Quien
+  no tenga registro de ausencia figura como «Voto Emitido». Los justificativos
+  presentados conservan prioridad y su estado histórico.
+- Dentro del período habilitado, un justificativo pendiente figura como
+  «Pendiente de Revisión»; uno aprobado, como «Inasistencia Justificada»; y uno
+  rechazado, como «Infractor - Justificación Rechazada».
+- Al confirmar el escaneo de todas las mesas, el administrador de junta indica
+  la fecha límite inclusiva para justificar ausencias. La misma acción notifica
+  a los electores ausentes y abre el período de justificativos hasta esa fecha.
+  Si el escaneo ya se había confirmado sin abrir el período, el administrador
+  puede definir el plazo posteriormente sin volver a generar notificaciones.
+- Solo se puede presentar un justificativo electoral durante el período
+  habilitado y si existe un registro de ausencia. La fecha límite configurada
+  es inclusiva. Antes de finalizar la elección, al vencer el plazo la ausencia
+  sin solicitud pasa a «Infractor»; una solicitud pendiente o rechazada conserva
+  su estado propio.
 
 ## Elecciones, claustros, sedes y departamentos
 
@@ -44,7 +81,7 @@
 - Una elección finalizada queda en modo de consulta: no se pueden editar sus datos
   ni modificar sus alcances, fechas administrativas, padrón, mesas, autoridades,
   listas, candidaturas ni resoluciones de justificativos. El historial conserva el acceso de consulta; el
-  dashboard por elección cerrada queda pendiente y no forma parte de esta entrega.
+  dashboard por elección finalizada queda pendiente y no forma parte de esta entrega.
 - Cualquier usuario con el rol activo de administrador de junta puede editar y
 	administrar cualquier elección, sin importar quién la creó o qué elección
 	figure en su asignación de rol.
@@ -112,6 +149,9 @@ Ejemplo: `Sistemas de Información` / `K`.
 ## Autoridades
 
 - Una autoridad de mesa es también un elector.
+- El rol visible de Autoridad de Mesa requiere una asignación no rechazada en
+  una elección Publicada o En curso. Las asignaciones de elecciones en
+  preparación o finalizadas no modifican el rol visible de Elector.
 - No se crea una identidad duplicada.
 - Debe existir previamente como elector.
 - Debe pertenecer al padrón de la elección.
@@ -222,8 +262,21 @@ Reglas:
 - Si un alcance tiene una sola sede activa habilitada, se le asigna automáticamente. Si tiene varias, se evalúan reglas ordenadas; cada regla define una única sede destino y puede aplicarse a todos los alcances con varias sedes o a varios alcances seleccionados.
 - Para un elector cuyo departamento no tenga habilitada la sede destino de una regla, esa regla se omite y se evalúa la siguiente. No se reemplaza por una sede distinta.
 - Si ninguna regla aplicable coincide en un alcance con varias sedes, la asignación queda pendiente para revisión; no se elige una sede arbitrariamente.
-- El cálculo produce una asignación provisional por elector y no modifica «Sede donde cursa», ni genera listas o QR. Cambiar reglas o sedes invalida el cálculo previo; al volver a calcular las sedes, se recalculan automáticamente las mesas si todos los claustros están listos.
-- El padrón completo de un claustro puede vaciarse mediante confirmación explícita mientras la elección esté En preparación. Se eliminan sus registros y asignaciones calculadas, además de mesas automáticas que queden vacías. Las identidades de electores sin registros en otros padrones, candidaturas históricas ni perfiles de usuario también se eliminan, liberando sus DNI y legajos; se conservan las que siguen vinculadas a esos datos. Se mantienen el historial/archivos de importación y las mesas manuales. Las importaciones confirmadas de ese ciclo pasan a mostrarse como «Padrón eliminado»; las previsualizaciones y rechazos no cambian. La operación se bloquea ante emisiones QR o datos dependientes (participaciones, justificativos, autoridades o candidaturas) y queda auditada.
+- El cálculo produce una asignación provisional por elector y no modifica «Sede donde cursa», ni genera listas o QR. Si el alcance tiene una sola sede activa habilitada, el sistema la asigna automáticamente y no requiere reglas. Solo los alcances con más de una sede necesitan reglas; si ninguna regla aplicable coincide, la asignación queda pendiente. Al calcular mesas se revisan primero las asignaciones de sede. Agregar o quitar sedes vuelve a evaluarlas y recalcula las mesas automáticamente cuando todos los requisitos están completos. Si el cambio deja asignaciones pendientes, se quitan las mesas automáticas obsoletas del alcance afectado y se informa el motivo; las mesas manuales y las vinculadas a QR, participaciones o autoridades se protegen.
+- Las prioridades de reglas se mantienen consecutivas desde 1. Al agregar, eliminar o reordenar una regla, el sistema recalcula automáticamente las sedes y mesas; no se requiere un botón manual de cálculo. Confirmar o vaciar un padrón, cambiar sus datos usados por reglas, habilitar/quitar departamentos o sedes también actualiza las asignaciones afectadas. Cambiar el máximo de electores por mesa recalcula las mesas automáticamente; no altera por sí solo la sede electoral asignada.
+- El padrón completo de un claustro puede vaciarse mediante confirmación explícita mientras la elección esté en En preparación. Se eliminan sus registros y asignaciones calculadas, además de mesas automáticas que queden vacías. Las identidades de electores sin registros en otros padrones, candidaturas históricas ni perfiles de usuario también se eliminan, liberando sus DNI y legajos; se conservan las que siguen vinculadas a esos datos. Se mantienen el historial/archivos de importación y las mesas manuales. Las importaciones confirmadas de ese ciclo pasan a mostrarse como «Padrón eliminado»; las previsualizaciones y rechazos no cambian. La operación se bloquea ante emisiones QR o datos dependientes (participaciones, justificativos, autoridades o candidaturas) y queda auditada.
+## Flujo actualizado de autoridades de mesa
+
+- El padrón incorpora `Turno` junto a `Sede donde cursa`. Si se indica sede, el turno es obligatorio; si no se indica sede, el elector no tiene restricción de cursada por campus/horario. No se infieren turnos para filas históricas.
+- Los cupos de autoridades de mesa se configuran por claustro y turno únicamente para titulares. Se registra el faltante cuando la nómina no alcanza; no hay suplentes de mesa.
+- El CSV de autoridades solo contiene tipo de documento, documento y/o legajo. La identidad, departamento y elegibilidad se resuelven desde el padrón activo del claustro.
+- Las importaciones de nómina conservan el archivo, su huella, usuario, fecha, cantidad válida, estado y errores para consulta en el historial del claustro. La previsualización no aplica asignaciones; confirmar las registra y cancelar conserva el historial.
+- La selección manual busca por documento, legajo o nombre y agrega a la misma nómina que el CSV. Cada cambio confirmado recalcula las asignaciones completas.
+- Se prioriza cubrir una titular por mesa y turno; luego se distribuyen las titulares restantes hasta el máximo. La distribución es pareja entre mesas.
+- La autoridad debe pertenecer al mismo claustro, departamento y sede electoral habilitada; se prioriza su mesa de elector. No puede tener turno laboral superpuesto con su cursada. Puede trabajar en la sede donde cursa y se prefiere esa sede entre alternativas equivalentes; esta regla sustituye la prohibición anterior.
+- Si la cobertura exige cambiar sede de trabajo, el sistema propone el traslado para confirmación de la Junta y limita destinos a sedes habilitadas del mismo alcance. Se conservan sede y mesa electorales; no se regenera el padrón por un traslado laboral.
+- Al aprobar la justificación de una autoridad titular, su puesto queda vacante; no se promueve automáticamente a otra persona. Si hay titulares en otra mesa del mismo departamento, sede y turno, y esa mesa conserva al menos un titular, se propone el traslado para confirmación de la Junta. La persona conserva su mesa de votación y se notifica el cambio de mesa de trabajo. Si no hay propuesta compatible, la vacante continúa visible. Rechazar la justificación conserva la designación. Las asignaciones de suplentes de mesa existentes se eliminan por decisión explícita y no se crean nuevas.
+- Quitar una designación permite liberar la asignación actual o excluir al elector de futuras distribuciones de toda la elección. No se crean usuarios o identidades al asignar autoridades.
 
 ## Confirmación de notificaciones a ausentes
 
@@ -237,10 +290,32 @@ Reglas:
 - La presentación de justificativos se habilita únicamente para la elección actual cuando se encuentra publicada (`PREPARADA`) o en curso (`ABIERTA`).
 - La misma regla aplica a electores y autoridades de mesa; el servidor rechaza envíos aunque se intente omitir la restricción de la interfaz.
 - No se habilita la presentación en elecciones en preparación, finalizadas ni cuando no existe una elección actual con padrón activo para la persona.
+- La casilla «Voté, pero aparezco como ausente» permite reclamar una ausencia
+  a votar. Solo se ofrece si la persona tiene una ausencia registrada
+  (`RegistroParticipacion` por escaneo de QR) y todavía no presentó un
+  justificativo de ausencia a votar. Al marcarla se ocultan «Ausencia a
+  justificar» y «Tipo» y aparece «Perdí el comprobante de votación»; el
+  servidor fija la ausencia a votar y no asigna tipo. Las descripciones de
+  ambas casillas se muestran al pasar el cursor. Admite comprobante PDF/imagen
+  o la declaración de comprobante extraviado junto con un comentario para
+  revisar manualmente el padrón.
+- Si el elector adjunta una imagen JPG/PNG del troquel, el sistema lee el QR y
+  verifica la firma, la elección y el identificador del elector. El resultado
+  (válido, no válido, sin QR detectado, revisión manual para PDF o comprobante
+  extraviado) se muestra a la Junta, que puede volver a validarlo. Un resultado
+  no válido no impide la presentación.
+- La validación automática no modifica la ausencia. Solo cuando el
+  administrador o el administrativo de junta aprueba el reclamo se elimina el
+  `RegistroParticipacion`, con copia en el justificativo y evento de auditoría.
+  Si la resolución cambia a rechazada, la ausencia se restaura. Mantiene el
+  límite de una presentación por tipo de ausencia y la validación de adjuntos.
 
 ## Resolución de solicitudes de cambio de sede
 
 - Cada elector puede registrar una única solicitud de cambio de sede por elección, independientemente de su estado (pendiente, aprobada o rechazada).
+- El filtro por estado afecta solo el listado, incluso en modo lectura. Los
+  resúmenes y las acciones masivas continúan abarcando todas las solicitudes
+  pendientes; la cantidad y el estado del listado filtrado se muestran explícitos.
 - La gestión muestra la cantidad actual de mesas de cada sede habilitada para la elección y una estimación de las mesas adicionales necesarias para las solicitudes pendientes.
 - El administrador de junta puede aprobar solicitudes agregando como máximo una cantidad total de mesas nuevas definida en el formulario. El límite se aplica a toda la elección, no por sede.
 - Al elegir la acción con límite, se informa cuántas mesas nuevas se crearían si se aceptaran todas las solicitudes pendientes y se solicita el máximo total permitido antes de confirmar.
@@ -248,3 +323,45 @@ Reglas:
 - Las solicitudes que no puedan asignarse a una mesa existente ni crear una mesa sin superar el máximo permanecen pendientes para una resolución posterior.
 - Una mesa existente solo se considera disponible si no alcanzó el máximo de electores por mesa configurado para el claustro. Si todas las mesas de la sede están completas, se crea otra únicamente si la acción y el límite lo permiten.
 - En la pantalla de resolución, las acciones se ubican a la izquierda y el resumen de mesas por sede a su derecha; en pantallas angostas se apilan.
+
+### Modalidades de asignación (octubre de 2026)
+
+- El flujo configura turnos y cupos y ofrece sorteo aleatorio o nómina común por archivo. La selección manual se ofrece desde cada mesa en todos los modos y no es una modalidad separada.
+- Al repetir el sorteo o cargar nómina se conservan las asignaciones vigentes; los cupos vacantes se completan. No se permite reducir cupos por debajo de las designaciones sin modificarlas explícitamente desde cada mesa.
+- «Recalcular» solicita confirmación y vuelve a sortear desde cero: reemplaza todas las asignaciones, incluidas las manuales, y descarta sus destinos laborales fijados. Conserva el padrón electoral, turnos, cupos y exclusiones. Solo está disponible en modo aleatorio y antes de QR/apertura/avisos de ausencia. La misma persona puede resultar elegida otra vez por azar.
+- «Eliminar todas las asignaciones», al final del detalle del claustro, requiere confirmación y vacía las autoridades sin volver a distribuir. Elimina asignaciones y roles de autoridad de sus mesas, limpia selecciones manuales, destinos laborales y marcas históricas de reacomodo del padrón. Conserva personas, mesas de votación, nómina y exclusiones, modo, turnos y cupos. No afecta otros claustros y respeta los mismos bloqueos por QR, estado electoral y avisos de ausencia. La operación es atómica, queda auditada y solo admite POST autorizado con CSRF y confirmación explícita.
+- El detalle mantiene una tabla compacta con columnas Mesa, Departamento, Sede, Turno, Titulares y Autoridades. Agrupa turnos por mesa, muestra cupos como «1 de 2» y despliega las personas a pedido. Permite combinar filtros de departamento, sede y cobertura del claustro; conserva filtros al paginar hasta 25 mesas. Filtrar no cambia el alcance de las operaciones de distribución o eliminación.
+- La cobertura se maximiza con prioridad para un titular por mesa/turno y luego los titulares restantes. «Sortear» optimiza los lugares libres conservando las asignaciones válidas y las selecciones manuales; «Recalcular» optimiza todo el plantel. Si la conservación limita la cobertura, se informa sin mover autoridades automáticamente.
+- El azar desempata tanto personas compatibles como cupos de igual prioridad dentro de cada ronda; la escasez no debe favorecer siempre a los primeros turnos o mesas por su orden de listado.
+- Cada persona cuenta para un único cupo. El guardado verifica que la solución y las filas persistidas coincidan; un error revierte toda la operación, incluidas las selecciones previas. La auditoría distingue completar/recalcular y registra las asignaciones anteriores/resultantes y las vacantes con su contexto.
+
+- Cada claustro elige entre sorteo por mesa y nómina común por archivo. No existe una modalidad de planilla con mesa, turno y función predeterminados; esos cambios se realizan desde el detalle de cada mesa.
+- Se completan los cupos de titulares de **todos** los turnos y mesas en rondas parejas. Cada persona tiene como máximo una asignación en la elección. Se informan todos los cupos faltantes, no solamente mesas sin ningún titular.
+- El sorteo usa el padrón activo, sin exigir cargar una nómina previamente. La selección por mesa fija persona, mesa y turno. No se eligen candidatos electorales activos ni personas excluidas.
+- En nómina, sin opciones cada persona nueva trabaja en su mesa. «Votar en mesa distinta» permite asignarla a otra mesa de la misma sede, sin mover su mesa de votación, si su horario es compatible con un turno configurado. «Permitir cambio de mesa» reacomoda el padrón para que titulares voten en la mesa donde trabajan. «Permitir cambio de sede» habilita otra sede del mismo claustro y departamento; sin reacomodo solo se admite si la mesa destino respeta el orden alfabético y su capacidad sin desplazar a otras personas. No se traslada a quien cursa en su sede electoral de origen. Las opciones de reacomodo y mesa de votación distinta son excluyentes.
+- La distribución de nómina se previsualiza y confirma antes de guardar. Tras cargar el archivo se comparan cinco alternativas y se elige una en la misma tabla, que informa titulares, personas sin asignar, vacantes y detalles de cambios de mesa y sede. La elección se revalida contra la previsualización al confirmar. Las mesas nuevas pueden confirmarse con autoridades pendientes y completarse en cargas posteriores sin eliminar asignaciones previas.
+- Con «Permitir cambio de mesa», los titulares votan en su mesa de trabajo y quedan al final de su padrón; el resto se distribuye alfabéticamente respetando capacidad. Con «Votar en mesa distinta», la mesa electoral no se modifica y la asignación de autoridad puede quedar en otra mesa de la misma sede. Las mesas manuales y con datos vinculados se conservan. Antes de confirmar se revalidan los datos, y la operación es atómica.
+- La configuración y la distribución se bloquean con QR emitidos y después de abrir la elección. También se protegen los avisos de ausencia frente a redistribuciones generales. La confirmación de reemplazo por la Junta se permite únicamente mientras la elección está Publicada.
+- La edición manual desde el detalle de cada mesa agrega, reemplaza o quita designaciones y conserva las restantes. La regeneración automática del padrón se bloquea si existen autoridades asignadas.
+- Los cambios de configuración, distribuciones, selecciones, reacomodos y reemplazos quedan auditados. No se crean identidades al asignar autoridades.
+
+### Decisiones C/C confirmadas el 23 de octubre
+
+Las reglas anteriores sobre el destino electoral de titulares fueron actualizadas
+por las decisiones de cambio de mesa y sede indicadas arriba.
+
+- Se elimina la promoción de suplentes de mesa. La aprobación de una justificación deja vacante el puesto de autoridad titular y permite proponer a la Junta el traslado de un titular elegible de otra mesa compatible.
+- El plan completo, criterios de aceptación y registro para retomar están en [plan_autoridades_tres_modos.md](plan_autoridades_tres_modos.md).
+
+### Ajuste de modalidades de autoridades confirmado el 28 de octubre
+
+- Se retira «Planilla de asignaciones» como modalidad. Los modos seleccionables son «Nómina común» y «Sorteo por mesa»; la edición manual continúa desde cada mesa.
+- Cada claustro configura un mínimo de titulares por mesa y turno, entre 1 y el máximo del turno. Tanto en nómina como en sorteo se priorizan los cupos mínimos en rondas antes de los adicionales, respetando la elegibilidad y las asignaciones conservadas. Una mesa solo puede ceder una autoridad si conserva ese mínimo. No se inicia una elección con justificativos de autoridad pendientes y no se reciben nuevos justificativos de autoridad durante la jornada; las ausencias a votar conservan su propio flujo.
+- La adaptación de vacantes mediante traslados corresponde después de confirmar las autoridades definitivas y aprobar las justificaciones de ausencia. La confirmación requiere resolver las solicitudes de cambio de sede pendientes, pero no espera al vencimiento de su plazo; al confirmar se cierra la recepción de nuevas solicitudes, se fija un plazo de justificación y se convoca a los titulares.
+- La publicación no requiere turnos de autoridad configurados, ya que la distribución aún es provisoria. La configuración de turnos sigue siendo obligatoria para iniciar la elección.
+- El inicio se bloquea mientras alguna mesa y turno no alcance su mínimo. El recálculo conserva las mesas necesarias; tras importar un padrón se ejecuta automáticamente e informa las designaciones provisorias que quedan vacantes. Los recálculos manuales y las aprobaciones de cambio de sede muestran el impacto y se revalidan antes de aplicar.
+- Al aprobar una justificación se intenta devolver al elector a su mesa anterior sin desplazar a otras personas; si hace falta reordenar, la Junta revisa y confirma la propuesta. No se contraviene una solicitud de sede aprobada ni se desplaza la mesa de votación de otra autoridad definitiva.
+- En Nómina, «Votar en mesa distinta» permite asignar a una persona a otra mesa de la misma sede y mantener su mesa de votación. Solo se consideran turnos habilitados que no se superpongan con su cursada.
+- Esta opción no se combina con «Permitir cambio de mesa» ni «Permitir cambio de sede». «Permitir cambio de mesa» conserva el reacomodo del padrón; «Permitir cambio de sede» también puede usarse sin reacomodo en los casos compatibles con el orden y la capacidad existentes.
+- Al usar «Votar en mesa distinta» no se reordenan personas, no se crean ni eliminan mesas y no se modifica el padrón electoral. Se mantienen la previsualización, confirmación, prioridad de mesa propia y conservación de asignaciones vigentes.
+- Una migración convierte configuraciones históricas de Planilla o selección manual a Sorteo, conserva ambas opciones previas y agrega la nueva opción desactivada. Las asignaciones ya guardadas no se modifican.

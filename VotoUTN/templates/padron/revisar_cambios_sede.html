@@ -1,0 +1,13 @@
+{% extends "gestion/base.html" %}
+{% block title %}Revisar cambios de sede{% endblock %}
+{% block content %}
+<section class="hero"><h1>Revisar cambios de sede</h1><p>{{ eleccion.nombre }} · La propuesta todavía no se aplicó.</p></section>
+<section class="card management-section">
+  <p>Se aprobarían {{ detalle.resultado.aprobadas }} solicitudes y se rechazarían {{ detalle.resultado.rechazadas }}.</p>
+  <p>Mesas nuevas: {{ detalle.agregadas|length }}{% if detalle.agregadas %} ({{ detalle.agregadas|join:", " }}){% endif %}. Mesas que se quitan: {{ detalle.quitadas|length }}{% if detalle.quitadas %} ({{ detalle.quitadas|join:", " }}){% endif %}.</p>
+  <h2>Autoridades provisorias afectadas: {{ detalle.autoridades|length }}</h2>
+  {% if detalle.autoridades %}<ul>{% for autoridad in detalle.autoridades %}<li>{{ autoridad.elector }} · {{ autoridad.mesa }} · {{ autoridad.turno }}: quedará vacante.</li>{% endfor %}</ul>{% else %}<p>No hay designaciones que queden vacantes.</p>{% endif %}
+  <details><summary>Ver {{ detalle.movimientos|length }} cambios de mesa de votación</summary><div class="table-wrap"><table><thead><tr><th>Elector</th><th>Mesa anterior</th><th>Mesa propuesta</th></tr></thead><tbody>{% for movimiento in detalle.movimientos %}<tr><td>{{ movimiento.elector }}</td><td>{{ movimiento.origen }}</td><td>{{ movimiento.destino }}</td></tr>{% empty %}<tr><td colspan="3">No hay cambios.</td></tr>{% endfor %}</tbody></table></div></details>
+  <form method="post" action="{% url 'gestionar-solicitudes-cambio-sede' eleccion.id %}" onsubmit="return confirm('Se aplicarán las resoluciones y los movimientos indicados. ¿Continuar?')">{% csrf_token %}<input type="hidden" name="accion" value="confirmar_aprobacion"><input type="hidden" name="propuesta" value="{{ propuesta }}"><button class="button primary">Confirmar cambios</button> <a class="button light" href="{% url 'gestionar-solicitudes-cambio-sede' eleccion.id %}">Cancelar</a></form>
+</section>
+{% endblock %}

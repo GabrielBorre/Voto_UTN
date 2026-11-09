@@ -31,6 +31,10 @@ destinatarios y evento sugerido. La fecha concreta por elección continúa en
 - `EleccionClaustroDepartamentoSede`
 - `Mesa`
 
+`Eleccion` conserva `justificacion_electores_habilitada_en`, que registra el
+momento en que se abre la carga de justificativos de electores. La apertura se
+realizará desde la web después de completar el escaneo de todas las mesas.
+
 Regla de unicidad del ciclo de vida: como máximo una `Eleccion` puede estar en
 estado `en_preparacion`, `publicada` o `en_curso` considerando esos estados como un
 único grupo. Puede haber varias elecciones `finalizada`.
@@ -93,6 +97,7 @@ marca protege la correspondencia entre el papel emitido y la asignación de mesa
 
 - `AsignacionAutoridad`
 - `PreferenciaAutoridad`
+- `ImportacionNominaAutoridades`: archivo y trazabilidad de cada previsualización, confirmación, cancelación o rechazo de una nómina por claustro.
 
 Una autoridad es el mismo elector con una asignación adicional; no una persona duplicada.
 `AsignacionAutoridad` vincula una autoridad con una mesa y un único turno de trabajo
@@ -102,6 +107,10 @@ turno y en turnos diferentes.
 ## Participación
 
 - `RegistroParticipacion`
+
+En el flujo electoral, este registro identifica a un elector que no votó,
+independientemente de que la ausencia se haya cargado por QR o manualmente. Si
+no existe un registro, se presume que votó.
 
 Debe contemplar:
 
@@ -160,6 +169,16 @@ la previsualización, errores, advertencias, usuario y confirmación de cada CSV
 - `TipoJustificativo`
 - `JustificativoAusencia`
 
+`JustificativoAusencia.reclamo_participacion` identifica el reclamo «Voté,
+pero aparezco como ausente»: siempre es una ausencia a votar y no tiene
+`tipo` (restricción `justificativo_tipo_o_reclamo_participacion`). Conserva
+`comprobante_extraviado` además del comentario y del adjunto opcional para la
+revisión manual del padrón. `validacion_comprobante` y
+`detalle_validacion_comprobante` guardan el resultado de leer el QR del troquel
+adjunto. Al aprobar el reclamo se elimina el `RegistroParticipacion` y su copia
+queda en `respaldo_participacion` con `participacion_anulada_en`; si luego se
+rechaza, la ausencia se restaura desde esa copia.
+
 ## Notificaciones
 
 - `PlantillaNotificacion`
@@ -198,8 +217,8 @@ comportamiento principal:
 - `padron`: `Elector`, `RegistroPadron`, `ImportacionPadron` y
   `ErrorImportacionPadron`.
 - `mesas`: `Mesa` y `AsignacionMesa`.
-- `autoridades`: `CandidaturaAutoridad`, `AsignacionAutoridad` y
-  `PreferenciaAutoridad`.
+- `autoridades`: `CandidaturaAutoridad`, `AsignacionAutoridad`,
+  `PreferenciaAutoridad` e `ImportacionNominaAutoridades`.
 - `partidos`: `Partido`, `OrganoElectivo`, `CargoElectivo`, `PuestoEleccion`,
   `ParticipacionPartido`, `ListaCandidatos`, `Candidato` e `ImportacionCandidaturas`.
 - `justificativos`: `TipoJustificativo` y `JustificativoAusencia`.
@@ -213,3 +232,24 @@ Los modelos trasladados conservan sus tablas fisicas historicas `elecciones_*`.
 Las migraciones de modularizacion modifican el estado de Django sin recrear,
 renombrar ni eliminar esas tablas. Tambien actualizan los `ContentType` para
 preservar los permisos asociados a los modelos existentes.
+
+## Evolución del modelo de autoridades
+
+- `RegistroPadron.turno_cursada` referencia el turno existente del elector y puede ser nulo únicamente cuando no informa una sede de cursada.
+- `EleccionClaustroTurno` configura por turno las cantidades mínima y máxima de titulares por mesa. El mínimo rige para ceder autoridades a otra mesa. Los cupos de suplentes de mesa se mantienen en cero por compatibilidad de esquema.
+- `CandidaturaAutoridad` representa la nómina de elegibles e incluye exclusión explícita para no volver a seleccionar a un elector.
+- `AsignacionAutoridad` conserva mesa, turno y estado; solo se admiten designaciones titulares de mesa.
+- Las asignaciones usan al mismo `RegistroPadron`; no crean un segundo elector ni una identidad local automática.
+- `ConfiguracionAutoridades` guarda por claustro el modo (`nomina` o `aleatorio`) y tres opciones: reacomodar titulares, asignar una autoridad a una mesa de votación distinta dentro de la misma sede, y permitir cambio de sede.
+- `CandidaturaAutoridad` conserva opcionalmente mesa, turno, tipo y orden elegidos manualmente. La selección se valida contra el padrón activo y los cupos.
+- `AsignacionMesa.autoridad_al_final` identifica el bloque final del padrón en los reacomodos ya confirmados. La opción «Votar en mesa distinta» no modifica esta asignación ni la firma QR.
+- `CandidaturaAutoridad.mesa_traslado` y `turno_traslado` conservan el destino laboral confirmado. El flujo de nómina puede además actualizar el padrón electoral al confirmar la propuesta.
+- En nómina, «Votar en mesa distinta» permite asignar autoridad en otra mesa de
+  la misma sede, sin cambiar la mesa electoral. «Permitir cambio de mesa» sigue
+  reordenando el padrón para que titulares voten donde trabajan; «Permitir
+  cambio de sede» conserva esa regla y puede actualizar `AsignacionSedePadron`,
+  mientras `RegistroPadron.sede` sigue siendo la sede de cursada. Las propuestas
+  conservan las asignaciones existentes y se rechazan si cambió el estado desde
+  la previsualización.
+- `AsignacionAutoridad.reemplazo_confirmado_en`, `reemplazo_confirmado_por` y `reemplazada_por` registran la confirmación operativa independiente y evitan promociones duplicadas.
+- `JustificativoAusencia.reemplazo_procesado_en` se conserva por compatibilidad con la migración existente; las nuevas resoluciones documentales no producen reemplazos.

@@ -113,11 +113,13 @@ class AuditoriaParticipacionTests(BaseAuditoriaElectoralTests):
         )
 
         participacion = RegistroParticipacion.objects.get()
-        evento = EventoAuditoria.objects.get()
+        evento = EventoAuditoria.objects.get(accion="participacion.registrada_manual")
         self.assertEqual(resultado.creados, [padron.identificador_qr])
-        self.assertEqual(evento.accion, "participacion.registrada_manual")
         self.assertEqual(evento.entidad_id, str(participacion.id))
         self.assertEqual(evento.datos_nuevos["metodo"], RegistroParticipacion.Metodo.MANUAL)
+        inicio_mesa = EventoAuditoria.objects.get(accion="mesa.escaneo_iniciado")
+        self.assertEqual(inicio_mesa.entidad_id, str(self.mesa.id))
+        self.assertEqual(inicio_mesa.datos_nuevos["origen"], "manual")
 
 
 class AuditoriaEleccionTests(BaseAuditoriaElectoralTests):
@@ -134,7 +136,11 @@ class AuditoriaEleccionTests(BaseAuditoriaElectoralTests):
         self.crear_padron()
         respuesta = self.client.post(
             reverse("cambiar-estado-eleccion", args=(self.eleccion.id,)),
-            {"estado": Eleccion.Estado.PUBLICADA},
+            {
+                "estado": Eleccion.Estado.PUBLICADA,
+                "fecha_cierre_solicitudes_cambio_sede": "2026-08-03",
+                "fecha_limite_justificacion_autoridades": "2026-08-03",
+            },
             HTTP_HOST="127.0.0.1",
             REMOTE_ADDR="127.0.0.10",
             HTTP_USER_AGENT="Prueba",

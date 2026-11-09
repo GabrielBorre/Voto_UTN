@@ -5,7 +5,7 @@ import { gestionarMesa, submitManualAttendance, submitPage } from "./asistencia.
 import {
     setCount,
     setStatus,
-    setRegisterButtonLabel
+    setMesaCodigo
 } from "./ui.js";
 
 const app = document.querySelector("#scanner-app");
@@ -131,7 +131,7 @@ const scanner = new PageQrScanner(
         if (parsed.tipo === "mesa") {
             scanner.codes.delete(code);
             if (parsed.mesaNumero !== mesaActual.numero) {
-                notifyError(`Primero registrá la mesa ${mesaActual.codigo} con el botón antes de escanear otra mesa.`);
+                notifyError(`Primero registrá la mesa actual.`);
             }
             return;
         }
@@ -148,9 +148,7 @@ const scanner = new PageQrScanner(
             return;
         }
 
-        const mesaVisibleCount = getProjectedUniqueMesaCount(scanner.codes);
-        setCount(mesaVisibleCount);
-        setRegisterButtonLabel(mesaActual.codigo, mesaVisibleCount);
+        actualizarResumenMesa();
 
         restartAutoRegisterTimer();
         reactivador.notificarCodigoNuevo();
@@ -173,6 +171,7 @@ const registerButton = document.querySelector("#register-page");
 const manualLoadButtons = document.querySelectorAll(".js-manual-load");
 const resetSessionButton = document.querySelector("#reset-session");
 const cameraPanel = document.querySelector("#camera-panel");
+const scanSummary = document.querySelector("#scan-summary");
 const scanControls = document.querySelector("#scan-controls");
 const mesaSummaryView = document.querySelector("#mesa-summary-view");
 const lastPageSummary = document.querySelector("#last-page-summary");
@@ -195,6 +194,7 @@ const manualDniMesa = document.querySelector("#manual-dni-mesa");
 const manualDniError = document.querySelector("#manual-dni-error");
 const manualDniCancel = document.querySelector("#manual-dni-cancel");
 const confirmPanel = document.querySelector("#confirm-panel");
+const confirmTitle = document.querySelector("#confirm-title");
 const confirmText = document.querySelector("#confirm-text");
 const confirmAccept = document.querySelector("#confirm-accept");
 const confirmCancel = document.querySelector("#confirm-cancel");
@@ -217,7 +217,7 @@ function closeManualDniDialog() {
     }
 }
 
-function askConfirm(message) {
+function askConfirm(title, message) {
     return new Promise(resolve => {
         const finish = accepted => {
             confirmPanel.classList.add("d-none");
@@ -227,6 +227,7 @@ function askConfirm(message) {
         };
         const onAccept = () => finish(true);
         const onCancel = () => finish(false);
+        confirmTitle.textContent = title;
         confirmText.textContent = message;
         confirmAccept.addEventListener("click", onAccept);
         confirmCancel.addEventListener("click", onCancel);
@@ -236,13 +237,14 @@ function askConfirm(message) {
 }
 
 setCount(0);
-setRegisterButtonLabel(null, 0);
+setMesaCodigo(null);
 setPhase("select");
 
 function setPhase(nextPhase) {
     phase = nextPhase;
     const visibility = [
         [cameraPanel, nextPhase === "select" || nextPhase === "scanning"],
+        [scanSummary, nextPhase === "scanning"],
         [mesaSelectControls, nextPhase === "select"],
         [mesaInfoView, nextPhase === "info"],
         [mesaInfoControls, nextPhase === "info"],
@@ -292,6 +294,12 @@ function getProjectedUniqueMesaCount(pageCodesSet) {
     return projectedCodes.size;
 }
 
+/* Header: mesa actual y total de inasistencias registradas (previas + acumuladas + hoja en curso). */
+function actualizarResumenMesa() {
+    setMesaCodigo(mesaActual?.codigo);
+    setCount(mesaBaseRegistrados + getProjectedUniqueMesaCount(scanner.codes));
+}
+
 async function startCamera() {
     if (cameraStarted)
         return;
@@ -302,7 +310,7 @@ async function startCamera() {
         scanner.start();
         cameraStarted = true;
         reactivador.iniciar();
-        setStatus(phase === "scanning" ? `Mesa ${mesaActual.codigo}: escaneá la hoja completa del padrón.` : "Escaneá el QR de la mesa.");
+        setStatus(phase === "scanning" ? `Escaneá la hoja completa del padrón.` : "Escaneá el QR de la mesa.");
     }
     catch (error) {
         setStatus(error.message, "error");
@@ -429,10 +437,9 @@ async function comenzarEscaneoMesa() {
         mesaBaseRegistrados = result.mesa.registrados;
         mesaAccumulatedCodes.clear();
         scanner.clear();
-        setCount(0);
-        setRegisterButtonLabel(mesaActual.codigo, 0);
+        actualizarResumenMesa();
         setPhase("scanning");
-        setStatus(`Mesa ${mesaActual.codigo}: escaneá la hoja completa del padrón.`);
+        setStatus(`Escaneá la hoja completa del padrón.`);
         scanner.start();
     }
     catch (error) {
@@ -453,24 +460,17 @@ function clearMesaState() {
     mesaAccumulatedCodes.clear();
     lastNoticeAt = 0;
     setCount(0);
-    setRegisterButtonLabel(null, 0);
+    setMesaCodigo(null);
 }
 
 function clearCurrentPageScanOnly() {
     scanner.clear();
-    const accumulatedCount = mesaAccumulatedCodes.size;
-    setCount(accumulatedCount);
-    setRegisterButtonLabel(mesaActual?.codigo, accumulatedCount);
+    actualizarResumenMesa();
 }
 
-/* Confirma la mesa en el servidor; sin QRs pide confirmar que no hubo inasistencias. */
+/* Finaliza la mesa después de la confirmación del operador. */
 async function finalizarMesa() {
     const sinRegistros = mesaBaseRegistrados + mesaAccumulatedCodes.size === 0;
-
-    if (sinRegistros && !(await askConfirm(`No se escanearon QRs en la mesa ${mesaActual.codigo}.\n\nSe confirmará que en esta mesa no hubo inasistencias. ¿Continuar?`))) {
-        scanner.start();
-        return false;
-    }
 
     try {
         await gestionarMesa(app.dataset.mesaApiUrl, {
@@ -533,11 +533,11 @@ async function registerCurrentPage(origin) {
         }
 
         if (result.invalidos_otra_mesa?.length) {
-            throw new Error(`Hay QRs de otra mesa. Registrá primero la mesa ${mesaActual.codigo}.`);
+            throw new Error(`Registrá primero la mesa ${mesaActual.codigo}.`);
         }
 
         if (result.invalidos?.length) {
-            throw new Error("Se detectaron QRs inválidos o que no corresponden a la mesa actual.");
+            throw new Error("QRs no corresponden a la mesa actual.");
         }
 
         setStatus(
@@ -565,9 +565,7 @@ async function registerCurrentPage(origin) {
         void playErrorTone();
         scanner.start();
 
-        const mesaVisibleCount = getProjectedUniqueMesaCount(scanner.codes);
-        setCount(mesaVisibleCount);
-        setRegisterButtonLabel(mesaActual?.codigo, mesaVisibleCount);
+        actualizarResumenMesa();
         restartAutoRegisterTimer();
     }
     finally {
@@ -597,8 +595,26 @@ function stopAll() {
     cameraStarted = false;
 }
 
-registerButton.addEventListener("click", () => {
-    registerCurrentPage("manual");
+registerButton.addEventListener("click", async () => {
+    if (isSubmitting || phase !== "scanning") return;
+    isSubmitting = true;
+    stopAutoRegisterTimer();
+    scanner.stop();
+    // Terminar la lectura en curso antes de mostrar el total que se confirmará.
+    while (scanner.busy) await sleep(10);
+    const cantidad = getProjectedUniqueMesaCount(scanner.codes);
+    const confirmado = await askConfirm(
+        `Registrar Mesa ${mesaActual.codigo}`,
+        `Inasistencias registradas: ${mesaBaseRegistrados + cantidad}`
+    );
+    isSubmitting = false;
+    if (confirmado) {
+        await registerCurrentPage("manual");
+    } else {
+        scanner.start();
+        restartAutoRegisterTimer();
+        registerButton.focus();
+    }
 });
 
 mesaStartButton.addEventListener("click", () => {
@@ -651,6 +667,7 @@ manualDniForm.addEventListener("submit", event => {
 
             if (result.creados?.length) {
                 mesaBaseRegistrados += 1;
+                actualizarResumenMesa();
                 closeManualDniDialog();
                 setStatus(`Inasistencia registrada en la mesa ${mesaActual.codigo}.`, "success");
                 void playSuccessTone();

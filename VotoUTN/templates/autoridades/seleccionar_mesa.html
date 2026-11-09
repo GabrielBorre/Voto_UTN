@@ -1,0 +1,53 @@
+{% extends "gestion/base.html" %}
+{% load static %}
+{% block title %}Editar autoridades · {{ mesa.codigo }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Editar autoridades · Mesa {{ mesa.codigo }}</h1>
+  <p>{{ mesa.sede }} · {{ eleccion_claustro.claustro }} · {{ eleccion.nombre }}</p>
+  {% if not eleccion.autoridades_confirmadas_en %}<p class="notice"><strong>Asignación provisoria.</strong> La designación puede cambiar si se modifican el padrón o las mesas.</p>{% endif %}
+</section>
+<section class="card management-section">
+  <h2>Cupos de esta mesa</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Turno</th><th>Titulares</th><th>Completar</th></tr></thead>
+    <tbody>{% for fila in cobertura_mesa %}<tr>
+      <td>{{ fila.turno }}</td>
+      <td class="{% if fila.titulares < fila.maximo_titulares %}cupo-pendiente{% endif %}">{{ fila.titulares }} de {{ fila.maximo_titulares }}</td>
+      <td>{% if fila.titulares < fila.maximo_titulares %}<a class="button light small" href="?turno={{ fila.turno.pk }}&amp;tipo=titular#seleccion">Agregar titular</a>{% else %}<span class="muted">Completo</span>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="3">Configurá los turnos del claustro para poder asignar autoridades.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<section class="card management-section" id="seleccion">
+  <h2>{% if formulario.reemplazo %}Reemplazar a {{ formulario.reemplazo.registro_padron.elector.nombre_completo }}{% else %}Asignar una persona{% endif %}</h2>
+  <p>Elegí turno y función, y buscá por nombre. Se muestran personas de esta mesa sin asignación y sin superposición con el turno en el que asisten a la sede.</p>
+  {% if formulario.reemplazo %}<p class="notice">La persona elegida ocupará el mismo turno y función de la designación que estás reemplazando.</p>{% endif %}
+  <form method="post" class="autoridades-modo-form" id="seleccion-manual-form"{% if not eleccion.autoridades_confirmadas_en %} data-confirm="Esta asignación es provisoria y puede cambiar antes de la confirmación definitiva. ¿Querés continuar?" data-confirm-title="Asignación provisoria" data-confirm-accept="Continuar"{% endif %}>
+    {% csrf_token %}
+    {% for field in formulario.hidden_fields %}{{ field }}{% for error in field.errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}{% endfor %}
+    <div class="seleccion-manual-campos">
+      {% for field in formulario.visible_fields %}<div class="field{% if field.name == 'busqueda' or field.name == 'registro' %} seleccion-manual-ancha{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}</div>{% endfor %}
+    </div>
+    <p class="muted" data-resultados-personas aria-live="polite">Seleccioná una persona disponible.</p>
+    {% for error in formulario.non_field_errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}
+    <div class="footer-actions"><button type="submit" class="button primary" name="seleccionar">{% if formulario.reemplazo %}Confirmar reemplazo{% else %}Asignar al cupo{% endif %}</button>{% if formulario.reemplazo %}<a class="button light" href="{{ request.path }}#autoridades-mesa">Cancelar reemplazo</a>{% endif %}</div>
+  </form>
+</section>
+<section class="card management-section" id="autoridades-mesa">
+  <h2>Autoridades de esta mesa</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Persona</th><th>Turno</th><th>Función</th><th>Estado</th><th>Asignación</th><th>Acciones</th></tr></thead>
+    <tbody>{% for a in autoridades %}<tr>
+      <td>{{ a.registro_padron.elector.nombre_completo }}</td><td>{{ a.turno }}</td>
+      <td>{{ a.get_tipo_display }}</td><td>{{ a.get_estado_display }}</td>
+      <td>{% if a.candidatura.mesa_manual_id == mesa.id %}Manual{% else %}Automática{% endif %}</td>
+      <td>{% if a.estado == 'asignada' %}<div class="authority-candidate-actions"><a class="button light small" href="?reemplazar={{ a.pk }}#seleccion">Reemplazar</a><form method="post">{% csrf_token %}<button class="button danger small" name="quitar-asignacion" value="{{ a.pk }}" data-confirm="Se quitará esta designación y su cupo quedará libre. ¿Continuar?" data-confirm-title="Quitar designación" data-confirm-accept="Quitar">Quitar</button></form></div>{% else %}<span class="muted">Gestionar el reemplazo desde el claustro</span>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="6">Sin autoridades seleccionadas.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<div class="section-actions"><a class="button light" href="{% url 'gestionar-autoridades-claustro' eleccion.id eleccion_claustro.id %}#asignaciones">Volver a la tabla del claustro</a></div>
+{% endblock %}
+{% block scripts %}
+{{ personas_disponibles|json_script:"personas-disponibles" }}
+<script type="module" src="{% static 'js/seleccion-manual-autoridades.js' %}?v=20261024.1"></script>
+{% endblock %}

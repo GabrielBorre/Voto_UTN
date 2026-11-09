@@ -59,7 +59,21 @@ function mostrarDialogo(mensaje, opciones) {
     const esPregunta = opciones.tipo === "pregunta";
     const esAviso = opciones.tipo === "aviso";
     elemento.querySelector("h2").textContent = opciones.titulo || (esAviso ? "Aviso" : "Confirmar operación");
-    elemento.querySelector("p").textContent = mensaje;
+    const textoMensaje = elemento.querySelector("p");
+    const indiceAdvertencia = mensaje.indexOf("⚠");
+    if (indiceAdvertencia === -1) {
+      textoMensaje.textContent = mensaje;
+    } else {
+      const iconoAdvertencia = document.createElement("span");
+      iconoAdvertencia.className = "utn-dialogo-advertencia-icono";
+      iconoAdvertencia.setAttribute("aria-hidden", "true");
+      iconoAdvertencia.textContent = "⚠";
+      textoMensaje.replaceChildren(
+        document.createTextNode(mensaje.slice(0, indiceAdvertencia)),
+        iconoAdvertencia,
+        document.createTextNode(mensaje.slice(indiceAdvertencia + 1)),
+      );
+    }
     elemento.querySelector(".utn-dialogo-entrada").hidden = !esPregunta;
     entrada.value = opciones.valorInicial || "";
     entrada.type = opciones.tipoEntrada || "text";
@@ -237,6 +251,38 @@ for (const nombre of ["htmx:afterRequest", "htmx:sendError", "htmx:timeout"]) {
 }
 window.addEventListener("pageshow", restablecerCarga);
 window.addEventListener("pagehide", restablecerCarga);
+
+const CLAVE_SCROLL_CONSERVADO = "utn:scroll-conservado";
+
+document.addEventListener("submit", (evento) => {
+  const formulario = evento.target;
+  if (!(formulario instanceof HTMLFormElement) || formulario.method === "dialog"
+      || !formulario.closest("[data-conservar-scroll]")) return;
+  queueMicrotask(() => {
+    if (evento.defaultPrevented) return;
+    sessionStorage.setItem(CLAVE_SCROLL_CONSERVADO, JSON.stringify({
+      ruta: window.location.pathname,
+      y: window.scrollY,
+    }));
+  });
+});
+
+function restaurarScrollConservado() {
+  const guardado = sessionStorage.getItem(CLAVE_SCROLL_CONSERVADO);
+  if (!guardado) return;
+  sessionStorage.removeItem(CLAVE_SCROLL_CONSERVADO);
+  try {
+    const { ruta, y } = JSON.parse(guardado);
+    // Solo se restaura si la respuesta vuelve a la misma pantalla y no apunta a un ancla propia.
+    if (ruta === window.location.pathname && !window.location.hash && Number.isFinite(y)) {
+      window.scrollTo(0, y);
+    }
+  } catch {
+    // Un valor corrupto en sessionStorage no debe interrumpir la página.
+  }
+}
+
+restaurarScrollConservado();
 
 function mostrarMensajesEmergentes() {
   for (const aviso of document.querySelectorAll("[data-popup-mensaje]")) {

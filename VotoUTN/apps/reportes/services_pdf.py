@@ -23,6 +23,9 @@ from reportlab.platypus import Paragraph, Table, TableStyle
 from apps.asistencia.services import ServicioRegistroParticipacion
 from apps.elecciones.models import Eleccion
 from apps.padron.models import RegistroPadron
+from apps.elecciones.models import EleccionClaustroTurno
+from apps.mesas.models import Mesa
+from apps.autoridades.models import AsignacionAutoridad
 
 PAGINA = portrait(legal)
 ANCHO_PAGINA, ALTO_PAGINA = PAGINA
@@ -72,6 +75,26 @@ def validar_padron_para_pdf(eleccion) -> ValidacionPadronPDF:
     if sin_qr:
         motivos.append(f"Hay {sin_qr} elector(es) sin identificador QR generado.")
 
+    for mesa in Mesa.objects.filter(eleccion=eleccion).select_related("eleccion_claustro_departamento__eleccion_claustro__claustro"):
+        if mesa.eleccion_claustro_departamento_id is None:
+            motivos.append(f"La mesa {mesa.numero} no tiene un claustro/departamento asignado para validar sus autoridades.")
+            continue
+        configuraciones = EleccionClaustroTurno.objects.filter(
+            eleccion_claustro=mesa.eleccion_claustro_departamento.eleccion_claustro,
+        ).select_related("turno")
+        if not configuraciones.exists():
+            motivos.append(f"La mesa {mesa.numero} no tiene turnos de autoridades configurados.")
+            continue
+        for configuracion in configuraciones:
+            cubierta = AsignacionAutoridad.objects.filter(
+                mesa=mesa,
+                turno=configuracion.turno,
+                tipo=AsignacionAutoridad.Tipo.TITULAR,
+                estado=AsignacionAutoridad.Estado.ASIGNADA,
+            ).exists()
+            if not cubierta:
+                motivos.append(f"La mesa {mesa.numero} no tiene titular asignado para el turno {configuracion.turno}.")
+
     return ValidacionPadronPDF(apto=not motivos, motivos=motivos)
 
 
@@ -116,7 +139,7 @@ def _agrupar_padrones_por_mesa(eleccion):
             "asignacion_mesa__mesa__eleccion_claustro_departamento__eleccion_claustro__claustro",
             "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
         )
-        .order_by("elector__nombre", "legajo")
+        .order_by("asignacion_mesa__autoridad_al_final", "elector__apellido", "elector__nombre", "elector__legajo")
     )
     grupos = {}
     for padron in padrones:
@@ -319,11 +342,14 @@ def _dibujar_caratula(c, eleccion, mesa):
     claustro = configuracion.eleccion_claustro.claustro if configuracion else None
     departamento = configuracion.departamento if configuracion and configuracion.departamento_id else None
 
+    c.setFont("Helvetica-Bold", 30)
+    c.drawCentredString(centro, y - 20 * mm, f"CLAUSTRO {(claustro.nombre if claustro else 'Sin claustro').upper()}")
+
     c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(centro, y - 20 * mm, "INFORMACIÓN DE MESA")
+    c.drawCentredString(centro, y - 38 * mm, "INFORMACIÓN DE MESA")
 
     c.setFont("Helvetica", 13)
-    y_dato = y - 40 * mm
+    y_dato = y - 55 * mm
     datos = [
         f"Elección: {eleccion.nombre}",
         f"Fecha de votación: {_fecha_votacion_mesa(eleccion, mesa).strftime('%d/%m/%Y')}",
@@ -336,15 +362,12 @@ def _dibujar_caratula(c, eleccion, mesa):
         y_dato -= 8 * mm
 
     c.setFont("Helvetica", 12)
-    c.setFont("Helvetica-Bold", 30)
-    c.drawCentredString(centro, y_dato - 10 * mm, f"CLAUSTRO {(claustro.nombre if claustro else 'Sin claustro').upper()}")
-    c.setFont("Helvetica", 12)
-    c.drawCentredString(centro, y_dato - 27 * mm, "Código de mesa")
+    c.drawCentredString(centro, y_dato - 10 * mm, "Código de mesa")
     c.setFont("Helvetica-Bold", 60)
-    c.drawCentredString(centro, y_dato - 47 * mm, mesa.codigo)
+    c.drawCentredString(centro, y_dato - 30 * mm, mesa.codigo)
 
     lado_qr = 90 * mm
-    y_qr = y_dato - 57 * mm - lado_qr
+    y_qr = y_dato - 40 * mm - lado_qr
     payload = ServicioRegistroParticipacion.generar_codigo_qr_mesa(eleccion_id=eleccion.id, mesa_numero=mesa.numero)
     _generar_qr_vectorial(payload, lado_qr).drawOn(c, centro - lado_qr / 2, y_qr)
     c.setFont("Helvetica", 10)

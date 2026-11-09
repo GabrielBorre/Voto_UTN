@@ -1,0 +1,14 @@
+{% extends "gestion/base.html" %}
+{% block title %}Revisar recálculo de mesas{% endblock %}
+{% block content %}
+<section class="hero"><h1>Revisar recálculo de mesas</h1><p>{{ eleccion.nombre }} · La propuesta todavía no modificó el padrón.</p></section>
+<section class="card management-section">
+  <h2>Resultado propuesto</h2>
+  <p>{{ resultado.electores }} electores en {{ resultado.mesas }} mesas. {{ resultado.autoridades_vacantes|default:0 }} designaciones provisorias quedarían vacantes.</p>
+  {% if resultado.mesas_creadas %}<p>Se agregarán {{ resultado.mesas_creadas|length }} mesas nuevas.</p>{% endif %}
+  {% if resultado.detalle_mesas_quitadas %}<p>Se quitarán las mesas: {{ resultado.detalle_mesas_quitadas|join:", " }}.</p>{% endif %}
+  {% if resultado.detalle_autoridades_vacantes %}<h3>Autoridades que dejarían su puesto</h3><ul>{% for autoridad in resultado.detalle_autoridades_vacantes %}<li>{{ autoridad.elector }} · {{ autoridad.mesa }} · {{ autoridad.turno }}</li>{% endfor %}</ul>{% endif %}
+  <details><summary>Ver {{ movimientos|length }} cambios de mesa de votación</summary><div class="table-wrap"><table><thead><tr><th>Elector</th><th>Mesa anterior</th><th>Mesa propuesta</th></tr></thead><tbody>{% for movimiento in movimientos %}<tr><td>{{ movimiento.elector }}</td><td>{{ movimiento.origen }}</td><td>{{ movimiento.destino }}</td></tr>{% empty %}<tr><td colspan="3">No hay cambios de mesa.</td></tr>{% endfor %}</tbody></table></div></details>
+  <form method="post" data-confirm="Se aplicará el recálculo y las designaciones indicadas quedarán vacantes. ¿Continuar?" data-confirm-title="Aplicar recálculo" data-confirm-accept="Aplicar recálculo">{% csrf_token %}<input type="hidden" name="propuesta" value="{{ propuesta }}"><div class="footer-actions"><button class="button primary">Aplicar recálculo</button><a class="button light" href="{% url 'gestionar-autoridades' eleccion.id %}">Cancelar</a></div></form>
+</section>
+{% endblock %}

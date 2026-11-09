@@ -12,12 +12,68 @@
       <a class="button hero-boton" href="#historial-participacion">Historial de participación</a>
       <a class="button hero-boton-secundario" href="{% url 'historial-elecciones' %}">Volver</a>
       {% if puede_confirmar_notificaciones_ausentes %}
-      <form method="post" action="{% url 'confirmar-notificaciones-ausentes' eleccion_actual.pk %}" data-confirm="El escaneo de todas las mesas está confirmado. ¿Querés notificar a los electores registrados como ausentes?">
+      <form method="post" action="{% url 'confirmar-notificaciones-ausentes' eleccion_actual.pk %}" id="form-confirmar-notificaciones-ausentes">
         {% csrf_token %}
-        <button class="button hero-boton" type="submit">Confirmar escaneo y notificar ausentes</button>
+        <button class="button hero-boton" type="button" id="abrir-dialogo-confirmar-ausentes">
+          {% if periodo_justificacion_pendiente_habilitacion %}
+          Definir plazo y habilitar justificativos
+          {% else %}
+          Confirmar escaneo y notificar ausentes
+          {% endif %}
+        </button>
+        <dialog class="dialogo-limite-mesas" id="dialogo-confirmar-notificaciones-ausentes" aria-labelledby="titulo-confirmar-notificaciones-ausentes">
+          <h2 id="titulo-confirmar-notificaciones-ausentes">
+            {% if periodo_justificacion_pendiente_habilitacion %}
+            Habilitar justificativos para electores
+            {% else %}
+            Confirmar escaneo y notificar ausentes
+            {% endif %}
+          </h2>
+          <p>
+            {% if periodo_justificacion_pendiente_habilitacion %}
+            Indicá hasta qué fecha podrán presentar justificativos. Las notificaciones ya fueron confirmadas y no se volverán a enviar.
+            {% else %}
+            El escaneo de todas las mesas está confirmado. Indicá la fecha límite inclusiva para presentar justificativos; al confirmar se notificará a los electores registrados como ausentes y se habilitará el período.
+            {% endif %}
+          </p>
+          <div class="field">
+            <label for="fecha-limite-justificacion-electores">Último día para presentar justificativos</label>
+            <input
+              class="form-control"
+              type="date"
+              id="fecha-limite-justificacion-electores"
+              name="fecha_limite_justificacion_electores"
+              min="{{ fecha_minima_justificacion_electores|date:'Y-m-d' }}"
+              required
+            >
+          </div>
+          <div class="footer-actions">
+            <button class="button primary" type="submit">
+              {% if periodo_justificacion_pendiente_habilitacion %}
+              Habilitar período
+              {% else %}
+              Confirmar y habilitar período
+              {% endif %}
+            </button>
+            <button class="button light" type="button" id="cancelar-dialogo-confirmar-ausentes">Cancelar</button>
+          </div>
+        </dialog>
       </form>
+      <script>
+        (function () {
+          const boton = document.getElementById("abrir-dialogo-confirmar-ausentes");
+          const dialogo = document.getElementById("dialogo-confirmar-notificaciones-ausentes");
+          const cancelar = document.getElementById("cancelar-dialogo-confirmar-ausentes");
+          if (!boton || !dialogo || !cancelar) return;
+          boton.addEventListener("click", function () {
+            dialogo.showModal();
+          });
+          cancelar.addEventListener("click", function () {
+            dialogo.close();
+          });
+        })();
+      </script>
       {% elif eleccion_actual.notificaciones_ausentes_confirmadas_en %}
-      <p class="muted">Notificaciones a ausentes confirmadas el {{ eleccion_actual.notificaciones_ausentes_confirmadas_en|date:'d/m/Y H:i' }}.</p>
       {% endif %}
     </div>
   </section>
@@ -94,7 +150,7 @@
     {% if pagina_mesas.object_list %}
     <div class="table-wrap">
       <table>
-        <thead><tr><th scope="col">Mesa</th><th scope="col">Sede</th><th scope="col">Claustro</th><th scope="col">Departamento</th><th scope="col">Estado</th><th scope="col">Electores</th><th scope="col">Votaron</th></tr></thead>
+        <thead><tr><th scope="col">Mesa</th><th scope="col">Sede</th><th scope="col">Claustro</th><th scope="col">Departamento</th><th scope="col">Estado</th><th scope="col">Electores</th><th scope="col">Votaron</th>{% if puede_registrar_mesas %}<th scope="col">Registro</th>{% endif %}</tr></thead>
         <tbody>
           {% for mesa in pagina_mesas %}
           <tr>
@@ -105,11 +161,46 @@
             <td><span class="pill {% if mesa.estado_escaneo == 'procesada' %}ok{% elif mesa.estado_escaneo == 'en_proceso' %}warn{% else %}gray{% endif %}">{{ mesa.get_estado_escaneo_display }}</span></td>
             <td>{{ mesa.cantidad_electores }}</td>
             <td>{% if mesa.estado_escaneo == 'procesada' %}{{ mesa.cantidad_votaron }}{% else %}-{% endif %}</td>
+            {% if puede_registrar_mesas %}
+            <td>
+              {% if mesa.estado_escaneo == 'procesada' %}
+              <span class="muted">Registrada</span>
+              {% else %}
+              <button
+                class="button primary small"
+                type="button"
+                data-registrar-mesa
+                data-accion="{% url 'procesar-mesa-manual' eleccion_actual.pk mesa.pk %}"
+                data-codigo="{{ mesa.codigo }}"
+                data-electores="{{ mesa.cantidad_electores }}"
+                data-inasistencias="{{ mesa.cantidad_participaron }}"
+                aria-haspopup="dialog"
+                aria-controls="dialogo-registrar-mesa"
+              >Registrar</button>
+              {% endif %}
+            </td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {% if puede_registrar_mesas %}
+    <dialog class="dialogo-limite-mesas" id="dialogo-registrar-mesa" aria-labelledby="titulo-registrar-mesa">
+      <form method="post" id="formulario-registrar-mesa">
+        {% csrf_token %}
+        <input type="hidden" name="filtros" value="{{ filtros_tablero }}">
+        <h2 id="titulo-registrar-mesa">Registrar mesa <span data-registrar-codigo></span></h2>
+        <p>Cantidad de electores: <strong data-registrar-electores></strong></p>
+        <p>Cantidad de inasistencias: <strong data-registrar-inasistencias></strong></p>
+        <p class="muted">Al confirmar, la mesa queda procesada con las inasistencias cargadas hasta el momento.</p>
+        <div class="footer-actions">
+          <button class="button primary" type="submit">Confirmar registro</button>
+          <button class="button light" type="button" id="cancelar-registrar-mesa">Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+    {% endif %}
     <nav class="paginacion" aria-label="Paginación de mesas">
       <span class="muted">Mostrando {{ pagina_mesas.start_index }}–{{ pagina_mesas.end_index }} de {{ pagina_mesas.paginator.count }} mesas</span>
       <div class="paginacion-botones">

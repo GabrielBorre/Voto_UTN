@@ -8,7 +8,7 @@
 </section>
 {% if solo_lectura %}<div class="notice">Cambios de sede en modo lectura: el padrón imprimible ya fue generado o el estado de la elección no permite resolver solicitudes.</div>{% endif %}
 <fieldset class="configuracion-campos" {% if solo_lectura %}disabled{% endif %}>
-<section class="card management-section resolucion-masiva-layout">
+<section class="card management-section resolucion-masiva-layout" data-conservar-scroll>
   <div class="resolucion-masiva-acciones">
     <div class="section-title">
       <div>
@@ -122,8 +122,8 @@
 {% endif %}
 
 </fieldset>
-<section class="card management-section">
-  <form method="get" class="filtros-solicitudes" aria-label="Filtrar solicitudes">
+<section class="card management-section" data-conservar-scroll>
+  <form method="get" action="{% url 'gestionar-solicitudes-cambio-sede' eleccion.id %}" class="filtros-solicitudes" id="filtro-solicitudes" aria-label="Filtrar solicitudes">
     <div class="field">
       <label for="filtro-estado-solicitud">Estado</label>
       <select id="filtro-estado-solicitud" name="estado">
@@ -131,11 +131,9 @@
         {% for valor, etiqueta in estados_filtro %}<option value="{{ valor }}"{% if estado_filtro == valor %} selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
       </select>
     </div>
-    <div class="filtros-mesas-acciones">
-      <button class="button primary" type="submit">Filtrar</button>
-      {% if estado_filtro %}<a class="button light" href="?">Limpiar filtro</a>{% endif %}
-    </div>
+    <noscript><button class="button primary" type="submit">Aplicar</button></noscript>
   </form>
+  <p role="status">{{ solicitudes|length }} solicitudes{% if estado_filtro %} · Estado: {{ etiqueta_estado_filtro }}{% else %} · Todos los estados{% endif %}.</p>
   <fieldset class="configuracion-campos" {% if solo_lectura %}disabled{% endif %}>
   <div class="table-wrap">
     <table>
@@ -146,7 +144,7 @@
         {% for solicitud in solicitudes %}
         <tr>
           <td>{% if solicitud.estado == 'pendiente' %}<input type="checkbox" name="solicitudes_ids" value="{{ solicitud.id }}" form="aprobar-seleccionadas" class="seleccion-solicitud" aria-label="Seleccionar solicitud de {{ solicitud.registro_padron.elector.nombre_completo }}">{% endif %}</td>
-          <td>{{ solicitud.registro_padron.elector.nombre_completo }}</td>
+          <td>{{ solicitud.registro_padron.elector.nombre_completo }}{% with autoridad=solicitud.registro_padron.asignacion_autoridad %}{% if autoridad.estado == 'asignada' %}<br><strong>Autoridad {{ autoridad.get_tipo_display|lower }}</strong> · {{ autoridad.mesa.sede }} · {{ autoridad.turno }}{% if autoridad.mesa.sede_id != solicitud.sede_destino_id %}<p class="notice">Conflicto: la designación de autoridad corresponde a otra sede.</p>{% endif %}{% endif %}{% endwith %}</td>
           <td>{{ solicitud.registro_padron.eleccion_claustro_departamento.eleccion_claustro.claustro }}</td>
           <td>{{ solicitud.sede_origen }}</td>
           <td>{{ solicitud.sede_destino }}</td>
@@ -179,5 +177,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module" src="{% static 'js/solicitudes-cambio-sede.js' %}?v=20261026.1"></script>
+<script type="module" src="{% static 'js/solicitudes-cambio-sede.js' %}?v=20261105.1"></script>
 {% endblock %}

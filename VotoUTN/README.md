@@ -29,6 +29,12 @@ los extremos. Los textos detectados se conservan en un `Set`, por lo que una lec
 repetida no duplica la asistencia. Al confirmar una página se envía un lote al
 endpoint REST protegido por sesión y CSRF.
 
+Durante el escaneo de electores, el encabezado muestra el código de mesa y los
+QR únicos acumulados en la sesión (incluidos los pendientes), bajo «QRs Escaneados».
+El botón «Registrar Mesa» pide confirmación con esos datos, los QR pendientes y
+las inasistencias ya registradas antes de finalizar. Cancelar retoma el escaneo;
+el registro automático de hojas no finaliza la mesa ni pide esta confirmación.
+
 ### Cámara y alineación de la hoja
 
 - Se solicita cámara trasera en Full HD, adaptada a la orientación inicial del
@@ -71,6 +77,11 @@ simulados. La pestaña debe estar visible: los
 navegadores pueden suspender la decodificación de imágenes en pestañas ocultas.
 El tiempo informado corresponde al equipo de prueba, no garantiza el
 rendimiento ni la nitidez de una cámara real.
+
+`tests/frontend/interfaz-escaner.html`, abierto con un ancho móvil, prueba la
+plantilla y los módulos reales de interfaz con cámara, lector y API simulados,
+sin servicios externos. Verifica el contador acumulado, la confirmación y
+cancelación del registro de mesa, incluidos los casos sin inasistencias.
 
 ## Inicio local (Windows / PowerShell)
 
