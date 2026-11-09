@@ -537,6 +537,7 @@ class InicioElectorTests(TestCase):
         self.eleccion_en_curso.fecha_limite_justificacion_electores = limite_justificativo
         self.eleccion_en_curso.solicitudes_cambio_sede_habilitadas_en = fecha_inicio
         self.eleccion_en_curso.fecha_cierre_solicitudes_cambio_sede = limite_cambio_sede
+        self.eleccion_en_curso.notificaciones_ausentes_confirmadas_en = fecha_inicio
         self.eleccion_en_curso.save(update_fields=(
             "autoridades_confirmadas_en",
             "estado",
@@ -545,8 +546,17 @@ class InicioElectorTests(TestCase):
             "fecha_limite_justificacion_electores",
             "solicitudes_cambio_sede_habilitadas_en",
             "fecha_cierre_solicitudes_cambio_sede",
+            "notificaciones_ausentes_confirmadas_en",
         ))
         self.crear_asignacion_autoridad(self.registro_en_curso)
+        mesa_ausencia = Mesa.objects.create(eleccion=self.eleccion_en_curso, numero=25)
+        usuario = get_user_model().objects.create_user(username="registro-ausencia-periodo")
+        RegistroParticipacion.objects.create(
+            registro_padron=self.registro_en_curso,
+            mesa=mesa_ausencia,
+            registrada_por=usuario,
+            metodo=RegistroParticipacion.Metodo.MANUAL,
+        )
 
         respuesta = self.client.get(reverse("inicio-autenticado"))
 
@@ -635,6 +645,7 @@ class InicioElectorTests(TestCase):
         voto_emitido = self.client.get(url)
         self.assertContains(voto_emitido, "pill ok")
         self.assertContains(voto_emitido, "Voto Emitido")
+        self.assertNotContains(voto_emitido, "Justificación de inasistencia electoral")
 
         mesa = Mesa.objects.create(eleccion=self.eleccion_en_curso, numero=24)
         usuario = get_user_model().objects.create_user(username="registro-inicio-elector")
@@ -648,8 +659,9 @@ class InicioElectorTests(TestCase):
         inasistencia = self.client.get(url)
         self.assertContains(inasistencia, "pill warn")
         self.assertContains(inasistencia, "En Curso - Voto No Registrado")
+        self.assertContains(inasistencia, "Justificación de inasistencia electoral")
 
-        JustificativoAusencia.objects.create(
+        justificativo = JustificativoAusencia.objects.create(
             registro_padron=self.registro_en_curso,
             ausencia=JustificativoAusencia.Ausencia.VOTAR,
             tipo=TipoJustificativo.objects.create(nombre="Motivo inicio"),
@@ -659,6 +671,19 @@ class InicioElectorTests(TestCase):
         pendiente = self.client.get(url)
         self.assertContains(pendiente, "pill warn")
         self.assertContains(pendiente, "Justificativo Pendiente de Revisión")
+        self.assertContains(pendiente, "Justificación de inasistencia electoral")
+
+        justificativo.estado = JustificativoAusencia.Estado.APROBADO
+        justificativo.save(update_fields=("estado",))
+        aprobada = self.client.get(url)
+        self.assertContains(aprobada, "Inasistencia Justificada")
+        self.assertNotContains(aprobada, "Justificación de inasistencia electoral")
+
+        justificativo.estado = JustificativoAusencia.Estado.RECHAZADO
+        justificativo.save(update_fields=("estado",))
+        rechazada = self.client.get(url)
+        self.assertContains(rechazada, "Infractor - Justificación Rechazada")
+        self.assertNotContains(rechazada, "Justificación de inasistencia electoral")
 
     def test_muestra_aviso_y_enlace_al_historial_si_no_hay_elecciones_en_curso(self):
         self.eleccion_en_curso.estado = Eleccion.Estado.FINALIZADA

@@ -14,7 +14,7 @@
 	{% elif not registro_padron %}
 	<p class="error">No se encontró un padrón activo para la elección actual.</p>
 	{% elif not puede_presentar %}
-	<div class="notice">No hay ausencias disponibles para justificar: ya fueron presentadas o venció el plazo de autoridades.</div>
+	<div class="notice">No hay ausencias disponibles para justificar: ya fueron presentadas o finalizó el plazo.</div>
 	{% if not puede_presentar_justificativo_electoral %}<p class="notice">La justificación por inasistencia estará disponible cuando se habilite el período correspondiente y exista una ausencia registrada.</p>{% endif %}
 	{% else %}
 	<form method="post" enctype="multipart/form-data" id="form-justificativo">

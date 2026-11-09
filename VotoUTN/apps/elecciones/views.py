@@ -160,6 +160,11 @@ def inicio_autenticado(request):
             for registro in registros:
                 asignacion_autoridad = getattr(registro, "asignacion_autoridad", None)
                 registro.situacion_electoral = situaciones_por_eleccion.get(registro.eleccion_id)
+                estado_situacion_electoral = (
+                    registro.situacion_electoral["estado"]
+                    if registro.situacion_electoral
+                    else None
+                )
                 registro.mostrar_periodo_cambio_sede = bool(
                     registro.eleccion.estado == Eleccion.Estado.PUBLICADA
                     and registro.eleccion.autoridades_confirmadas_en is None
@@ -176,6 +181,15 @@ def inicio_autenticado(request):
                     and registro.eleccion.fecha_limite_justificacion_autoridades
                     and timezone.localdate()
                     <= registro.eleccion.fecha_limite_justificacion_autoridades
+                )
+                registro.mostrar_periodo_justificacion_electores = bool(
+                    estado_situacion_electoral
+                    in (
+                        "En Curso - Voto No Registrado",
+                        "Justificativo Pendiente de Revisión",
+                    )
+                    and registro.eleccion.justificacion_electores_habilitada_en
+                    and registro.eleccion.fecha_limite_justificacion_electores
                 )
         es_autoridad = es_autoridad_en_eleccion_publicada_o_en_curso(elector)
         return render(
