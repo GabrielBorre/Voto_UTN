@@ -54,6 +54,10 @@ class ParametrosViewsTests(TestCase):
         self.assertEqual(len(respuesta.context["parametros"]), 8)
         self.assertContains(respuesta, "Plantillas de mensajes")
         self.assertContains(respuesta, "Puestos a elegir")
+        self.assertContains(
+            respuesta,
+            f'href="{reverse("listar-parametros", args=("puestos-electivos",))}"',
+        )
         self.assertNotContains(respuesta, "Agrupaciones y cargos a elegir")
 
     def test_alta_y_cambio_de_estado_quedan_auditados(self):
