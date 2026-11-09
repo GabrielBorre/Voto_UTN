@@ -103,7 +103,7 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
         else None
     )
     pestana_solicitada = request.GET.get("pestana")
-    pestana = pestana_solicitada if pestana_solicitada in ("puesto", "candidatos") else "lista"
+    pestana = "puesto" if pestana_solicitada == "puesto" else "lista"
     accion = request.POST.get("accion") or (
         "vincular_puesto" if pantalla_candidatos and request.method == "POST" and "puesto_eleccion" in request.POST else None
     )
@@ -210,10 +210,13 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
                 datos_nuevos={"participacion": participacion.pk, "puesto_eleccion": lista.puesto_eleccion_id},
             )
         if listas:
-            messages.success(request, "La lista y sus puestos fueron creados. Ya podés cargar los candidatos.")
-            return redirect(_url_gestion(eleccion.id, participacion.id, listas[0].id))
-        messages.success(request, "La lista fue creada. Ahora podés elegir sus puestos y cargar candidatos.")
-        return redirect(_url_gestion(eleccion.id, participacion.id))
+            messages.success(request, "La lista y sus puestos fueron creados. Desde «Cargar listas» podés continuar con sus candidatos.")
+        else:
+            messages.success(request, "La lista fue creada. Desde «Cargar listas» podés asociar puestos y cargar candidatos.")
+        return redirect(
+            f"{reverse('gestionar-partidos', args=(eleccion.id,))}"
+            f"?claustro={participacion.eleccion_claustro_id}&pestana=lista#listas"
+        )
     if request.method == "POST" and accion == "vincular_puesto" and formulario_vincular and formulario_vincular.is_valid():
         asociacion = guardar_con_validacion(formulario_vincular, participacion=participacion_seleccionada)
         messages.success(request, "El puesto fue agregado a la lista.")

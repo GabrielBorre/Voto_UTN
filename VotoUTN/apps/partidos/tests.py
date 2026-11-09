@@ -254,8 +254,15 @@ class PartidosViewsTests(PartidosBaseTests):
         ].queryset
         self.assertIn(self.puesto_eleccion, puestos_disponibles)
         self.assertContains(respuesta_claustro, 'class="management-panel candidaturas-panel"')
-        self.assertContains(respuesta_claustro, "Crear lista")
-        self.assertContains(respuesta_claustro, "Cargar puesto")
+        self.assertEqual(respuesta_claustro.context["pestana"], "lista")
+        self.assertContains(respuesta_claustro, "Cargar listas")
+        self.assertContains(respuesta_claustro, "Cargar puestos")
+        self.assertLess(
+            respuesta_claustro.content.index(b"pestana=puesto"),
+            respuesta_claustro.content.index(b"pestana=lista"),
+        )
+        self.assertContains(respuesta_claustro, "Listas cargadas")
+        self.assertContains(respuesta_claustro, "Universidad Abierta")
         self.assertContains(respuesta_claustro, "Cargar candidatos")
         self.assertNotContains(respuesta_claustro, "Habilitar un puesto")
 
@@ -269,23 +276,24 @@ class PartidosViewsTests(PartidosBaseTests):
             numero_lista="10",
             nombre_lista="Lista docente",
         )
-        respuesta_pestana_candidatos = self.client.get(
+        respuesta_pestana_anterior = self.client.get(
             f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}"
             f"?claustro={self.eleccion_claustro.id}&pestana=candidatos"
         )
-        self.assertEqual(respuesta_pestana_candidatos.context["pestana"], "candidatos")
-        self.assertContains(respuesta_pestana_candidatos, "Universidad Abierta")
-        self.assertContains(respuesta_pestana_candidatos, "Cargar candidatos")
+        self.assertEqual(respuesta_pestana_anterior.context["pestana"], "lista")
+        self.assertContains(respuesta_pestana_anterior, "Universidad Abierta")
+        self.assertContains(respuesta_pestana_anterior, "Cargar candidatos")
         self.assertContains(
-            respuesta_pestana_candidatos,
+            respuesta_pestana_anterior,
             reverse("detalle-participacion-partido", args=(self.eleccion.id, self.participacion.id)),
         )
         self.assertContains(
-            respuesta_pestana_candidatos,
+            respuesta_pestana_anterior,
             reverse("editar-participacion-partido", args=(self.eleccion.id, self.participacion.id)),
         )
-        self.assertNotContains(respuesta_pestana_candidatos, otra_participacion.nombre_lista)
-        self.assertNotContains(respuesta_pestana_candidatos, "Crear una lista")
+        self.assertNotContains(respuesta_pestana_anterior, otra_participacion.nombre_lista)
+        self.assertNotContains(respuesta_pestana_anterior, "pestana=candidatos")
+        self.assertNotContains(respuesta_pestana_anterior, "Cargar candidatos</h2>")
 
         respuesta_pestana_puesto = self.client.get(
             f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}"

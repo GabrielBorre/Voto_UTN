@@ -7,21 +7,53 @@
 {% if claustro_seleccionado %}
 <section class="hero">
   <h1>Listas de {{ claustro_seleccionado.claustro }}</h1>
-  <p>{{ eleccion.nombre }}. Configurá una lista para este claustro, asociá sus puestos y continuá con la carga de candidatos.</p>
+  <p>{{ eleccion.nombre }}. Consultá las listas de este claustro y cargá candidatos en cada una, o configurá los puestos disponibles.</p>
   <div class="hero-botones">
     <a class="button hero-boton" href="{% url 'gestionar-partidos' eleccion.id %}">Elegir otro claustro</a>
   </div>
 </section>
 
-<nav class="gestion-nav" aria-label="Gestión de listas, puestos y candidatos">
-  <a class="{% if pestana == 'lista' %}active{% endif %}" href="?claustro={{ claustro_seleccionado.id }}&amp;pestana=lista">Crear lista</a>
-  <a class="{% if pestana == 'puesto' %}active{% endif %}" href="?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto">Cargar puesto</a>
-  <a class="{% if pestana == 'candidatos' %}active{% endif %}" href="?claustro={{ claustro_seleccionado.id }}&amp;pestana=candidatos">Cargar candidatos</a>
+<nav class="gestion-nav" aria-label="Gestión de listas y puestos">
+  <a class="{% if pestana == 'puesto' %}active{% endif %}" href="?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto">Cargar puestos</a>
+  <a class="{% if pestana == 'lista' %}active{% endif %}" href="?claustro={{ claustro_seleccionado.id }}&amp;pestana=lista">Cargar listas</a>
 </nav>
 
 {% if pestana == 'lista' %}
 <div class="management-panel candidaturas-panel">
   <section class="card management-section" id="listas">
+    <div class="section-title">
+      <div>
+        <h2>Listas cargadas</h2>
+        <p>Seleccioná una lista para cargar o importar sus candidatos.</p>
+      </div>
+      <span class="tag">{{ participaciones|length }} listas</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Número</th><th>Lista</th><th>Apoderado/a</th><th>Puestos</th><th>Candidatos</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+          {% for participacion in participaciones %}
+            <tr>
+              <td>{{ participacion.numero_lista }}</td>
+              <td>{{ participacion.nombre_lista|default:participacion.partido }}</td>
+              <td>{{ participacion.apoderado_nombre|default:"—" }}</td>
+              <td>{{ participacion.cantidad_listas }}</td>
+              <td>{{ participacion.cantidad_candidatos }}</td>
+              <td><span class="pill {% if participacion.activa %}ok{% else %}gray{% endif %}">{% if participacion.activa %}Activa{% else %}Inactiva{% endif %}</span></td>
+              <td class="actions">
+                <a class="button primary small" href="{% url 'detalle-participacion-partido' eleccion.id participacion.id %}">Cargar candidatos</a>
+                <a class="button light small" href="{% url 'editar-participacion-partido' eleccion.id participacion.id %}">Editar lista</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="muted">Todavía no hay listas para este claustro.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card management-section" id="crear-lista">
     <div class="section-title">
       <div>
         <h2>Crear una lista</h2>
@@ -95,7 +127,7 @@
           {% endfor %}
         </div>
       </details>
-      <div class="footer-actions"><button class="button primary" type="submit">Crear lista y continuar</button></div>
+      <div class="footer-actions"><button class="button primary" type="submit">Crear lista</button></div>
     </form>
   </section>
 </div>
@@ -211,41 +243,6 @@
             </tr>
           {% empty %}
             <tr><td colspan="7" class="muted">Todavía no se configuraron puestos para esta elección.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-</div>
-{% else %}
-<div class="management-panel candidaturas-panel">
-  <section class="card management-section" id="candidatos">
-    <div class="section-title">
-      <div>
-        <h2>Cargar candidatos</h2>
-        <p>Elegí una lista de {{ claustro_seleccionado.claustro }} para agregar o importar sus candidatos.</p>
-      </div>
-      <span class="tag">{{ participaciones|length }} listas</span>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Número</th><th>Lista</th><th>Apoderado/a</th><th>Puestos</th><th>Candidatos</th><th>Estado</th><th></th></tr></thead>
-        <tbody>
-          {% for participacion in participaciones %}
-            <tr>
-              <td>{{ participacion.numero_lista }}</td>
-              <td>{{ participacion.nombre_lista|default:participacion.partido }}</td>
-              <td>{{ participacion.apoderado_nombre|default:"—" }}</td>
-              <td>{{ participacion.cantidad_listas }}</td>
-              <td>{{ participacion.cantidad_candidatos }}</td>
-              <td><span class="pill {% if participacion.activa %}ok{% else %}gray{% endif %}">{% if participacion.activa %}Activa{% else %}Inactiva{% endif %}</span></td>
-              <td class="actions">
-                <a class="button primary small" href="{% url 'detalle-participacion-partido' eleccion.id participacion.id %}">Cargar candidatos</a>
-                <a class="button light small" href="{% url 'editar-participacion-partido' eleccion.id participacion.id %}">Editar lista</a>
-              </td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="7" class="muted">Todavía no hay listas para este claustro. Primero creá una en la pestaña “Crear lista”.</td></tr>
           {% endfor %}
         </tbody>
       </table>
