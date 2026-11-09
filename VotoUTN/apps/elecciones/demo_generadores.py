@@ -60,21 +60,39 @@ def generar_solicitudes_demo(eleccion, cantidad=70, semilla=None):
         sedes_por_alcance.setdefault(alcance_id, set()).add(sede_id)
 
     candidatos = []
-    frecuencia = Counter()
     for registro in registros:
         asignacion = getattr(registro, "asignacion_sede_padron", None)
         origen = asignacion.sede_id if asignacion and asignacion.sede_id else registro.sede_id
         destinos = sedes_por_alcance.get(registro.eleccion_claustro_departamento_id, set()) - {origen}
         if origen and destinos:
             candidatos.append((registro, origen, destinos))
-            frecuencia.update(destinos)
     aleatorio.shuffle(candidatos)
+    autoridades = set(AsignacionAutoridad.objects.filter(
+        registro_padron__eleccion=eleccion, estado=AsignacionAutoridad.Estado.ASIGNADA,
+    ).values_list("registro_padron_id", flat=True))
+    autoridad_con_solicitud = SolicitudCambioSede.objects.filter(
+        registro_padron_id__in=autoridades,
+    ).exists()
+    candidato_autoridad = None
+    if cantidad > 0 and not autoridad_con_solicitud:
+        candidato_autoridad = next(
+            (candidato for candidato in candidatos if candidato[0].pk in autoridades), None,
+        )
+    candidatos = [candidato for candidato in candidatos if candidato[0].pk not in autoridades]
+    frecuencia = Counter(destino for candidato in candidatos for destino in candidato[2])
+    if candidato_autoridad is not None:
+        frecuencia.update(candidato_autoridad[2])
     sede_principal = min(frecuencia, key=lambda sede: (-frecuencia[sede], sede)) if frecuencia else None
+    seleccionados = []
+    if candidato_autoridad is not None:
+        destinos = candidato_autoridad[2]
+        destino = sede_principal if sede_principal in destinos else aleatorio.choice(sorted(destinos))
+        seleccionados.append((candidato_autoridad, destino))
     principales = [candidato for candidato in candidatos if sede_principal in candidato[2]]
     otros = [candidato for candidato in candidatos if sede_principal not in candidato[2]]
     # Reservar hasta un 10 % para otras sedes, si es posible.
-    principal_maximo = cantidad - cantidad // 10
-    seleccionados = [(c, sede_principal) for c in principales[:principal_maximo]]
+    principal_maximo = cantidad - cantidad // 10 - sum(destino == sede_principal for _, destino in seleccionados)
+    seleccionados.extend((c, sede_principal) for c in principales[:principal_maximo])
     restantes = principales[principal_maximo:] + otros
     aleatorio.shuffle(restantes)
     for candidato in restantes[:cantidad - len(seleccionados)]:
@@ -130,3 +148,12 @@ def generar_justificativos_demo(eleccion, ausencia, cantidad=2, semilla=None):
         justificativo.full_clean()
         justificativo.save()
     return min(cantidad, len(candidatos))
+
+
+@transaction.atomic
+def completar_justificativos_demo(eleccion, ausencia):
+    eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+    existentes = JustificativoAusencia.objects.filter(
+        registro_padron__eleccion=eleccion, ausencia=ausencia,
+    ).count()
+    return generar_justificativos_demo(eleccion, ausencia, cantidad=max(0, 2 - existentes))

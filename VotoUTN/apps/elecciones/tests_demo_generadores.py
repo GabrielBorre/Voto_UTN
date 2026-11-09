@@ -8,6 +8,7 @@ from django.core.management.base import CommandError
 from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.asistencia.models import RegistroParticipacion
 from apps.autoridades.models import AsignacionAutoridad
@@ -16,7 +17,7 @@ from apps.elecciones.models import (
     EleccionClaustroSede, EleccionSede,
 )
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
-from apps.mesas.models import Mesa
+from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import AsignacionSedePadron, Elector, RegistroPadron, SolicitudCambioSede
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.usuarios.models import AsignacionRol
@@ -56,6 +57,95 @@ class GeneradoresDemoTests(TestCase):
         self.assertGreaterEqual(solicitudes.filter(sede_destino=self.sedes[1]).count(), 63)
         self.assertFalse(solicitudes.exclude(estado=SolicitudCambioSede.Estado.PENDIENTE).exists())
         self.assertFalse(JustificativoAusencia.objects.exists())
+
+    def crear_autoridades(self):
+        usuario = get_user_model().objects.create_user(username="junta-demo")
+        AsignacionRol.objects.create(usuario=usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA)
+        mesa = Mesa.objects.create(
+            eleccion=self.eleccion, eleccion_claustro_departamento=self.alcance,
+            sede=self.sedes[0], numero=1, estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
+        )
+        turno = Turno.objects.create(nombre="Turno demo", hora_inicio="08:00", hora_fin="12:00")
+        for registro in self.registros:
+            AsignacionMesa.objects.create(registro_padron=registro, mesa=mesa)
+        for registro in self.registros[:5]:
+            AsignacionAutoridad.objects.create(
+                registro_padron=registro, mesa=mesa, turno=turno, asignada_por=usuario,
+            )
+        return usuario, mesa
+
+    def test_solicitudes_incluyen_exactamente_una_autoridad_y_69_electores(self):
+        self.crear_autoridades()
+        self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
+        solicitudes = SolicitudCambioSede.objects.all()
+        self.assertEqual(solicitudes.count(), 70)
+        self.assertEqual(solicitudes.filter(registro_padron__asignacion_autoridad__estado="asignada").count(), 1)
+        self.assertGreaterEqual(solicitudes.filter(sede_destino=self.sedes[1]).count(), 63)
+        call_command("generar_solicitudes_cambio_sede_demo", stdout=StringIO())
+        self.assertEqual(solicitudes.filter(registro_padron__asignacion_autoridad__estado="asignada").count(), 1)
+
+    def test_confirmar_autoridades_genera_dos_justificativos_una_vez(self):
+        from apps.autoridades.confirmacion import confirmar_autoridades
+        from django.core.exceptions import ValidationError
+
+        usuario, _ = self.crear_autoridades()
+        TipoJustificativo.objects.create(nombre="Salud")
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.PUBLICADA)
+        limite = timezone.localdate()
+        confirmar_autoridades(self.eleccion.pk, usuario, limite)
+        justificativos = JustificativoAusencia.objects.filter(ausencia="autoridad")
+        self.assertEqual(justificativos.count(), 2)
+        self.assertTrue(all(j.estado == "pendiente" for j in justificativos))
+        with self.assertRaises(ValidationError):
+            confirmar_autoridades(self.eleccion.pk, usuario, limite)
+        self.assertEqual(justificativos.count(), 2)
+
+    def test_notificar_ausentes_genera_dos_justificativos_una_vez(self):
+        from apps.notificaciones.services import crear_notificaciones_ausentes_confirmadas
+
+        usuario, mesa = self.crear_autoridades()
+        TipoJustificativo.objects.create(nombre="Salud")
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.EN_CURSO)
+        for registro in self.registros[5:9]:
+            RegistroParticipacion.objects.create(
+                registro_padron=registro, mesa=mesa, registrada_por=usuario, metodo="manual",
+            )
+        envios = crear_notificaciones_ausentes_confirmadas(self.eleccion, timezone.localdate())
+        self.assertEqual(len(envios), 4)
+        justificativos = JustificativoAusencia.objects.filter(ausencia="votar")
+        self.assertEqual(justificativos.count(), 2)
+        self.assertTrue(all(j.registro_padron.participaciones.exists() for j in justificativos))
+        with self.assertRaises(ValueError):
+            crear_notificaciones_ausentes_confirmadas(self.eleccion, timezone.localdate())
+        self.assertEqual(justificativos.count(), 2)
+
+    def test_error_generando_justificativos_revierte_confirmacion(self):
+        from apps.autoridades.confirmacion import confirmar_autoridades
+        from django.core.exceptions import ValidationError
+
+        usuario, _ = self.crear_autoridades()
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.PUBLICADA)
+        with self.assertRaisesMessage(ValidationError, "No hay tipos"):
+            confirmar_autoridades(self.eleccion.pk, usuario, timezone.localdate())
+        self.eleccion.refresh_from_db()
+        self.assertIsNone(self.eleccion.autoridades_confirmadas_en)
+        self.assertFalse(JustificativoAusencia.objects.exists())
+
+    def test_error_generando_justificativos_revierte_notificacion_ausentes(self):
+        from apps.notificaciones.models import EnvioNotificacion
+        from apps.notificaciones.services import crear_notificaciones_ausentes_confirmadas
+
+        usuario, mesa = self.crear_autoridades()
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.EN_CURSO)
+        RegistroParticipacion.objects.create(
+            registro_padron=self.registros[5], mesa=mesa, registrada_por=usuario, metodo="manual",
+        )
+        with self.assertRaisesMessage(ValueError, "No hay tipos"):
+            crear_notificaciones_ausentes_confirmadas(self.eleccion, timezone.localdate())
+        self.eleccion.refresh_from_db()
+        self.assertIsNone(self.eleccion.notificaciones_ausentes_confirmadas_en)
+        self.assertIsNone(self.eleccion.justificacion_electores_habilitada_en)
+        self.assertFalse(EnvioNotificacion.objects.exists())
 
     def test_publicacion_sin_destino_crea_las_posibles(self):
         EleccionClaustroDepartamentoSede.objects.exclude(sede=self.sedes[0]).delete()

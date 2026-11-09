@@ -119,9 +119,19 @@ automáticamente hasta 70 solicitudes ficticias de cambio de sede para electores
 activos sin solicitudes previas. Se prioriza una misma sede de destino cuando
 está habilitada para sus departamentos. Si no hay suficientes candidatos, se
 crean las posibles y se registra el faltante en los logs.
+Se incluye una sola autoridad con asignación vigente y el resto son electores
+sin esa asignación. Si no hay una autoridad elegible, se generan solo solicitudes
+de electores. Reejecutar el comando no agrega otra autoridad si ya tiene solicitud.
 
-Los siguientes comandos se ejecutan manualmente y crean dos justificativos
-pendientes por defecto. El primero requiere electores con ausencias registradas;
+Al **Confirmar autoridades de mesa** se generan automáticamente hasta dos
+justificativos de autoridades. Al **Notificar ausentes** se generan hasta dos
+justificativos de electores. Se completan hasta dos por tipo de ausencia sin
+sumar otros si ya existen, y no se repiten al reintentar la acción.
+Se deben resolver los de autoridades antes de iniciar la elección y los de
+electores antes de finalizarla.
+
+Los siguientes comandos también pueden ejecutarse manualmente y crean dos
+justificativos pendientes por defecto. El primero requiere electores con ausencias registradas;
 el segundo requiere autoridades asignadas. Ambos requieren tipos de justificativo
 activos. Son datos ficticios: usalos únicamente con padrones de demostración.
 
