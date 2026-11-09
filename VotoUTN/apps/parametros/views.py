@@ -3,6 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils.http import urlencode
+from django.views.decorators.http import require_POST
 
 from apps.auditoria.services import registrar_evento
 from apps.justificativos.models import TipoJustificativo
@@ -16,8 +19,8 @@ from apps.notificaciones.models import (
     PlantillaNotificacion,
     VarianteComunicacionFechaAdministrativa,
 )
-from apps.partidos.forms import FormularioCargoElectivo, FormularioOrganoElectivo
-from apps.partidos.models import CargoElectivo, OrganoElectivo
+from apps.partidos.forms import FormularioCargoElectivo
+from apps.partidos.models import CargoElectivo
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.parametros.forms import (
     FormularioClaustro,
@@ -46,7 +49,6 @@ PARAMETROS = {
     "fechas-administrativas": {"modelo": FechaAdministrativa, "formulario": FormularioFechaAdministrativa, "titulo": "Fechas administrativas", "estado": "activa", "codigo": True, "es_fecha": True},
     "tipos-justificativo": {"modelo": TipoJustificativo, "formulario": FormularioTipoJustificativo, "titulo": "Tipos de justificativo", "estado": "activo", "codigo": False},
     "plantillas-mensajes": {"modelo": PlantillaNotificacion, "formulario": FormularioPlantillaNotificacion, "titulo": "Plantillas de mensajes", "estado": "activa", "codigo": True, "es_plantilla": True},
-    "organos-electivos": {"modelo": OrganoElectivo, "formulario": FormularioOrganoElectivo, "titulo": "Órganos o cuerpos", "estado": "activo", "codigo": False, "grupo": "puestos"},
     "puestos-electivos": {"modelo": CargoElectivo, "formulario": FormularioCargoElectivo, "titulo": "Puestos a elegir", "estado": "activo", "codigo": False, "grupo": "puestos", "es_cargo": True},
 }
 
@@ -78,10 +80,7 @@ def gestionar_parametros(request):
     parametros.append({
         "titulo": "Puestos a elegir",
         "es_grupo_candidaturas": True,
-        "resumen": (
-            f"{CargoElectivo.objects.count()} puestos registrados en "
-            f"{OrganoElectivo.objects.count()} órganos o cuerpos."
-        ),
+        "resumen": f"{CargoElectivo.objects.count()} puestos registrados.",
     })
     return render(request, "parametros/gestion.html", {"parametros": parametros})
 
@@ -91,8 +90,11 @@ def gestionar_catalogos_candidaturas(request):
     if not puede_administrar_parametros(request.user):
         return HttpResponseForbidden("No tiene permiso para gestionar parametros.")
     catalogos = [
-        {"tipo": tipo, "titulo": PARAMETROS[tipo]["titulo"], "cantidad": PARAMETROS[tipo]["modelo"].objects.count()}
-        for tipo in ("organos-electivos", "puestos-electivos")
+        {
+            "tipo": "puestos-electivos",
+            "titulo": PARAMETROS["puestos-electivos"]["titulo"],
+            "cantidad": CargoElectivo.objects.count(),
+        },
     ]
     return render(request, "parametros/candidaturas.html", {"catalogos": catalogos})
 
@@ -105,7 +107,7 @@ def listar_parametros(request, tipo):
     consulta = request.GET.get("q", "").strip()
     objetos = configuracion["modelo"].objects.all()
     if configuracion.get("es_cargo"):
-        objetos = objetos.select_related("organo")
+        objetos = objetos.select_related("organo").prefetch_related("claustros_habilitados")
     if consulta:
         filtro = Q(nombre__icontains=consulta)
         if configuracion["codigo"]:
@@ -126,8 +128,51 @@ def listar_parametros(request, tipo):
             "es_cargo": configuracion.get("es_cargo", False),
             "es_claustro": configuracion.get("es_claustro", False),
             "es_catalogo_candidaturas": configuracion.get("grupo") == "puestos",
+            "claustros": Claustro.objects.filter(activo=True).order_by("nombre")
+            if configuracion.get("es_cargo")
+            else (),
         },
     )
+
+
+@login_required
+@require_POST
+def cambiar_claustro_puesto(request, puesto_id, claustro_id):
+    if not puede_administrar_parametros(request.user):
+        return HttpResponseForbidden("No tiene permiso para gestionar parametros.")
+    puesto = get_object_or_404(CargoElectivo, pk=puesto_id)
+    claustro = get_object_or_404(Claustro, pk=claustro_id, activo=True)
+    accion = request.POST.get("accion")
+    if accion not in {"asociar", "quitar"}:
+        raise Http404()
+
+    claustros_anteriores = list(
+        puesto.claustros_habilitados.order_by("nombre").values_list("nombre", flat=True)
+    )
+    if accion == "asociar":
+        puesto.claustros_habilitados.add(claustro)
+        mensaje = f"El puesto «{puesto.nombre}» quedó asociado a {claustro}."
+    else:
+        puesto.claustros_habilitados.remove(claustro)
+        mensaje = f"Se quitó «{puesto.nombre}» de los puestos habilitados para {claustro}."
+    claustros_nuevos = list(
+        puesto.claustros_habilitados.order_by("nombre").values_list("nombre", flat=True)
+    )
+    if claustros_anteriores != claustros_nuevos:
+        registrar_evento(
+            accion="asociar_puesto_claustro",
+            entidad=puesto._meta.label,
+            entidad_id=puesto.pk,
+            request=request,
+            datos_anteriores={"claustros_habilitados": claustros_anteriores},
+            datos_nuevos={"claustros_habilitados": claustros_nuevos},
+        )
+    messages.success(request, mensaje)
+    url = reverse("listar-parametros", args=("puestos-electivos",))
+    consulta = request.POST.get("q", "").strip()
+    if consulta:
+        url = f"{url}?{urlencode({'q': consulta})}"
+    return redirect(url)
 
 
 @login_required

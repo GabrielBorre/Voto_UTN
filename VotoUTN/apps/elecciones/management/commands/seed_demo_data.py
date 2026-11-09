@@ -333,6 +333,9 @@ class Command(BaseCommand):
         puestos = {}
         for claustro_nombre, configuracion in cantidades.items():
             for tipo, cantidad in configuracion.items():
+                cargos[tipo].claustros_habilitados.add(
+                    elecciones_claustro[claustro_nombre].claustro,
+                )
                 alcance_departamental = (
                     configuraciones_departamento[claustro_nombre]
                     if tipo == "departamental"

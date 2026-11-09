@@ -56,6 +56,7 @@ class PartidosBaseTests(TestCase):
             nombre="Consejero/a",
             permite_filtrar_departamentos=True,
         )
+        self.puesto.claustros_habilitados.add(self.eleccion_claustro.claustro)
         self.puesto_eleccion = PuestoEleccion.objects.create(
             puesto=self.puesto,
             eleccion_claustro=self.eleccion_claustro,
@@ -400,10 +401,12 @@ class PartidosViewsTests(PartidosBaseTests):
             organo=organo_directivo,
             nombre="Consejero/a directivo/a",
         )
+        cargo_directivo.claustros_habilitados.add(self.eleccion_claustro.claustro)
         cargo_dasuten = CargoElectivo.objects.create(
             organo=organo_dasuten,
             nombre="Consejero/a DASUTeN",
         )
+        cargo_dasuten.claustros_habilitados.add(self.eleccion_claustro.claustro)
         PuestoEleccion.objects.create(
             puesto=cargo_directivo,
             eleccion_claustro=self.eleccion_claustro,
@@ -422,6 +425,16 @@ class PartidosViewsTests(PartidosBaseTests):
             puesto=cargo_directivo,
             eleccion_claustro=claustro_docente,
             cantidad_titulares=2,
+        )
+        cargo_directivo.claustros_habilitados.add(claustro_docente.claustro)
+        cargo_no_asociado = CargoElectivo.objects.create(
+            organo=organo_directivo,
+            nombre="Puesto no asociado",
+        )
+        puesto_no_asociado = PuestoEleccion.objects.create(
+            puesto=cargo_no_asociado,
+            eleccion_claustro=self.eleccion_claustro,
+            cantidad_titulares=1,
         )
 
         respuesta = self.client.get(
@@ -449,6 +462,16 @@ class PartidosViewsTests(PartidosBaseTests):
             respuesta,
             f'name="presentacion-puestos_eleccion" value="{puesto_docente.id}"',
         )
+        cargos_disponibles = respuesta.context["formulario_participacion"].fields[
+            "puestos_eleccion"
+        ].queryset
+        self.assertNotIn(puesto_docente, cargos_disponibles)
+        self.assertNotIn(puesto_no_asociado, cargos_disponibles)
+        self.assertNotIn(
+            cargo_no_asociado,
+            respuesta.context["formulario_puesto"].fields["puesto"].queryset,
+        )
+        self.assertNotIn(puesto_no_asociado, respuesta.context["puestos"])
         contenido = respuesta.content.decode()
         inicio_listas = contenido.index("Crear una lista")
         self.assertLess(
@@ -489,14 +512,15 @@ class PartidosViewsTests(PartidosBaseTests):
         self.assertNotEqual(nueva_presentacion.codigo_presentacion, self.participacion.codigo_presentacion)
         self.assertRedirects(
             respuesta,
-            f"{reverse('detalle-participacion-partido', args=(self.eleccion.id, nueva_presentacion.id))}#candidaturas",
+            f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}"
+            f"?claustro={self.eleccion_claustro.id}&pestana=lista#listas",
         )
         self.assertEqual(
             ParticipacionPartido.objects.filter(eleccion=self.eleccion, numero_lista="10").count(),
             2,
         )
 
-    def test_crea_lista_asociando_puestos_y_abre_directamente_sus_candidatos(self):
+    def test_crea_lista_asociando_puestos_y_la_muestra_con_acceso_a_candidatos(self):
         call_command("habilitar_puestos_departamentales", str(self.eleccion.pk), verbosity=0)
         respuesta = self.client.post(
             f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}?claustro={self.eleccion_claustro.id}",
@@ -516,8 +540,17 @@ class PartidosViewsTests(PartidosBaseTests):
         self.assertEqual(lista.puesto_eleccion, self.puesto_eleccion)
         self.assertRedirects(
             respuesta,
-            f"{reverse('detalle-participacion-partido', args=(self.eleccion.id, participacion.id))}"
-            f"?puesto={lista.id}#candidaturas",
+            f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}"
+            f"?claustro={self.eleccion_claustro.id}&pestana=lista#listas",
+        )
+        panel_listas = self.client.get(
+            reverse("gestionar-partidos", args=(self.eleccion.id,)),
+            {"claustro": self.eleccion_claustro.id, "pestana": "lista"},
+        )
+        self.assertContains(panel_listas, "Lista integrada")
+        self.assertContains(
+            panel_listas,
+            reverse("detalle-participacion-partido", args=(self.eleccion.id, participacion.id)),
         )
         detalle = self.client.get(
             f"{reverse('detalle-participacion-partido', args=(self.eleccion.id, participacion.id))}"
@@ -539,6 +572,7 @@ class PartidosViewsTests(PartidosBaseTests):
             eleccion_claustro=self.eleccion_claustro,
             cantidad_titulares=1,
         )
+        segunda_configuracion.puesto.claustros_habilitados.add(self.eleccion_claustro.claustro)
         participacion = ParticipacionPartido.objects.create(
             eleccion=self.eleccion,
             codigo_presentacion="MAN-PUESTO-ADICIONAL",
@@ -597,8 +631,17 @@ class PartidosViewsTests(PartidosBaseTests):
         self.assertEqual(configuracion.cantidad_suplentes, 1)
         self.assertRedirects(
             respuesta,
-            f"{reverse('detalle-participacion-partido', args=(self.eleccion.id, participacion.id))}"
-            f"?puesto={lista.id}#candidaturas",
+            f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}"
+            f"?claustro={self.eleccion_claustro.id}&pestana=lista#listas",
+        )
+        panel_listas = self.client.get(
+            reverse("gestionar-partidos", args=(self.eleccion.id,)),
+            {"claustro": self.eleccion_claustro.id, "pestana": "lista"},
+        )
+        self.assertContains(panel_listas, "Lista con puesto nuevo")
+        self.assertContains(
+            panel_listas,
+            reverse("detalle-participacion-partido", args=(self.eleccion.id, participacion.id)),
         )
 
     def test_puesto_sin_filtro_de_claustros_se_habilita_para_todos(self):
@@ -611,6 +654,7 @@ class PartidosViewsTests(PartidosBaseTests):
             nombre="Representante general",
             permite_filtrar_claustros=False,
         )
+        cargo.claustros_habilitados.add(self.eleccion_claustro.claustro, otro_claustro.claustro)
 
         respuesta = self.client.post(
             reverse("gestionar-partidos", args=(self.eleccion.id,)),
@@ -678,7 +722,7 @@ class PartidosViewsTests(PartidosBaseTests):
         self.assertIn("cantidad_suplentes_nueva", respuesta.context["formulario_participacion"].errors)
         self.assertFalse(ParticipacionPartido.objects.filter(nombre_lista="Lista sin suplente").exists())
 
-    def test_formularios_de_puestos_inician_titulares_y_suplentes_en_uno(self):
+    def test_formularios_de_puestos_no_precargan_cantidades(self):
         formulario_habilitacion = self.client.get(
             f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}"
             f"?claustro={self.eleccion_claustro.id}&pestana=puesto"
@@ -696,10 +740,37 @@ class PartidosViewsTests(PartidosBaseTests):
                 self.assertEqual(formulario.fields["cantidad_suplentes"].min_value, 1)
                 self.assertEqual(formulario.fields["cantidad_titulares"].widget.attrs["min"], 1)
                 self.assertEqual(formulario.fields["cantidad_suplentes"].widget.attrs["min"], 1)
-        self.assertEqual(formulario_habilitacion["cantidad_titulares"].value(), 1)
-        self.assertEqual(formulario_habilitacion["cantidad_suplentes"].value(), 1)
-        self.assertEqual(formulario_crear_lista["cantidad_titulares_nueva"].value(), 1)
-        self.assertEqual(formulario_crear_lista["cantidad_suplentes_nueva"].value(), 1)
+        self.assertIsNone(formulario_habilitacion["cantidad_titulares"].value())
+        self.assertIsNone(formulario_habilitacion["cantidad_suplentes"].value())
+        self.assertEqual(formulario_edicion["cantidad_titulares"].value(), 3)
+        self.assertEqual(formulario_edicion["cantidad_suplentes"].value(), 3)
+        self.assertIsNone(formulario_crear_lista["cantidad_titulares_nueva"].value())
+        self.assertIsNone(formulario_crear_lista["cantidad_suplentes_nueva"].value())
+
+    def test_no_crea_puesto_nuevo_si_no_se_indica_cantidad_de_suplentes(self):
+        respuesta = self.client.post(
+            f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}?claustro={self.eleccion_claustro.id}",
+            {
+                "accion": "crear_presentacion",
+                "presentacion-eleccion_claustro": self.eleccion_claustro.id,
+                "presentacion-numero_lista": "38",
+                "presentacion-nombre_lista": "Lista sin cantidad de suplentes",
+                "presentacion-apoderado_nombre": "Persona Apoderada",
+                "presentacion-puesto_nuevo": self.puesto.id,
+                "presentacion-cantidad_titulares_nueva": "1",
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn(
+            "cantidad_suplentes_nueva",
+            respuesta.context["formulario_participacion"].errors,
+        )
+        self.assertFalse(
+            ParticipacionPartido.objects.filter(
+                nombre_lista="Lista sin cantidad de suplentes",
+            ).exists()
+        )
 
     def test_no_asocia_a_una_lista_un_puesto_de_otro_claustro(self):
         otro_claustro = EleccionClaustro.objects.create(
@@ -763,6 +834,37 @@ class PartidosViewsTests(PartidosBaseTests):
         self.assertNotIn(otro_puesto, puestos)
         self.assertContains(respuesta_detalle, "Puestos por los que se presenta")
         self.assertContains(respuesta_detalle, "Agregar puesto a la lista")
+
+    def test_lista_no_ofrece_para_candidaturas_puestos_no_asociados_al_claustro(self):
+        cargo = CargoElectivo.objects.create(
+            organo=self.organo,
+            nombre="Puesto de otro claustro",
+        )
+        configuracion = PuestoEleccion.objects.create(
+            puesto=cargo,
+            eleccion_claustro=self.eleccion_claustro,
+            cantidad_titulares=1,
+        )
+        claustro_docente = Claustro.objects.create(nombre="Docentes")
+        cargo.claustros_habilitados.add(claustro_docente)
+        participacion = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion,
+            codigo_presentacion="EST-SIN-PUESTO-ASOCIADO",
+            eleccion_claustro=self.eleccion_claustro,
+            numero_lista="21",
+            nombre_lista="Lista de prueba de asociación",
+        )
+
+        respuesta = self.client.get(
+            reverse("detalle-participacion-partido", args=(self.eleccion.id, participacion.id))
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        puestos_disponibles = respuesta.context["formulario_vincular"].fields[
+            "puesto_eleccion"
+        ].queryset
+        self.assertNotIn(configuracion, puestos_disponibles)
+        self.assertContains(respuesta, "Puestos por los que se presenta")
 
     def test_edita_lista_sin_cambiar_claustro_con_puestos_vinculados(self):
         otro_claustro = EleccionClaustro.objects.create(
@@ -872,7 +974,8 @@ class PartidosViewsTests(PartidosBaseTests):
         participacion = ParticipacionPartido.objects.get(nombre_lista="Innovación", eleccion=self.eleccion)
         self.assertRedirects(
             respuesta,
-            f"{reverse('detalle-participacion-partido', args=(self.eleccion.id, participacion.id))}#candidaturas",
+            f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}"
+            f"?claustro={self.eleccion_claustro.id}&pestana=lista#listas",
         )
 
         respuesta = self.client.post(
@@ -1202,6 +1305,7 @@ class PartidosEleccionCerradaTests(PartidosBaseTests):
             },
             eleccion=self.eleccion,
         )
+        puesto_general.claustros_habilitados.add(self.eleccion_claustro.claustro)
 
         self.assertFalse(formulario.is_valid())
         self.assertIn("eleccion_claustro_departamento", formulario.errors)
@@ -1214,6 +1318,10 @@ class PartidosEleccionCerradaTests(PartidosBaseTests):
         claustro_graduado = EleccionClaustro.objects.create(
             eleccion=self.eleccion,
             claustro=Claustro.objects.create(nombre="Graduados"),
+        )
+        self.puesto.claustros_habilitados.add(
+            claustro_docente.claustro,
+            claustro_graduado.claustro,
         )
         departamento_docente = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=claustro_docente,
@@ -1269,6 +1377,10 @@ class PartidosEleccionCerradaTests(PartidosBaseTests):
             eleccion=self.eleccion,
             claustro=Claustro.objects.create(nombre="No Docentes"),
         )
+        self.puesto.claustros_habilitados.add(
+            claustro_docente.claustro,
+            claustro_nodocente.claustro,
+        )
 
         respuesta = self.client.post(
             reverse("gestionar-partidos", args=(self.eleccion.pk,)),
@@ -1298,6 +1410,7 @@ class PartidosEleccionCerradaTests(PartidosBaseTests):
             eleccion=self.eleccion,
             claustro=Claustro.objects.create(nombre="Docentes"),
         )
+        self.puesto.claustros_habilitados.add(claustro_docente.claustro)
 
         respuesta = self.client.post(
             reverse("gestionar-partidos", args=(self.eleccion.pk,)),
@@ -1330,6 +1443,7 @@ class PartidosEleccionCerradaTests(PartidosBaseTests):
             nombre="Representante general",
             permite_filtrar_claustros=True,
         )
+        puesto_general.claustros_habilitados.add(self.eleccion_claustro.claustro)
 
         respuesta = self.client.post(
             f"{reverse('gestionar-partidos', args=(self.eleccion.pk,))}"
@@ -1359,6 +1473,7 @@ class PartidosEleccionCerradaTests(PartidosBaseTests):
             nombre="Representante general",
             permite_filtrar_claustros=True,
         )
+        puesto_general.claustros_habilitados.add(self.eleccion_claustro.claustro)
 
         respuesta = self.client.post(
             f"{reverse('gestionar-partidos', args=(self.eleccion.pk,))}"
@@ -1392,6 +1507,10 @@ class PartidosEleccionCerradaTests(PartidosBaseTests):
         EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=claustro_docente,
             departamento=self.configuracion.departamento,
+        )
+        puesto_departamental.claustros_habilitados.add(
+            self.eleccion_claustro.claustro,
+            claustro_docente.claustro,
         )
 
         respuesta = self.client.post(

@@ -128,9 +128,11 @@ No registra el voto.
 - `Candidato`
 - `ImportacionCandidaturas`
 
-`CargoElectivo` es el puesto reutilizable, pertenece a un `OrganoElectivo` e indica
-si permite filtrar claustros y departamentos de forma independiente. Los valores
-concretos no forman parte del parámetro. `PuestoEleccion` representa cada alcance
+`CargoElectivo` es el puesto reutilizable, pertenece a un `OrganoElectivo`, se
+asocia a uno o más `Claustro` y establece si permite filtrar claustros y
+departamentos de forma independiente. Los órganos se conservan como clasificación
+interna y no tienen un ABM independiente. Los valores concretos no forman parte del
+parámetro. `PuestoEleccion` representa cada alcance
 resultante en una elección: un claustro sin filtro departamental o una combinación
 de claustro y departamento, con cantidades de titulares y suplentes. Una misma
 operación puede crear varios alcances. `ParticipacionPartido`

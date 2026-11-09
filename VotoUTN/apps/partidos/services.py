@@ -70,6 +70,7 @@ def habilitar_puestos_departamentales_predeterminados(eleccion_claustro):
             "activo": True,
         },
     )
+    cargo.claustros_habilitados.add(eleccion_claustro.claustro)
     cantidad_representantes = COMPOSICION_PUESTOS_DEPARTAMENTALES_POR_CLAUSTRO[
         _normalizar(eleccion_claustro.claustro.nombre)
     ]
@@ -122,7 +123,10 @@ def crear_presentacion_con_puestos(formulario, **relaciones):
         departamento = formulario.cleaned_data["departamento_puesto_nuevo"]
         claustros = EleccionClaustro.objects.filter(pk=participacion.eleccion_claustro_id)
         if not cargo_nuevo.permite_filtrar_claustros and not departamento:
-            claustros = EleccionClaustro.objects.filter(eleccion=participacion.eleccion)
+            claustros = EleccionClaustro.objects.filter(
+                eleccion=participacion.eleccion,
+                claustro__in=cargo_nuevo.claustros_habilitados.all(),
+            )
         for claustro in claustros:
             configuracion = PuestoEleccion(
                 puesto=cargo_nuevo,

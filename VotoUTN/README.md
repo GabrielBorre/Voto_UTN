@@ -119,6 +119,7 @@ Con `docker compose up -d` el stack levanta además `proxy` (Caddy), que expone:
 
 - `http://localhost:8000/` → redirige a HTTPS.
 - `https://localhost:8443/` desde la PC.
+- `http://localhost:8180/` para Keycloak.
 - `https://<IP-de-tu-PC-en-la-Wi-Fi>:8443/` desde el celular (misma red Wi-Fi).
 
 Caddy firma el certificado al vuelo con su propia CA local (`tls internal` + `on_demand`), para

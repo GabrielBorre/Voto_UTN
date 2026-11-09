@@ -291,7 +291,10 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
         "eleccion_claustro_departamento__departamento__nombre",
     )
     if claustro_seleccionado:
-        puestos = puestos.filter(eleccion_claustro=claustro_seleccionado)
+        puestos = puestos.filter(
+            eleccion_claustro=claustro_seleccionado,
+            puesto__claustros_habilitados=claustro_seleccionado.claustro_id,
+        )
     categorias_por_tipo = {
         "departamental": ("Departamentales", 0),
         "directivo": ("Directivos", 1),

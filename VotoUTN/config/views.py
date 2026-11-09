@@ -17,7 +17,7 @@ def _keycloak_url_publico(request):
     # el navegador llego (PC por localhost/127.0.0.1, celular por la IP de la red Wi-Fi) permite
     # loguearse desde cualquiera de los dos sin fijar una URL unica en settings.
     host_navegador = request.get_host().split(":")[0]
-    return f"http://{host_navegador}:8080"
+    return f"http://{host_navegador}:{settings.KEYCLOAK_PUERTO_PUBLICO}"
 
 
 def keycloak_login_view(request):

@@ -150,16 +150,13 @@ class CatalogosCandidaturasTests(TestCase):
             '<a class="active" href="/gestion/parametros/">Parámetros de elección</a>',
         )
         self.assertNotContains(respuesta, "Agrupaciones")
-        self.assertContains(respuesta, "Órganos o cuerpos")
+        self.assertNotContains(respuesta, "Órganos o cuerpos")
         self.assertContains(respuesta, "Puestos a elegir")
-        self.assertEqual(len(respuesta.context["catalogos"]), 2)
+        self.assertEqual(len(respuesta.context["catalogos"]), 1)
+        self.assertEqual(respuesta.context["catalogos"][0]["tipo"], "puestos-electivos")
 
-    def test_se_crean_organo_y_cargo_y_el_estado_se_audita(self):
-        respuesta = self.client.post(reverse("crear-parametro", args=("organos-electivos",)), {
-            "nombre": "DASUTeN", "descripcion": "Obra social", "activo": "on",
-        })
-        self.assertEqual(respuesta.status_code, 302)
-        organo = OrganoElectivo.objects.get(nombre="DASUTeN")
+    def test_se_crea_puesto_y_el_estado_se_audita(self):
+        organo = OrganoElectivo.objects.create(nombre="DASUTeN")
         respuesta = self.client.post(reverse("crear-parametro", args=("puestos-electivos",)), {
             "organo": organo.pk, "nombre": "Representante", "permite_filtrar_claustros": "on",
             "permite_filtrar_departamentos": "on", "descripcion": "", "activo": "on",
@@ -170,6 +167,36 @@ class CatalogosCandidaturasTests(TestCase):
         cargo.refresh_from_db()
         self.assertFalse(cargo.activo)
         self.assertEqual(EventoAuditoria.objects.filter(entidad="partidos.CargoElectivo").count(), 2)
+
+    def test_asociar_y_quitar_claustro_de_puesto_desde_su_listado(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Directivo")
+        puesto = CargoElectivo.objects.create(organo=organo, nombre="Consejero/a")
+        claustros = [
+            Claustro.objects.create(nombre=nombre)
+            for nombre in ("Docentes", "Estudiantes", "Graduados", "No docentes")
+        ]
+        claustro = claustros[0]
+        destino = reverse("cambiar-claustro-puesto", args=(puesto.pk, claustro.pk))
+
+        respuesta = self.client.post(destino, {"accion": "asociar"})
+
+        self.assertRedirects(respuesta, reverse("listar-parametros", args=("puestos-electivos",)))
+        self.assertIn(claustro, puesto.claustros_habilitados.all())
+        self.assertEqual(EventoAuditoria.objects.filter(accion="asociar_puesto_claustro").count(), 1)
+
+        listado = self.client.get(reverse("listar-parametros", args=("puestos-electivos",)))
+        self.assertContains(listado, "Docentes ✓")
+        for claustro in claustros[1:]:
+            self.assertContains(listado, f"+ {claustro}")
+        respuesta = self.client.post(destino, {"accion": "quitar"})
+        self.assertRedirects(respuesta, reverse("listar-parametros", args=("puestos-electivos",)))
+        self.assertNotIn(claustro, puesto.claustros_habilitados.all())
+        self.assertEqual(EventoAuditoria.objects.filter(accion="asociar_puesto_claustro").count(), 2)
+
+    def test_catalogo_de_organos_ya_no_se_ofrece_como_abm(self):
+        respuesta = self.client.get(reverse("listar-parametros", args=("organos-electivos",)))
+
+        self.assertEqual(respuesta.status_code, 404)
 
     def test_cargo_unico_por_organo_y_organo_inactivo_no_se_ofrece(self):
         primero = OrganoElectivo.objects.create(nombre="Consejo Directivo")
