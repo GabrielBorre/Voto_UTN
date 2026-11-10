@@ -82,7 +82,7 @@ def crear_notificacion_convocatoria_autoridad(asignacion, fecha_limite):
         codigo="autoridad-convocatoria-definitiva",
         defaults={"nombre": "Convocatoria como autoridad", "categoria": PlantillaNotificacion.Categoria.TRANSACCIONAL,
                   "asunto": "Convocatoria como autoridad: {nombre_eleccion}",
-                  "contenido": "Hola {nombre},\n\nFuiste convocado como autoridad para {nombre_eleccion} en {sede}, turno {turno}. Podés justificar tu imposibilidad hasta el {fecha}. La mesa definitiva se informará al comenzar la elección.\n\nVoto UTN",
+                  "contenido": "Hola {nombre},\n\nFuiste convocado como autoridad para {nombre_eleccion} en {sede}, turno {turno}. Podés solicitar ser eximido hasta el día {fecha} inclusive. La mesa definitiva se informará al comenzar la elección.\n\nVoto UTN",
                   "roles_destinatarios": [AsignacionRol.Rol.AUTORIDAD_MESA], "permite_envio_manual": False},
     )
     return crear_notificacion(plantilla=plantilla, eleccion=eleccion, elector=elector,
@@ -94,7 +94,7 @@ def crear_notificacion_convocatoria_autoridad(asignacion, fecha_limite):
 def crear_notificacion_cambio_plazo_eximicion_autoridad(asignacion, fecha_limite):
     elector = asignacion.registro_padron.elector
     eleccion = asignacion.registro_padron.eleccion
-    plantilla, _ = PlantillaNotificacion.objects.get_or_create(
+    plantilla, _ = PlantillaNotificacion.objects.update_or_create(
         codigo="autoridad-plazo-eximicion-modificado",
         defaults={
             "nombre": "Autoridad: modificación del plazo de eximición",
@@ -102,7 +102,7 @@ def crear_notificacion_cambio_plazo_eximicion_autoridad(asignacion, fecha_limite
             "asunto": "Nueva fecha límite para justificar inasistencia: {nombre_eleccion}",
             "contenido": (
                 "Hola {nombre},\n\n"
-                "Se actualizó la fecha límite para justificar una inasistencia como autoridad "
+                "Se actualizó la fecha límite para solicitar ser eximido de la función de autoridad "
                 "de mesa en {nombre_eleccion}. Podés presentar tu justificativo hasta el "
                 "{fecha} inclusive.\n\nVoto UTN"
             ),
@@ -120,6 +120,44 @@ def crear_notificacion_cambio_plazo_eximicion_autoridad(asignacion, fecha_limite
             "fecha": fecha_limite.strftime("%d/%m/%Y"),
         },
     )
+
+
+def crear_notificaciones_cambio_plazo_solicitudes_cambio_sede(eleccion, fecha_limite):
+    plantilla, _ = PlantillaNotificacion.objects.update_or_create(
+        codigo="elector-plazo-cambio-sede-modificado",
+        defaults={
+            "nombre": "Elector: modificación del plazo de cambio de sede",
+            "categoria": PlantillaNotificacion.Categoria.TRANSACCIONAL,
+            "asunto": "Nueva fecha límite para solicitar cambio de sede: {nombre_eleccion}",
+            "contenido": (
+                "Hola {nombre},\n\n"
+                "Se extendió la fecha límite para solicitar un cambio de sede en "
+                "{nombre_eleccion}. Podés presentar tu solicitud hasta el {fecha} inclusive. "
+                "Presentar una solicitud es opcional.\n\nVoto UTN"
+            ),
+            "roles_destinatarios": [AsignacionRol.Rol.ELECTOR],
+            "permite_envio_manual": False,
+        },
+    )
+    registros = RegistroPadron.objects.filter(
+        eleccion=eleccion,
+        activo=True,
+    ).exclude(
+        solicitudes_cambio_sede__isnull=False,
+    ).select_related("elector")
+    return [
+        crear_notificacion(
+            plantilla=plantilla,
+            eleccion=eleccion,
+            elector=registro.elector,
+            contexto={
+                "nombre": registro.elector.nombre_completo,
+                "nombre_eleccion": eleccion.nombre,
+                "fecha": fecha_limite.strftime("%d/%m/%Y"),
+            },
+        )
+        for registro in registros
+    ]
 
 
 def crear_notificacion_traslado_autoridad(asignacion, mesa_origen):
