@@ -84,6 +84,11 @@ Por lo tanto, `K-001` y `E-001` no pueden coexistir en una misma elección.
 - `RegistroPadron`
 
 `RegistroPadron` representa la participación/habilitación del elector en una elección concreta y debe relacionarlo con su claustro, departamento, sede y mesa según corresponda.
+Conserva una copia de DNI y legajo para aplicar unicidad y búsqueda dentro de
+esa elección. Esos identificadores no son únicos globalmente en `Elector`: una
+misma combinación puede existir en padrones de elecciones diferentes, pero no
+duplicarse dentro de una elección. La importación solo reutiliza identidades
+que ya coincidan en el padrón de la elección actual.
 
 La emisión de QR queda registrada en `qr_generado_en` y `numero_mesa_qr`. Esa
 marca protege la correspondencia entre el papel emitido y la asignación de mesa.
@@ -132,15 +137,22 @@ No registra el voto.
 - `Candidato`
 - `ImportacionCandidaturas`
 
-`CargoElectivo` es el puesto reutilizable, pertenece a un `OrganoElectivo` e indica
-si permite filtrar claustros y departamentos de forma independiente. Los valores
-concretos no forman parte del parámetro. `PuestoEleccion` representa cada alcance
+`CargoElectivo` es el puesto reutilizable, pertenece a un `OrganoElectivo`, se
+asocia a uno o más `Claustro` y establece si permite filtrar claustros y
+departamentos de forma independiente. Los órganos se conservan como clasificación
+interna y no tienen un ABM independiente. Los valores concretos no forman parte del
+parámetro. `PuestoEleccion` representa cada alcance
 resultante en una elección: un claustro sin filtro departamental o una combinación
 de claustro y departamento, con cantidades de titulares y suplentes. Una misma
 operación puede crear varios alcances. `ParticipacionPartido`
 representa una presentación electoral propia de la elección y conserva código,
 número y nombre de lista, claustro y apoderado. Su vínculo con `Partido` es opcional
 y existe solamente para compatibilidad histórica.
+
+Los puestos departamentales predeterminados se crean explícitamente mediante el
+comando `habilitar_puestos_departamentales` para una elección en preparación.
+Configura Estudiantes (3 titulares y 3 suplentes), Docentes (5 y 5) y Graduados
+(2 y 2), excepto Ciencias Básicas, y conserva las configuraciones ya existentes.
 
 `ListaCandidatos` vincula una presentación con un `PuestoEleccion`. `Candidato`
 conserva sus datos identificatorios, tipo y orden; las nuevas candidaturas deben

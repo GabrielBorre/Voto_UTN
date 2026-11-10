@@ -343,7 +343,7 @@ class ServicioRegistroParticipacion:
     def registrar_manual(cls, *, eleccion: Eleccion, mesa_numero: int, dni: str, usuario) -> ResultadoParticipacion:
         padron = RegistroPadron.objects.select_related(
             "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento"
-        ).filter(eleccion=eleccion, activo=True, elector__dni=str(dni).strip()).first()
+        ).filter(eleccion=eleccion, activo=True, dni=str(dni).strip()).first()
         mesa = getattr(getattr(padron, "asignacion_mesa", None), "mesa", None)
         if padron is None or mesa is None or mesa.numero != mesa_numero or not puede_registrar_participacion(usuario, eleccion, mesa):
             return ResultadoParticipacion([], [], ["Elector no disponible para la mesa indicada."], [])

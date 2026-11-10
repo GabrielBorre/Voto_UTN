@@ -13,11 +13,11 @@ from apps.justificativos.models import JustificativoAusencia
 from apps.justificativos.forms import FormularioJustificativo, FormularioResolucionJustificativo
 from apps.justificativos.services import (
     anular_participacion_por_reclamo,
+    puede_presentar_justificativo_electoral,
     restaurar_participacion_anulada,
     validar_comprobante,
 )
 from apps.notificaciones.services import crear_notificacion_resultado_justificativo, enviar_notificacion
-from apps.justificativos.services import puede_presentar_justificativo_electoral
 from apps.padron.models import Elector, RegistroPadron
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import (
@@ -31,25 +31,24 @@ from apps.usuarios.services import elector_de_identidad
 @login_required
 def mis_justificativos(request):
     perfil = getattr(request.user, "perfil_electoral", None)
-    elector = perfil.elector if perfil and perfil.elector_id else None
-    if elector is None:
-        dni = getattr(request.user, "dni", None)
-        if dni:
-            elector = Elector.objects.filter(dni=dni).first()
-    if elector is None:
-        return HttpResponseForbidden("No existe un elector asociado a esta identidad.")
     eleccion = (
         Eleccion.objects.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS)
         .order_by("-fecha_inicio", "-id")
         .first()
     )
     registro_padron = None
+    dni = getattr(request.user, "dni", None)
+    if perfil is not None and perfil.elector_id:
+        dni = perfil.elector.dni
     if eleccion is not None:
         registro_padron = (
-            RegistroPadron.objects.filter(elector=elector, eleccion=eleccion, activo=True)
-            .select_related("eleccion")
+            RegistroPadron.objects.filter(dni=dni, eleccion=eleccion, activo=True)
+            .select_related("eleccion", "elector")
             .first()
         )
+    elector = registro_padron.elector if registro_padron else None
+    if elector is None:
+        return HttpResponseForbidden("No existe un elector asociado a esta identidad en la elección actual.")
     estado_habilitado = bool(
         eleccion
         and eleccion.estado in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO)
@@ -79,7 +78,7 @@ def mis_justificativos(request):
             messages.success(request, "El justificativo fue presentado para revision.")
             return redirect("mis-justificativos")
     justificativos = JustificativoAusencia.objects.select_related("registro_padron__eleccion", "tipo")
-    justificativos = justificativos.filter(registro_padron__elector=elector).order_by("-presentada_en", "-pk")
+    justificativos = justificativos.filter(registro_padron__eleccion=eleccion).order_by("-presentada_en", "-pk")
     return render(
         request,
         "justificativos/mis_justificativos.html",

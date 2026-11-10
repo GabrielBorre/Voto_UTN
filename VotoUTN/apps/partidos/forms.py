@@ -6,7 +6,7 @@ from apps.elecciones.models import EleccionClaustro, EleccionClaustroDepartament
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from apps.partidos.services import TIPOS_DOCUMENTO_CANDIDATO, buscar_elector_candidato
-from apps.parametros.models import Departamento
+from apps.parametros.models import Claustro, Departamento
 from apps.partidos.models import (
     Candidato,
     CargoElectivo,
@@ -53,13 +53,6 @@ class FormularioPartido(forms.ModelForm):
         estilizar_campos(self)
 
 
-class FormularioOrganoElectivo(forms.ModelForm):
-    class Meta:
-        model = OrganoElectivo
-        fields = ("nombre", "descripcion", "activo")
-        widgets = {"descripcion": forms.Textarea(attrs={"rows": 3})}
-
-
 class FormularioCargoElectivo(forms.ModelForm):
     class Meta:
         model = CargoElectivo
@@ -87,6 +80,34 @@ class FormularioParticipacionPartido(forms.ModelForm):
         queryset=EleccionClaustro.objects.none(),
         label="Claustro",
     )
+    puesto_nuevo = forms.ModelChoiceField(
+        queryset=CargoElectivo.objects.none(),
+        label="Puesto a crear",
+        required=False,
+        help_text="Opcional. Si el puesto todavía no está habilitado, podés configurarlo y asociarlo a la lista en este paso.",
+    )
+    departamento_puesto_nuevo = forms.ModelChoiceField(
+        queryset=EleccionClaustroDepartamento.objects.none(),
+        label="Departamento del puesto",
+        required=False,
+    )
+    cantidad_titulares_nueva = forms.IntegerField(
+        label="Cantidad de titulares",
+        min_value=1,
+        required=False,
+    )
+    cantidad_suplentes_nueva = forms.IntegerField(
+        label="Cantidad de suplentes",
+        min_value=1,
+        required=False,
+    )
+    puestos_eleccion = forms.ModelMultipleChoiceField(
+        queryset=PuestoEleccion.objects.none(),
+        label="Puestos de la lista",
+        required=False,
+        widget=forms.CheckboxSelectMultiple(),
+        help_text="Elegí puestos del claustro de la lista. La carga de candidatos estará disponible al guardar.",
+    )
 
     class Meta:
         model = ParticipacionPartido
@@ -105,9 +126,108 @@ class FormularioParticipacionPartido(forms.ModelForm):
         self.fields["eleccion_claustro"].queryset = EleccionClaustro.objects.filter(
             eleccion=eleccion,
         ).select_related("claustro").order_by("claustro__nombre")
+        puestos_disponibles = PuestoEleccion.objects.filter(
+            eleccion_claustro__eleccion=eleccion,
+            activo=True,
+            puesto__activo=True,
+            puesto__organo__activo=True,
+        )
+        claustro_id = (
+            self.data.get(self.add_prefix("eleccion_claustro"), "")
+            if self.is_bound
+            else self.initial.get("eleccion_claustro", "")
+        )
+        claustro_id = str(getattr(claustro_id, "pk", claustro_id))
+        claustro_catalogo_id = None
+        if claustro_id.isdecimal():
+            claustro_catalogo_id = EleccionClaustro.objects.filter(
+                pk=claustro_id,
+                eleccion=eleccion,
+            ).values_list("claustro_id", flat=True).first()
+            puestos_disponibles = puestos_disponibles.filter(
+                eleccion_claustro_id=claustro_id,
+            )
+            if claustro_catalogo_id:
+                puestos_disponibles = puestos_disponibles.filter(
+                    puesto__claustros_habilitados=claustro_catalogo_id,
+                )
+        self.fields["puestos_eleccion"].queryset = puestos_disponibles.select_related(
+            "puesto__organo",
+            "eleccion_claustro__claustro",
+            "eleccion_claustro_departamento__departamento",
+        )
+        puestos_nuevos = CargoElectivo.objects.filter(
+            activo=True,
+            organo__activo=True,
+        )
+        if claustro_catalogo_id:
+            puestos_nuevos = puestos_nuevos.filter(
+                claustros_habilitados=claustro_catalogo_id,
+            )
+        self.fields["puesto_nuevo"].queryset = puestos_nuevos.select_related("organo")
+        departamentos = EleccionClaustroDepartamento.objects.filter(
+            eleccion_claustro__eleccion=eleccion,
+            departamento__isnull=False,
+        )
+        if claustro_id.isdecimal():
+            departamentos = departamentos.filter(eleccion_claustro_id=claustro_id)
+        self.fields["departamento_puesto_nuevo"].queryset = departamentos.select_related(
+            "eleccion_claustro__claustro", "departamento",
+        ).order_by("eleccion_claustro__claustro__nombre", "departamento__nombre")
         self.fields["nombre_lista"].required = True
         self.fields["apoderado_nombre"].required = True
         estilizar_campos(self)
+        self.fields["puestos_eleccion"].widget.attrs["class"] = "checkbox-list"
+
+    def clean(self):
+        datos = super().clean()
+        claustro = datos.get("eleccion_claustro")
+        puestos = datos.get("puestos_eleccion")
+        puesto_nuevo = datos.get("puesto_nuevo")
+        departamento_nuevo = datos.get("departamento_puesto_nuevo")
+        if claustro and puestos and any(
+            puesto.eleccion_claustro_id != claustro.id for puesto in puestos
+        ):
+            self.add_error(
+                "puestos_eleccion",
+                "Todos los puestos deben pertenecer al claustro seleccionado.",
+            )
+        if puesto_nuevo:
+            if not claustro:
+                self.add_error("puesto_nuevo", "Seleccioná primero el claustro de la lista.")
+            if not datos.get("cantidad_titulares_nueva"):
+                self.add_error("cantidad_titulares_nueva", "Indicá la cantidad de titulares.")
+            if not datos.get("cantidad_suplentes_nueva"):
+                self.add_error("cantidad_suplentes_nueva", "Indicá la cantidad de suplentes.")
+            if departamento_nuevo:
+                if departamento_nuevo.eleccion_claustro_id != getattr(claustro, "id", None):
+                    self.add_error(
+                        "departamento_puesto_nuevo",
+                        "El departamento debe pertenecer al claustro seleccionado.",
+                    )
+                if not puesto_nuevo.permite_filtrar_departamentos:
+                    self.add_error(
+                        "departamento_puesto_nuevo",
+                        "Este puesto no admite alcance por departamento.",
+                    )
+            if claustro:
+                claustros_objetivo = EleccionClaustro.objects.filter(pk=claustro.pk)
+                if not puesto_nuevo.permite_filtrar_claustros and not departamento_nuevo:
+                    claustros_objetivo = EleccionClaustro.objects.filter(
+                        eleccion=self.eleccion,
+                        claustro__in=puesto_nuevo.claustros_habilitados.all(),
+                    )
+                repetido = PuestoEleccion.objects.filter(
+                    eleccion_claustro__in=claustros_objetivo,
+                    puesto=puesto_nuevo,
+                    eleccion_claustro_departamento=departamento_nuevo,
+                ).exists()
+                if repetido:
+                    self.add_error(
+                        "puesto_nuevo",
+                        "Este puesto ya está habilitado para uno de los alcances requeridos; elegilo en la lista de puestos disponibles.",
+                    )
+        return datos
 
 class FormularioPuestoEleccion(forms.ModelForm):
     TIPO_CLAUSTRO = "claustro"
@@ -142,6 +262,12 @@ class FormularioPuestoEleccion(forms.ModelForm):
     def __init__(self, *args, eleccion, **kwargs):
         super().__init__(*args, **kwargs)
         self.eleccion = eleccion
+        self.fields["cantidad_titulares"].min_value = 1
+        self.fields["cantidad_suplentes"].min_value = 1
+        self.fields["cantidad_titulares"].widget.attrs["min"] = 1
+        self.fields["cantidad_suplentes"].widget.attrs["min"] = 1
+        self.fields["cantidad_titulares"].required = True
+        self.fields["cantidad_suplentes"].required = True
         self.fields["puesto"].queryset = CargoElectivo.objects.filter(
             activo=True,
             organo__activo=True,
@@ -149,6 +275,21 @@ class FormularioPuestoEleccion(forms.ModelForm):
         self.fields["eleccion_claustro"].queryset = EleccionClaustro.objects.filter(
             eleccion=eleccion,
         ).select_related("claustro").order_by("claustro__nombre")
+        claustro_id = (
+            self.data.get(self.add_prefix("eleccion_claustro"), "")
+            if self.is_bound
+            else self.instance.eleccion_claustro_id
+        )
+        if str(claustro_id).isdecimal():
+            claustro_catalogo_id = EleccionClaustro.objects.filter(
+                pk=claustro_id,
+                eleccion=eleccion,
+            ).values_list("claustro_id", flat=True).first()
+            if claustro_catalogo_id:
+                puestos = Q(claustros_habilitados=claustro_catalogo_id)
+                if self.instance.pk:
+                    puestos |= Q(pk=self.instance.puesto_id)
+                self.fields["puesto"].queryset = self.fields["puesto"].queryset.filter(puestos)
         self.fields["eleccion_claustro_departamento"].queryset = EleccionClaustroDepartamento.objects.filter(
             eleccion_claustro__eleccion=eleccion,
             departamento__isnull=False,
@@ -211,7 +352,7 @@ class FormularioHabilitacionPuesto(forms.Form):
     limitar_por_claustros = forms.BooleanField(
         label="Limitar a claustros determinados",
         required=False,
-        help_text="Si no se activa, se incluyen todos los claustros configurados en la elección.",
+        help_text="Si no se activa, se incluyen todos los claustros asociados a este puesto que participan en la elección.",
     )
     claustros = CampoMultipleClaustro(
         queryset=EleccionClaustro.objects.none(),
@@ -231,21 +372,36 @@ class FormularioHabilitacionPuesto(forms.Form):
         help_text="Seleccione los departamentos solamente cuando active el filtro anterior.",
     )
     cantidad_titulares = forms.IntegerField(label="Cantidad de titulares", min_value=1)
-    cantidad_suplentes = forms.IntegerField(label="Cantidad de suplentes", min_value=0, initial=0)
+    cantidad_suplentes = forms.IntegerField(label="Cantidad de suplentes", min_value=1)
     activo = forms.BooleanField(required=False, initial=True)
 
-    def __init__(self, *args, eleccion, **kwargs):
+    def __init__(self, *args, eleccion, claustro_objetivo=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.eleccion = eleccion
+        self.claustro_objetivo = claustro_objetivo
         self.fields["puesto"].queryset = CargoElectivo.objects.filter(
             activo=True,
             organo__activo=True,
         ).select_related("organo")
-        self.fields["claustros"].queryset = EleccionClaustro.objects.filter(
+        claustros = EleccionClaustro.objects.filter(
             eleccion=eleccion,
         ).select_related("claustro")
+        if claustro_objetivo:
+            claustros = claustros.filter(pk=claustro_objetivo.pk)
+            self.fields["puesto"].queryset = self.fields["puesto"].queryset.filter(
+                claustros_habilitados=claustro_objetivo.claustro_id,
+            )
+        puesto_id = self.data.get(self.add_prefix("puesto"), "")
+        if puesto_id.isdecimal() and not claustro_objetivo:
+            claustros = claustros.filter(
+                claustro__in=Claustro.objects.filter(
+                    puestos_electivos_habilitados__pk=puesto_id,
+                )
+            )
+        self.fields["claustros"].queryset = claustros
         self.fields["departamentos"].queryset = Departamento.objects.filter(
             elecciones_claustro_departamento__eleccion_claustro__eleccion=eleccion,
+            elecciones_claustro_departamento__eleccion_claustro__in=claustros,
         ).distinct().order_by("nombre")
         estilizar_campos(self)
         for nombre in ("claustros", "departamentos"):
@@ -278,7 +434,13 @@ class FormularioHabilitacionPuesto(forms.Form):
             if not departamentos:
                 self.add_error("departamentos", "Seleccione al menos un departamento.")
 
-        claustros_efectivos = claustros if limitar_claustros and claustros else self.fields["claustros"].queryset
+        claustros_asociados = self.fields["claustros"].queryset
+        if puesto and not claustros_asociados.exists():
+            self.add_error("puesto", "Asociá este puesto al claustro correspondiente en Parámetros de elección.")
+        if puesto and limitar_claustros and claustros:
+            claustros_efectivos = claustros
+        else:
+            claustros_efectivos = claustros_asociados
         if puesto and claustros_efectivos and not limitar_departamentos:
             repetidos = PuestoEleccion.objects.filter(
                 puesto=puesto,
@@ -357,7 +519,10 @@ class FormularioListaCandidatos(forms.ModelForm):
             activo=True,
         )
         if participacion.eleccion_claustro_id:
-            puestos_disponibles = puestos_disponibles.filter(eleccion_claustro=participacion.eleccion_claustro)
+            puestos_disponibles = puestos_disponibles.filter(
+                eleccion_claustro=participacion.eleccion_claustro,
+                puesto__claustros_habilitados=participacion.eleccion_claustro.claustro_id,
+            )
         self.fields["puesto_eleccion"].queryset = puestos_disponibles.exclude(pk__in=usados).select_related(
             "puesto__organo",
             "eleccion_claustro__claustro",
@@ -390,6 +555,7 @@ class FormularioCandidato(forms.ModelForm):
     def __init__(self, *args, lista, **kwargs):
         super().__init__(*args, **kwargs)
         self.instance.lista = lista
+        self.fields["orden"].help_text = "Define la posición del candidato dentro de la lista."
         self.url_busqueda = reverse("buscar-elector-candidato", args=(lista.participacion.eleccion_id, lista.pk))
         if self.instance.elector_id:
             elector = self.instance.elector

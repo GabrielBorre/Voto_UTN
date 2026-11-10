@@ -6,7 +6,6 @@ from apps.partidos.models import (
     CargoElectivo,
     ImportacionCandidaturas,
     ListaCandidatos,
-    OrganoElectivo,
     ParticipacionPartido,
     Partido,
     PuestoEleccion,
@@ -20,13 +19,6 @@ class PartidoAdmin(admin.ModelAdmin):
     search_fields = ("nombre", "sigla")
 
 
-@admin.register(OrganoElectivo)
-class OrganoElectivoAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "activo")
-    list_filter = ("activo",)
-    search_fields = ("nombre",)
-
-
 @admin.register(CargoElectivo)
 class CargoElectivoAdmin(admin.ModelAdmin):
     list_display = (
@@ -38,6 +30,7 @@ class CargoElectivoAdmin(admin.ModelAdmin):
     )
     list_filter = ("organo", "activo")
     search_fields = ("nombre", "organo__nombre")
+    filter_horizontal = ("claustros_habilitados",)
 
 
 @admin.register(ParticipacionPartido)

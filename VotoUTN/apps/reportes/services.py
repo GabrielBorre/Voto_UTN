@@ -34,13 +34,13 @@ def exportar_reporte_eleccion(eleccion, tipo):
             "eleccion_claustro_departamento__departamento",
             "eleccion_claustro_departamento__eleccion_claustro__claustro",
             "asignacion_mesa__mesa",
-        ).order_by("elector__dni", "id"):
+        ).order_by("dni", "id"):
             escritor.writerow(
                 [
                     valor_csv(valor)
                     for valor in (
-                        registro.elector.dni,
-                        registro.elector.legajo,
+                        registro.dni,
+                        registro.legajo,
                         registro.elector.nombre_completo,
                         registro.elector.correo_electronico,
                         registro.eleccion_claustro_departamento.eleccion_claustro.claustro,
@@ -61,14 +61,14 @@ def exportar_reporte_eleccion(eleccion, tipo):
             "registro_padron__elector",
             "registro_padron__eleccion_claustro_departamento__departamento",
             "registro_padron__eleccion_claustro_departamento__eleccion_claustro__claustro",
-        ).order_by("registro_padron__elector__dni", "id"):
+        ).order_by("registro_padron__dni", "id"):
             registro = asignacion.registro_padron
             escritor.writerow(
                 [
                     valor_csv(valor)
                     for valor in (
-                        registro.elector.dni,
-                        registro.elector.legajo,
+                        registro.dni,
+                        registro.legajo,
                         registro.elector.nombre_completo,
                         registro.eleccion_claustro_departamento.eleccion_claustro.claustro,
                         registro.eleccion_claustro_departamento.departamento,
@@ -106,7 +106,7 @@ def exportar_reporte_eleccion(eleccion, tipo):
             escritor.writerow(
                 (
                     valor_csv(item.registro_padron.elector.nombre_completo),
-                    valor_csv(item.registro_padron.elector.legajo),
+                    valor_csv(item.registro_padron.legajo),
                     item.mesa.numero,
                     item.turno,
                     item.estado,
@@ -119,7 +119,7 @@ def exportar_reporte_eleccion(eleccion, tipo):
             escritor.writerow(
                 (
                     valor_csv(item.registro_padron.elector.nombre_completo),
-                    valor_csv(item.registro_padron.elector.legajo),
+                    valor_csv(item.registro_padron.legajo),
                     item.mesa.numero,
                     item.registrada_en.isoformat(),
                     item.metodo,
@@ -164,8 +164,8 @@ def exportar_reporte_eleccion(eleccion, tipo):
             escritor.writerow(
                 (
                     valor_csv(registro.elector.nombre_completo),
-                    valor_csv(registro.elector.legajo),
-                    valor_csv(registro.elector.dni),
+                    valor_csv(registro.legajo),
+                    valor_csv(registro.dni),
                     valor_csv(registro.sede),
                     valor_csv(getattr(getattr(registro, "asignacion_mesa", None), "mesa", "")),
                     estado_justificativo,

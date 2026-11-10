@@ -3,17 +3,17 @@ import string
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento, EleccionClaustroDepartamentoSede
 from apps.parametros.models import Sede, Departamento, Turno
 
 
 class Elector(models.Model):
-    legajo = models.CharField("legajo", max_length=20, unique=True)
+    legajo = models.CharField("legajo", max_length=20)
     nombre = models.CharField("nombre", max_length=180)
     apellido = models.CharField("apellido", max_length=180, blank=True)
-    dni = models.CharField("DNI", max_length=12, unique=True)
+    dni = models.CharField("DNI", max_length=12)
     tipo_documento = models.CharField("tipo documento", max_length=30, default="DNI")
     correo_electronico = models.EmailField("correo electronico", blank=True)
     tiene_discapacidad = models.BooleanField("tiene discapacidad", default=False)
@@ -25,6 +25,26 @@ class Elector(models.Model):
 
     def __str__(self):
         return f"{self.legajo} - {self.nombre_completo}"
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            return super().save(*args, **kwargs)
+
+        update_fields = kwargs.get("update_fields")
+        sincronizar_dni = update_fields is None or "dni" in update_fields
+        sincronizar_legajo = update_fields is None or "legajo" in update_fields
+        if not sincronizar_dni and not sincronizar_legajo:
+            return super().save(*args, **kwargs)
+
+        using = kwargs.get("using") or self._state.db
+        with transaction.atomic(using=using):
+            super().save(*args, **kwargs)
+            identificadores = {}
+            if sincronizar_dni:
+                identificadores["dni"] = self.dni
+            if sincronizar_legajo:
+                identificadores["legajo"] = self.legajo
+            RegistroPadron.objects.using(using).filter(elector_id=self.pk).update(**identificadores)
 
     @property
     def nombre_completo(self):
@@ -38,6 +58,8 @@ class RegistroPadron(models.Model):
     elector = models.ForeignKey(Elector, on_delete=models.PROTECT, related_name="registros_padron")
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="registros_padron")
     eleccion_claustro_departamento = models.ForeignKey(EleccionClaustroDepartamento, on_delete=models.PROTECT, related_name="registros_padron")
+    dni = models.CharField(max_length=12, editable=False)
+    legajo = models.CharField(max_length=20, editable=False)
     sede = models.ForeignKey("parametros.Sede", on_delete=models.PROTECT, related_name="registros_padron", null=True, blank=True, verbose_name="sede donde cursa")
     turno_cursada = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="registros_padron", null=True, blank=True, verbose_name="turno de cursada")
     nivel = models.CharField(max_length=50, blank=True)
@@ -48,7 +70,11 @@ class RegistroPadron(models.Model):
 
     class Meta:
         db_table = "elecciones_registropadron"
-        constraints = [models.UniqueConstraint(fields=("elector", "eleccion"), name="elector_unico_por_eleccion")]
+        constraints = [
+            models.UniqueConstraint(fields=("elector", "eleccion"), name="elector_unico_por_eleccion"),
+            models.UniqueConstraint(fields=("eleccion", "dni"), name="dni_unico_por_eleccion"),
+            models.UniqueConstraint(fields=("eleccion", "legajo"), name="legajo_unico_por_eleccion"),
+        ]
 
     def clean(self):
         self.validar_sede()
@@ -66,6 +92,9 @@ class RegistroPadron(models.Model):
         return "".join(secrets.choice(cls.ALFABETO_CODIGO_QR) for _ in range(cls.LONGITUD_CODIGO_QR))
 
     def save(self, *args, **kwargs):
+        if self._state.adding:
+            self.dni = self.elector.dni
+            self.legajo = self.elector.legajo
         if self.pk:
             anterior = RegistroPadron.objects.filter(pk=self.pk).only(
                 "qr_generado_en", "eleccion_id", "eleccion_claustro_departamento_id", "sede_id", "activo"

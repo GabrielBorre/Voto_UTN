@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db.models import Count
+from django.db.models.deletion import ProtectedError
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -12,6 +13,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
 
 from apps.elecciones.models import Eleccion
+from apps.elecciones.models import EleccionClaustro
 from apps.auditoria.services import registrar_evento
 from apps.partidos.forms import (
     FormularioCandidato,
@@ -27,6 +29,7 @@ from apps.partidos.services import (
     ENCABEZADOS_CANDIDATOS_LISTA,
     confirmar_candidatos_lista,
     confirmar_importacion_candidaturas,
+    crear_presentacion_con_puestos,
     guardar_con_validacion,
     previsualizar_candidatos_lista,
     previsualizar_importacion_candidaturas,
@@ -39,12 +42,17 @@ def _tiene_permiso(request, eleccion):
     return puede_configurar_eleccion(request.user, eleccion, solo_consulta=request.method in ("GET", "HEAD"))
 
 
-def _url_gestion(eleccion_id, participacion_id=None, lista_id=None):
+def _url_gestion(eleccion_id, participacion_id=None, lista_id=None, pestana_candidatos=None):
     url = reverse("gestionar-partidos", args=(eleccion_id,))
     if participacion_id:
         url = reverse("detalle-participacion-partido", args=(eleccion_id, participacion_id))
+        parametros = []
         if lista_id:
-            url += f"?puesto={lista_id}"
+            parametros.append(f"puesto={lista_id}")
+        if pestana_candidatos:
+            parametros.append(f"pestana_candidatos={pestana_candidatos}")
+        if parametros:
+            url += f"?{'&'.join(parametros)}"
         url += "#candidaturas"
     return url
 
@@ -84,6 +92,18 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
         return HttpResponseForbidden("No tiene permiso para gestionar partidos y candidatos.")
 
     pantalla_candidatos = participacion_id is not None
+    claustro_id = _id_opcional(request.GET.get("claustro"))
+    claustro_seleccionado = (
+        get_object_or_404(
+            EleccionClaustro.objects.select_related("claustro"),
+            pk=claustro_id,
+            eleccion=eleccion,
+        )
+        if claustro_id
+        else None
+    )
+    pestana_solicitada = request.GET.get("pestana")
+    pestana = "puesto" if pestana_solicitada == "puesto" else "lista"
     accion = request.POST.get("accion") or (
         "vincular_puesto" if pantalla_candidatos and request.method == "POST" and "puesto_eleccion" in request.POST else None
     )
@@ -115,12 +135,26 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
             candidato_en_edicion = get_object_or_404(
                 Candidato, pk=candidato_id, lista=asociacion_seleccionada,
             )
+    pestana_candidatos = (
+        "csv"
+        if request.GET.get("pestana_candidatos") == "csv"
+        or accion in ("previsualizar_candidatos", "confirmar_candidatos")
+        else "manual"
+    )
+    if candidato_en_edicion:
+        pestana_candidatos = "manual"
 
     formulario_puesto = FormularioHabilitacionPuesto(
-        request.POST if accion == "configurar_puesto" else None, eleccion=eleccion, prefix="puesto",
+        request.POST if accion == "configurar_puesto" else None,
+        eleccion=eleccion,
+        claustro_objetivo=claustro_seleccionado,
+        prefix="puesto",
     )
     formulario_participacion = FormularioParticipacionPartido(
-        request.POST if accion == "crear_presentacion" else None, eleccion=eleccion, prefix="presentacion",
+        request.POST if accion == "crear_presentacion" else None,
+        eleccion=eleccion,
+        prefix="presentacion",
+        initial={"eleccion_claustro": claustro_seleccionado.pk} if claustro_seleccionado else None,
     )
     formulario_vincular = FormularioListaCandidatos(
         request.POST if accion == "vincular_puesto" else None,
@@ -147,14 +181,42 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
                 request=request,
             )
         messages.success(request, f"El puesto fue habilitado en {len(configuraciones)} alcances.")
+        if claustro_seleccionado:
+            return redirect(
+                f"{reverse('gestionar-partidos', args=(eleccion.id,))}"
+                f"?claustro={claustro_seleccionado.id}&pestana=puesto"
+            )
         return redirect("gestionar-partidos", eleccion_id=eleccion.id)
     if request.method == "POST" and accion == "crear_presentacion" and formulario_participacion.is_valid():
-        participacion = guardar_con_validacion(
+        participacion, listas, configuraciones_creadas = crear_presentacion_con_puestos(
             formulario_participacion, eleccion=eleccion,
             codigo_presentacion=f"MAN-{uuid4().hex}",
         )
-        messages.success(request, "La lista fue creada. Ahora podés gestionar sus candidatos.")
-        return redirect(_url_gestion(eleccion.id, participacion.id))
+        for configuracion in configuraciones_creadas:
+            registrar_evento(
+                accion="configurar_puesto_eleccion",
+                entidad=configuracion._meta.label,
+                entidad_id=configuracion.pk,
+                eleccion=eleccion,
+                request=request,
+            )
+        for lista in listas:
+            registrar_evento(
+                accion="vincular_puesto_a_presentacion",
+                entidad=lista._meta.label,
+                entidad_id=lista.pk,
+                eleccion=eleccion,
+                request=request,
+                datos_nuevos={"participacion": participacion.pk, "puesto_eleccion": lista.puesto_eleccion_id},
+            )
+        if listas:
+            messages.success(request, "La lista y sus puestos fueron creados. Desde «Cargar listas» podés continuar con sus candidatos.")
+        else:
+            messages.success(request, "La lista fue creada. Desde «Cargar listas» podés asociar puestos y cargar candidatos.")
+        return redirect(
+            f"{reverse('gestionar-partidos', args=(eleccion.id,))}"
+            f"?claustro={participacion.eleccion_claustro_id}&pestana=lista#listas"
+        )
     if request.method == "POST" and accion == "vincular_puesto" and formulario_vincular and formulario_vincular.is_valid():
         asociacion = guardar_con_validacion(formulario_vincular, participacion=participacion_seleccionada)
         messages.success(request, "El puesto fue agregado a la lista.")
@@ -165,18 +227,29 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
         if formulario_candidato.is_valid():
             guardar_con_validacion(formulario_candidato, lista=asociacion_seleccionada)
             messages.success(request, "La persona candidata fue actualizada." if candidato_en_edicion else "La persona candidata fue agregada.")
-            return redirect(_url_gestion(eleccion.id, participacion_id, asociacion_seleccionada.id))
+            return redirect(
+                _url_gestion(
+                    eleccion.id,
+                    participacion_id,
+                    asociacion_seleccionada.id,
+                    pestana_candidatos="manual",
+                )
+            )
     if request.method == "POST" and accion == "previsualizar_candidatos" and formulario_csv and formulario_csv.is_valid():
+        if not asociacion_seleccionada:
+            raise Http404()
         importacion = previsualizar_candidatos_lista(
-            participacion=participacion_seleccionada,
+            lista=asociacion_seleccionada,
             archivo=formulario_csv.cleaned_data["archivo"], usuario=request.user,
         )
     if request.method == "POST" and accion == "confirmar_candidatos" and participacion_seleccionada:
+        if not asociacion_seleccionada:
+            raise Http404()
         importacion = get_object_or_404(
             ImportacionCandidaturas, pk=_id_opcional(request.POST.get("importacion_id")), eleccion=eleccion,
         )
         try:
-            cantidad = confirmar_candidatos_lista(importacion, participacion_seleccionada)
+            cantidad = confirmar_candidatos_lista(importacion, asociacion_seleccionada)
         except (ValidationError, ListaCandidatos.DoesNotExist) as error:
             messages.error(request, f"No se pudo confirmar la importación: {error}")
         else:
@@ -189,29 +262,118 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
                 datos_nuevos={"candidatos": cantidad, "lista": participacion_seleccionada.pk},
             )
             messages.success(request, f"Se cargaron {cantidad} personas candidatas.")
-        return redirect(_url_gestion(eleccion.id, participacion_id))
+        return redirect(
+            _url_gestion(
+                eleccion.id,
+                participacion_id,
+                asociacion_seleccionada.id if asociacion_seleccionada else None,
+                pestana_candidatos="csv",
+            )
+        )
 
     participaciones = eleccion.partidos_participantes.select_related("partido", "eleccion_claustro__claustro").annotate(
         cantidad_listas=Count("listas", distinct=True),
         cantidad_candidatos=Count("listas__candidatos", distinct=True),
     )
+    if claustro_seleccionado:
+        participaciones = participaciones.filter(eleccion_claustro=claustro_seleccionado)
+    claustros = eleccion.elecciones_claustro.select_related("claustro").annotate(
+        cantidad_listas=Count("presentaciones_listas", distinct=True),
+        cantidad_candidatos=Count("presentaciones_listas__listas__candidatos", distinct=True),
+        cantidad_puestos=Count("puestos_electivos", distinct=True),
+    )
     puestos = PuestoEleccion.objects.filter(eleccion_claustro__eleccion=eleccion).select_related(
         "puesto__organo", "eleccion_claustro__claustro", "eleccion_claustro_departamento__departamento",
+    ).annotate(cantidad_listas=Count("listas_candidatos", distinct=True)).order_by(
+        "eleccion_claustro__claustro__nombre",
+        "puesto__organo__nombre",
+        "puesto__nombre",
+        "eleccion_claustro_departamento__departamento__nombre",
     )
+    if claustro_seleccionado:
+        puestos = puestos.filter(
+            eleccion_claustro=claustro_seleccionado,
+            puesto__claustros_habilitados=claustro_seleccionado.claustro_id,
+        )
+    categorias_por_tipo = {
+        "departamental": ("Departamentales", 0),
+        "directivo": ("Directivos", 1),
+        "dasuten": ("DASUTeN", 2),
+        "otros": ("Otros puestos", 3),
+    }
+    opciones_puestos = {
+        str(opcion.data["value"]): opcion
+        for opcion in formulario_participacion["puestos_eleccion"].subwidgets
+    }
+    grupos_por_claustro = {}
+    puestos_seleccionables = list(
+        formulario_participacion.fields["puestos_eleccion"].queryset
+    )
+    for configuracion in puestos_seleccionables:
+        nombre_organo = configuracion.puesto.organo.nombre.casefold()
+        if "departamental" in nombre_organo:
+            tipo = "departamental"
+        elif "directivo" in nombre_organo:
+            tipo = "directivo"
+        elif "dasuten" in nombre_organo:
+            tipo = "dasuten"
+        else:
+            tipo = "otros"
+        claustro_id = configuracion.eleccion_claustro_id
+        grupo = grupos_por_claustro.setdefault(
+            claustro_id,
+            {
+                "nombre": str(configuracion.eleccion_claustro.claustro),
+                "claustro_id": claustro_id,
+                "categorias": {},
+            },
+        )
+        categoria = grupo["categorias"].setdefault(
+            tipo,
+            {
+                "nombre": categorias_por_tipo[tipo][0],
+                "orden": categorias_por_tipo[tipo][1],
+                "puestos": [],
+            },
+        )
+        opcion = opciones_puestos.get(str(configuracion.pk))
+        if opcion is not None:
+            categoria["puestos"].append(
+                {"configuracion": configuracion, "opcion": opcion}
+            )
+    puestos_seleccionables_por_claustro = [
+        {
+            "nombre": grupo["nombre"],
+            "claustro_id": grupo["claustro_id"],
+            "categorias": sorted(
+                grupo["categorias"].values(),
+                key=lambda categoria: categoria["orden"],
+            ),
+        }
+        for grupo in grupos_por_claustro.values()
+    ]
     return render(
         request,
         "partidos/detalle_participacion.html" if pantalla_candidatos else "partidos/gestion.html",
         {
             "eleccion": eleccion,
+            "claustros": claustros,
+            "claustro_seleccionado": claustro_seleccionado,
+            "pestana": pestana,
             "participaciones": participaciones,
             "formulario_puesto": formulario_puesto,
             "formulario_participacion": formulario_participacion,
             "puestos": puestos,
+            "puestos_seleccionables_por_claustro": puestos_seleccionables_por_claustro,
             "participacion_seleccionada": participacion_seleccionada,
             "asociaciones": asociaciones,
             "asociacion_seleccionada": asociacion_seleccionada,
+            "pestana_candidatos": pestana_candidatos,
             "formulario_vincular": formulario_vincular,
             "formulario": formulario_vincular,
+            "hay_puestos_disponibles_presentacion": formulario_participacion.fields[
+                "puestos_eleccion"
+            ].queryset.exists(),
             "formulario_candidato": formulario_candidato,
             "candidato_en_edicion": candidato_en_edicion,
             "formulario_csv": formulario_csv,
@@ -229,25 +391,32 @@ def descargar_plantilla_candidatos_lista(request, eleccion_id, participacion_id)
     )
     if not _tiene_permiso(request, participacion.eleccion):
         return HttpResponseForbidden("No tiene permiso para descargar esta plantilla.")
+    lista_id = _id_opcional(request.GET.get("puesto"))
+    lista = get_object_or_404(
+        ListaCandidatos.objects.select_related(
+            "puesto_eleccion__puesto__organo",
+            "eleccion_claustro_departamento__departamento",
+        ),
+        pk=lista_id,
+        participacion=participacion,
+        activa=True,
+        puesto_eleccion__isnull=False,
+        puesto_eleccion__activo=True,
+    )
     respuesta = HttpResponse(content_type="text/csv; charset=utf-8")
-    respuesta["Content-Disposition"] = f'attachment; filename="candidatos-lista-{participacion.pk}.csv"'
+    respuesta["Content-Disposition"] = f'attachment; filename="candidatos-puesto-{lista.pk}.csv"'
     respuesta.write("\ufeff")
     escritor = csv.writer(respuesta, delimiter=";")
     escritor.writerow(ENCABEZADOS_CANDIDATOS_LISTA)
-    for lista in participacion.listas.filter(
-        activa=True, puesto_eleccion__activo=True,
-    ).select_related("puesto_eleccion__puesto__organo", "eleccion_claustro_departamento__departamento"):
-        config = lista.puesto_eleccion
-        ocupados = set(lista.candidatos.values_list("tipo", "orden"))
-        departamento = lista.eleccion_claustro_departamento.departamento.nombre if lista.eleccion_claustro_departamento_id else ""
-        for tipo, cantidad in (
-            (Candidato.Tipo.TITULAR, config.cantidad_titulares),
-            (Candidato.Tipo.SUPLENTE, config.cantidad_suplentes),
-        ):
-            for orden in range(1, cantidad + 1):
-                if (tipo, orden) not in ocupados:
-                    escritor.writerow((config.puesto.organo.nombre, config.puesto.nombre, departamento,
-                                      "DNI", "", tipo, orden))
+    config = lista.puesto_eleccion
+    ocupados = set(lista.candidatos.values_list("tipo", "orden"))
+    for tipo, cantidad in (
+        (Candidato.Tipo.TITULAR, config.cantidad_titulares),
+        (Candidato.Tipo.SUPLENTE, config.cantidad_suplentes),
+    ):
+        for orden in range(1, cantidad + 1):
+            if (tipo, orden) not in ocupados:
+                escritor.writerow(("DNI", "", tipo, orden))
     return respuesta
 
 
@@ -294,6 +463,7 @@ def editar_puesto_eleccion(request, eleccion_id, puesto_id):
 
 
 @login_required
+@require_POST
 def cambiar_estado_puesto_eleccion(request, eleccion_id, puesto_id):
     puesto = get_object_or_404(
         PuestoEleccion.objects.select_related("eleccion_claustro__eleccion"),
@@ -302,7 +472,60 @@ def cambiar_estado_puesto_eleccion(request, eleccion_id, puesto_id):
     )
     if not _tiene_permiso(request, puesto.eleccion):
         return HttpResponseForbidden("No tiene permiso para modificar puestos de esta elección.")
-    return _cambiar_estado(request, puesto, "activo", "gestionar-partidos", eleccion_id=eleccion_id)
+    puesto.activo = request.POST.get("activo") == "1"
+    puesto.save(update_fields=("activo",))
+    messages.success(request, "El estado del puesto fue actualizado.")
+    return redirect(_url_puestos_eleccion(request, eleccion_id))
+
+
+@login_required
+@require_POST
+def eliminar_puesto_eleccion(request, eleccion_id, puesto_id):
+    puesto = get_object_or_404(
+        PuestoEleccion.objects.select_related(
+            "eleccion_claustro__eleccion",
+            "eleccion_claustro__claustro",
+            "eleccion_claustro_departamento__departamento",
+            "puesto",
+        ),
+        pk=puesto_id,
+        eleccion_claustro__eleccion_id=eleccion_id,
+    )
+    if not _tiene_permiso(request, puesto.eleccion):
+        return HttpResponseForbidden("No tiene permiso para eliminar puestos de esta elección.")
+
+    datos_anteriores = {
+        "claustro": str(puesto.eleccion_claustro.claustro),
+        "departamento": str(puesto.eleccion_claustro_departamento.departamento)
+        if puesto.eleccion_claustro_departamento_id
+        else None,
+        "puesto": str(puesto.puesto),
+        "cantidad_titulares": puesto.cantidad_titulares,
+        "cantidad_suplentes": puesto.cantidad_suplentes,
+    }
+    try:
+        puesto.delete()
+    except ProtectedError:
+        messages.error(request, "No se puede eliminar el puesto porque está asociado a una o más listas.")
+    else:
+        registrar_evento(
+            accion="eliminar_puesto_eleccion",
+            entidad=puesto._meta.label,
+            entidad_id=puesto.pk,
+            eleccion=puesto.eleccion,
+            request=request,
+            datos_anteriores=datos_anteriores,
+        )
+        messages.success(request, "El puesto fue eliminado.")
+    return redirect(_url_puestos_eleccion(request, eleccion_id))
+
+
+def _url_puestos_eleccion(request, eleccion_id):
+    url = reverse("gestionar-partidos", args=(eleccion_id,))
+    claustro_id = _id_opcional(request.GET.get("claustro"))
+    if claustro_id and EleccionClaustro.objects.filter(pk=claustro_id, eleccion_id=eleccion_id).exists():
+        return f"{url}?claustro={claustro_id}&pestana=puesto"
+    return url
 
 
 @login_required

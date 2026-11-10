@@ -262,7 +262,7 @@ def _construir_troquel(eleccion, mesa, registro, alto_fila):
     texto = Table(
         [
             [Paragraph(_formatear_apellido_y_nombre(registro.elector), ESTILO_TROQUEL)],
-            [Paragraph(f"DNI: {registro.elector.dni}", ESTILO_TROQUEL)],
+            [Paragraph(f"DNI: {registro.dni}", ESTILO_TROQUEL)],
             [Paragraph(f"Fecha: {fecha_votacion.strftime('%d/%m/%Y')}", ESTILO_TROQUEL)],
             [firma_autoridad],
         ],
@@ -301,7 +301,7 @@ def _construir_tabla(eleccion, mesa, lote, numero_inicial, alto_fila):
         numero_orden = numero_inicial + offset
         filas.append([
             str(numero_orden),
-            registro.elector.dni,
+            registro.dni,
             Paragraph(_formatear_apellido_y_nombre(registro.elector), ESTILO_CELDA),
             _construir_espacio_firma("Elector", COL_FIRMA - 12, alto_fila),
             _construir_troquel(eleccion, mesa, registro, alto_fila),
