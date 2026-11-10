@@ -1749,11 +1749,17 @@ th a.table-sort-link:focus-visible {
 .plazo-actual__linea {
     align-items: flex-start;
     display: flex;
-    gap: .15rem;
+    flex-wrap: wrap;
+    gap: .35rem;
 }
 
 .plazo-actual__texto {
     color: #3f4754;
+}
+
+.plazo-actual__ayuda {
+    color: #3f4754;
+    margin: .35rem 0 0;
 }
 
 .plazo-edicion {

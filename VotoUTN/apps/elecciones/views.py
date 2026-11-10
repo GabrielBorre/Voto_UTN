@@ -53,6 +53,7 @@ from apps.justificativos.models import JustificativoAusencia
 from apps.notificaciones.services import (
     actualizar_plazo_justificativos_electores,
     crear_notificacion_cambio_plazo_eximicion_autoridad,
+    crear_notificaciones_cambio_plazo_solicitudes_cambio_sede,
     crear_notificaciones_ausentes_confirmadas,
     enviar_notificacion,
     notificar_eleccion_en_curso,
@@ -565,6 +566,13 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                 ]
                 eleccion.fecha_cierre_solicitudes_cambio_sede = nueva_fecha
                 eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
+                envios = crear_notificaciones_cambio_plazo_solicitudes_cambio_sede(
+                    eleccion,
+                    nueva_fecha,
+                )
+                transaction.on_commit(
+                    lambda: [enviar_notificacion(envio) for envio in envios]
+                )
                 registrar_evento(
                     accion="eleccion.plazo_cambio_sede_modificado",
                     entidad="Eleccion",
@@ -579,9 +587,19 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                     },
                     datos_nuevos={
                         "fecha_cierre_solicitudes_cambio_sede": nueva_fecha.isoformat(),
+                        "notificaciones_creadas": len(envios),
                     },
                 )
-                messages.success(request, "Se actualizó la fecha límite para solicitar cambio de sede.")
+                if envios:
+                    messages.success(
+                        request,
+                        f"Se actualizó la fecha límite y se notificó a {len(envios)} electores.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        "Se actualizó la fecha límite. No hay electores pendientes de notificación.",
+                    )
                 return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
     accion_editar_plazo_eximicion = (
         request.method == "POST"

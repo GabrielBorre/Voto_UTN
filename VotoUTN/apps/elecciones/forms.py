@@ -89,19 +89,32 @@ class FormularioEditarPlazoCambioSede(forms.Form):
     def __init__(self, *args, eleccion, **kwargs):
         super().__init__(*args, **kwargs)
         self.eleccion = eleccion
-        self.fields["fecha_cierre_solicitudes_cambio_sede"].initial = (
-            eleccion.fecha_cierre_solicitudes_cambio_sede
-        )
+        fecha_minima = timezone.localdate()
+        if eleccion.fecha_cierre_solicitudes_cambio_sede:
+            fecha_minima = max(
+                fecha_minima,
+                eleccion.fecha_cierre_solicitudes_cambio_sede + timedelta(days=1),
+            )
         if eleccion.solicitudes_cambio_sede_habilitadas_en:
             fecha_inicio = timezone.localtime(
                 eleccion.solicitudes_cambio_sede_habilitadas_en
             ).date()
-            self.fields["fecha_cierre_solicitudes_cambio_sede"].widget.attrs["min"] = (
-                fecha_inicio.isoformat()
-            )
+            fecha_minima = max(fecha_minima, fecha_inicio)
+        campo_fecha = self.fields["fecha_cierre_solicitudes_cambio_sede"]
+        campo_fecha.initial = fecha_minima
+        campo_fecha.widget.attrs["min"] = fecha_minima.isoformat()
 
     def clean_fecha_cierre_solicitudes_cambio_sede(self):
         fecha = self.cleaned_data["fecha_cierre_solicitudes_cambio_sede"]
+        if fecha < timezone.localdate():
+            raise forms.ValidationError("La fecha límite no puede ser anterior a hoy.")
+        if (
+            self.eleccion.fecha_cierre_solicitudes_cambio_sede
+            and fecha <= self.eleccion.fecha_cierre_solicitudes_cambio_sede
+        ):
+            raise forms.ValidationError(
+                "La nueva fecha límite debe ser posterior a la fecha límite actual."
+            )
         if self.eleccion.solicitudes_cambio_sede_habilitadas_en:
             fecha_inicio = timezone.localtime(
                 self.eleccion.solicitudes_cambio_sede_habilitadas_en
@@ -123,9 +136,12 @@ class FormularioEditarPlazoEximicionAutoridades(forms.Form):
         super().__init__(*args, **kwargs)
         self.eleccion = eleccion
         fecha_minima = timezone.localdate()
-        self.fields["fecha_limite_justificacion_autoridades"].initial = (
-            eleccion.fecha_limite_justificacion_autoridades or fecha_minima
-        )
+        if eleccion.fecha_limite_justificacion_autoridades:
+            fecha_minima = max(
+                fecha_minima,
+                eleccion.fecha_limite_justificacion_autoridades + timedelta(days=1),
+            )
+        self.fields["fecha_limite_justificacion_autoridades"].initial = fecha_minima
         self.fields["fecha_limite_justificacion_autoridades"].widget.attrs["min"] = (
             fecha_minima.isoformat()
         )
@@ -134,6 +150,13 @@ class FormularioEditarPlazoEximicionAutoridades(forms.Form):
         fecha = self.cleaned_data["fecha_limite_justificacion_autoridades"]
         if fecha < timezone.localdate():
             raise forms.ValidationError("La fecha límite no puede ser anterior a hoy.")
+        if (
+            self.eleccion.fecha_limite_justificacion_autoridades
+            and fecha <= self.eleccion.fecha_limite_justificacion_autoridades
+        ):
+            raise forms.ValidationError(
+                "La nueva fecha límite debe ser posterior a la fecha límite actual."
+            )
         if self.eleccion.autoridades_confirmadas_en:
             fecha_inicio = timezone.localtime(self.eleccion.autoridades_confirmadas_en).date()
             if fecha < fecha_inicio:

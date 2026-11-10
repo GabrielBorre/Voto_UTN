@@ -22,7 +22,7 @@ from apps.elecciones.forms import (
 )
 from apps.elecciones.services import agregar_claustro, eliminar_claustro
 from apps.mesas.models import AsignacionMesa, Mesa
-from apps.notificaciones.models import EnvioNotificacion
+from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
 from apps.notificaciones.services import notificar_eleccion_en_curso
 from apps.padron.models import ConfiguracionSedesClaustro, Elector, RegistroPadron, SolicitudCambioSede
 from apps.padron.services import (
@@ -176,15 +176,49 @@ class CicloConfiguracionTests(TestCase):
         self.assertContains(respuesta, "Solicitudes de cambio de sede")
         self.assertContains(respuesta, fecha_inicio_periodo.strftime("%d/%m/%Y"))
         self.assertContains(respuesta, 'id="abrir-dialogo-editar-plazo-cambio-sede"')
+        self.assertContains(
+            respuesta,
+            "Se notificará a los electores que todavía no presentaron una solicitud de cambio de sede.",
+        )
+        self.assertContains(respuesta, "Presentar una solicitud es opcional.")
 
         nueva_fecha = timezone.localdate() + timedelta(days=3)
-        respuesta = self.client.post(url, {
-            "accion": "actualizar_plazo_cambio_sede",
-            "fecha_cierre_solicitudes_cambio_sede": nueva_fecha.isoformat(),
-        })
+        registro_con_solicitud = self.crear_registro("40100002")
+        solicitud_rechazada = self.solicitud(registro_con_solicitud)
+        solicitud_rechazada.estado = SolicitudCambioSede.Estado.RECHAZADA
+        solicitud_rechazada.save(update_fields=("estado",))
+        registro_con_solicitud_pendiente = self.crear_registro("40100003")
+        self.solicitud(registro_con_solicitud_pendiente)
+        with patch("apps.elecciones.views.enviar_notificacion") as enviar:
+            with self.captureOnCommitCallbacks(execute=True):
+                respuesta = self.client.post(url, {
+                    "accion": "actualizar_plazo_cambio_sede",
+                    "fecha_cierre_solicitudes_cambio_sede": nueva_fecha.isoformat(),
+                })
+            enviar.assert_called_once()
         self.assertEqual(respuesta.status_code, 302)
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.fecha_cierre_solicitudes_cambio_sede, nueva_fecha)
+        notificacion = EnvioNotificacion.objects.get(
+            plantilla__codigo="elector-plazo-cambio-sede-modificado",
+        )
+        self.assertEqual(notificacion.elector, self.registro.elector)
+        self.assertEqual(
+            notificacion.contenido,
+            (
+                f"Hola {self.registro.elector.nombre_completo},\n\n"
+                "Se extendió la fecha límite para solicitar un cambio de sede en "
+                f"{self.eleccion.nombre}. Podés presentar tu solicitud hasta el "
+                f"{nueva_fecha.strftime('%d/%m/%Y')} inclusive. Presentar una solicitud es opcional.\n\n"
+                "Voto UTN"
+            ),
+        )
+        self.assertEqual(
+            EnvioNotificacion.objects.filter(
+                plantilla__codigo="elector-plazo-cambio-sede-modificado",
+            ).count(),
+            1,
+        )
 
         fecha_confirmacion = timezone.now()
         self.eleccion.autoridades_confirmadas_en = fecha_confirmacion
@@ -220,6 +254,60 @@ class CicloConfiguracionTests(TestCase):
             formulario.errors,
         )
 
+    def test_formulario_plazo_cambio_sede_solo_acepta_extensiones(self):
+        fecha_limite = timezone.localdate() + timedelta(days=5)
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = fecha_limite
+        self.eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
+
+        for nueva_fecha in (fecha_limite, fecha_limite - timedelta(days=1)):
+            with self.subTest(nueva_fecha=nueva_fecha):
+                formulario = FormularioEditarPlazoCambioSede(
+                    data={
+                        "fecha_cierre_solicitudes_cambio_sede": nueva_fecha.isoformat(),
+                    },
+                    eleccion=self.eleccion,
+                )
+
+                self.assertFalse(formulario.is_valid())
+                self.assertIn(
+                    "posterior a la fecha límite actual",
+                    formulario.errors["fecha_cierre_solicitudes_cambio_sede"][0],
+                )
+
+    def test_formulario_cambio_sede_propone_el_dia_posterior_al_limite_actual(self):
+        fecha_limite_actual = timezone.localdate() + timedelta(days=3)
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = fecha_limite_actual
+        self.eleccion.solicitudes_cambio_sede_habilitadas_en = timezone.now() - timedelta(days=2)
+
+        formulario = FormularioEditarPlazoCambioSede(eleccion=self.eleccion)
+        fecha_sugerida = fecha_limite_actual + timedelta(days=1)
+
+        self.assertEqual(
+            formulario.fields["fecha_cierre_solicitudes_cambio_sede"].initial,
+            fecha_sugerida,
+        )
+        self.assertEqual(
+            formulario.fields["fecha_cierre_solicitudes_cambio_sede"].widget.attrs["min"],
+            fecha_sugerida.isoformat(),
+        )
+
+    def test_formulario_cambio_sede_no_acepta_fecha_anterior_a_hoy(self):
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate() - timedelta(days=2)
+        formulario = FormularioEditarPlazoCambioSede(
+            data={
+                "fecha_cierre_solicitudes_cambio_sede": (
+                    timezone.localdate() - timedelta(days=1)
+                ).isoformat(),
+            },
+            eleccion=self.eleccion,
+        )
+
+        self.assertFalse(formulario.is_valid())
+        self.assertIn(
+            "La fecha límite no puede ser anterior a hoy.",
+            formulario.errors["fecha_cierre_solicitudes_cambio_sede"],
+        )
+
     def test_plazo_eximicion_se_edita_en_publicada_y_queda_informativo_en_curso(self):
         fecha_inicio_periodo = timezone.now() - timedelta(days=2)
         fecha_limite = timezone.localdate() + timedelta(days=3)
@@ -244,14 +332,29 @@ class CicloConfiguracionTests(TestCase):
         self.assertContains(respuesta, "Eximición de autoridades de mesa")
         self.assertContains(respuesta, fecha_inicio_periodo.strftime("%d/%m/%Y"))
         self.assertContains(respuesta, 'id="abrir-dialogo-editar-plazo-eximicion"')
+        self.assertContains(respuesta, "Se notificará a las autoridades de mesa asignadas.")
         self.assertIn(
-            f'value="{fecha_limite.isoformat()}"',
+            f'value="{(fecha_limite + timedelta(days=1)).isoformat()}"',
             str(respuesta.context["formulario_plazo_eximicion"][
                 "fecha_limite_justificacion_autoridades"
             ]),
         )
 
         nueva_fecha_limite = timezone.localdate() + timedelta(days=5)
+        PlantillaNotificacion.objects.create(
+            codigo="autoridad-plazo-eximicion-modificado",
+            nombre="Autoridad: modificación del plazo de eximición",
+            categoria=PlantillaNotificacion.Categoria.TRANSACCIONAL,
+            asunto="Nueva fecha límite para justificar inasistencia: {nombre_eleccion}",
+            contenido=(
+                "Hola {nombre},\n\n"
+                "Se actualizó la fecha límite para justificar una inasistencia como autoridad "
+                f"de mesa en {self.eleccion.nombre}. Podés presentar tu justificativo hasta el "
+                f"{nueva_fecha_limite.strftime('%d/%m/%Y')} inclusive.\n\nVoto UTN"
+            ),
+            roles_destinatarios=[AsignacionRol.Rol.AUTORIDAD_MESA],
+            permite_envio_manual=False,
+        )
         with patch("apps.elecciones.views.enviar_notificacion") as enviar:
             with self.captureOnCommitCallbacks(execute=True):
                 respuesta = self.client.post(url, {
@@ -267,6 +370,18 @@ class CicloConfiguracionTests(TestCase):
                 plantilla__codigo="autoridad-plazo-eximicion-modificado",
             ).count(),
             1,
+        )
+        notificacion = EnvioNotificacion.objects.get(
+            plantilla__codigo="autoridad-plazo-eximicion-modificado",
+        )
+        self.assertEqual(
+            notificacion.contenido,
+            (
+                f"Hola {self.registro.elector.nombre_completo},\n\n"
+                "Se actualizó la fecha límite para solicitar ser eximido de la función de autoridad "
+                f"de mesa en {self.eleccion.nombre}. Podés presentar tu justificativo hasta el "
+                f"{nueva_fecha_limite.strftime('%d/%m/%Y')} inclusive.\n\nVoto UTN"
+            ),
         )
 
         self.estado(Eleccion.Estado.EN_CURSO)
@@ -298,6 +413,38 @@ class CicloConfiguracionTests(TestCase):
 
         self.assertFalse(formulario.is_valid())
         self.assertIn("fecha_limite_justificacion_autoridades", formulario.errors)
+
+    def test_formulario_eximicion_sugiere_el_dia_posterior_al_limite_actual(self):
+        fecha_limite_actual = timezone.localdate() + timedelta(days=3)
+        self.eleccion.fecha_limite_justificacion_autoridades = fecha_limite_actual
+
+        formulario = FormularioEditarPlazoEximicionAutoridades(eleccion=self.eleccion)
+
+        fecha_sugerida = fecha_limite_actual + timedelta(days=1)
+        self.assertEqual(
+            formulario.fields["fecha_limite_justificacion_autoridades"].initial,
+            fecha_sugerida,
+        )
+        self.assertEqual(
+            formulario.fields["fecha_limite_justificacion_autoridades"].widget.attrs["min"],
+            fecha_sugerida.isoformat(),
+        )
+
+    def test_formulario_eximicion_rechaza_fecha_igual_al_limite_actual(self):
+        fecha_limite_actual = timezone.localdate() + timedelta(days=3)
+        self.eleccion.fecha_limite_justificacion_autoridades = fecha_limite_actual
+        formulario = FormularioEditarPlazoEximicionAutoridades(
+            data={
+                "fecha_limite_justificacion_autoridades": fecha_limite_actual.isoformat(),
+            },
+            eleccion=self.eleccion,
+        )
+
+        self.assertFalse(formulario.is_valid())
+        self.assertIn(
+            "La nueva fecha límite debe ser posterior a la fecha límite actual.",
+            formulario.errors["fecha_limite_justificacion_autoridades"],
+        )
 
     def test_publicacion_fallida_no_guarda_plazos(self):
         self.configuracion.sedes_habilitadas.all().delete()

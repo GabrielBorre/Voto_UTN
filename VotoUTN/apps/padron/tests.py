@@ -665,6 +665,80 @@ class PadronViewsTests(TestCase):
         resultado = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
         self.assertIn("tipo_documento", [campo for _, campo, _ in resultado.errores])
 
+    def test_validacion_rechaza_columnas_inconsistentes_o_no_esperadas(self):
+        from apps.padron.services import validar_csv_padron
+
+        archivos = (
+            (
+                "campos_excedentes.csv",
+                "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n"
+                "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,extra\n",
+                2,
+                "tiene 7 campos, pero el encabezado declara 6",
+            ),
+            (
+                "campos_faltantes.csv",
+                "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Tipo Documento\n"
+                "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar\n",
+                2,
+                "tiene 6 campos, pero el encabezado declara 7",
+            ),
+            (
+                "columna_desconocida.csv",
+                "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Otra columna\n"
+                "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,extra\n",
+                None,
+                "columnas no reconocidas: Otra columna",
+            ),
+            (
+                "campo_requerido_ausente.csv",
+                "DNI,Legajo,Nombre,Apellido,Depto/Carrera\n"
+                "40123456,2024001,Juan,Perez,K\n",
+                None,
+                "Las cabeceras deben incluir",
+            ),
+        )
+
+        for nombre, contenido, numero_fila, mensaje in archivos:
+            with self.subTest(nombre=nombre):
+                resultado = validar_csv_padron(
+                    contenido.encode("utf-8"),
+                    self.eleccion_claustro,
+                    nombre,
+                )
+
+                self.assertEqual(len(resultado.errores), 1)
+                self.assertEqual(resultado.errores[0][0], numero_fila)
+                self.assertEqual(resultado.errores[0][1], "archivo")
+                self.assertIn(mensaje, resultado.errores[0][2])
+
+    def test_subida_de_padron_rechaza_fila_con_campos_de_mas(self):
+        contenido = (
+            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n"
+            "40123456,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,extra\n"
+        ).encode("utf-8")
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.post(
+            reverse("previsualizar-padron", args=(self.eleccion.id, self.eleccion_claustro.id)),
+            {
+                "archivo": SimpleUploadedFile(
+                    "padron-malformado.csv",
+                    contenido,
+                    content_type="text/csv",
+                ),
+            },
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        importacion = ImportacionPadron.objects.get(nombre_archivo="padron-malformado.csv")
+        self.assertEqual(importacion.estado, ImportacionPadron.Estado.RECHAZADA)
+        self.assertEqual(importacion.cantidad_filas, 1)
+        self.assertEqual(importacion.cantidad_errores, 1)
+        error = importacion.errores.get()
+        self.assertEqual(error.fila, 2)
+        self.assertIn("tiene 7 campos, pero el encabezado declara 6", error.mensaje)
+
     def test_validar_csv_padron_mapea_departamento_principal_correctamente(self):
         contenido = (
             "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde asiste,Turno,Nivel\n"

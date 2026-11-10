@@ -18,17 +18,17 @@
   </div>
   {% if eleccion.solicitudes_cambio_sede_habilitadas_en %}
     <p><strong>Desde:</strong> {{ eleccion.solicitudes_cambio_sede_habilitadas_en|date:"d/m/Y" }}</p>
-    {% if eleccion.fecha_cierre_solicitudes_cambio_sede %}
-      <p><strong>Hasta (inclusive):</strong> {{ eleccion.fecha_cierre_solicitudes_cambio_sede|date:"d/m/Y" }}</p>
-    {% else %}
-      <p class="muted">La fecha límite todavía no fue definida.</p>
-    {% endif %}
-    {% if eleccion.autoridades_confirmadas_en %}
-      <p class="muted">Período cerrado al confirmar las autoridades el {{ eleccion.autoridades_confirmadas_en|date:"d/m/Y H:i" }}. La fecha límite queda solo como información.</p>
-    {% elif puede_editar_plazo_cambio_sede %}
-      <div class="plazo-actual">
-        <div class="plazo-actual__linea">
-          <span class="plazo-actual__texto">La fecha límite puede modificarse hasta la confirmación de las autoridades.</span>
+    <div class="plazo-actual">
+      <div class="plazo-actual__linea">
+        <span class="plazo-actual__texto">
+          <strong>Hasta (inclusive):</strong>
+          {% if eleccion.fecha_cierre_solicitudes_cambio_sede %}
+            {{ eleccion.fecha_cierre_solicitudes_cambio_sede|date:"d/m/Y" }}
+          {% else %}
+            La fecha límite todavía no fue definida.
+          {% endif %}
+        </span>
+        {% if puede_editar_plazo_cambio_sede and not eleccion.autoridades_confirmadas_en %}
           <details class="plazo-edicion"{% if formulario_plazo_cambio_sede.errors %} open{% endif %}>
             <summary class="plazo-edicion__activador" aria-label="Editar fecha límite de cambio de sede" title="Editar fecha límite">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -40,7 +40,7 @@
               <form method="post" id="formulario-editar-plazo-cambio-sede">
                 {% csrf_token %}
                 <input type="hidden" name="accion" value="actualizar_plazo_cambio_sede">
-                <h3>Modificar fecha límite</h3>
+                <h3>Extender período</h3>
                 <div class="field">
                   <label for="{{ formulario_plazo_cambio_sede.fecha_cierre_solicitudes_cambio_sede.id_for_label }}">
                     {{ formulario_plazo_cambio_sede.fecha_cierre_solicitudes_cambio_sede.label }}
@@ -51,17 +51,26 @@
                 <button class="button secondary btn_editar_plazo" type="button" id="abrir-dialogo-editar-plazo-cambio-sede">Modificar fecha límite</button>
                 <dialog class="utn-dialogo" id="dialogo-editar-plazo-cambio-sede" aria-labelledby="titulo-dialogo-editar-plazo-cambio-sede" aria-describedby="ayuda-dialogo-editar-plazo-cambio-sede">
                   <h2 id="titulo-dialogo-editar-plazo-cambio-sede">Confirmar cambio de fecha</h2>
-                  <p id="ayuda-dialogo-editar-plazo-cambio-sede">¿Confirmás modificar la fecha límite al <strong><output id="nueva-fecha-limite-cambio-sede"></output></strong>?</p>
+                  <p id="ayuda-dialogo-editar-plazo-cambio-sede">
+                    ¿Confirmás modificar la fecha límite al <strong><output id="nueva-fecha-limite-cambio-sede"></output></strong>?
+                    Se notificará a los electores que todavía no presentaron una solicitud de cambio de sede.
+                  </p>
                   <div class="footer-actions">
-                    <button class="button primary" type="submit">Confirmar modificación</button>
+                    <button class="button primary" type="submit">Confirmar y notificar</button>
                     <button class="button light" type="button" id="cancelar-dialogo-editar-plazo-cambio-sede">Cancelar</button>
                   </div>
                 </dialog>
               </form>
             </div>
           </details>
-        </div>
+        {% endif %}
       </div>
+      {% if puede_editar_plazo_cambio_sede and not eleccion.autoridades_confirmadas_en %}
+        <p class="plazo-actual__ayuda">La fecha límite puede modificarse hasta la confirmación de las autoridades.</p>
+      {% endif %}
+    </div>
+    {% if eleccion.autoridades_confirmadas_en %}
+      <p class="muted">Período cerrado al confirmar las autoridades el {{ eleccion.autoridades_confirmadas_en|date:"d/m/Y H:i" }}. La fecha límite queda solo como información.</p>
     {% endif %}
   {% elif eleccion.estado == "en_preparacion" %}
     <p class="muted">El período se iniciará al publicar la elección. En ese momento se solicitará la fecha límite para pedir el cambio de sede.</p>
@@ -86,15 +95,17 @@
   </div>
   {% if eleccion.autoridades_confirmadas_en %}
     <p><strong>Desde:</strong> {{ eleccion.autoridades_confirmadas_en|date:"d/m/Y" }}</p>
-    {% if eleccion.fecha_limite_justificacion_autoridades %}
-      <p><strong>Hasta (inclusive):</strong> {{ eleccion.fecha_limite_justificacion_autoridades|date:"d/m/Y" }}</p>
-    {% else %}
-      <p class="muted">La fecha límite todavía no fue definida.</p>
-    {% endif %}
-    {% if puede_editar_plazo_eximicion %}
-      <div class="plazo-actual">
-        <div class="plazo-actual__linea">
-          <span class="plazo-actual__texto">La fecha límite puede modificarse mientras la elección siga publicada.</span>
+    <div class="plazo-actual">
+      <div class="plazo-actual__linea">
+        <span class="plazo-actual__texto">
+          <strong>Hasta (inclusive):</strong>
+          {% if eleccion.fecha_limite_justificacion_autoridades %}
+            {{ eleccion.fecha_limite_justificacion_autoridades|date:"d/m/Y" }}
+          {% else %}
+            La fecha límite todavía no fue definida.
+          {% endif %}
+        </span>
+        {% if puede_editar_plazo_eximicion %}
           <details class="plazo-edicion"{% if formulario_plazo_eximicion.errors %} open{% endif %}>
             <summary class="plazo-edicion__activador" aria-label="Editar fecha límite de eximición" title="Editar fecha límite">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -106,7 +117,7 @@
               <form method="post" id="formulario-editar-plazo-eximicion">
                 {% csrf_token %}
                 <input type="hidden" name="accion" value="actualizar_plazo_eximicion_autoridades">
-                <h3>Modificar fecha límite</h3>
+                <h3>Extender período</h3>
                 <div class="field">
                   <label for="{{ formulario_plazo_eximicion.fecha_limite_justificacion_autoridades.id_for_label }}">
                     {{ formulario_plazo_eximicion.fecha_limite_justificacion_autoridades.label }}
@@ -117,20 +128,26 @@
                 <button class="button secondary btn_editar_plazo" type="button" id="abrir-dialogo-editar-plazo-eximicion">Modificar fecha límite</button>
                 <dialog class="utn-dialogo" id="dialogo-editar-plazo-eximicion" aria-labelledby="titulo-dialogo-editar-plazo-eximicion" aria-describedby="ayuda-dialogo-editar-plazo-eximicion">
                   <h2 id="titulo-dialogo-editar-plazo-eximicion">Confirmar cambio de fecha</h2>
-                  <p id="ayuda-dialogo-editar-plazo-eximicion">¿Confirmás modificar la fecha límite al <strong><output id="nueva-fecha-limite-eximicion"></output></strong>?</p>
+                  <p id="ayuda-dialogo-editar-plazo-eximicion">
+                    ¿Confirmás modificar la fecha límite al <strong><output id="nueva-fecha-limite-eximicion"></output></strong>?
+                    Se notificará a las autoridades de mesa asignadas.
+                  </p>
                   <div class="footer-actions">
-                    <button class="button primary" type="submit">Confirmar modificación</button>
+                    <button class="button primary" type="submit">Confirmar y notificar</button>
                     <button class="button light" type="button" id="cancelar-dialogo-editar-plazo-eximicion">Cancelar</button>
                   </div>
                 </dialog>
               </form>
             </div>
           </details>
-        </div>
+        {% endif %}
       </div>
-    {% else %}
+      {% if puede_editar_plazo_eximicion %}
+        <p class="plazo-actual__ayuda">La fecha límite puede modificarse mientras la elección siga publicada.</p>
+      {% else %}
       <p class="muted">La elección está en curso. El período y su fecha límite son solo informativos.</p>
-    {% endif %}
+      {% endif %}
+    </div>
   {% else %}
     <p class="muted">El período se iniciará al confirmar las autoridades definitivas. En ese momento se solicitará su fecha límite.</p>
   {% endif %}

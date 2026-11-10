@@ -233,6 +233,13 @@ class ResultadoValidacion:
     cantidad_validas: int = 0
 
 
+class ErrorFormatoArchivoPadron(ValueError):
+    def __init__(self, mensaje, filas=None, numero_fila=None):
+        super().__init__(mensaje)
+        self.filas = filas or []
+        self.numero_fila = numero_fila
+
+
 def leer_filas_padron(contenido: bytes, nombre_archivo: str = "") -> list[dict[str, str]]:
     nombre_archivo = (nombre_archivo or "").lower()
     if nombre_archivo.endswith((".xlsx", ".xls")):
@@ -258,12 +265,46 @@ def leer_filas_padron(contenido: bytes, nombre_archivo: str = "") -> list[dict[s
     except UnicodeDecodeError:
         raise ValueError("El archivo debe estar codificado en UTF-8.")
 
-    lector = csv.DictReader(io.StringIO(texto, newline=""))
+    lector = csv.reader(io.StringIO(texto, newline=""), strict=True)
     filas = []
-    for fila in lector:
-        if not fila:
-            continue
-        filas.append({(clave or "").strip(): (valor or "").strip() for clave, valor in fila.items()})
+    try:
+        encabezados = next(lector, None)
+        if encabezados is None:
+            return []
+        encabezados = [encabezado.strip() for encabezado in encabezados]
+        if not encabezados or any(not encabezado for encabezado in encabezados):
+            raise ErrorFormatoArchivoPadron(
+                "La fila de encabezados contiene una columna vacía."
+            )
+        encabezados_normalizados = [encabezado.casefold() for encabezado in encabezados]
+        if len(set(encabezados_normalizados)) != len(encabezados_normalizados):
+            raise ErrorFormatoArchivoPadron(
+                "La fila de encabezados contiene columnas duplicadas."
+            )
+        for numero_fila, valores in enumerate(lector, start=2):
+            if not valores:
+                continue
+            if len(valores) != len(encabezados):
+                filas.append({
+                    encabezado: (valor or "").strip()
+                    for encabezado, valor in zip(encabezados, valores)
+                })
+                raise ErrorFormatoArchivoPadron(
+                    f"La fila {numero_fila} tiene {len(valores)} campos, pero el encabezado declara "
+                    f"{len(encabezados)}.",
+                    filas=filas,
+                    numero_fila=numero_fila,
+                )
+            filas.append({
+                encabezado: (valor or "").strip()
+                for encabezado, valor in zip(encabezados, valores, strict=True)
+            })
+    except csv.Error as error:
+        raise ErrorFormatoArchivoPadron(
+            f"El CSV tiene un formato inválido en la línea {lector.line_num}: {error}",
+            filas=filas,
+            numero_fila=lector.line_num,
+        ) from error
     return filas
 
 
@@ -280,6 +321,11 @@ def detectar_columnas_archivo(contenido: bytes, nombre_archivo: str = "") -> lis
 def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str = "") -> ResultadoValidacion:
     try:
         filas = leer_filas_padron(contenido, nombre_archivo)
+    except ErrorFormatoArchivoPadron as error:
+        return ResultadoValidacion(
+            error.filas,
+            [(error.numero_fila, "archivo", str(error))],
+        )
     except ValueError as error:
         return ResultadoValidacion([], [(None, "archivo", str(error))])
 
@@ -288,6 +334,20 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
 
     fieldnames = list(filas[0].keys())
     normalized_to_original = {(h or "").strip().lower(): h for h in fieldnames}
+    desconocidos = [
+        encabezado
+        for encabezado in fieldnames
+        if (encabezado or "").strip().lower() not in HEADER_VARIANTS_TO_CANONICAL
+    ]
+    if desconocidos:
+        return ResultadoValidacion(
+            filas,
+            [(
+                None,
+                "archivo",
+                f"El archivo contiene columnas no reconocidas: {', '.join(desconocidos)}.",
+            )],
+        )
 
     # Construir mapeo canonical -> header original presente en el archivo
     canonical_to_original = {}

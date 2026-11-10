@@ -75,18 +75,24 @@
 - Al pasar una elección a **Publicada** se inicia el período de solicitudes de
   cambio de sede. En esa transición se solicita su fecha límite y se registra
   el inicio real. El administrador de junta puede modificar la fecha límite
-  desde Fechas administrativas hasta confirmar las autoridades definitivas; a
-  partir de esa confirmación el período queda cerrado. En el inicio del elector
-  se muestra mientras la elección siga Publicada, no se hayan confirmado las
-  autoridades y no haya vencido el plazo; cierra por la fecha o por la
-  confirmación, lo que ocurra primero.
+  desde Fechas administrativas, solo extendiéndola y hasta confirmar las
+  autoridades definitivas; cada extensión notifica a los electores activos que
+  todavía no presentaron una solicitud. La nueva fecha no puede ser anterior
+  a hoy; el campo propone el día siguiente al límite actual, o hoy si ese día
+  ya pasó. Presentar una solicitud es opcional.
+  A partir de la confirmación de autoridades el período queda cerrado. En el
+  inicio del elector se muestra mientras la elección siga Publicada, no se
+  hayan confirmado las autoridades y no haya vencido el plazo; cierra por la
+  fecha o por la confirmación, lo que ocurra primero.
 - Al confirmar las autoridades definitivas se inicia el período de eximición de
   autoridades de mesa y en esa misma acción se solicita su fecha límite. El
   administrador de junta puede modificarla desde Fechas administrativas
-  mientras la elección siga Publicada. En el inicio del elector se muestra a
-  las autoridades asignadas hasta la fecha límite inclusive o hasta que la
-  elección pase a En curso, lo que ocurra primero. Cada modificación notifica a
-  las autoridades confirmadas.
+  mientras la elección siga Publicada, solo extendiéndola: debe ser posterior
+  al límite vigente y no anterior a hoy. El campo propone por defecto el día
+  siguiente al límite vigente. En el inicio del elector se muestra a las
+  autoridades asignadas hasta la fecha límite inclusive o hasta que la elección
+  pase a En curso, lo que ocurra primero. Cada modificación notifica a las
+  autoridades confirmadas.
 - Solo se pueden agregar o quitar claustros en **En preparación**. Los nuevos
   heredan las sedes de la elección; eliminar un claustro con datos vinculados
   se rechaza sin borrar padrones ni modificar sus alcances.
