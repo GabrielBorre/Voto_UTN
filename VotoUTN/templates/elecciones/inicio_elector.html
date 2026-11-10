@@ -48,16 +48,27 @@
         <p><strong>Inicio:</strong> {{ registro.eleccion.fecha_inicio|date:"j \d\e F \d\e Y" }}</p>
         <p><strong>Fin:</strong> {{ registro.eleccion.fecha_fin|date:"j \d\e F \d\e Y" }}</p>
       </div>
+      {% if registro.mostrar_periodo_eximicion_autoridades %}
       <div class="option">
-        <h3>Justificación </h3>
-                    {% if registro.asignacion_autoridad.estado == 'asignada' and registro.eleccion.autoridades_confirmadas_en %}
-        <p>Fecha límite de carga autoridades de mesa:</p>
-        <p><strong>{{ registro.eleccion.fecha_limite_justificacion_autoridades|date:"j \d\e F \d\e Y"|default:"A confirmar" }}</strong></p>
-            {% endif %}
-        <p>Fecha límite de carga electores:</p>
-        <p><strong>{{ registro.eleccion.fecha_limite_justificacion_electores|date:"j \d\e F \d\e Y"|default:"A confirmar" }}</strong></p>
-
+        <h3>Eximición de autoridades de mesa</h3>
+        <p>Fecha límite:</p>
+        <p><strong>{{ registro.eleccion.fecha_limite_justificacion_autoridades|date:"j \d\e F \d\e Y" }}</strong></p>
       </div>
+      {% endif %}
+      {% if registro.mostrar_periodo_justificacion_electores %}
+      <div class="option">
+        <h3>Justificación de inasistencia electoral</h3>
+        <p>Fecha límite:</p>
+        <p><strong>{{ registro.eleccion.fecha_limite_justificacion_electores|date:"j \d\e F \d\e Y" }}</strong></p>
+      </div>
+      {% endif %}
+      {% if registro.mostrar_periodo_cambio_sede %}
+      <div class="option">
+        <h3>Solicitud de cambio de sede</h3>
+        <p>Fecha límite:</p>
+        <p><strong>{{ registro.eleccion.fecha_cierre_solicitudes_cambio_sede|date:"j \d\e F \d\e Y" }}</strong></p>
+      </div>
+      {% endif %}
 
     </section>
   </div>

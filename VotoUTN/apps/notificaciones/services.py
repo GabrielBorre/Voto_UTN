@@ -82,13 +82,82 @@ def crear_notificacion_convocatoria_autoridad(asignacion, fecha_limite):
         codigo="autoridad-convocatoria-definitiva",
         defaults={"nombre": "Convocatoria como autoridad", "categoria": PlantillaNotificacion.Categoria.TRANSACCIONAL,
                   "asunto": "Convocatoria como autoridad: {nombre_eleccion}",
-                  "contenido": "Hola {nombre},\n\nFuiste convocado como autoridad para {nombre_eleccion} en {sede}, turno {turno}. Podés justificar tu imposibilidad hasta el {fecha}. La mesa definitiva se informará al comenzar la elección.\n\nVoto UTN",
+                  "contenido": "Hola {nombre},\n\nFuiste convocado como autoridad para {nombre_eleccion} en {sede}, turno {turno}. Podés solicitar ser eximido hasta el día {fecha} inclusive. La mesa definitiva se informará al comenzar la elección.\n\nVoto UTN",
                   "roles_destinatarios": [AsignacionRol.Rol.AUTORIDAD_MESA], "permite_envio_manual": False},
     )
     return crear_notificacion(plantilla=plantilla, eleccion=eleccion, elector=elector,
                               contexto={"nombre": elector.nombre_completo, "nombre_eleccion": eleccion.nombre,
                                         "sede": str(asignacion.mesa.sede), "turno": str(asignacion.turno),
                                         "fecha": fecha_limite.strftime("%d/%m/%Y")})
+
+
+def crear_notificacion_cambio_plazo_eximicion_autoridad(asignacion, fecha_limite):
+    elector = asignacion.registro_padron.elector
+    eleccion = asignacion.registro_padron.eleccion
+    plantilla, _ = PlantillaNotificacion.objects.update_or_create(
+        codigo="autoridad-plazo-eximicion-modificado",
+        defaults={
+            "nombre": "Autoridad: modificación del plazo de eximición",
+            "categoria": PlantillaNotificacion.Categoria.TRANSACCIONAL,
+            "asunto": "Nueva fecha límite para justificar inasistencia: {nombre_eleccion}",
+            "contenido": (
+                "Hola {nombre},\n\n"
+                "Se actualizó la fecha límite para solicitar ser eximido de la función de autoridad "
+                "de mesa en {nombre_eleccion}. Podés presentar tu justificativo hasta el "
+                "{fecha} inclusive.\n\nVoto UTN"
+            ),
+            "roles_destinatarios": [AsignacionRol.Rol.AUTORIDAD_MESA],
+            "permite_envio_manual": False,
+        },
+    )
+    return crear_notificacion(
+        plantilla=plantilla,
+        eleccion=eleccion,
+        elector=elector,
+        contexto={
+            "nombre": elector.nombre_completo,
+            "nombre_eleccion": eleccion.nombre,
+            "fecha": fecha_limite.strftime("%d/%m/%Y"),
+        },
+    )
+
+
+def crear_notificaciones_cambio_plazo_solicitudes_cambio_sede(eleccion, fecha_limite):
+    plantilla, _ = PlantillaNotificacion.objects.update_or_create(
+        codigo="elector-plazo-cambio-sede-modificado",
+        defaults={
+            "nombre": "Elector: modificación del plazo de cambio de sede",
+            "categoria": PlantillaNotificacion.Categoria.TRANSACCIONAL,
+            "asunto": "Nueva fecha límite para solicitar cambio de sede: {nombre_eleccion}",
+            "contenido": (
+                "Hola {nombre},\n\n"
+                "Se extendió la fecha límite para solicitar un cambio de sede en "
+                "{nombre_eleccion}. Podés presentar tu solicitud hasta el {fecha} inclusive. "
+                "Presentar una solicitud es opcional.\n\nVoto UTN"
+            ),
+            "roles_destinatarios": [AsignacionRol.Rol.ELECTOR],
+            "permite_envio_manual": False,
+        },
+    )
+    registros = RegistroPadron.objects.filter(
+        eleccion=eleccion,
+        activo=True,
+    ).exclude(
+        solicitudes_cambio_sede__isnull=False,
+    ).select_related("elector")
+    return [
+        crear_notificacion(
+            plantilla=plantilla,
+            eleccion=eleccion,
+            elector=registro.elector,
+            contexto={
+                "nombre": registro.elector.nombre_completo,
+                "nombre_eleccion": eleccion.nombre,
+                "fecha": fecha_limite.strftime("%d/%m/%Y"),
+            },
+        )
+        for registro in registros
+    ]
 
 
 def crear_notificacion_traslado_autoridad(asignacion, mesa_origen):
@@ -224,25 +293,7 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
     if mesas.exclude(estado_escaneo=Mesa.EstadoEscaneo.PROCESADA).exists():
         raise ValueError("Todas las mesas deben estar escaneadas y confirmadas antes de notificar a los ausentes.")
 
-    plantilla, _ = PlantillaNotificacion.objects.update_or_create(
-        codigo="aviso-ausentes-eleccion",
-        defaults={
-            "nombre": "Ausentes: período de justificativos",
-            "categoria": PlantillaNotificacion.Categoria.JORNADA,
-            "asunto": "Información sobre tu participación: {nombre_eleccion}",
-            "contenido": (
-                "Hola {nombre_destinatario},\n\n"
-                "En los registros de la elección {nombre_eleccion} figurás como ausente. "
-                "Podés presentar un justificativo hasta el día "
-                "{fecha_limite_justificacion_electores} inclusive, momento en el que finaliza "
-                "el período de justificación de inasistencias electorales.\n\n"
-                "Si considerás que esta información es incorrecta, comunicate con la Junta Electoral.\n\n"
-                "Voto UTN"
-            ),
-            "roles_destinatarios": [AsignacionRol.Rol.ELECTOR],
-            "permite_envio_manual": False,
-        },
-    )
+    plantilla = _plantilla_aviso_ausentes()
     registros_ausentes = RegistroPadron.objects.filter(
         eleccion=eleccion,
         activo=True,
@@ -278,6 +329,82 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
         )
     )
     return envios
+
+
+@transaction.atomic
+def actualizar_plazo_justificativos_electores(eleccion, nueva_fecha_limite):
+    from apps.justificativos.models import JustificativoAusencia
+
+    eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
+    if eleccion.estado != Eleccion.Estado.EN_CURSO:
+        raise ValueError("Solo se puede modificar el plazo durante una elección en curso.")
+    if not eleccion.notificaciones_ausentes_confirmadas_en or not eleccion.justificacion_electores_habilitada_en:
+        raise ValueError("El período de justificativos todavía no fue abierto.")
+    if nueva_fecha_limite is None or nueva_fecha_limite < timezone.localdate():
+        raise ValueError("La nueva fecha límite debe ser igual o posterior a hoy.")
+    if (
+        eleccion.fecha_limite_justificacion_electores
+        and nueva_fecha_limite < eleccion.fecha_limite_justificacion_electores
+    ):
+        raise ValueError("No se puede acortar el período de justificativos.")
+    if nueva_fecha_limite == eleccion.fecha_limite_justificacion_electores:
+        raise ValueError("La nueva fecha límite debe ser posterior a la actual.")
+
+    fecha_anterior = eleccion.fecha_limite_justificacion_electores
+    eleccion.fecha_limite_justificacion_electores = nueva_fecha_limite
+    eleccion.save(update_fields=("fecha_limite_justificacion_electores",))
+
+    justificativos_electorales = JustificativoAusencia.objects.filter(
+        registro_padron__eleccion=eleccion,
+        ausencia=JustificativoAusencia.Ausencia.VOTAR,
+    ).values("registro_padron_id")
+    registros_ausentes = RegistroPadron.objects.filter(
+        eleccion=eleccion,
+        activo=True,
+        asignacion_mesa__mesa__estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
+        participaciones__isnull=False,
+    ).exclude(pk__in=justificativos_electorales).select_related("elector").distinct()
+
+    plantilla = _plantilla_aviso_ausentes()
+    envios = [
+        EnvioNotificacion(
+            plantilla=plantilla,
+            eleccion=eleccion,
+            elector=registro.elector,
+            asunto=plantilla.asunto.format(nombre_eleccion=eleccion.nombre),
+            contenido=plantilla.contenido.format(
+                nombre_destinatario=registro.elector.nombre_completo,
+                nombre_eleccion=eleccion.nombre,
+                fecha_limite_justificacion_electores=nueva_fecha_limite.strftime("%d/%m/%Y"),
+            ),
+        )
+        for registro in registros_ausentes
+    ]
+    EnvioNotificacion.objects.bulk_create(envios)
+    return fecha_anterior, envios
+
+
+def _plantilla_aviso_ausentes():
+    plantilla, _ = PlantillaNotificacion.objects.update_or_create(
+        codigo="aviso-ausentes-eleccion",
+        defaults={
+            "nombre": "Ausentes: período de justificativos",
+            "categoria": PlantillaNotificacion.Categoria.JORNADA,
+            "asunto": "Información sobre tu participación: {nombre_eleccion}",
+            "contenido": (
+                "Hola {nombre_destinatario},\n\n"
+                "En los registros de la elección {nombre_eleccion} figurás como ausente. "
+                "Podés presentar un justificativo hasta el día "
+                "{fecha_limite_justificacion_electores} inclusive, momento en el que finaliza "
+                "el período de justificación de inasistencias electorales.\n\n"
+                "Si considerás que esta información es incorrecta, comunicate con la Junta Electoral.\n\n"
+                "Voto UTN"
+            ),
+            "roles_destinatarios": [AsignacionRol.Rol.ELECTOR],
+            "permite_envio_manual": False,
+        },
+    )
+    return plantilla
 
 
 def _notificar_electores_de_eleccion(eleccion, plantilla):

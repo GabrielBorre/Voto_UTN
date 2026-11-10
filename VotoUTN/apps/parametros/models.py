@@ -2,6 +2,13 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 
+CODIGOS_FECHAS_ADMINISTRATIVAS_RETIRADAS = (
+    "exhibicion-padron-provisorio",
+    "publicacion-padron-definitivo",
+    "justificacion-ausencia-electoral",
+)
+
+
 class Sede(models.Model):
     nombre = models.CharField(max_length=120, unique=True)
     activa = models.BooleanField(default=True)

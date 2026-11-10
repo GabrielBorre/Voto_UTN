@@ -39,11 +39,31 @@
   a los electores ausentes y abre el período de justificativos hasta esa fecha.
   Si el escaneo ya se había confirmado sin abrir el período, el administrador
   puede definir el plazo posteriormente sin volver a generar notificaciones.
+- La pantalla de fechas administrativas muestra el período real de justificativos
+  electorales: su inicio es la fecha local de la primera notificación y su fin
+  es el plazo inclusivo ingresado al abrirlo. Antes de abrirlo, informa que la
+  fecha límite se solicitará al notificar las ausencias. No se configura ese
+  plazo como una fecha administrativa independiente; la definición genérica y
+  sus comunicaciones de calendario quedan inactivas sin eliminar su historial.
+- Mientras la elección siga En curso, el administrador de junta puede cambiar
+  el plazo desde Fechas administrativas, incluso después de su vencimiento. El
+  cambio solo puede extender el período: la nueva fecha límite debe ser
+  posterior a la vigente y no anterior a la fecha actual. El inicio no cambia;
+  una fecha futura vuelve a habilitar la presentación. El cambio requiere confirmación y
+  genera nuevas notificaciones solo para electores ausentes que no hayan
+  presentado un justificativo electoral. Los envíos previos se conservan como
+  historial; los errores de correo se informan sin revertir el plazo ni los
+  envíos ya realizados.
 - Solo se puede presentar un justificativo electoral durante el período
   habilitado y si existe un registro de ausencia. La fecha límite configurada
   es inclusiva. Antes de finalizar la elección, al vencer el plazo la ausencia
   sin solicitud pasa a «Infractor»; una solicitud pendiente o rechazada conserva
   su estado propio.
+- La tarjeta «Justificación de inasistencia electoral» del inicio se muestra
+  únicamente a registros con estado «En Curso - Voto No Registrado» o
+  «Justificativo Pendiente de Revisión». Se oculta para quienes figuran como
+  «Voto Emitido», «Inasistencia Justificada», «Infractor - Justificación
+  Rechazada» o «Infractor».
 
 ## Elecciones, claustros, sedes y departamentos
 
@@ -52,6 +72,27 @@
   fechas administrativas existentes, la emisión del padrón imprimible y el
   avance a Finalizada. No se incorpora por ahora la solicitud de fechas al
   cambiar de estado ni una nueva clasificación de fechas por estado.
+- Al pasar una elección a **Publicada** se inicia el período de solicitudes de
+  cambio de sede. En esa transición se solicita su fecha límite y se registra
+  el inicio real. El administrador de junta puede modificar la fecha límite
+  desde Fechas administrativas, solo extendiéndola y hasta confirmar las
+  autoridades definitivas; cada extensión notifica a los electores activos que
+  todavía no presentaron una solicitud. La nueva fecha no puede ser anterior
+  a hoy; el campo propone el día siguiente al límite actual, o hoy si ese día
+  ya pasó. Presentar una solicitud es opcional.
+  A partir de la confirmación de autoridades el período queda cerrado. En el
+  inicio del elector se muestra mientras la elección siga Publicada, no se
+  hayan confirmado las autoridades y no haya vencido el plazo; cierra por la
+  fecha o por la confirmación, lo que ocurra primero.
+- Al confirmar las autoridades definitivas se inicia el período de eximición de
+  autoridades de mesa y en esa misma acción se solicita su fecha límite. El
+  administrador de junta puede modificarla desde Fechas administrativas
+  mientras la elección siga Publicada, solo extendiéndola: debe ser posterior
+  al límite vigente y no anterior a hoy. El campo propone por defecto el día
+  siguiente al límite vigente. En el inicio del elector se muestra a las
+  autoridades asignadas hasta la fecha límite inclusive o hasta que la elección
+  pase a En curso, lo que ocurra primero. Cada modificación notifica a las
+  autoridades confirmadas.
 - Solo se pueden agregar o quitar claustros en **En preparación**. Los nuevos
   heredan las sedes de la elección; eliminar un claustro con datos vinculados
   se rechaza sin borrar padrones ni modificar sus alcances.
@@ -235,6 +276,7 @@ Reglas:
 - Las plantillas usan texto plano y un conjunto controlado de variables; no incluyen DNI, legajo ni adjuntos.
 - Las plantillas automáticas o transaccionales no pueden seleccionarse en la pantalla de envío manual.
 - El calendario por elección y el motor de envíos automáticos quedan fuera de esta entrega. Se conserva temporalmente el calendario electoral existente.
+- El calendario administrativo reutilizable no ofrece «Exhibición del padrón provisorio» ni «Publicación del padrón definitivo». Sus definiciones y comunicaciones existentes se desactivan sin borrar los registros históricos ni las plantillas de notificación; las fechas ya programadas se conservan, pero no se muestran ni cuentan como hitos configurables.
 - Las mesas automáticas se calculan para toda la elección usando la sede electoral asignada, agrupando por claustro, departamento cuando corresponda y sede. «Sede donde cursa» no determina la mesa.
 - El cálculo automático se dispara al cambiar el máximo de electores por mesa o al recalcular las sedes electorales. Solo se aplica cuando todos los claustros tienen máximo configurado y sus electores activos tienen una sede electoral asignada; si no, conserva la distribución anterior e informa lo pendiente.
 - El recálculo reemplaza únicamente mesas automáticas y asignaciones de padrón; conserva las mesas manuales. Se realiza como operación atómica para todos los claustros y no asigna autoridades.

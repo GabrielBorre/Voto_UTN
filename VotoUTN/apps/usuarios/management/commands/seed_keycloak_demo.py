@@ -75,7 +75,7 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
-        eleccion = Eleccion.objects.filter(nombre="2030").first()
+        eleccion = Eleccion.objects.filter(nombre="Eleccion Demo 2026").first()
         if eleccion is None:
             raise CommandError("No existe Eleccion 2030. Ejecuta antes seed_demo_data.")
 

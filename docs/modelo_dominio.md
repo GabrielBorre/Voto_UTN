@@ -33,7 +33,26 @@ destinatarios y evento sugerido. La fecha concreta por elección continúa en
 
 `Eleccion` conserva `justificacion_electores_habilitada_en`, que registra el
 momento en que se abre la carga de justificativos de electores. La apertura se
-realizará desde la web después de completar el escaneo de todas las mesas.
+realiza desde la web después de completar el escaneo de todas las mesas. Ese
+momento y `fecha_limite_justificacion_electores` son la fuente del período
+mostrado en Fechas administrativas; su plazo puede modificarse sin alterar el
+inicio registrado.
+
+`Eleccion` conserva `solicitudes_cambio_sede_habilitadas_en`, el momento en que
+pasa a estado Publicada, y `fecha_cierre_solicitudes_cambio_sede`, la fecha
+límite solicitada al publicar. El límite puede extenderse desde Fechas
+administrativas hasta confirmar las autoridades; cada extensión notifica a los
+electores activos que aún no presentaron una solicitud de cambio de sede. La
+nueva fecha no puede ser anterior a hoy; el formulario propone el día siguiente
+al límite vigente o hoy si ese día ya pasó. Esa confirmación cierra el período
+y deja sus fechas en modo informativo.
+
+`autoridades_confirmadas_en` es el inicio del período de eximición de
+autoridades y `fecha_limite_justificacion_autoridades` es su fecha límite,
+solicitada al confirmar las designaciones definitivas. El límite puede editarse
+mientras la elección siga Publicada, solo extendiéndolo a una fecha posterior
+al límite vigente y no anterior a hoy; el formulario propone el día siguiente
+al límite vigente. Queda informativo al pasar a En curso.
 
 Regla de unicidad del ciclo de vida: como máximo una `Eleccion` puede estar en
 estado `en_preparacion`, `publicada` o `en_curso` considerando esos estados como un
