@@ -401,6 +401,10 @@ def dashboard_historial_eleccion(request, eleccion_id):
             "dashboard": dashboard,
             "pagina_mesas": Paginator(dashboard["mesas"], MESAS_POR_PAGINA).get_page(request.GET.get("pagina")),
             "querystring_paginacion": parametros.urlencode(),
+            "puede_exportar_infractores": not JustificativoAusencia.objects.filter(
+                registro_padron__eleccion=eleccion,
+                estado=JustificativoAusencia.Estado.PENDIENTE,
+            ).exists(),
         },
     )
 

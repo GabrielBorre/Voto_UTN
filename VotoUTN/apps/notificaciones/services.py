@@ -193,6 +193,10 @@ def notificar_eleccion_en_curso(eleccion):
 
 @transaction.atomic
 def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificacion_electores):
+    from django.core.management.base import CommandError
+    from apps.elecciones.demo_generadores import completar_justificativos_demo
+    from apps.justificativos.models import JustificativoAusencia
+
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
     if eleccion.estado != Eleccion.Estado.EN_CURSO:
         raise ValueError("Las notificaciones de ausentes solo se pueden confirmar durante una elección en curso.")
@@ -216,6 +220,10 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
                 "fecha_limite_justificacion_electores",
             )
         )
+        try:
+            completar_justificativos_demo(eleccion, JustificativoAusencia.Ausencia.VOTAR)
+        except CommandError as error:
+            raise ValueError(str(error)) from error
         return []
 
     mesas = Mesa.objects.filter(eleccion=eleccion)
@@ -277,6 +285,10 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
             "fecha_limite_justificacion_electores",
         )
     )
+    try:
+        completar_justificativos_demo(eleccion, JustificativoAusencia.Ausencia.VOTAR)
+    except CommandError as error:
+        raise ValueError(str(error)) from error
     return envios
 
 

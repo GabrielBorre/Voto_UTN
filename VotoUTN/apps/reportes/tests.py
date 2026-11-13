@@ -216,6 +216,33 @@ class ExportarInfractoresTests(TestCase):
         self.client.force_login(self.usuario)
         return self.client.get(reverse("exportar-reporte", args=(self.eleccion.id, "infractores")))
 
+    def test_dashboard_historial_muestra_exportacion_de_infractores(self):
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("dashboard-historial-eleccion", args=(self.eleccion.pk,)))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Justificativos")
+        self.assertContains(
+            respuesta,
+            reverse("exportar-reporte", args=(self.eleccion.pk, "infractores")),
+        )
+        self.assertContains(respuesta, "Exportar infractores")
+
+    def test_dashboard_historial_desactiva_exportacion_con_justificativos_pendientes(self):
+        registro = self.crear_registro("30000002", ausente=True)
+        self.crear_justificativo(registro, JustificativoAusencia.Estado.PENDIENTE)
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("dashboard-historial-eleccion", args=(self.eleccion.pk,)))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Exportar infractores")
+        self.assertNotContains(
+            respuesta,
+            reverse("exportar-reporte", args=(self.eleccion.pk, "infractores")),
+        )
+
     def test_lista_solo_ausentes_sin_justificativo_aprobado(self):
         self.crear_registro("30000001", ausente=False)
         self.crear_registro("30000002", ausente=True)
