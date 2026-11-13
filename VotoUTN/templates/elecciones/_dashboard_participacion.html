@@ -6,6 +6,11 @@
     <div class="hero-botones">
       {% if modo_historial %}
       <a class="button hero-boton" href="{% url 'gestionar-justificativos' eleccion_actual.pk %}">Justificativos</a>
+      {% if puede_exportar_infractores %}
+      <a class="button hero-boton" href="{% url 'exportar-reporte' eleccion_actual.pk 'infractores' %}">Exportar infractores</a>
+      {% else %}
+      <button class="button hero-boton" type="button" disabled>Exportar infractores</button>
+      {% endif %}
       {% else %}
       <a class="button hero-boton" href="{% url 'escanear' eleccion_actual.pk %}">Carga manual de inasistencia</a>
       {% endif %}
