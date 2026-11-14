@@ -290,6 +290,23 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
             ).exists()
         )
 
+    def test_muestra_solo_las_tres_tarjetas_de_periodos_reales(self):
+        respuesta = self.client.get(
+            reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,))
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        for titulo in (
+            "Solicitudes de cambio de sede",
+            "Eximición de autoridades de mesa",
+            "Justificación ausencia electoral",
+        ):
+            self.assertContains(respuesta, titulo)
+        self.assertContains(respuesta, 'class="card form-card"', count=3)
+        self.assertNotContains(respuesta, "Calendario administrativo")
+        self.assertNotContains(respuesta, "Guardar fechas administrativas")
+        self.assertNotContains(respuesta, 'id="formulario-fechas-administrativas"')
+
     def test_la_configuracion_enlaza_un_panel_independiente_de_fechas(self):
         respuesta = self.client.get(
             reverse("configurar-eleccion", args=(self.eleccion_asignada.pk,)),
@@ -323,31 +340,20 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
                 self.assertContains(respuesta, "Volver a configuración", count=1)
                 self.assertNotContains(respuesta, "← Volver a configuración")
 
-    def test_los_formularios_alinean_guardar_antes_de_volver(self):
-        casos = (
-            (
-                reverse("editar-eleccion", args=(self.eleccion_asignada.pk,)),
-                'form="formulario-datos-generales"',
-                "Guardar cambios",
-            ),
-            (
-                reverse("gestionar-fechas-administrativas", args=(self.eleccion_asignada.pk,)),
-                'form="formulario-fechas-administrativas"',
-                "Guardar fechas administrativas",
-            ),
-        )
+    def test_el_formulario_de_datos_generales_alinea_guardar_antes_de_volver(self):
+        ruta = reverse("editar-eleccion", args=(self.eleccion_asignada.pk,))
+        atributo_formulario = 'form="formulario-datos-generales"'
+        texto_guardar = "Guardar cambios"
+        respuesta = self.client.get(ruta)
+        contenido = respuesta.content.decode()
 
-        for ruta, atributo_formulario, texto_guardar in casos:
-            with self.subTest(ruta=ruta):
-                respuesta = self.client.get(ruta)
-                contenido = respuesta.content.decode()
-                self.assertEqual(respuesta.status_code, 200)
-                self.assertContains(respuesta, 'class="section-actions form-card-actions"')
-                self.assertContains(respuesta, atributo_formulario)
-                self.assertLess(
-                    contenido.index(texto_guardar),
-                    contenido.index("Volver a configuración"),
-                )
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'class="section-actions form-card-actions"')
+        self.assertContains(respuesta, atributo_formulario)
+        self.assertLess(
+            contenido.index(texto_guardar),
+            contenido.index("Volver a configuración"),
+        )
 
     def test_nueva_eleccion_copia_la_organizacion_del_claustro(self):
         self.eleccion_asignada.estado = Eleccion.Estado.FINALIZADA
