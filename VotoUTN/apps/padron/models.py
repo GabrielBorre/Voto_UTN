@@ -42,13 +42,23 @@ class RegistroPadron(models.Model):
     turno_cursada = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="registros_padron", null=True, blank=True, verbose_name="turno de cursada")
     nivel = models.CharField(max_length=50, blank=True)
     activo = models.BooleanField(default=True)
+    es_principal = models.BooleanField(default=True, verbose_name="registro principal")
     identificador_qr = models.CharField(max_length=LONGITUD_CODIGO_QR, unique=True, blank=True, editable=False)
     qr_generado_en = models.DateTimeField(null=True, blank=True, editable=False)
     numero_mesa_qr = models.PositiveIntegerField(null=True, blank=True, editable=False)
 
     class Meta:
         db_table = "elecciones_registropadron"
-        constraints = [models.UniqueConstraint(fields=("elector", "eleccion"), name="elector_unico_por_eleccion")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("elector", "eleccion", "eleccion_claustro_departamento"),
+                name="padron_elector_alcance_unico",
+            ),
+            models.UniqueConstraint(
+                fields=("elector", "eleccion"), condition=models.Q(es_principal=True),
+                name="padron_principal_unico",
+            ),
+        ]
 
     def clean(self):
         self.validar_sede()
@@ -68,11 +78,11 @@ class RegistroPadron(models.Model):
     def save(self, *args, **kwargs):
         if self.pk:
             anterior = RegistroPadron.objects.filter(pk=self.pk).only(
-                "qr_generado_en", "eleccion_id", "eleccion_claustro_departamento_id", "sede_id", "activo"
+                "qr_generado_en", "eleccion_id", "eleccion_claustro_departamento_id", "sede_id", "activo", "es_principal"
             ).first()
             if anterior and anterior.qr_generado_en and any(
                 getattr(anterior, campo) != getattr(self, campo)
-                for campo in ("eleccion_id", "eleccion_claustro_departamento_id", "sede_id", "activo")
+                for campo in ("eleccion_id", "eleccion_claustro_departamento_id", "sede_id", "activo", "es_principal")
             ):
                 raise ValidationError("No se puede modificar el alcance del padrón después de emitir su QR.")
         if not self.identificador_qr:
@@ -423,8 +433,25 @@ class AsignacionSedePadron(models.Model):
         ordering = ("registro_padron__eleccion_claustro_departamento__departamento__nombre", "registro_padron__elector__apellido", "registro_padron__elector__nombre")
 
     def clean(self):
-        if self.sede_id and not EleccionClaustroDepartamentoSede.objects.filter(
+        if not self.sede_id:
+            return
+        habilitada = EleccionClaustroDepartamentoSede.objects.filter(
             eleccion_claustro_departamento=self.registro_padron.eleccion_claustro_departamento,
             sede_id=self.sede_id,
-        ).exists():
+        ).exists()
+        if not self.registro_padron.es_principal:
+            principales = RegistroPadron.objects.filter(
+                eleccion_id=self.registro_padron.eleccion_id,
+                elector_id=self.registro_padron.elector_id,
+                activo=True, es_principal=True,
+                eleccion_claustro_departamento__eleccion_claustro_id=(
+                    self.registro_padron.eleccion_claustro_departamento.eleccion_claustro_id
+                ),
+            )
+            habilitada = principales.filter(
+                asignacion_sede_padron__sede_id=self.sede_id,
+                asignacion_sede_padron__estado=self.Estado.ASIGNADA,
+                eleccion_claustro_departamento__sedes_habilitadas__sede_id=self.sede_id,
+            ).exists()
+        if not habilitada:
             raise ValidationError({"sede": "La sede debe estar habilitada para el alcance del elector."})

@@ -87,7 +87,7 @@
                   <span class="muted">Sin claustro</span>
                 {% endif %}
               </td>
-              <td><strong>{{ mesa.codigo_visible }}</strong></td>
+              <td><strong>{{ mesa.codigo_visible }}</strong>{% if mesa.es_especial %} <span class="pill info">Especial</span>{% endif %}</td>
               <td>
                 {% if mesa.eleccion_claustro_departamento %}
                   {{ mesa.eleccion_claustro_departamento.nombre_alcance }}

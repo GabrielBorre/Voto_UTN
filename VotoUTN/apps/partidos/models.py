@@ -292,16 +292,18 @@ class Candidato(models.Model):
             from apps.autoridades.models import AsignacionAutoridad
             if self.activo and AsignacionAutoridad.objects.filter(registro_padron__elector_id=self.elector_id, registro_padron__eleccion_id=eleccion_id, estado="asignada").exists():
                 errores["__all__"] = "El elector es autoridad de mesa. Quitá su designación antes de incorporarlo como candidato electoral."
-            registro = self.elector.registros_padron.filter(eleccion_id=eleccion_id, activo=True).select_related(
-                "eleccion_claustro_departamento",
-            ).first()
-            if registro is None:
+            registros = self.elector.registros_padron.filter(eleccion_id=eleccion_id, activo=True)
+            if not registros.exists():
                 errores["__all__"] = "El elector no integra el padrón activo de esta elección."
             else:
-                configuracion = registro.eleccion_claustro_departamento
-                if configuracion.eleccion_claustro_id != self.lista.eleccion_claustro_id:
+                registros = registros.filter(
+                    eleccion_claustro_departamento__eleccion_claustro_id=self.lista.eleccion_claustro_id,
+                )
+                if not registros.exists():
                     errores["__all__"] = "El elector pertenece a otro claustro del padrón de esta elección."
-                elif self.lista.eleccion_claustro_departamento_id and configuracion.id != self.lista.eleccion_claustro_departamento_id:
+                elif self.lista.eleccion_claustro_departamento_id and not registros.filter(
+                    eleccion_claustro_departamento_id=self.lista.eleccion_claustro_departamento_id,
+                ).exists():
                     errores["__all__"] = "El elector pertenece a otro departamento del padrón de esta elección."
         if errores:
             raise ValidationError(errores)

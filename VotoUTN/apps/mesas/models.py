@@ -17,6 +17,7 @@ class Mesa(models.Model):
     eleccion_claustro_departamento = models.ForeignKey(EleccionClaustroDepartamento, on_delete=models.PROTECT, related_name="mesas", null=True, blank=True)
     sede = models.ForeignKey(Sede, on_delete=models.PROTECT, related_name="mesas", null=True, blank=True)
     generada_automaticamente = models.BooleanField(default=False)
+    es_especial = models.BooleanField(default=False, verbose_name="mesa especial")
     estado_escaneo = models.CharField(max_length=12, choices=EstadoEscaneo.choices, default=EstadoEscaneo.PENDIENTE, db_index=True)
     escaneo_iniciado_en = models.DateTimeField(null=True, blank=True)
     procesada_en = models.DateTimeField(null=True, blank=True)
@@ -29,8 +30,16 @@ class Mesa(models.Model):
     def clean(self):
         if self.eleccion_claustro_departamento_id and self.eleccion_id != self.eleccion_claustro_departamento.eleccion_claustro.eleccion_id:
             raise ValidationError({"eleccion_claustro_departamento": "Debe pertenecer a la misma eleccion."})
-        if self.eleccion_claustro_departamento_id and self.sede_id and not EleccionClaustroDepartamentoSede.objects.filter(eleccion_claustro_departamento=self.eleccion_claustro_departamento, sede=self.sede).exists():
-            raise ValidationError({"sede": "La sede debe estar habilitada para el departamento."})
+        if self.eleccion_claustro_departamento_id and self.sede_id:
+            habilitada = EleccionClaustroDepartamentoSede.objects.filter(
+                eleccion_claustro_departamento=self.eleccion_claustro_departamento, sede=self.sede,
+            ).exists()
+            habilitada_para_especial = self.es_especial and self.sede.activa and EleccionClaustroDepartamentoSede.objects.filter(
+                eleccion_claustro_departamento__eleccion_claustro_id=self.eleccion_claustro_departamento.eleccion_claustro_id,
+                sede=self.sede,
+            ).exists()
+            if not habilitada and not habilitada_para_especial:
+                raise ValidationError({"sede": "La sede debe estar habilitada para el departamento o, en una mesa especial, para otro departamento del mismo claustro."})
 
     def __str__(self):
         return f"{self.eleccion} - Mesa {self.numero}"
@@ -51,7 +60,7 @@ class Mesa(models.Model):
             ).exists()
             if anterior and tiene_qr_emitidos and any(
                 getattr(anterior, campo) != getattr(self, campo)
-                for campo in ("eleccion_id", "numero", "eleccion_claustro_departamento_id", "sede_id")
+                for campo in ("eleccion_id", "numero", "eleccion_claustro_departamento_id", "sede_id", "es_especial")
             ):
                 raise ValidationError("No se puede modificar una mesa con códigos QR emitidos.")
         super().save(*args, **kwargs)

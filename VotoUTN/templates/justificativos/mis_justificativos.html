@@ -18,6 +18,7 @@
 	{% if not puede_presentar_justificativo_electoral %}<p class="notice">La justificación por inasistencia estará disponible cuando se habilite el período correspondiente y exista una ausencia registrada.</p>{% endif %}
 	{% else %}
 	<form method="post" enctype="multipart/form-data" id="form-justificativo">
+		<p class="notice">Una sola justificación de inasistencia cubre todas las mesas de esta elección donde figures como ausente, incluidas las mesas especiales.</p>
 		{% csrf_token %}
 		{% if formulario.plazo_autoridad_vencido %}<p class="notice">El plazo de autoridades está vencido; no afecta la justificación como elector.</p>{% endif %}
 		{% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
@@ -40,7 +41,7 @@
 	</form>
 	<dialog id="dialogo-confirmar-justificativo" aria-labelledby="titulo-confirmar-justificativo">
 		<h2 id="titulo-confirmar-justificativo">Confirmar presentación</h2>
-		<p>Solo podrá cargar una única justificación por cada tipo de ausencia y no podrá ser modificada una vez presentada.</p>
+		<p>La justificación de inasistencia cubre todas tus ausencias de esta elección. Si reclamás un voto mal registrado, la solicitud corresponde a la mesa elegida. Una vez presentada, no podrás modificarla.</p>
 		<div class="footer-actions">
 			<button type="button" class="button primary" id="btn-confirmar-justificativo">Confirmar</button>
 			<button type="button" class="button light" id="btn-cancelar-justificativo">Cancelar</button>
@@ -57,7 +58,7 @@
 			document.getElementById("btn-confirmar-justificativo").addEventListener("click", function () { dialogo.close(); formulario.requestSubmit(); });
 		})();
 	</script>
-	<script type="module" src="{% static 'js/mis-justificativos.js' %}?v=20261103.2"></script>
+	<script type="module" src="{% static 'js/mis-justificativos.js' %}?v=20261108.1"></script>
 	{% endif %}
 </section>
 <div class="table-wrap">

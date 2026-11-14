@@ -7,6 +7,7 @@ from django.utils import timezone
 from apps.asistencia.models import RegistroParticipacion
 from apps.elecciones.models import Eleccion
 from apps.justificativos.models import JustificativoAusencia
+from apps.justificativos.services import justificativos_electorales_para_registro
 from apps.mesas.models import Mesa
 from apps.padron.models import RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede
@@ -179,7 +180,9 @@ def construir_dashboard(usuario, eleccion, filtros):
     if filtros.escaneo:
         mesas_anotadas = mesas_anotadas.filter(estado_escaneo=filtros.escaneo)
 
-    justificativos = JustificativoAusencia.objects.filter(registro_padron=OuterRef("pk"))
+    justificativos = justificativos_electorales_para_registro(
+        registro_id=OuterRef("pk"), elector_id=OuterRef("elector_id"), eleccion_id=OuterRef("eleccion_id"),
+    )
     justificativos_recibidos = ausentes.filter(Exists(justificativos)).count()
     justificativos_confirmados = ausentes.filter(
         Exists(justificativos.filter(estado=JustificativoAusencia.Estado.APROBADO))

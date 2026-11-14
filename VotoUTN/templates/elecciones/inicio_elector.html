@@ -39,7 +39,8 @@
       </div>
       {% endif %}
       <div class="option">
-        <h3>Mesa y sede de votación</h3>
+        <h3>{% if registro.es_principal %}Mesa principal{% else %}Mesa especial{% endif %} y sede de votación</h3>
+        <p><strong>Departamento:</strong> {{ registro.eleccion_claustro_departamento.departamento|default:"Sin departamento" }}</p>
         {% if registro.eleccion.estado == 'en_curso' or registro.eleccion.estado == 'finalizada' %}<p><strong>Mesa:</strong> {{ registro.asignacion_mesa.mesa.codigo|default:"Sin asignar" }}</p>{% else %}<p><strong>Mesa:</strong> Se informará cuando la elección esté en curso.</p>{% endif %}
         <p><strong>Sede:</strong> {{ registro.asignacion_sede_padron.sede|default:registro.asignacion_mesa.mesa.sede|default:"Sin asignar" }}</p>
       </div>

@@ -27,8 +27,8 @@ def recalcular_con_autoridades(eleccion, grupos, *, usuario=None, request=None, 
         raise ValueError("Hay respuestas de autoridades; no se puede recalcular la distribución provisoria.")
     por_grupo = defaultdict(list)
     for mesa in mesas_actuales:
-        por_grupo[(mesa.eleccion_claustro_departamento_id, mesa.sede_id)].append(mesa)
-    claves_grupos = {(alcance.pk, sede.pk) for _claustro, alcance, sede in grupos}
+        por_grupo[(mesa.eleccion_claustro_departamento_id, mesa.sede_id, mesa.es_especial)].append(mesa)
+    claves_grupos = {(alcance.pk, sede.pk, especial) for _claustro, alcance, sede, especial in grupos}
     mesas_sin_electores = [mesa for clave, mesas in por_grupo.items() if clave not in claves_grupos for mesa in mesas]
     ids_sin_electores = {mesa.pk for mesa in mesas_sin_electores}
     anterior = {a.registro_padron_id: a for a in AsignacionMesa.objects.filter(registro_padron__eleccion=eleccion).select_related("mesa")}
@@ -36,8 +36,8 @@ def recalcular_con_autoridades(eleccion, grupos, *, usuario=None, request=None, 
     nuevos_destinos = {}
     resumen = defaultdict(lambda: {"electores": 0, "mesas": 0})
     creadas = []
-    for (claustro, alcance, sede), registros in grupos.items():
-        existentes = por_grupo[(alcance.pk, sede.pk)]
+    for (claustro, alcance, sede, es_especial), registros in grupos.items():
+        existentes = por_grupo[(alcance.pk, sede.pk, es_especial)]
         maximo = claustro.maximo_votantes_por_mesa
         requeridas = ceil(len(registros) / maximo)
         if len(existentes) > requeridas:
@@ -47,7 +47,7 @@ def recalcular_con_autoridades(eleccion, grupos, *, usuario=None, request=None, 
             existentes = existentes[:requeridas]
         while len(existentes) < requeridas:
             mesa = Mesa.objects.create(eleccion=eleccion, numero=siguiente, eleccion_claustro_departamento=alcance,
-                                       sede=sede, generada_automaticamente=True)
+                                       sede=sede, generada_automaticamente=True, es_especial=es_especial)
             siguiente += 1
             existentes.append(mesa)
             creadas.append(mesa.pk)
@@ -124,7 +124,7 @@ def recalcular_con_autoridades(eleccion, grupos, *, usuario=None, request=None, 
                      datos_nuevos={"mesas_creadas": creadas, "mesas_quitadas": sorted(ids_sin_electores), "movimientos": movimientos,
                                    "autoridades_vacantes": [a.registro_padron_id for a in afectadas]})
     resumen_autoridades = {}
-    for claustro, _alcance, _sede in grupos:
+    for claustro, _alcance, _sede, _es_especial in grupos:
         if CandidaturaAutoridad.objects.filter(registro_padron__eleccion_claustro_departamento__eleccion_claustro=claustro,
                                                excluida=False).exists():
             resumen_autoridades[claustro.pk] = {"pendiente": "Revisá y confirmá la distribución de autoridades desde el claustro."}

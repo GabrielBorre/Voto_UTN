@@ -32,6 +32,7 @@
   <p><strong>Elección:</strong> {{ justificativo.registro_padron.eleccion.nombre }}</p>
   <p><strong>Solicitante:</strong> {{ justificativo.registro_padron.elector.nombre_completo }}</p>
   <p><strong>Motivo:</strong> {{ justificativo.tipo }}</p>
+  {% include "justificativos/_alcance.html" %}
   <p><strong>Presentada:</strong> {{ justificativo.presentada_en|date:"d/m/Y H:i" }}</p>
   <p><strong>Descripción:</strong> {{ justificativo.detalle|linebreaksbr }}</p>
   {% if justificativo.observacion_resolucion %}

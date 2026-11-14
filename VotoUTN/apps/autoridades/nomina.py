@@ -19,7 +19,7 @@ def resumen_actual(claustro):
     )
     titulares = asignaciones.filter(tipo="titular").count()
     suplentes = asignaciones.filter(tipo="suplente").count()
-    total = nomina.count()
+    total = nomina.values("registro_padron__elector_id").distinct().count()
     return {"titulares": titulares, "suplentes": suplentes,
             "total": total, "sin_asignar": total - titulares - suplentes}
 
@@ -46,18 +46,22 @@ def identificar_nomina(claustro, contenido, nombre):
     if errores:
         raise ValidationError([f"Fila {n}: {mensaje}" if n else mensaje for n, mensaje in errores[:10]])
     ids = []
+    electores_vistos = set()
     for fila in filas:
         consulta = RegistroPadron.objects.filter(eleccion_claustro_departamento__eleccion_claustro=claustro, activo=True)
         if fila["documento"]:
             consulta = consulta.filter(elector__tipo_documento__iexact=fila["tipo_documento"], elector__dni=fila["documento"])
         if fila["legajo"]:
             consulta = consulta.filter(elector__legajo=fila["legajo"])
-        try:
-            ids.append(consulta.get().pk)
-        except (RegistroPadron.DoesNotExist, RegistroPadron.MultipleObjectsReturned) as error:
-            raise ValidationError("El padrón cambió durante la validación. Volvé a cargar el archivo de nómina.") from error
-    if len(ids) != len(set(ids)):
-        raise ValidationError("Una persona aparece más de una vez en el archivo.")
+        encontrados = list(consulta.values_list("pk", "elector_id"))
+        identidades = {elector_id for _, elector_id in encontrados}
+        if len(identidades) != 1:
+            raise ValidationError("El padrón cambió durante la validación. Volvé a cargar el archivo de nómina.")
+        elector_id = next(iter(identidades))
+        if elector_id in electores_vistos:
+            raise ValidationError("Una persona aparece más de una vez en el archivo.")
+        electores_vistos.add(elector_id)
+        ids.extend(pk for pk, _ in encontrados)
     return ids
 
 
@@ -74,8 +78,8 @@ def _huella(claustro):
     estado = {
         "eleccion": list(type(claustro.eleccion).objects.filter(pk=claustro.eleccion_id).values_list("estado", flat=True)),
         "maximo": list(type(claustro).objects.filter(pk=claustro.pk).values_list("maximo_votantes_por_mesa", flat=True)),
-        "mesas": list(mesas.order_by("pk").values_list("pk", "numero", "sede_id", "sede__nombre", "sede__activa", "eleccion_claustro_departamento_id", "eleccion_claustro_departamento__departamento__codigo", "eleccion_claustro_departamento__departamento__nombre", "generada_automaticamente", "estado_escaneo")),
-        "registros": list(registros.order_by("pk").values_list("pk", "activo", "eleccion_claustro_departamento_id", "nivel", "sede_id", "turno_cursada_id", "turno_cursada__hora_inicio", "turno_cursada__hora_fin", "qr_generado_en", "numero_mesa_qr", "elector__apellido", "elector__nombre", "elector__tipo_documento", "elector__dni", "elector__legajo")),
+        "mesas": list(mesas.order_by("pk").values_list("pk", "numero", "sede_id", "sede__nombre", "sede__activa", "eleccion_claustro_departamento_id", "eleccion_claustro_departamento__departamento__codigo", "eleccion_claustro_departamento__departamento__nombre", "generada_automaticamente", "es_especial", "estado_escaneo")),
+        "registros": list(registros.order_by("pk").values_list("pk", "elector_id", "activo", "es_principal", "eleccion_claustro_departamento_id", "nivel", "sede_id", "turno_cursada_id", "turno_cursada__hora_inicio", "turno_cursada__hora_fin", "qr_generado_en", "numero_mesa_qr", "elector__apellido", "elector__nombre", "elector__tipo_documento", "elector__dni", "elector__legajo")),
         "padron": list(AsignacionMesa.objects.filter(registro_padron__in=registros).order_by("registro_padron_id").values_list("registro_padron_id", "mesa_id", "autoridad_al_final")),
         "sedes": list(AsignacionSedePadron.objects.filter(registro_padron__in=registros).order_by("registro_padron_id").values_list("registro_padron_id", "sede_id", "estado", "regla_aplicada_id")),
         "autoridades": list(AsignacionAutoridad.objects.filter(mesa__in=mesas).order_by("pk").values_list("pk", "registro_padron_id", "mesa_id", "mesa_votacion_original_id", "turno_id", "tipo", "orden_suplencia", "estado", "respondida_en")),

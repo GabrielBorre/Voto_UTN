@@ -80,6 +80,18 @@ class JustificativoAusencia(models.Model):
             return self._meta.get_field("reclamo_participacion").verbose_name
         return str(self.tipo) if self.tipo_id else ""
 
+    @property
+    def registros_cubiertos(self):
+        from apps.justificativos.services import registros_ausentes_de_persona
+
+        if self.ausencia == self.Ausencia.VOTAR and not self.reclamo_participacion:
+            registros = registros_ausentes_de_persona(self.registro_padron)
+        else:
+            registros = RegistroPadron.objects.filter(pk=self.registro_padron_id)
+        return registros.select_related(
+            "eleccion_claustro_departamento__departamento", "asignacion_mesa__mesa",
+        ).order_by("-es_principal", "pk")
+
     def clean(self):
         if self.resuelta_por_id and self.estado == self.Estado.PENDIENTE:
             raise ValidationError({"estado": "Un justificativo resuelto debe estar aprobado o rechazado."})

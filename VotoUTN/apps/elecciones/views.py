@@ -149,12 +149,12 @@ def inicio_autenticado(request):
                 "asignacion_autoridad__turno",
                 "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
             )
-            situaciones_por_eleccion = {
-                item["eleccion"].pk: item
+            situaciones_por_registro = {
+                item["registro_id"]: item
                 for item in construir_historial_electoral(elector)
             }
             for registro in registros:
-                registro.situacion_electoral = situaciones_por_eleccion.get(registro.eleccion_id)
+                registro.situacion_electoral = situaciones_por_registro.get(registro.pk)
         es_autoridad = es_autoridad_en_eleccion_publicada_o_en_curso(elector)
         return render(
             request,
@@ -484,7 +484,7 @@ def configurar_eleccion(request, eleccion_id):
             "alcances_pendientes": alcances_pendientes,
             "autoridades_pendientes": autoridades_pendientes,
             "periodo_justificacion_vigente": periodo_justificacion_vigente,
-            "cantidad_padrones": eleccion.registros_padron.count(),
+            "cantidad_padrones": eleccion.registros_padron.values("elector_id").distinct().count(),
             "cantidad_mesas": eleccion.mesas.count(),
             "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),
             "cantidad_partidos": ParticipacionPartido.objects.filter(eleccion=eleccion, activa=True).count(),
@@ -560,7 +560,7 @@ def preparar_eleccion(request, eleccion_id):
         "sedes_habilitadas__sede",
     ).annotate(
         cantidad_electores=Count(
-            "departamentos__registros_padron",
+            "departamentos__registros_padron__elector",
             filter=Q(departamentos__registros_padron__activo=True),
             distinct=True,
         )

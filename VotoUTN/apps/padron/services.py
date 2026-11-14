@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import io
+from copy import deepcopy
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -277,6 +278,50 @@ def detectar_columnas_archivo(contenido: bytes, nombre_archivo: str = "") -> lis
     return [str(columna).strip() for columna in filas[0].keys() if str(columna).strip()]
 
 
+def validar_departamentos_por_persona(filas, configuraciones):
+    """Valida los datos compartidos y la presencia de la fila principal del archivo."""
+    grupos = defaultdict(list)
+    for numero, fila in enumerate(filas, start=2):
+        if fila.get("dni"):
+            grupos[fila["dni"]].append((numero, fila))
+
+    errores = []
+    for grupo in grupos.values():
+        referencia = grupo[0][1]
+        campos_comunes = ("legajo", "tipo_documento", "nombres", "apellidos", "mail")
+        alcances = set()
+        principales = set()
+        for numero, fila in grupo:
+            for campo in campos_comunes:
+                if fila[campo].strip().casefold() != referencia[campo].strip().casefold():
+                    errores.append((numero, campo, "El dato no coincide con las demás filas de esta persona."))
+            valores_afirmativos = {"si", "s", "yes", "y", "true", "1"}
+            if (fila.get("tiene_discapacidad", "").strip().casefold() in valores_afirmativos) != (
+                referencia.get("tiene_discapacidad", "").strip().casefold() in valores_afirmativos
+            ):
+                errores.append((numero, "tiene_discapacidad", "El dato no coincide con las demás filas de esta persona."))
+            alcance = configuraciones.get(fila["departamento"].casefold())
+            if alcance is not None:
+                if alcance.pk in alcances:
+                    errores.append((numero, "departamento", "El departamento está repetido para esta persona."))
+                alcances.add(alcance.pk)
+            principal = fila.get("departamento_principal", "").strip()
+            if not principal:
+                if len(grupo) > 1:
+                    errores.append((numero, "departamento_principal", "Indicá el departamento principal en cada fila de esta persona."))
+                continue
+            configuracion_principal = configuraciones.get(principal.casefold())
+            if configuracion_principal is None:
+                errores.append((numero, "departamento_principal", "El departamento principal no está habilitado para este claustro."))
+            else:
+                principales.add(configuracion_principal.pk)
+        if len(principales) > 1:
+            errores.append((grupo[0][0], "departamento_principal", "Las filas indican departamentos principales diferentes."))
+        elif principales and not principales.issubset(alcances):
+            errores.append((grupo[0][0], "departamento_principal", "Falta la fila del departamento principal de esta persona."))
+    return errores
+
+
 def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str = "") -> ResultadoValidacion:
     try:
         filas = leer_filas_padron(contenido, nombre_archivo)
@@ -326,8 +371,8 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
     sedes_disponibles = {sede.nombre.casefold() for sede in Sede.objects.filter(activa=True)}
     turnos_disponibles = {turno.nombre.casefold() for turno in Turno.objects.filter(activo=True)}
     errores = []
-    vistos = defaultdict(set)
-    electores_existentes = set()
+    vistos = {"dni": {}, "legajo": {}}
+    electores_existentes = {}
     cantidad_validas = 0
     for numero_fila, fila_original in enumerate(filas, start=2):
         errores_fila_inicio = len(errores)
@@ -375,10 +420,12 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
         else:
             if fila["mail"].rsplit("@", 1)[-1].casefold() != DOMINIO_EMAIL_INSTITUCIONAL:
                 errores.append((numero_fila, "mail", f"El correo electronico debe pertenecer al dominio @{DOMINIO_EMAIL_INSTITUCIONAL}."))
-        for campo in ("dni", "legajo"):
-            if fila[campo] and fila[campo] in vistos[campo]:
-                errores.append((numero_fila, campo, f"El {campo} esta repetido dentro del archivo."))
-            vistos[campo].add(fila[campo])
+        for campo, otro in (("dni", "legajo"), ("legajo", "dni")):
+            valor = fila[campo]
+            if valor and valor in vistos[campo] and vistos[campo][valor] != fila[otro]:
+                errores.append((numero_fila, campo, f"El {campo} corresponde a identificadores distintos dentro del archivo."))
+            elif valor:
+                vistos[campo][valor] = fila[otro]
         configuracion = configuraciones.get(fila["departamento"].casefold())
         if configuracion is None:
             errores.append((numero_fila, "departamento", "El departamento no fue habilitado para este claustro o la fila no corresponde a un claustro sin distinción por departamento."))
@@ -415,19 +462,36 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
                 if elector_existente.legajo != fila["legajo"]:
                     errores.append((numero_fila, "legajo", "El legajo no coincide con el elector existente."))
             if elector_existente and configuracion:
-                registro = RegistroPadron.objects.filter(elector=elector_existente, eleccion=eleccion_claustro.eleccion).first()
-                if registro and registro.eleccion_claustro_departamento_id != configuracion.id:
-                    errores.append((numero_fila, "departamento", "El elector ya pertenece a otro claustro o departamento en esta elección."))
+                registros_existentes = RegistroPadron.objects.filter(elector=elector_existente, eleccion=eleccion_claustro.eleccion)
+                if registros_existentes.exclude(eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro).exists():
+                    errores.append((numero_fila, "departamento", "El elector ya pertenece a otro claustro en esta elección."))
+                principal = registros_existentes.filter(es_principal=True).first()
+                clave_principal = (fila.get("departamento_principal") or fila["departamento"]).casefold()
+                configuracion_principal = configuraciones.get(clave_principal)
+                if principal and configuracion_principal and principal.eleccion_claustro_departamento_id != configuracion_principal.pk:
+                    errores.append((numero_fila, "departamento_principal", "El departamento principal difiere del registro existente de esta elección."))
         if len(errores) == errores_fila_inicio:
             cantidad_validas += 1
             if elector_existente_en_padron is not None:
-                electores_existentes.add(elector_existente_en_padron)
+                electores_existentes[numero_fila] = elector_existente_en_padron
+    errores.extend(validar_departamentos_por_persona(filas, configuraciones))
+    filas_con_errores = {numero for numero, _, _ in errores if numero is not None}
+    personas_con_errores = {
+        fila["dni"] for numero, fila in enumerate(filas, start=2)
+        if numero in filas_con_errores and fila["dni"]
+    }
+    personas_validas = {
+        fila["dni"] for numero, fila in enumerate(filas, start=2)
+        if numero not in filas_con_errores and fila["dni"] and fila["dni"] not in personas_con_errores
+    }
+    cantidad_validas = len(personas_validas)
     if not filas and not errores:
         errores.append((None, "archivo", "El archivo no contiene filas de padron."))
     return ResultadoValidacion(
         filas,
         errores,
-        len(electores_existentes),
+        len({elector_id for numero, elector_id in electores_existentes.items()
+             if numero not in filas_con_errores and filas[numero - 2]["dni"] in personas_validas}),
         cantidad_validas,
     )
 
@@ -497,6 +561,12 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None,
             registro_padron_id__in=registro_ids,
         ).select_related("sede")
     }
+    principales = {}
+    for registro in registros:
+        if registro.es_principal:
+            if registro.elector_id in principales:
+                errores.append("Una persona tiene más de un registro principal en la elección.")
+            principales[registro.elector_id] = registro
     grupos = defaultdict(list)
     for registro in registros:
         asignacion = asignaciones_sede.get(registro.id)
@@ -504,13 +574,21 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None,
         if asignacion is None or asignacion.estado != AsignacionSedePadron.Estado.ASIGNADA or not asignacion.sede_id:
             errores.append(f"{claustro.claustro}: hay electores sin sede electoral asignada.")
             continue
-        if not asignacion.sede.activa or not EleccionClaustroDepartamentoSede.objects.filter(
-            eleccion_claustro_departamento=registro.eleccion_claustro_departamento,
-            sede_id=asignacion.sede_id,
-        ).exists():
+        if not registro.es_principal:
+            principal = principales.get(registro.elector_id)
+            sede_principal = asignaciones_sede.get(principal.pk) if principal else None
+            if (not principal or principal.eleccion_claustro_departamento.eleccion_claustro_id != claustro.pk
+                    or not sede_principal or sede_principal.estado != AsignacionSedePadron.Estado.ASIGNADA
+                    or sede_principal.sede_id != asignacion.sede_id):
+                errores.append(f"{claustro.claustro}: un registro adicional no comparte la sede de su principal.")
+                continue
+        sede_habilitada = not registro.es_principal or EleccionClaustroDepartamentoSede.objects.filter(
+            eleccion_claustro_departamento=registro.eleccion_claustro_departamento, sede_id=asignacion.sede_id,
+        ).exists()
+        if not asignacion.sede.activa or not sede_habilitada:
             errores.append(f"{claustro.claustro}: hay asignaciones a sedes no habilitadas para su alcance.")
             continue
-        grupos[(claustro, registro.eleccion_claustro_departamento, asignacion.sede)].append(registro)
+        grupos[(claustro, registro.eleccion_claustro_departamento, asignacion.sede, not registro.es_principal)].append(registro)
 
     if RegistroPadron.objects.filter(eleccion=eleccion, qr_generado_en__isnull=False).exists():
         errores.append("Ya se emitieron QR para esta elección; no se pueden recalcular sus mesas.")
@@ -549,8 +627,8 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None,
         grupo: _distribucion_electores_por_mesa(len(electores), maximo_por_claustro[grupo[0].id])
         for grupo, electores in grupos.items()
     }
-    for (claustro, alcance, sede), electores in grupos.items():
-        for cantidad in distribuciones[(claustro, alcance, sede)]:
+    for (claustro, alcance, sede, es_especial), electores in grupos.items():
+        for cantidad in distribuciones[(claustro, alcance, sede, es_especial)]:
             ultimo_numero += 1
             mesa = Mesa(
                 eleccion=eleccion,
@@ -558,6 +636,7 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None,
                 eleccion_claustro_departamento=alcance,
                 sede=sede,
                 generada_automaticamente=True,
+                es_especial=es_especial,
             )
             mesa.clean()
             mesas_nuevas.append(mesa)
@@ -588,9 +667,9 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None,
     Mesa.objects.bulk_create(mesas_nuevas)
 
     indice_mesa = 0
-    for (claustro, _alcance, _sede), electores in grupos.items():
+    for (claustro, _alcance, _sede, _es_especial), electores in grupos.items():
         inicio = 0
-        for cantidad in distribuciones[(claustro, _alcance, _sede)]:
+        for cantidad in distribuciones[(claustro, _alcance, _sede, _es_especial)]:
             mesa = mesas_nuevas[indice_mesa]
             indice_mesa += 1
             asignaciones_nuevas.extend(
@@ -658,6 +737,7 @@ def _distribucion_electores_por_mesa(cantidad_electores, maximo_por_mesa):
 
 @transaction.atomic
 def confirmar_importacion(importacion):
+    Eleccion.objects.select_for_update().get(pk=importacion.eleccion_id)
     if importacion.estado == ImportacionPadron.Estado.CONFIRMADA:
         return 0
     if RegistroPadron.objects.filter(
@@ -703,11 +783,14 @@ def confirmar_importacion(importacion):
         eleccion_claustro=importacion.eleccion_claustro,
     ).select_related("departamento"):
         departamento = configuracion.departamento
-        configuraciones[departamento.codigo.casefold()] = configuracion
-        configuraciones[departamento.nombre.casefold()] = configuracion
+        if departamento is None:
+            configuraciones[""] = configuracion
+        else:
+            configuraciones[departamento.codigo.casefold()] = configuracion
+            configuraciones[departamento.nombre.casefold()] = configuracion
     sedes = {sede.nombre.casefold(): sede for sede in Sede.objects.filter(activa=True)}
     turnos = {turno.nombre.casefold(): turno for turno in Turno.objects.filter(activo=True)}
-    cantidad_creada = 0
+    personas_nuevas = set()
     for fila in resultado.filas:
         elector_dni = Elector.objects.filter(dni=fila["dni"]).first()
         elector_legajo = Elector.objects.filter(legajo=fila["legajo"]).first()
@@ -771,18 +854,26 @@ def confirmar_importacion(importacion):
                     updated_fields.append("departamento_principal")
             elector.save(update_fields=tuple(updated_fields))
         configuracion = configuraciones[fila["departamento"].casefold()]
+        configuracion_principal = configuraciones[(fila.get("departamento_principal") or fila["departamento"]).casefold()]
+        es_principal = configuracion.pk == configuracion_principal.pk
+        if elector.departamento_principal_id != configuracion_principal.departamento_id:
+            elector.departamento_principal_id = configuracion_principal.departamento_id
+            elector.save(update_fields=("departamento_principal",))
+        if not RegistroPadron.objects.filter(elector=elector, eleccion=importacion.eleccion).exists():
+            personas_nuevas.add(elector.pk)
         registro, creada = RegistroPadron.objects.get_or_create(
             elector=elector,
             eleccion=importacion.eleccion,
+            eleccion_claustro_departamento=configuracion,
             defaults={
-                "eleccion_claustro_departamento": configuracion,
+                "es_principal": es_principal,
                 "sede": sedes.get(fila.get("sede", "").casefold()),
                 "turno_cursada": turnos.get(fila.get("turno_cursada", "").casefold()),
                 "nivel": fila.get("nivel", ""),
             },
         )
-        if not creada and registro.eleccion_claustro_departamento_id != configuracion.id:
-            raise ValueError("El elector ya figura en esta elección con otro claustro o departamento.")
+        if not creada and registro.es_principal != es_principal:
+            raise ValueError("El registro principal del elector cambió; revisá el padrón existente.")
         sede_donde_cursa = sedes.get(fila.get("sede", "").casefold())
         turno_cursada = turnos.get(fila.get("turno_cursada", "").casefold())
         if not creada and (
@@ -797,12 +888,11 @@ def confirmar_importacion(importacion):
         if not creada and registro.nivel != nivel_csv:
             registro.nivel = nivel_csv
             registro.save(update_fields=("nivel",))
-        cantidad_creada += int(creada)
     invalidar_calculo_padrones_votacion(importacion.eleccion_claustro)
     importacion.estado = ImportacionPadron.Estado.CONFIRMADA
     importacion.confirmada_en = timezone.now()
     importacion.cantidad_filas = len(resultado.filas)
-    importacion.cantidad_validas = len(resultado.filas)
+    importacion.cantidad_validas = resultado.cantidad_validas
     importacion.cantidad_existentes = resultado.cantidad_existentes
     importacion.cantidad_errores = 0
     importacion.save(
@@ -815,7 +905,7 @@ def confirmar_importacion(importacion):
             "cantidad_errores",
         )
     )
-    return cantidad_creada
+    return len(personas_nuevas)
 
 
 def invalidar_calculo_padrones_votacion(eleccion_claustro):
@@ -850,11 +940,22 @@ def validar_resolucion_cambios_sede(eleccion):
         raise ValueError("Los cambios de sede solo pueden resolverse antes de confirmar autoridades, con la elección publicada.")
 
 
+def validar_emision_con_cambios_sede_cerrados(eleccion):
+    limite = eleccion.fecha_cierre_solicitudes_cambio_sede
+    if limite is None or timezone.localdate() <= limite:
+        raise ValueError("El plazo de cambios de sede debe estar cerrado antes de emitir QR.")
+    if SolicitudCambioSede.objects.filter(
+        registro_padron__eleccion=eleccion, estado=SolicitudCambioSede.Estado.PENDIENTE,
+    ).exists():
+        raise ValueError("Hay solicitudes de cambio de sede pendientes; resolvelas antes de emitir QR.")
+
+
 @transaction.atomic
 def registrar_emision_padron_imprimible(eleccion, usuario):
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
     if eleccion.estado != Eleccion.Estado.EN_CURSO:
         raise ValueError("El padrón imprimible solo se puede generar cuando la elección está en curso.")
+    validar_emision_con_cambios_sede_cerrados(eleccion)
     ahora = timezone.now()
     clausuros_emitidos = []
     for claustro in eleccion.elecciones_claustro.all():
@@ -927,7 +1028,10 @@ def _valor_condicion(registro, campo):
         departamento = registro.eleccion_claustro_departamento.departamento
         return departamento.codigo if departamento else ""
     if campo == "departamento_principal":
-        departamento = registro.elector.departamento_principal
+        principal = registro if registro.es_principal else RegistroPadron.objects.filter(
+            elector_id=registro.elector_id, eleccion_id=registro.eleccion_id, activo=True, es_principal=True,
+        ).select_related("eleccion_claustro_departamento__departamento").first()
+        departamento = principal.eleccion_claustro_departamento.departamento if principal else None
         return departamento.codigo if departamento else ""
     if campo == "nivel":
         return registro.nivel
@@ -1090,6 +1194,7 @@ def estado_eliminacion_padron_claustro(eleccion_claustro):
         ).values_list("eleccion_id", flat=True))
         | Q(candidaturas__isnull=False)
         | Q(perfil_usuario__isnull=False)
+        | Q(notificaciones__isnull=False)
     ).values("id").distinct().count()
     bloqueos = []
 
@@ -1171,6 +1276,7 @@ def eliminar_padron_claustro(eleccion_claustro, usuario, request=None):
         registros_padron__isnull=True,
         candidaturas__isnull=True,
         perfil_usuario__isnull=True,
+        notificaciones__isnull=True,
     )
     cantidad_electores_eliminados = electores_sin_referencias.count()
     electores_sin_referencias.delete()
@@ -1212,7 +1318,10 @@ def eliminar_padron_claustro(eleccion_claustro, usuario, request=None):
 def registro_habilitado_para_puesto(registro, puesto):
     return (
         puesto.eleccion_claustro_id == registro.eleccion_claustro_departamento.eleccion_claustro_id
-        and (puesto.eleccion_claustro_departamento_id is None or puesto.eleccion_claustro_departamento_id == registro.eleccion_claustro_departamento_id)
+        and (
+            (puesto.eleccion_claustro_departamento_id is None and registro.es_principal)
+            or puesto.eleccion_claustro_departamento_id == registro.eleccion_claustro_departamento_id
+        )
     )
 
 
@@ -1240,16 +1349,16 @@ def calcular_padrones_votacion(eleccion_claustro):
     ).select_related("elector__departamento_principal", "sede", "eleccion_claustro_departamento__departamento"))
 
     candidatos = []
-    cargos_por_registro = defaultdict(set)
+    cargos_por_persona = defaultdict(set)
     for padron in padrones:
         puestos = [relacion.puesto_eleccion for relacion in padron.puestos_configurados.select_related("puesto_eleccion")]
         for registro in registros:
             if not registro_incluido_en_padron(registro, padron):
                 continue
-            repetidos = cargos_por_registro[registro.id].intersection({puesto.id for puesto in puestos})
+            repetidos = cargos_por_persona[registro.elector_id].intersection({puesto.id for puesto in puestos})
             if repetidos:
                 raise ValueError(f"{registro.elector.nombre_completo} recibiría el mismo cargo en más de un padrón de votación.")
-            cargos_por_registro[registro.id].update(puesto.id for puesto in puestos)
+            cargos_por_persona[registro.elector_id].update(puesto.id for puesto in puestos)
             configuracion = next((item for item in padron.configuraciones_sede.all() if item.eleccion_claustro_departamento_id == registro.eleccion_claustro_departamento_id), None)
             if configuracion is None:
                 raise ValueError(f"Falta la sede predeterminada para {registro.eleccion_claustro_departamento.departamento} en «{padron.nombre}».")
@@ -1262,6 +1371,42 @@ def calcular_padrones_votacion(eleccion_claustro):
     ahora = timezone.now()
     PadronVotacion.objects.filter(pk__in=[padron.pk for padron in padrones]).update(calculado_en=ahora)
     return len(candidatos)
+
+
+def _propagar_sede_principal(registros, asignaciones, protegidas):
+    """Propone para cada registro adicional la misma sede que su principal."""
+    principales = {}
+    for registro in registros:
+        if registro.es_principal:
+            if registro.elector_id in principales:
+                raise ValueError("Una persona tiene más de un registro principal en el claustro.")
+            principales[registro.elector_id] = registro
+    por_registro = {asignacion.registro_padron_id: asignacion for asignacion in asignaciones}
+    por_registro.update(protegidas)
+    adicionales = []
+    pendientes = 0
+    for registro in registros:
+        if registro.es_principal:
+            continue
+        principal = principales.get(registro.elector_id)
+        asignacion_principal = por_registro.get(principal.pk) if principal else None
+        if asignacion_principal is None:
+            raise ValueError("Un registro adicional no tiene un registro principal activo con sede calculada.")
+        protegida = protegidas.get(registro.pk)
+        if protegida:
+            if (protegida.sede_id, protegida.estado) != (asignacion_principal.sede_id, asignacion_principal.estado):
+                raise ValueError("Una sede protegida del registro adicional no coincide con la sede principal.")
+            resultado = protegida
+        else:
+            resultado = AsignacionSedePadron(
+                registro_padron=registro,
+                sede_id=asignacion_principal.sede_id,
+                regla_aplicada_id=asignacion_principal.regla_aplicada_id,
+                estado=asignacion_principal.estado,
+            )
+            adicionales.append(resultado)
+        pendientes += int(resultado.estado == AsignacionSedePadron.Estado.PENDIENTE)
+    return adicionales, pendientes
 
 
 @transaction.atomic
@@ -1302,6 +1447,8 @@ def calcular_asignaciones_sede_claustro(eleccion_claustro):
     asignaciones = []
     pendientes = 0
     for registro in registros:
+        if not registro.es_principal:
+            continue
         if registro.pk in protegidas:
             pendientes += int(protegidas[registro.pk].estado == AsignacionSedePadron.Estado.PENDIENTE)
             continue
@@ -1335,6 +1482,10 @@ def calcular_asignaciones_sede_claustro(eleccion_claustro):
                 estado=estado,
             )
         )
+
+    adicionales, pendientes_adicionales = _propagar_sede_principal(registros, asignaciones, protegidas)
+    asignaciones.extend(adicionales)
+    pendientes += pendientes_adicionales
 
     AsignacionSedePadron.objects.filter(
         registro_padron__eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
@@ -1421,14 +1572,21 @@ def estimar_mesas_adicionales_por_sede(eleccion, solicitudes):
 
 def estimar_impacto_mesas_por_sede(eleccion, solicitudes, permitir_crear=True):
     """Simula la aprobación de las solicitudes y devuelve mesas agregadas y quitadas por sede."""
-    solicitudes = solicitudes.select_related(
+    solicitudes = list(solicitudes.select_related(
         "registro_padron__eleccion_claustro_departamento__eleccion_claustro",
-    ).order_by("creada_en", "id")
+    ).order_by("creada_en", "id"))
+    registros_por_elector = defaultdict(list)
+    for registro in RegistroPadron.objects.filter(
+        eleccion=eleccion, activo=True,
+        elector_id__in={solicitud.registro_padron.elector_id for solicitud in solicitudes},
+    ).select_related("eleccion_claustro_departamento__eleccion_claustro").order_by("-es_principal", "pk"):
+        registros_por_elector[registro.elector_id].append(registro)
     mesas = {
         mesa.pk: {
             "alcance": mesa.eleccion_claustro_departamento_id,
             "sede": mesa.sede_id,
             "numero": mesa.numero,
+            "es_especial": mesa.es_especial,
             "total": mesa.total,
             "protegida": not mesa.generada_automaticamente or bool(
                 mesa.cantidad_autoridades or mesa.cantidad_participaciones or mesa.cantidad_roles or mesa.referencias_originales
@@ -1449,44 +1607,53 @@ def estimar_impacto_mesas_por_sede(eleccion, solicitudes, permitir_crear=True):
     agregadas = defaultdict(int)
     quitadas = defaultdict(int)
     for solicitud in solicitudes:
-        registro = solicitud.registro_padron
-        if registro.qr_generado_en:
+        registros = registros_por_elector[solicitud.registro_padron.elector_id]
+        if any(registro.qr_generado_en for registro in registros):
             continue
-        capacidad = registro.eleccion_claustro_departamento.eleccion_claustro.maximo_votantes_por_mesa
-        disponibles = [
-            (clave, mesa) for clave, mesa in mesas.items()
-            if mesa["alcance"] == registro.eleccion_claustro_departamento_id
-            and mesa["sede"] == solicitud.sede_destino_id
-            and (not capacidad or mesa["total"] < capacidad)
-        ]
-        if disponibles:
-            clave_destino, destino = min(disponibles, key=lambda item: (item[1]["total"], item[1]["numero"]))
-        elif not permitir_crear:
-            continue
-        else:
-            numero_maximo += 1
-            clave_destino = -numero_maximo
-            destino = {
-                "alcance": registro.eleccion_claustro_departamento_id,
-                "sede": solicitud.sede_destino_id,
-                "numero": numero_maximo,
-                "total": 0,
-                "protegida": False,
-            }
-            mesas[clave_destino] = destino
-            agregadas[solicitud.sede_destino_id] += 1
-        origen_id = asignaciones.get(registro.pk)
-        destino["total"] += 1
-        asignaciones[registro.pk] = clave_destino
-        if origen_id in mesas and origen_id != clave_destino:
-            origen = mesas[origen_id]
-            origen["total"] -= 1
-            if origen["total"] <= 0 and not origen["protegida"]:
-                del mesas[origen_id]
-                if origen_id < 0:
-                    agregadas[origen["sede"]] -= 1
-                else:
-                    quitadas[origen["sede"]] += 1
+        anterior = (
+            (deepcopy(mesas), asignaciones.copy(), agregadas.copy(), quitadas.copy(), numero_maximo)
+            if not permitir_crear and len(registros) > 1 else None
+        )
+        for registro in registros:
+            capacidad = registro.eleccion_claustro_departamento.eleccion_claustro.maximo_votantes_por_mesa
+            disponibles = [
+                (clave, mesa) for clave, mesa in mesas.items()
+                if mesa["alcance"] == registro.eleccion_claustro_departamento_id
+                and mesa["sede"] == solicitud.sede_destino_id
+                and mesa["es_especial"] == (not registro.es_principal)
+                and (not capacidad or mesa["total"] < capacidad)
+            ]
+            if disponibles:
+                clave_destino, destino = min(disponibles, key=lambda item: (item[1]["total"], item[1]["numero"]))
+            elif not permitir_crear:
+                if anterior is not None:
+                    mesas, asignaciones, agregadas, quitadas, numero_maximo = anterior
+                break
+            else:
+                numero_maximo += 1
+                clave_destino = -numero_maximo
+                destino = {
+                    "alcance": registro.eleccion_claustro_departamento_id,
+                    "sede": solicitud.sede_destino_id,
+                    "numero": numero_maximo,
+                    "es_especial": not registro.es_principal,
+                    "total": 0,
+                    "protegida": False,
+                }
+                mesas[clave_destino] = destino
+                agregadas[solicitud.sede_destino_id] += 1
+            origen_id = asignaciones.get(registro.pk)
+            destino["total"] += 1
+            asignaciones[registro.pk] = clave_destino
+            if origen_id in mesas and origen_id != clave_destino:
+                origen = mesas[origen_id]
+                origen["total"] -= 1
+                if origen["total"] <= 0 and not origen["protegida"]:
+                    del mesas[origen_id]
+                    if origen_id < 0:
+                        agregadas[origen["sede"]] -= 1
+                    else:
+                        quitadas[origen["sede"]] += 1
     return {
         "agregadas": {sede: cantidad for sede, cantidad in agregadas.items() if cantidad},
         "quitadas": {sede: cantidad for sede, cantidad in quitadas.items() if cantidad},
@@ -1584,7 +1751,12 @@ def resolver_solicitudes_pendientes(
         if accion == "aprobar_con_maximo_mesas":
             permitido_crear = mesas_agregadas_total < maximo_mesas_nuevas
         try:
-            mesa_creada = _aplicar_cambio_sede_en_registro(solicitud, permitir_crear_mesa=permitido_crear)
+            mesas_creadas = _aplicar_cambio_sede_en_registro(
+                solicitud,
+                permitir_crear_mesa=permitido_crear,
+                maximo_mesas_nuevas=(maximo_mesas_nuevas - mesas_agregadas_total)
+                if accion == "aprobar_con_maximo_mesas" else None,
+            )
         except ValueError as error:
             if accion == "aprobar_todas":
                 raise
@@ -1601,8 +1773,7 @@ def resolver_solicitudes_pendientes(
                 pendientes += 1
                 solicitud.save(update_fields=("observacion",))
             continue
-        if mesa_creada:
-            mesas_agregadas_total += 1
+        mesas_agregadas_total += mesas_creadas
         solicitud.estado = SolicitudCambioSede.Estado.APROBADA
         solicitud.observacion_resolucion = observacion_resolucion
         solicitud.resuelta_por = usuario
@@ -1613,26 +1784,49 @@ def resolver_solicitudes_pendientes(
     return {"aprobadas": aprobadas, "rechazadas": rechazadas, "pendientes": pendientes, "resueltas_ids": resueltas_ids}
 
 
-def _aplicar_cambio_sede_en_registro(solicitud, permitir_crear_mesa=True):
-    registro = solicitud.registro_padron
-    if registro.qr_generado_en:
-        raise ValueError("No se puede cambiar de sede después de emitir el QR del elector.")
+def _registros_para_cambio_de_sede(registro):
+    return list(RegistroPadron.objects.select_for_update().filter(
+        eleccion_id=registro.eleccion_id, elector_id=registro.elector_id, activo=True,
+    ).select_related("eleccion_claustro_departamento__eleccion_claustro").order_by("-es_principal", "pk"))
 
-    mesa, mesa_creada = _mesa_para_registro(registro, solicitud.sede_destino, permitir_crear=permitir_crear_mesa)
-    if mesa is None:
-        raise ValueError("No existe una mesa disponible en la sede solicitada.")
-    mesa_origen_id = AsignacionMesa.objects.filter(registro_padron=registro).values_list("mesa_id", flat=True).first()
-    AsignacionSedePadron.objects.update_or_create(
-        registro_padron=registro,
-        defaults={"sede": solicitud.sede_destino, "estado": AsignacionSedePadron.Estado.ASIGNADA, "regla_aplicada": None},
-    )
-    AsignacionMesa.objects.update_or_create(
-        registro_padron=registro,
-        defaults={"mesa": mesa},
-    )
-    if mesa_origen_id and mesa_origen_id != mesa.pk:
-        _quitar_mesa_si_quedo_vacia(mesa_origen_id)
-    return mesa_creada
+
+@transaction.atomic
+def _aplicar_cambio_sede_en_registro(solicitud, permitir_crear_mesa=True, maximo_mesas_nuevas=None):
+    registro = solicitud.registro_padron
+    registros = _registros_para_cambio_de_sede(registro)
+    principales = [item for item in registros if item.es_principal]
+    if len(principales) != 1:
+        raise ValueError("La persona debe tener un único registro principal activo.")
+    principal = principales[0]
+    if any(item.qr_generado_en for item in registros):
+        raise ValueError("No se puede cambiar de sede después de emitir el QR del elector.")
+    if any(item.eleccion_claustro_departamento.eleccion_claustro_id != principal.eleccion_claustro_departamento.eleccion_claustro_id for item in registros):
+        raise ValueError("Los registros de la persona deben pertenecer al mismo claustro.")
+    if not EleccionClaustroDepartamentoSede.objects.filter(
+        eleccion_claustro_departamento=principal.eleccion_claustro_departamento,
+        sede=solicitud.sede_destino, sede__activa=True,
+    ).exists():
+        raise ValueError("La sede solicitada no está habilitada para el departamento principal.")
+
+    creadas = 0
+    origenes = set()
+    for item in registros:
+        puede_crear = permitir_crear_mesa and (maximo_mesas_nuevas is None or creadas < maximo_mesas_nuevas)
+        mesa, mesa_creada = _mesa_para_registro(item, solicitud.sede_destino, permitir_crear=puede_crear)
+        if mesa is None:
+            raise ValueError("No existe una mesa disponible en la sede solicitada dentro del límite indicado.")
+        creadas += int(mesa_creada)
+        mesa_origen_id = AsignacionMesa.objects.filter(registro_padron=item).values_list("mesa_id", flat=True).first()
+        AsignacionSedePadron.objects.update_or_create(
+            registro_padron=item,
+            defaults={"sede": solicitud.sede_destino, "estado": AsignacionSedePadron.Estado.ASIGNADA, "regla_aplicada": None},
+        )
+        AsignacionMesa.objects.update_or_create(registro_padron=item, defaults={"mesa": mesa})
+        if mesa_origen_id and mesa_origen_id != mesa.pk:
+            origenes.add(mesa_origen_id)
+    for mesa_id in origenes:
+        _quitar_mesa_si_quedo_vacia(mesa_id)
+    return creadas
 
 
 def _quitar_mesa_si_quedo_vacia(mesa_id):
@@ -1657,6 +1851,7 @@ def _mesa_para_registro(registro, sede_destino, permitir_crear):
         eleccion=registro.eleccion,
         eleccion_claustro_departamento=registro.eleccion_claustro_departamento,
         sede=sede_destino,
+        es_especial=not registro.es_principal,
     ).annotate(total=Count("asignaciones_padron"))
     capacidad = registro.eleccion_claustro_departamento.eleccion_claustro.maximo_votantes_por_mesa
     mesas_disponibles = mesas.filter(total__lt=capacidad) if capacidad else mesas
@@ -1672,4 +1867,5 @@ def _mesa_para_registro(registro, sede_destino, permitir_crear):
         eleccion_claustro_departamento=registro.eleccion_claustro_departamento,
         sede=sede_destino,
         generada_automaticamente=True,
+        es_especial=not registro.es_principal,
     ), True

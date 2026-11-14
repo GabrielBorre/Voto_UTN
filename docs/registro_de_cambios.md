@@ -1344,3 +1344,243 @@ y pruebas. Archivos principales: `VotoUTN/apps/autoridades/migrations/0009_nomin
 - Se agrega el mínimo de titulares por mesa y turno, con valor inicial 1 para configuraciones existentes. El formulario exige que no supere el máximo y las propuestas de traslado conservan ese mínimo en la mesa de origen.
 - La elección no pasa a En curso con justificativos de autoridad pendientes. La presentación de nuevos justificativos de autoridad queda limitada al estado Publicada; los justificativos de ausencia a votar conservan su flujo.
 - La migración `elecciones.0032` incorpora el mínimo sin modificar asignaciones ni mesas existentes.
+
+## 2026-11-08 — Padrón con departamentos adicionales y mesas especiales
+
+- La importación admite varias filas de una persona, una por departamento, exige la fila principal y valida los datos comunes. Los datos académicos pueden variar; una fila única sin principal explícito conserva compatibilidad.
+- El modelo conserva una identidad de elector, un registro por elección y alcance y como máximo un registro principal. Los registros históricos permanecen principales. Cada registro conserva un QR independiente.
+- El cálculo y recálculo separan mesas ordinarias y especiales por claustro, departamento y sede. Los adicionales heredan la sede del principal y pueden usarla aunque no esté habilitada para mesas ordinarias de su departamento.
+- Las solicitudes, los traslados de autoridades con y sin reacomodo y los retornos preparan movimientos conjuntos, con protección de solicitudes, QR, capacidad y autoridades existentes. Las propuestas incluyen los nuevos campos en su huella de revalidación.
+- La nómina identifica personas con varios registros sin duplicar designaciones. Los conteos de importación, nómina y preparación de elecciones distinguen personas de registros. El inicio del elector muestra ambas clases de mesa y su situación por registro.
+- La emisión de QR y del padrón imprimible exige plazo de cambio de sede vencido y solicitudes resueltas. La carga manual identifica el registro por DNI y mesa.
+
+Archivos creados:
+
+- `VotoUTN/apps/mesas/migrations/0005_mesa_es_especial.py`.
+- `VotoUTN/apps/padron/migrations/0014_registropadron_es_principal.py` y `0015_registros_por_departamento.py`.
+- `VotoUTN/apps/padron/tests_departamentos_multiples.py` y `tests_sedes_compartidas.py`.
+- `VotoUTN/apps/autoridades/tests_unicidad_personas.py`.
+
+Archivos modificados por componente:
+
+- `asistencia`: servicio de carga manual y descripción de mesas; pruebas de procesamiento manual.
+- `padron`: modelos, servicios, recálculo provisorio, vistas, comando `seed_voters`, pruebas y plantillas de importación.
+- `mesas`: modelo, pruebas y plantilla de gestión.
+- `autoridades`: modelos, servicios, distribución, nómina, reordenamiento, retorno, vistas y pruebas correspondientes.
+- `partidos`: búsqueda y validación del elector por alcance, con pruebas.
+- `elecciones`: vistas, historial por registro, pruebas de ciclo y comandos de datos demo; plantilla de inicio del elector.
+- `usuarios`: comando `seed_keycloak_demo` para seleccionar el registro principal.
+- `justificativos`: selección del registro de designación al presentar ausencia de autoridad; la política de inasistencias electorales se completa en la sección siguiente.
+- `reportes`: emisión web y PDF, con sus pruebas.
+- `docs/decisiones_funcionales.md` y `docs/modelo_dominio.md`.
+
+No se eliminan archivos. Las migraciones se prueban en PostgreSQL aislado; la base habitual conserva migraciones anteriores pendientes. La eventual exclusión de cargos generales en registros adicionales requiere confirmación funcional.
+
+Se aplicaron también a la base habitual, de forma dirigida, `mesas.0005`,
+`padron.0014` y `padron.0015`; las tres finalizaron correctamente y el chequeo
+posterior no informó incidencias. Las migraciones anteriores de otras apps
+permanecen pendientes y no formaron parte de esta aplicación dirigida.
+
+Verificación final de esta entrega: `manage.py check` sin incidencias,
+`makemigrations --check` sin cambios detectados, `migrate --plan` revisado y
+635 pruebas aprobadas en una base PostgreSQL nueva y aislada. La integración
+incluye registros reales K/I, reimportación idempotente, QR y participación
+independiente, conteos por persona, inicio del elector, nómina, solicitud de
+cambio de sede, traslados por autoridad y retornos con y sin reordenamiento.
+
+## 2026-11-08 — Un justificativo para todas las ausencias de la persona
+
+La regla confirmada permite presentar una sola justificación de ausencia a votar
+por elección. Su resolución se refleja en todos los registros activos de la
+persona marcados como ausentes, incluidos los de mesas especiales y las ausencias
+registradas posteriormente. No se duplican documentos ni resoluciones. Quienes
+votaron en otra de sus mesas conservan ese estado.
+
+Archivos creados:
+
+- `VotoUTN/apps/justificativos/tests_departamentos_multiples.py`.
+- `VotoUTN/templates/justificativos/_alcance.html`.
+
+Archivos modificados:
+
+- `VotoUTN/apps/justificativos/{models,services,forms,views}.py`: cobertura por persona/elección, presentación desde una mesa especial y revalidación transaccional contra solicitudes duplicadas.
+- `VotoUTN/apps/elecciones/historial_electores.py`, `VotoUTN/apps/asistencia/dashboard.py` y `VotoUTN/apps/reportes/services.py`: estados e indicadores compartidos y exclusión de todas las ausencias justificadas en el reporte de infractores.
+- `VotoUTN/templates/justificativos/{mis_justificativos,resolver,detalle_elector}.html`: explicación y consulta de las mesas cubiertas.
+- `VotoUTN/templates/elecciones/_dashboard_participacion.html`: los indicadores explican cuántas ausencias cubren las solicitudes, sin presentarlas como documentos duplicados.
+- `docs/{decisiones_funcionales,modelo_dominio,plan_implementacion,registro_de_cambios}.md`.
+
+Sin archivos eliminados ni cambios de esquema. Las ausencias de autoridades y
+los reclamos «Voté, pero aparezco como ausente» conservan su alcance específico;
+un comprobante no anula ausencias de otras mesas.
+
+Verificación: 646 pruebas aprobadas en PostgreSQL aislado, incluidas 11 nuevas
+pruebas de cobertura departamental. `manage.py check` sin incidencias,
+`makemigrations --check` sin cambios detectados y `git diff --check` sin errores.
+`migrate --plan` conserva pendientes las migraciones previas `elecciones.0030`,
+`elecciones.0034` y `justificativos.0003` a `0008`; no se aplicaron en esta tarea.
+La habilitación en la base habitual requiere resolver esas migraciones anteriores.
+
+## 2026-11-08 — Cierre de pendientes del padrón departamental
+
+- El cálculo separado de padrones de votación limita los cargos generales al registro principal. Los registros adicionales reciben los cargos de su departamento. El control de duplicados se realiza por persona y una configuración inválida conserva las asignaciones anteriores.
+- Publicación, inicio y aviso de ausencia crean un solo envío por persona. El aviso de inicio enumera todas sus mesas y sedes electorales; el de ausencia enumera únicamente las mesas donde figura ausente. Las pruebas de correo usan el backend de pruebas o un envío simulado.
+- El reclamo de participación permite elegir la mesa cuando hay varias ausencias, rechaza registros ajenos, usados o sin ausencia y revalida al guardar. Un QR del principal no acredita el voto en una mesa especial. La aprobación conserva las ausencias de las otras mesas y la revisión identifica el registro reclamado.
+- Se instaló `zxing-cpp==3.1.1` en el entorno normal del contenedor `votoutn62-web-1`. Ya figuraba en `requirements.txt` y el Dockerfile lo incorpora al reconstruir la imagen; la ejecución habitual dejó de depender de `PYTHONPATH` temporal.
+- Se creó un respaldo PostgreSQL previo en `votoutn62-db-1:/tmp/votoutn-antes-cierre-padron-20261108.dump` y se aplicaron las ocho migraciones anteriores de elecciones y justificativos. La conversión del tipo reservado «Sí voté» conserva sus solicitudes mediante la casilla de reclamo; en esta base no había ese tipo reservado. Se comprobaron antes y después los 545 registros de padrón y los 4 justificativos.
+
+Archivos modificados en este cierre:
+
+- `VotoUTN/apps/padron/services.py` y `tests_departamentos_multiples.py`.
+- `VotoUTN/apps/notificaciones/services.py`.
+- `VotoUTN/apps/justificativos/forms.py`, `views.py` y `tests_departamentos_multiples.py`.
+- `VotoUTN/static/js/mis-justificativos.js`.
+- `VotoUTN/templates/justificativos/_alcance.html` y `mis_justificativos.html`.
+- `docs/decisiones_funcionales.md`, `modelo_dominio.md`, `plan_implementacion.md` y este registro.
+
+No se crean migraciones nuevas ni se eliminan archivos en este cierre.
+
+Verificación:
+
+- 122 pruebas dirigidas y 658 pruebas de la suite completa aprobadas en PostgreSQL aislado, ejecutadas con el entorno normal del contenedor.
+- `manage.py check` sin incidencias; `makemigrations --check` sin cambios; `migrate --plan` sin operaciones pendientes en la base habitual.
+- `node --check` y `git diff --check` sin errores.
+- Chromium: cinco pantallas renderizadas por Django con datos ficticios, revisadas a 1440 y 390 píxeles de ancho. Selector condicional de mesa, campos obligatorios y diálogo de confirmación comprobados; sin errores JavaScript ni desbordes horizontales del documento. Los POST, permisos, validación del QR y resoluciones se verifican en las pruebas de Django.
+- Las capturas y el informe de navegador quedan en la carpeta temporal `votoutn-padron-browser`; la transacción utilizada para renderizar las pantallas fue revertida y no agregó datos de demostración a la base habitual.
+- Se reinició únicamente el contenedor web para renovar el proceso que había fallado al importar la dependencia antes de su instalación. Se verificó HTTP 200 en el JavaScript servido por la aplicación habitual y la presencia del selector actualizado.
+
+
+## 2026-11-09 — Indicador durante todo el procesamiento
+
+Los envíos de formularios ya no ocultan el indicador ni liberan el reenvío al
+cumplir 90 segundos. La carga se mantiene hasta que la página de respuesta
+reemplaza la actual; al navegar o volver desde el historial se restablece el
+estado. Los cierres explícitos de fetch y HTMX, las descargas y los destinos
+en otra ventana conservan su comportamiento.
+
+Archivos modificados:
+
+- `VotoUTN/static/js/interfaz.js`: elimina el vencimiento y conserva el bloqueo del mismo formulario mientras su envío está pendiente.
+- `VotoUTN/templates/base.html`, `templates/gestion/base.html` y `templates/elecciones/base_publica.html`: actualizan la versión del JavaScript.
+- `docs/contexto_continuidad_padrones.md`: actualiza P3 y registra la aclaración sobre autoridades por tipo de registro. La corrección de elegibilidad de P1 continúa pendiente.
+- Este registro de cambios.
+
+No se crean ni eliminan archivos de la aplicación, no se requieren migraciones
+y no se modifican los datos ni las asignaciones de la elección habitual.
+
+Verificación:
+
+- Chromium aislado: el código anterior falla al simular una espera de diez minutos; el actualizado conserva el indicador y el bloqueo de reenvío. También se comprueban navegación, historial, solicitudes simultáneas, eventos de respuesta/error/timeout de HTMX, exclusiones y cancelación de confirmaciones. Se simulan eventos y respuestas; no se importa una nómina real.
+- Suite completa: 658 pruebas aprobadas en PostgreSQL separado (`test_indicador_20261109_c6e29`), con almacenamiento temporal para archivos de prueba.
+- `manage.py check` sin incidencias; `makemigrations --check` sin cambios y `migrate --plan` sin operaciones pendientes.
+- `node --check` y `git diff --check` sin errores. La aplicación activa devuelve HTTP 200 y sirve el JavaScript actualizado sin reiniciarla.
+
+
+## 2026-11-09 — Eliminar candidaturas junto con las asignaciones
+
+La acción «Eliminar todas las asignaciones» también retira todas las candidaturas
+de autoridad del claustro, incluidas las excluidas y sus selecciones y destinos
+fijados. Funciona cuando ya no hay designaciones, para que esas candidaturas
+residuales no sigan bloqueando el vaciado del padrón. La confirmación explica el
+alcance y el resultado informa que la nómina de posibles autoridades quedó vacía.
+
+La operación mantiene sus permisos, CSRF, confirmación explícita, bloqueos por
+estado, QR y avisos de ausencia, atomicidad y alcance por claustro. Conserva
+personas, padrón, mesas, configuración de modo, turnos, cupos e historial de
+importaciones. La auditoría conserva cantidad y datos de las candidaturas
+retiradas además de las asignaciones. Se descartan las propuestas y comparaciones
+pendientes de la sesión.
+
+Archivos modificados:
+
+- `VotoUTN/apps/autoridades/distribucion.py`: elimina candidaturas después de sus asignaciones y amplía la auditoría.
+- `VotoUTN/apps/autoridades/views.py`: descarta las comparaciones de sesión y actualiza los mensajes de confirmación y resultado.
+- `VotoUTN/apps/autoridades/tests_eliminar_asignaciones.py`: actualiza la regla y agrega regresiones para candidaturas sin designaciones y limpieza de propuestas.
+- `VotoUTN/templates/autoridades/gestion_claustro.html`: informa en el diálogo que también se eliminan candidaturas, incluidas las excluidas.
+- `docs/decisiones_funcionales.md`, `docs/autoridades_modalidades.md`, `docs/contexto_continuidad_padrones.md` y este registro.
+
+No se crean ni eliminan archivos de la aplicación y no se requieren migraciones.
+El cambio de código no ejecuta el botón ni elimina las 675 candidaturas de la
+elección habitual; su ejecución queda a cargo del usuario desde la pantalla.
+
+Verificación:
+
+- La regresión reprodujo seis fallos con el comportamiento anterior; después de la corrección pasaron las diez pruebas dirigidas.
+- La integración verifica que, tras quitar candidaturas sin designaciones, se conservan padrón y mesas y luego se puede vaciar el padrón por el servicio existente.
+- Se comprueban conservación de otros claustros, permisos, CSRF, confirmación, bloqueos, auditoría, reversión completa ante fallos y sorteo posterior.
+- Suite completa: 660 pruebas aprobadas en 187,218 segundos, PostgreSQL aislado (`test_eliminar_candidaturas_20261109`) y archivos de prueba temporales.
+- `manage.py check` sin incidencias; `makemigrations --check` sin cambios; `migrate --plan` sin operaciones pendientes; `git diff --check` sin errores.
+
+
+## 2026-11-09 — Vaciar padrón conservando identidades con notificaciones
+
+Se corrigió el `ProtectedError` del vaciado: la selección de identidades
+huérfanas no contemplaba `EnvioNotificacion.elector`, una relación `PROTECT`.
+Se conservan las identidades con notificaciones y todos sus avisos, aunque el
+envío haya fallado o no tenga una elección asociada. El padrón puede vaciarse
+sin borrar ese historial, y las identidades realmente huérfanas siguen
+eliminándose. El resumen previo cuenta las mismas referencias que la limpieza.
+
+Archivos modificados:
+
+- `VotoUTN/apps/padron/services.py`: incluye las notificaciones al contar identidades conservadas y excluye sus destinatarios de la eliminación de huérfanos.
+- `VotoUTN/apps/padron/tests.py`: agrega regresiones del resumen, el servicio y la confirmación/POST web con notificaciones, y verifica que solo se liberen identidades huérfanas.
+- `VotoUTN/templates/padron/confirmar_eliminar_padron.html`: explica que las identidades con notificaciones y sus avisos se conservan.
+- `docs/decisiones_funcionales.md`, `docs/contexto_continuidad_padrones.md` y este registro.
+
+No se crean ni eliminan archivos de la aplicación y no se requieren migraciones.
+Se verificaron los 20.000 registros, sus 20.000 asignaciones y las 75 mesas
+después del intento fallido: la transacción se había revertido completa. Había
+3.578 identidades con avisos, conservadas por el resumen corregido; las otras
+14.922 podían liberarse. La tarea no ejecutó el vaciado en la base habitual.
+
+Verificación:
+
+- Antes de corregir, las regresiones reprodujeron dos fallos de conteos y el mismo `ProtectedError` de `EnvioNotificacion.elector` informado por el usuario.
+- Después de corregir, nueve pruebas dirigidas aprobadas, incluidos los tres casos nuevos y la confirmación seguida del POST de vaciado.
+- Las notificaciones conservan todos sus campos y el vínculo con la identidad; la auditoría cuenta correctamente las identidades conservadas y eliminadas.
+- Suite completa: 663 pruebas aprobadas en PostgreSQL aislado (`test_vaciado_notificaciones_20261109`) y archivos temporales.
+- `manage.py check` sin incidencias; `makemigrations --check` sin cambios; `migrate --plan` sin operaciones pendientes; `git diff --check` sin errores.
+- Aplicación activa con HTTP 200 y resumen corregido, sin vaciar el padrón ni borrar avisos de la base habitual.
+
+
+## 2026-11-09 — Autoridades compatibles con el tipo de mesa y sede compartida
+
+Se corrigió la elegibilidad de autoridades para impedir que un registro de mesa
+ordinaria se proponga para una especial o al revés. El control se aplica antes
+de aceptar destinos fijados, también sin reordenar el padrón, y al conservar
+asignaciones previas. Una designación incompatible que ya exista se informa
+para revisión; no se elimina automáticamente. Se conserva la validación del
+reordenador.
+
+La persona aporta el registro compatible con su destino, con una sola
+designación por identidad. Se verificó que un cambio de sede electoral de la
+autoridad traslada juntos su principal y todos sus adicionales a esa sede,
+conservando tipo, departamento, identidad, datos de cursada e identificadores
+QR. Se probó designar desde el principal y desde un adicional, con y sin
+reordenamiento, usando tres registros de la misma persona.
+
+Archivos creados en esta subetapa:
+
+- `VotoUTN/apps/autoridades/tests_elegibilidad_tipos_mesa.py`.
+
+Archivos modificados:
+
+- `VotoUTN/apps/autoridades/distribucion.py`: comparte el control de tipo entre elegibilidad general, de nómina y conservación de asignaciones.
+- `docs/decisiones_funcionales.md`, `docs/contexto_continuidad_padrones.md` y este registro.
+- `PRUEBA_20000_ALUMNOS/LEEME_nomina_300_padron_2000.md`: reemplaza el aviso del error pendiente por los resultados de las cinco alternativas ya verificadas.
+
+En la preparación de la nómina se crearon
+`PRUEBA_20000_ALUMNOS/nomina_autoridades_300_padron_2000.csv` y
+`control_nomina_300_padron_2000.csv`: 300 personas distintas del padrón de 2.000,
+incluidas 90 con principal y adicional. No se eliminan archivos ni se requieren
+migraciones. No se cargó ni confirmó la nómina en la elección habitual.
+
+Verificación:
+
+- Las regresiones reprodujeron ambos reordenamientos inválidos y los filtros que omitían el tipo; después de corregir pasaron las ocho pruebas nuevas.
+- Suite completa: 671 pruebas aprobadas en 259,874 segundos en PostgreSQL aislado (`test_tipos_mesa_20261109`).
+- `check` sin incidencias; `makemigrations --check` sin cambios; `migrate --plan` sin operaciones pendientes; `git diff --check` sin errores.
+- En otra base aislada (`test_nomina_300_tipos_20261109`), una réplica ficticia de 2.000 registros y 75 mesas recorrió las cinco alternativas sin errores y confirmó cambio de sede con reordenamiento. Quedaron 300 autoridades distintas, tipos compatibles, una sede por persona y ninguna mesa con más de 30 registros. Los datos de la prueba se revirtieron.
+- La confirmación conservó los 2.000 registros. Los resultados comparativos están en el LEEME de la nómina.
+- Persisten las demoras de otra sede sin reordenar: 331,416 segundos en ese ensayo. Las otras alternativas demoraron 8,268; 10,855; 39,990 y 30,329 segundos. Son referencias de un ensayo parcialmente concurrente con la suite en otra base, no garantías ni una optimización aplicada.
+- El ensayo integral de 20.000 filas y las mejoras de rendimiento siguen pendientes como subetapas separadas.

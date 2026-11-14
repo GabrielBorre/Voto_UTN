@@ -136,7 +136,7 @@
 
 <div class="section-actions">
   <a class="button light" href="{% url 'gestionar-autoridades' eleccion.id %}">Volver a autoridades</a>
-  {% if not eleccion.autoridades_confirmadas_en %}<form method="post" data-confirm="Se eliminarán todas las asignaciones de autoridades de este claustro, incluidas las manuales. Las mesas quedarán sin autoridades hasta que vuelvas a asignarlas. ¿Continuar?" data-confirm-title="Eliminar asignaciones" data-confirm-accept="Eliminar asignaciones" onsubmit="this.elements['confirmar-eliminacion'].value = '1';">
+  {% if not eleccion.autoridades_confirmadas_en %}<form method="post" data-confirm="Se eliminarán todas las asignaciones y candidaturas de autoridad de este claustro, incluidas las asignaciones manuales y las personas excluidas de la nómina. El padrón y las mesas se conservarán. ¿Continuar?" data-confirm-title="Eliminar asignaciones y candidaturas" data-confirm-accept="Eliminar asignaciones y candidaturas" onsubmit="this.elements['confirmar-eliminacion'].value = '1';">
     {% csrf_token %}
     <input type="hidden" name="confirmar-eliminacion" value="">
     <button type="submit" class="button danger" name="eliminar-asignaciones" value="1">Eliminar todas las asignaciones</button>

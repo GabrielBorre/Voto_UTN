@@ -50,6 +50,15 @@ gestion de mesas.
 
 Incluye CSV, previsualizacion, validacion, confirmacion, errores e historial.
 
+Complemento de departamentos adicionales: implementado en `feat/padron-update`
+con migraciones de unicidad, mesas especiales, sede compartida, traslados y QR
+por registro. Incluye justificativo único por persona y elección, reclamo con
+selección de mesa, notificaciones agrupadas por persona y cargos generales
+exclusivos del registro principal. Las migraciones propias y las anteriores de
+justificativos se aplicaron a la base habitual; la dependencia de lectura de QR
+también está instalada en el contenedor habitual. La verificación actualizada
+se registra en `docs/registro_de_cambios.md`.
+
 ### Etapa 7 - Autoridades de mesa
 **Estado:** en actualización por las nuevas decisiones sobre titulares y confirmación definitiva
 
@@ -134,3 +143,10 @@ con consulta del nombre antes del guardado y revalidación del padrón al confir
 - Se agrega en Nómina la opción «Votar en mesa distinta», limitada a otra mesa de la misma sede y a turnos disponibles. Esta opción no reacomoda el padrón ni altera las mesas electorales.
 - Se conserva separada la opción anterior de reacomodar el padrón y el cambio de sede. Ambas reglas de reacomodo no se combinan con «Votar en mesa distinta».
 - La migración conserva los valores de reacomodo y cambio de sede existentes y agrega el nuevo indicador desactivado.
+
+## Justificativo único para ausencias departamentales - 8 de noviembre de 2026
+
+- Presentar una sola solicitud de ausencia a votar por persona y elección, aunque tenga mesas especiales. Revalidar el permiso y la inexistencia de otra solicitud bajo bloqueo de la elección.
+- Compartir la resolución en todas sus ausencias registradas y conservar el estado de las mesas donde votó. Permitir presentar cuando únicamente figure ausente en una mesa especial.
+- Mostrar el alcance en la revisión y en el detalle; aplicar la misma regla al historial, los indicadores y el CSV de infractores.
+- Conservar separados los justificativos como autoridad y los reclamos sobre un comprobante específico. Verificar con pruebas integradas en PostgreSQL y ejecutar las comprobaciones generales.

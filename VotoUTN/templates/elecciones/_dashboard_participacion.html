@@ -131,16 +131,18 @@
     <article class="card indicador">
       <h2>Justificativos recibidos</h2>
       <p class="indicador-valor">{{ dashboard.justificativos_recibidos_pct }}%</p>
-      <p class="muted">{{ dashboard.justificativos_recibidos }} de {{ dashboard.electores_ausentes }} electores que no votaron</p>
+      <p class="muted">{{ dashboard.justificativos_recibidos }} de {{ dashboard.electores_ausentes }} ausencias con solicitud presentada</p>
       <div class="barra-progreso" role="progressbar" aria-label="Justificativos recibidos" aria-valuenow="{{ dashboard.justificativos_recibidos_pct|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ dashboard.justificativos_recibidos_pct|stringformat:'.1f' }}%"></span></div>
     </article>
     <article class="card indicador">
       <h2>Justificativos aceptados</h2>
       <p class="indicador-valor">{{ dashboard.justificativos_confirmados_pct }}%</p>
-      <p class="muted">{{ dashboard.justificativos_confirmados }} de {{ dashboard.justificativos_recibidos }} justificativos recibidos</p>
+      <p class="muted">{{ dashboard.justificativos_confirmados }} de {{ dashboard.justificativos_recibidos }} ausencias con solicitud aprobada</p>
       <div class="barra-progreso" role="progressbar" aria-label="Justificativos aceptados" aria-valuenow="{{ dashboard.justificativos_confirmados_pct|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ dashboard.justificativos_confirmados_pct|stringformat:'.1f' }}%"></span></div>
     </article>
   </section>
+
+  <p class="muted">Una solicitud de justificación puede cubrir ausencias en varias mesas de la misma persona.</p>
 
   <section id="mesas-pendientes" class="card" aria-labelledby="titulo-mesas-pendientes">
     <div class="section-title seccion-sin-margen">

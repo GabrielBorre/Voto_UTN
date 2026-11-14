@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.db.models import Count
@@ -51,6 +51,7 @@ from apps.padron.services import (
     calcular_mesas_automaticas_eleccion,
     calcular_padrones_votacion,
     eliminar_padron_claustro,
+    estado_eliminacion_padron_claustro,
     recalcular_sedes_y_mesas_claustro,
     resolver_solicitud_cambio_sede,
     resolver_solicitudes_pendientes,
@@ -702,6 +703,47 @@ class PadronViewsTests(TestCase):
         self.assertFalse(validacion_repeticion.errores)
         self.assertEqual(validacion_repeticion.cantidad_existentes, 1)
 
+    def test_validacion_detecta_fila_principal_ausente(self):
+        from apps.padron.services import validar_csv_padron
+
+        otro = Departamento.objects.create(nombre="Industrial", codigo="I")
+        EleccionClaustroDepartamento.objects.create(eleccion_claustro=self.eleccion_claustro, departamento=otro)
+        contenido = (
+            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Departamento Principal\n"
+            "40123456,2024001,Juan,Perez,I,juan@frba.utn.edu.ar,K\n"
+        ).encode()
+        resultado = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
+        self.assertTrue(any(campo == "departamento_principal" and "Falta la fila" in mensaje
+                            for _, campo, mensaje in resultado.errores))
+        self.assertEqual(resultado.cantidad_validas, 0)
+
+    def test_validacion_detecta_identidad_y_principal_inconsistentes(self):
+        from apps.padron.services import validar_csv_padron
+
+        otro = Departamento.objects.create(nombre="Industrial", codigo="I")
+        EleccionClaustroDepartamento.objects.create(eleccion_claustro=self.eleccion_claustro, departamento=otro)
+        contenido = (
+            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail,Departamento Principal\n"
+            "40123456,2024001,Juan,Perez,K,juan@frba.utn.edu.ar,K\n"
+            "40123456,2024001,Pedro,Perez,I,juan@frba.utn.edu.ar,I\n"
+        ).encode()
+        errores = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv").errores
+        self.assertTrue(any(fila == 3 and campo == "nombres" and "no coincide" in mensaje
+                            for fila, campo, mensaje in errores))
+        self.assertTrue(any(campo == "departamento_principal" and "diferentes" in mensaje
+                            for _, campo, mensaje in errores))
+
+    def test_validacion_acepta_fila_unica_sin_departamento_principal(self):
+        from apps.padron.services import validar_csv_padron
+
+        contenido = (
+            "DNI,Legajo,Nombre,Apellido,Depto/Carrera,Mail\n"
+            "40123456,2024001,Juan,Perez,K,juan@frba.utn.edu.ar\n"
+        ).encode()
+        resultado = validar_csv_padron(contenido, self.eleccion_claustro, "padron.csv")
+        self.assertFalse(resultado.errores)
+        self.assertEqual(resultado.cantidad_validas, 1)
+
     def test_confirmar_importacion_recupera_identidad_creada_en_paralelo(self):
         from apps.padron.services import confirmar_importacion
 
@@ -854,6 +896,38 @@ class CalculoMesasAutomaticasEleccionTests(TestCase):
                 estado=AsignacionSedePadron.Estado.ASIGNADA,
             )
         return registro
+
+    def test_recalculo_separa_y_conserva_mesas_ordinarias_y_especiales(self):
+        from apps.padron.recalculo_provisorio import recalcular_con_autoridades
+
+        principal = self.crear_elector("21", self.alcance_a)
+        adicional = self.crear_elector("22", self.alcance_a)
+        adicional.es_principal = False
+        adicional.save(update_fields=("es_principal",))
+        grupos = {
+            (self.claustro_a, self.alcance_a, self.sede_electoral, False): [principal],
+            (self.claustro_a, self.alcance_a, self.sede_electoral, True): [adicional],
+        }
+        recalcular_con_autoridades(self.eleccion, grupos)
+        principal.refresh_from_db()
+        adicional.refresh_from_db()
+        mesa_principal = principal.asignacion_mesa.mesa
+        mesa_especial = adicional.asignacion_mesa.mesa
+        self.assertFalse(mesa_principal.es_especial)
+        self.assertTrue(mesa_especial.es_especial)
+        self.assertNotEqual(mesa_principal.pk, mesa_especial.pk)
+
+        recalcular_con_autoridades(self.eleccion, grupos)
+        self.assertEqual(AsignacionMesa.objects.get(registro_padron=principal).mesa_id, mesa_principal.pk)
+        self.assertEqual(AsignacionMesa.objects.get(registro_padron=adicional).mesa_id, mesa_especial.pk)
+
+    def test_calculo_rechaza_adicional_sin_registro_principal(self):
+        adicional = self.crear_elector("23", self.alcance_a)
+        adicional.es_principal = False
+        adicional.save(update_fields=("es_principal",))
+        with self.assertRaisesMessage(ValueError, "no comparte la sede de su principal"):
+            calcular_mesas_automaticas_eleccion(self.eleccion, recalcular_sedes=False)
+        self.assertFalse(Mesa.objects.filter(eleccion=self.eleccion).exists())
 
     def test_calcula_todos_los_claustros_por_sede_electoral_y_respeta_maximos(self):
         registros_a = [self.crear_elector(str(numero), self.alcance_a) for numero in range(1, 4)]
@@ -1056,7 +1130,10 @@ class FormularioArchivoPadronTests(TestCase):
 class ProteccionEmisionQrTests(TestCase):
     def setUp(self):
         inicio = make_aware(datetime(2026, 8, 3, 8))
-        self.eleccion = Eleccion.objects.create(nombre="Eleccion QR", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8))
+        self.eleccion = Eleccion.objects.create(
+            nombre="Eleccion QR", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8),
+            fecha_cierre_solicitudes_cambio_sede=timezone.localdate() - timedelta(days=1),
+        )
         self.sede = Sede.objects.create(nombre="Campus")
         self.turno = Turno.objects.create(nombre="Mañana", hora_inicio=time(8), hora_fin=time(13))
         self.eleccion_claustro = EleccionClaustro.objects.create(
@@ -1101,6 +1178,38 @@ class ProteccionEmisionQrTests(TestCase):
         self.assertIsNotNone(self.registro.qr_generado_en)
         self.assertEqual(self.registro.numero_mesa_qr, 1)
 
+    def test_emision_requiere_plazo_cerrado_y_solicitudes_resueltas(self):
+        from apps.padron.services import validar_emision_con_cambios_sede_cerrados
+
+        for limite in (None, timezone.localdate(), timezone.localdate() + timedelta(days=1)):
+            with self.subTest(limite=limite):
+                self.eleccion.fecha_cierre_solicitudes_cambio_sede = limite
+                with self.assertRaisesMessage(ValueError, "plazo de cambios de sede"):
+                    validar_emision_con_cambios_sede_cerrados(self.eleccion)
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate() - timedelta(days=1)
+        destino = Sede.objects.create(nombre="Otra sede")
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro, sede_origen=self.sede, sede_destino=destino,
+        )
+        with self.assertRaisesMessage(ValueError, "solicitudes de cambio de sede pendientes"):
+            validar_emision_con_cambios_sede_cerrados(self.eleccion)
+        solicitud.estado = SolicitudCambioSede.Estado.RECHAZADA
+        solicitud.save(update_fields=("estado",))
+        validar_emision_con_cambios_sede_cerrados(self.eleccion)
+
+    def test_comando_qr_no_emite_con_plazo_abierto(self):
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate()
+        self.eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
+        with TemporaryDirectory() as directorio:
+            with self.assertRaisesMessage(CommandError, "plazo de cambios de sede"):
+                call_command(
+                    "seed_voters", election_id=self.eleccion.pk,
+                    configuracion_departamento_id=self.configuracion.pk, output=Path(directorio),
+                )
+            self.assertFalse(list(Path(directorio).iterdir()))
+        self.registro.refresh_from_db()
+        self.assertIsNone(self.registro.qr_generado_en)
+
     def test_no_regenera_mesas_despues_de_emitir_qr(self):
         self.registro.qr_generado_en = make_aware(datetime(2026, 8, 1, 10))
         self.registro.numero_mesa_qr = 1
@@ -1128,6 +1237,25 @@ class ProteccionEmisionQrTests(TestCase):
         self.mesa.numero = 3
         with self.assertRaises(ValidationError):
             self.mesa.save()
+
+    def test_bloquea_cambio_tipo_mesa_despues_de_emitir_qr(self):
+        self.registro.qr_generado_en = make_aware(datetime(2026, 8, 1, 10))
+        self.registro.numero_mesa_qr = self.mesa.numero
+        self.registro.save(update_fields=("qr_generado_en", "numero_mesa_qr"))
+
+        self.mesa.es_especial = True
+        with self.assertRaises(ValidationError):
+            self.mesa.save()
+
+    def test_bloquea_cambio_de_registro_principal_despues_de_emitir_qr(self):
+        self.assertTrue(self.registro.es_principal)
+        self.registro.qr_generado_en = make_aware(datetime(2026, 8, 1, 10))
+        self.registro.numero_mesa_qr = self.mesa.numero
+        self.registro.save(update_fields=("qr_generado_en", "numero_mesa_qr"))
+
+        self.registro.es_principal = False
+        with self.assertRaises(ValidationError):
+            self.registro.save()
 
     def test_falla_de_archivos_no_marca_qr_como_emitido(self):
         with TemporaryDirectory() as directorio, patch.object(
@@ -1672,6 +1800,85 @@ class EliminarPadronClaustroTests(TestCase):
         self.assertTrue(Elector.objects.filter(pk=self.elector.pk).exists())
         self.assertTrue(RegistroPadron.objects.filter(elector=self.elector, eleccion=eleccion_anterior).exists())
 
+    def crear_notificaciones_del_elector(self):
+        from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
+
+        plantilla = PlantillaNotificacion.objects.create(
+            codigo="aviso-vaciado-padron", nombre="Aviso previo al vaciado",
+            asunto="Aviso de prueba", contenido="Contenido que debe conservarse",
+        )
+        for estado, eleccion in (
+            (EnvioNotificacion.Estado.ENVIADO, self.eleccion),
+            (EnvioNotificacion.Estado.ERROR, None),
+        ):
+            EnvioNotificacion.objects.create(
+                plantilla=plantilla, elector=self.elector, eleccion=eleccion,
+                asunto=plantilla.asunto, contenido=plantilla.contenido,
+                estado=estado, error="Error de prueba" if estado == "error" else "",
+            )
+
+    def crear_elector_sin_referencias(self):
+        elector = Elector.objects.create(dni="40987654", legajo="D002", nombre="Grace", apellido="Hopper")
+        RegistroPadron.objects.create(
+            elector=elector, eleccion=self.eleccion, eleccion_claustro_departamento=self.alcance,
+        )
+        return elector
+
+    def test_resumen_cuenta_personas_con_notificaciones_como_identidades_conservadas(self):
+        self.crear_notificaciones_del_elector()
+        self.crear_elector_sin_referencias()
+
+        resumen = estado_eliminacion_padron_claustro(self.claustro)
+
+        self.assertEqual(resumen["cantidad_registros"], 2)
+        self.assertEqual(resumen["cantidad_electores_a_conservar"], 1)
+        self.assertEqual(resumen["cantidad_electores_a_eliminar"], 1)
+        self.assertEqual(resumen["bloqueos"], [])
+
+    def test_vaciado_conserva_identidades_notificadas_y_elimina_solo_las_huerfanas(self):
+        from apps.auditoria.models import EventoAuditoria
+        from apps.notificaciones.models import EnvioNotificacion
+
+        self.crear_notificaciones_del_elector()
+        huerfano = self.crear_elector_sin_referencias()
+        notificaciones = list(EnvioNotificacion.objects.order_by("pk").values())
+
+        resultado = eliminar_padron_claustro(self.claustro, self.usuario)
+
+        self.assertEqual(resultado["cantidad_registros"], 2)
+        self.assertEqual(resultado["cantidad_electores_a_conservar"], 1)
+        self.assertFalse(self.eleccion.registros_padron.exists())
+        self.assertTrue(Elector.objects.filter(pk=self.elector.pk).exists())
+        self.assertFalse(Elector.objects.filter(pk=huerfano.pk).exists())
+        self.assertEqual(list(EnvioNotificacion.objects.order_by("pk").values()), notificaciones)
+        self.importacion.refresh_from_db()
+        self.assertEqual(self.importacion.estado, ImportacionPadron.Estado.PADRON_ELIMINADO)
+        evento = EventoAuditoria.objects.get(accion="padron.claustro_vaciado")
+        self.assertEqual(evento.datos_nuevos["electores_conservados"], 1)
+        self.assertEqual(evento.datos_nuevos["electores_huerfanos_eliminados"], 1)
+
+    def test_pantalla_vacia_padron_con_notificaciones_sin_error_y_conserva_avisos(self):
+        from apps.notificaciones.models import EnvioNotificacion
+
+        self.crear_notificaciones_del_elector()
+        AsignacionRol.objects.create(
+            usuario=self.usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion,
+        )
+        self.client.force_login(self.usuario)
+        url = reverse("eliminar-padron-claustro", args=(self.eleccion.pk, self.claustro.pk))
+
+        confirmacion = self.client.get(url)
+
+        self.assertEqual(confirmacion.context["resumen"]["cantidad_electores_a_conservar"], 1)
+        self.assertEqual(confirmacion.context["resumen"]["cantidad_electores_a_eliminar"], 0)
+        self.assertContains(confirmacion, "notificaciones")
+        respuesta = self.client.post(url, follow=True)
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Se eliminaron 1 registros del padrón.")
+        self.assertTrue(Elector.objects.filter(pk=self.elector.pk).exists())
+        self.assertEqual(EnvioNotificacion.objects.filter(elector=self.elector).count(), 2)
+        self.assertFalse(self.eleccion.registros_padron.exists())
+
     def test_no_elimina_con_eleccion_publicada(self):
         self.eleccion.estado = Eleccion.Estado.PUBLICADA
         self.eleccion.save(update_fields=("estado",))
@@ -1800,6 +2007,65 @@ class SolicitudCambioSedeTests(TestCase):
         self.assertEqual(self.registro.asignacion_sede_padron.sede, self.sede_destino)
         self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.APROBADA)
         self.assertEqual(self.registro.asignacion_mesa.mesa.sede, self.sede_destino)
+
+    def _simular_registro_adicional(self):
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=self.eleccion_claustro,
+            departamento=Departamento.objects.create(nombre="Industrial", codigo="I"),
+        )
+        elector = Elector.objects.create(dni="40111223", legajo="L40111223", nombre="Registro simulado")
+        adicional = RegistroPadron.objects.create(
+            elector=elector, eleccion=self.eleccion, eleccion_claustro_departamento=alcance, es_principal=False,
+        )
+        mesa = Mesa.objects.create(
+            eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=alcance,
+            sede=self.sede_origen, es_especial=True,
+        )
+        AsignacionMesa.objects.create(registro_padron=adicional, mesa=mesa)
+        return adicional
+
+    def test_traslado_mueve_registros_principal_y_adicional_simulado(self):
+        adicional = self._simular_registro_adicional()
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro, sede_origen=self.sede_origen, sede_destino=self.sede_destino,
+        )
+        with patch("apps.padron.services._registros_para_cambio_de_sede", return_value=[self.registro, adicional]):
+            resolver_solicitud_cambio_sede(solicitud, SolicitudCambioSede.Estado.APROBADA, self.usuario)
+        for registro in (self.registro, adicional):
+            asignacion = AsignacionMesa.objects.select_related("mesa").get(registro_padron=registro)
+            self.assertEqual(asignacion.mesa.sede_id, self.sede_destino.pk)
+            self.assertEqual(asignacion.mesa.es_especial, not registro.es_principal)
+            self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=registro).sede_id, self.sede_destino.pk)
+
+    def test_limite_de_mesas_revierte_todo_el_traslado_simulado(self):
+        adicional = self._simular_registro_adicional()
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro, sede_origen=self.sede_origen, sede_destino=self.sede_destino,
+        )
+        with patch("apps.padron.services._registros_para_cambio_de_sede", return_value=[self.registro, adicional]):
+            resultado = resolver_solicitudes_pendientes(
+                self.eleccion, usuario=self.usuario, accion="aprobar_con_maximo_mesas", maximo_mesas_nuevas=1,
+            )
+        self.assertEqual(resultado["pendientes"], 1)
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, SolicitudCambioSede.Estado.PENDIENTE)
+        self.assertFalse(Mesa.objects.filter(eleccion=self.eleccion, sede=self.sede_destino).exists())
+        self.assertFalse(AsignacionSedePadron.objects.filter(registro_padron__in=[self.registro, adicional]).exists())
+        self.assertEqual(AsignacionMesa.objects.get(registro_padron=self.registro).mesa_id, self.mesa_origen.pk)
+
+    def test_estimacion_cuenta_las_dos_mesas_del_traslado_simulado(self):
+        from apps.padron.services import estimar_impacto_mesas_por_sede
+
+        adicional = self._simular_registro_adicional()
+        adicional.elector_id = self.registro.elector_id
+        solicitud = SolicitudCambioSede.objects.create(
+            registro_padron=self.registro, sede_origen=self.sede_origen, sede_destino=self.sede_destino,
+        )
+        solicitudes = SolicitudCambioSede.objects.filter(pk=solicitud.pk)
+        with patch("apps.padron.services.RegistroPadron.objects.filter") as buscar:
+            buscar.return_value.select_related.return_value.order_by.return_value = [self.registro, adicional]
+            resultado = estimar_impacto_mesas_por_sede(self.eleccion, solicitudes)
+        self.assertEqual(resultado["agregadas"], {self.sede_destino.pk: 2})
 
     def test_elector_solo_puede_registrar_una_solicitud_por_eleccion(self):
         self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate() + timedelta(days=2)

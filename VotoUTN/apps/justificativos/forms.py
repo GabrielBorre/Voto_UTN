@@ -4,12 +4,31 @@ from django.utils import timezone
 
 from apps.autoridades.models import AsignacionAutoridad
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
-from apps.justificativos.services import puede_presentar_justificativo_electoral
+from apps.padron.models import RegistroPadron
+from apps.justificativos.services import (
+    justificativos_electorales_para_registro,
+    puede_presentar_justificativo_electoral,
+    registros_ausentes_de_persona,
+)
+
+class CampoMesaReclamada(forms.ModelChoiceField):
+    def label_from_instance(self, registro):
+        asignacion = getattr(registro, "asignacion_mesa", None)
+        mesa = f"Mesa {asignacion.mesa.codigo}" if asignacion else "Sin mesa asignada"
+        tipo = "principal" if registro.es_principal else "especial"
+        return f"{mesa} ({tipo}) — {registro.eleccion_claustro_departamento.departamento}"
+
 
 class FormularioJustificativo(forms.ModelForm):
+    registro_reclamado = CampoMesaReclamada(
+        label="Mesa donde votaste", queryset=RegistroPadron.objects.none(), required=False,
+        empty_label="Seleccioná la mesa del comprobante",
+        help_text="El reclamo corrige únicamente la ausencia de esta mesa.",
+    )
+
     class Meta:
         model = JustificativoAusencia
-        fields = ("reclamo_participacion", "ausencia", "tipo", "detalle", "documento", "comprobante_extraviado")
+        fields = ("reclamo_participacion", "registro_reclamado", "ausencia", "tipo", "detalle", "documento", "comprobante_extraviado")
         labels = {"detalle": "Comentario", "documento": "Documentación o comprobante de votación"}
         help_texts = {
             "reclamo_participacion": (
@@ -25,6 +44,24 @@ class FormularioJustificativo(forms.ModelForm):
     def __init__(self, *args, registro_padron=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.registro_padron = registro_padron
+        reclamables = registros_ausentes_de_persona(registro_padron).exclude(
+            justificativos__ausencia=JustificativoAusencia.Ausencia.VOTAR,
+        ).select_related(
+            "eleccion", "asignacion_mesa__mesa", "eleccion_claustro_departamento__departamento",
+        ).order_by("-es_principal", "pk") if registro_padron else RegistroPadron.objects.none()
+        self.fields["registro_reclamado"].queryset = reclamables
+        self._registros_reclamables = list(reclamables)
+        if self.is_bound and self.data.get("reclamo_participacion"):
+            seleccionado = self.data.get("registro_reclamado")
+            elegido = next((item for item in self._registros_reclamables if str(item.pk) == str(seleccionado)), None)
+            if elegido is not None:
+                self.registro_padron = elegido
+        if len(self._registros_reclamables) <= 1:
+            self.fields["registro_reclamado"].widget = forms.HiddenInput()
+        else:
+            self.fields["registro_reclamado"].widget.attrs["data-requerido-reclamo"] = "true"
+        if self.is_bound and not self.data.get("reclamo_participacion"):
+            self.fields["registro_reclamado"].disabled = True
         self.fields["tipo"].queryset = TipoJustificativo.objects.filter(activo=True)
         self.fields["ausencia"].label = "Ausencia a justificar"
         disponibles = self.ausencias_disponibles()
@@ -34,11 +71,11 @@ class FormularioJustificativo(forms.ModelForm):
         ]
         self._permite_reclamo = bool(
             JustificativoAusencia.Ausencia.VOTAR in disponibles
-            and registro_padron is not None
-            and registro_padron.participaciones.exists()
+            and self.registro_padron is not None
+            and self.registro_padron.participaciones.exists()
         )
         if not self._permite_reclamo:
-            for nombre in ("reclamo_participacion", "comprobante_extraviado"):
+            for nombre in ("reclamo_participacion", "comprobante_extraviado", "registro_reclamado"):
                 self.fields[nombre].disabled = True
                 self.fields[nombre].widget = forms.HiddenInput()
         # Se validan en clean() porque dependen de la casilla de reclamo.
@@ -74,6 +111,12 @@ class FormularioJustificativo(forms.ModelForm):
         usadas = set(
             JustificativoAusencia.objects.filter(registro_padron=self.registro_padron).values_list("ausencia", flat=True)
         )
+        if justificativos_electorales_para_registro(
+            registro_id=self.registro_padron.pk,
+            elector_id=self.registro_padron.elector_id,
+            eleccion_id=self.registro_padron.eleccion_id,
+        ).exists():
+            usadas.add(JustificativoAusencia.Ausencia.VOTAR)
         return permitidas - usadas
 
     def clean(self):
@@ -89,6 +132,10 @@ class FormularioJustificativo(forms.ModelForm):
                 self._errors.pop(nombre, None)
             datos["ausencia"] = JustificativoAusencia.Ausencia.VOTAR
             datos["tipo"] = None
+            if len(self._registros_reclamables) > 1 and not datos.get("registro_reclamado"):
+                self.add_error("registro_reclamado", "Indicá en qué mesa votaste para revisar su comprobante.")
+            elif not datos.get("registro_reclamado") and len(self._registros_reclamables) == 1:
+                self.registro_padron = self._registros_reclamables[0]
             if not datos.get("documento") and not extraviado:
                 self.add_error("documento", "Adjuntá el comprobante o indicá que lo perdiste y explicalo en el comentario.")
         else:
@@ -108,8 +155,17 @@ class FormularioJustificativo(forms.ModelForm):
             from apps.elecciones.models import Eleccion
             with transaction.atomic():
                 eleccion = Eleccion.objects.select_for_update().get(pk=self.registro_padron.eleccion_id)
+                self.registro_padron.eleccion = eleccion
+                if justificativo.ausencia not in self.ausencias_disponibles():
+                    raise forms.ValidationError("La ausencia ya fue presentada o su presentación no está habilitada.")
+                if justificativo.reclamo_participacion and not self.registro_padron.participaciones.exists():
+                    raise forms.ValidationError("La ausencia de la mesa reclamada ya no está registrada.")
                 if justificativo.ausencia == JustificativoAusencia.Ausencia.AUTORIDAD and (eleccion.estado != Eleccion.Estado.PUBLICADA or not eleccion.autoridades_confirmadas_en or not eleccion.fecha_limite_justificacion_autoridades or timezone.localdate() > eleccion.fecha_limite_justificacion_autoridades):
                     raise forms.ValidationError("La presentación de justificativos de autoridades no está habilitada o su plazo venció.")
+                if justificativo.ausencia == JustificativoAusencia.Ausencia.VOTAR and not justificativo.reclamo_participacion:
+                    justificativo.registro_padron = registros_ausentes_de_persona(
+                        self.registro_padron,
+                    ).order_by("-es_principal", "pk").first()
                 justificativo.save()
                 self.save_m2m()
         return justificativo

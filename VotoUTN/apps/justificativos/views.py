@@ -45,11 +45,17 @@ def mis_justificativos(request):
     )
     registro_padron = None
     if eleccion is not None:
-        registro_padron = (
-            RegistroPadron.objects.filter(elector=elector, eleccion=eleccion, activo=True)
-            .select_related("eleccion")
-            .first()
-        )
+        registros = RegistroPadron.objects.filter(elector=elector, eleccion=eleccion, activo=True).select_related("eleccion")
+        ausencia_solicitada = request.POST.get("ausencia") if request.method == "POST" else request.GET.get("ausencia")
+        if ausencia_solicitada == JustificativoAusencia.Ausencia.AUTORIDAD:
+            registro_padron = registros.filter(asignacion_autoridad__isnull=False).order_by("pk").first()
+        else:
+            registro_padron = (
+                registros.filter(participaciones__isnull=False).exclude(
+                    justificativos__ausencia=JustificativoAusencia.Ausencia.VOTAR,
+                ).order_by("-es_principal", "pk").first()
+                or registros.filter(es_principal=True).first()
+            )
     estado_habilitado = bool(
         eleccion
         and eleccion.estado in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO)

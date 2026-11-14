@@ -41,6 +41,11 @@ class Command(BaseCommand):
             eleccion = Eleccion.objects.get(pk=election_id)
         except Eleccion.DoesNotExist as exc:
             raise CommandError(f"No existe la eleccion con id {election_id}.") from exc
+        from apps.padron.services import validar_emision_con_cambios_sede_cerrados
+        try:
+            validar_emision_con_cambios_sede_cerrados(eleccion)
+        except ValueError as exc:
+            raise CommandError(str(exc)) from exc
         configuracion = EleccionClaustroDepartamento.objects.filter(
             pk=configuracion_id,
             eleccion_claustro__eleccion=eleccion,

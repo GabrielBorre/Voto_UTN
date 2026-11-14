@@ -85,6 +85,17 @@ Por lo tanto, `K-001` y `E-001` no pueden coexistir en una misma elección.
 
 `RegistroPadron` representa la participación/habilitación del elector en una elección concreta y debe relacionarlo con su claustro, departamento, sede y mesa según corresponda.
 
+`RegistroPadron.es_principal` identifica el registro principal de la elección.
+Los registros históricos se conservan como principales. La unicidad se aplica a
+elector, elección y alcance departamental; una restricción parcial permite como
+máximo un principal por elector y elección. La importación exige su fila y
+conserva una sola identidad de elector.
+El cálculo de sedes propaga al registro adicional la sede y el estado del
+principal y rechaza una sede protegida incompatible. `Mesa.es_especial` separa
+los registros adicionales del padrón ordinario. Las solicitudes y los traslados
+por autoridades preparan destinos conjuntos, con validación antes de aplicar.
+Cada registro tiene su propio QR y su registro independiente de participación.
+
 La emisión de QR queda registrada en `qr_generado_en` y `numero_mesa_qr`. Esa
 marca protege la correspondencia entre el papel emitido y la asignación de mesa.
 
@@ -241,3 +252,16 @@ preservar los permisos asociados a los modelos existentes.
   la previsualización.
 - `AsignacionAutoridad.reemplazo_confirmado_en`, `reemplazo_confirmado_por` y `reemplazada_por` registran la confirmación operativa independiente y evitan promociones duplicadas.
 - `JustificativoAusencia.reemplazo_procesado_en` se conserva por compatibilidad con la migración existente; las nuevas resoluciones documentales no producen reemplazos.
+
+## Justificación de ausencias en varios departamentos
+
+- `JustificativoAusencia.registro_padron` conserva el registro de presentación y la identidad de persona/elección. Una solicitud de ausencia a votar sin reclamo tiene alcance sobre todos los registros activos de esa persona en la misma elección que tengan `RegistroParticipacion` (ausencia registrada).
+- La cobertura se consulta por persona y elección, sin duplicar solicitudes, archivos ni resoluciones. No necesita campos nuevos ni migración. La presentación se revalida bajo bloqueo de la elección para impedir duplicados desde registros diferentes o formularios abiertos previamente.
+- Historial, indicadores y exportación de infractores aplican la misma cobertura. La documentación y el estado de quienes votaron no cambian por una ausencia en otro departamento.
+- Los justificativos de autoridades y los reclamos de participación conservan su registro específico. Un comprobante de una mesa no acredita automáticamente el voto en otra.
+- El formulario de reclamo permite seleccionar un registro propio ausente cuando hay varios. La selección se valida nuevamente al guardar bajo bloqueo de la elección. No se modifica el formato del QR ni se crean identidades o comprobantes nuevos.
+
+## Cargos y comunicaciones de personas con varios registros
+
+- Los puestos generales (`PuestoEleccion` sin departamento) se incluyen únicamente mediante el registro principal. Los puestos departamentales requieren coincidencia con el alcance del registro. El cálculo rechaza repetir un mismo puesto para una persona en distintos padrones y conserva las asignaciones anteriores si falla.
+- Las notificaciones de publicación e inicio se agrupan por `elector_id`. El inicio enumera todas las mesas con su sede electoral; las notificaciones de ausencia enumeran solo los registros con ausencia y crean un único envío por persona. Las resoluciones de justificativos conservan un único envío por solicitud.

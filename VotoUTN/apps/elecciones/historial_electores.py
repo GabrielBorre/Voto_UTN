@@ -8,16 +8,20 @@ from apps.justificativos.services import estado_justificativo_electoral
 from apps.padron.models import RegistroPadron
 
 
-def _estado_registro(registro, momento):
+def _estado_registro(registro, momento, justificativo_compartido=None):
     eleccion = registro.eleccion
+    participacion = bool(registro.participaciones.all())
     justificativo = next(
         (
             item
             for item in registro.justificativos.all()
             if item.ausencia == JustificativoAusencia.Ausencia.VOTAR
+            and (item.reclamo_participacion or participacion)
         ),
         None,
     )
+    if justificativo is None and registro.activo and participacion:
+        justificativo = justificativo_compartido
     if (
         eleccion.estado in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO)
         and not eleccion.notificaciones_ausentes_confirmadas_en
@@ -28,7 +32,6 @@ def _estado_registro(registro, momento):
         etiqueta, clase = estado_justificativo_electoral(justificativo)
         return etiqueta, clase, justificativo
 
-    participacion = bool(registro.participaciones.all())
     habilitada_en = eleccion.justificacion_electores_habilitada_en
     periodo_habilitado = habilitada_en is not None and habilitada_en <= momento
     fecha_actual = timezone.localdate(momento)
@@ -50,8 +53,13 @@ def construir_historial_electoral(elector, momento=None):
 
     momento = momento or timezone.now()
     justificativos_elector = JustificativoAusencia.objects.filter(
+        registro_padron__elector=elector,
         ausencia=JustificativoAusencia.Ausencia.VOTAR,
     ).order_by("-presentada_en", "-pk")
+    compartidos = {}
+    for justificativo in justificativos_elector.select_related("registro_padron"):
+        if not justificativo.reclamo_participacion:
+            compartidos.setdefault(justificativo.registro_padron.eleccion_id, justificativo)
     registros = (
         RegistroPadron.objects.filter(
             elector=elector,
@@ -77,7 +85,7 @@ def construir_historial_electoral(elector, momento=None):
 
     historial = []
     for registro in registros:
-        estado, clase, justificativo = _estado_registro(registro, momento)
+        estado, clase, justificativo = _estado_registro(registro, momento, compartidos.get(registro.eleccion_id))
         fecha_actual = timezone.localdate(momento)
         habilitada_en = registro.eleccion.justificacion_electores_habilitada_en
         periodo_habilitado = habilitada_en is not None and habilitada_en <= momento
@@ -85,6 +93,7 @@ def construir_historial_electoral(elector, momento=None):
         historial.append(
             {
                 "anio": registro.eleccion.fecha_inicio.year,
+                "registro_id": registro.pk,
                 "eleccion": registro.eleccion,
                 "claustro": registro.eleccion_claustro_departamento.eleccion_claustro.claustro,
                 "estado": estado,

@@ -7,6 +7,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.timezone import make_aware
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
@@ -259,6 +260,7 @@ class PadronPDFTests(TestCase):
         self.eleccion = Eleccion.objects.create(
             nombre="Eleccion Oficio", fecha_inicio=inicio, fecha_fin=inicio + timedelta(hours=8),
             estado=Eleccion.Estado.EN_CURSO,
+            fecha_cierre_solicitudes_cambio_sede=timezone.localdate() - timedelta(days=1),
         )
         self.sede = Sede.objects.create(nombre="Campus Central")
         self.turno = Turno.objects.create(nombre="Manana", hora_inicio=time(8), hora_fin=time(12))
@@ -427,6 +429,19 @@ class PadronPDFTests(TestCase):
         payload = generar.call_args.args[0]
         self.assertEqual(ServicioRegistroParticipacion.parsear_codigo_qr_mesa(payload), (self.eleccion.id, 1))
 
+    def test_caratula_identifica_la_mesa_especial_sin_cambiar_su_qr(self):
+        self.mesa.es_especial = True
+        self.mesa.save(update_fields=("es_especial",))
+        lienzo = Canvas(BytesIO())
+        with patch.object(lienzo, "drawCentredString", wraps=lienzo.drawCentredString) as dibujar:
+            with patch("apps.reportes.services_pdf._generar_qr_vectorial", wraps=_generar_qr_vectorial) as generar:
+                _dibujar_caratula(lienzo, self.eleccion, self.mesa)
+        self.assertIn("INFORMACIÓN DE MESA ESPECIAL", [llamada.args[2] for llamada in dibujar.call_args_list])
+        self.assertEqual(
+            ServicioRegistroParticipacion.parsear_codigo_qr_mesa(generar.call_args.args[0]),
+            (self.eleccion.id, self.mesa.numero),
+        )
+
     def test_ultima_pagina_contiene_el_resto_de_electores(self):
         self.crear_electores(ELECTORES_POR_PAGINA + 2)
 
@@ -479,6 +494,19 @@ class PadronPDFTests(TestCase):
         self.assertIn('filename="padron_', respuesta["Content-Disposition"])
         self.assertTrue(EmisionPadronImprimible.objects.filter(eleccion_claustro=self.eleccion_claustro, estado="vigente").exists())
         self.assertTrue(RegistroPadron.objects.filter(eleccion=self.eleccion, qr_generado_en__isnull=False).exists())
+
+    def test_vista_rechaza_plazo_de_cambio_de_sede_abierto(self):
+        self.crear_electores(1)
+        self.client.force_login(self.usuario)
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate()
+        self.eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
+
+        respuesta = self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.pk,)), follow=True)
+
+        self.assertRedirects(respuesta, reverse("gestionar-reportes", args=(self.eleccion.pk,)))
+        self.assertTrue(any("plazo de cambios de sede" in str(m) for m in respuesta.context["messages"]))
+        self.assertFalse(EmisionPadronImprimible.objects.exists())
+        self.assertFalse(RegistroPadron.objects.filter(eleccion=self.eleccion, qr_generado_en__isnull=False).exists())
 
     def test_vista_bloquea_y_redirige_cuando_falta_informacion(self):
         self.crear_electores(1, mesa=None)

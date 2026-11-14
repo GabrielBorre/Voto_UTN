@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from itertools import product
+from copy import copy
 from unittest.mock import patch
 
 from django.test import SimpleTestCase, TestCase
@@ -80,6 +81,40 @@ class DistribucionAutoridadesTests(TestCase):
 
     def cupos(self, titulares=1, suplentes=0):
         self.eleccion_claustro.turnos_autoridad.update(titulares_por_mesa=titulares, suplentes_por_mesa=suplentes)
+
+    def test_rechaza_plan_con_dos_registros_de_la_misma_persona_sin_guardar(self):
+        primero = self.registros[0]
+        adicional = copy(primero)
+        adicional.pk = primero.pk + 100000
+        propuesta = ({0: primero, 1: adicional}, [], {}, {}, [])
+        with patch("apps.autoridades.distribucion.planificar_distribucion", return_value=propuesta):
+            with self.assertRaisesMessage(ValidationError, "más de un cupo"):
+                distribuir(self.eleccion_claustro, self.usuario)
+        self.assertFalse(AsignacionAutoridad.objects.exists())
+
+    def test_planifica_por_persona_si_tiene_dos_registros_elegibles(self):
+        principal = self.registros[0]
+        adicional = copy(principal)
+        adicional.pk = principal.pk + 100000
+        alternativa = self.registros[1]
+        manana = self.eleccion_claustro.turnos_autoridad.get(turno=self.manana)
+        tarde = EleccionClaustroTurno.objects.create(
+            eleccion_claustro=self.eleccion_claustro, turno=self.tarde, titulares_por_mesa=1,
+        )
+        self.opciones.modo = "aleatorio"
+
+        def elegible(registro, mesa, turno, modo):
+            return registro.pk in ({principal.pk, alternativa.pk} if turno.pk == self.manana.pk else {adicional.pk})
+
+        with patch("apps.autoridades.distribucion._registros", return_value=[principal, adicional, alternativa]), \
+             patch("apps.autoridades.distribucion._puede_trabajar", side_effect=elegible):
+            ocupantes, plazas, *_ = planificar_distribucion(
+                self.eleccion_claustro, self.opciones, [self.mesa], [manana, tarde], preservar_asignaciones=False,
+            )
+        self.assertEqual(len(ocupantes), 2)
+        self.assertEqual(len({registro.elector_id for registro in ocupantes.values()}), 2)
+        self.assertEqual({plazas[i][1].pk: r.pk for i, r in ocupantes.items()},
+                         {self.manana.pk: alternativa.pk, self.tarde.pk: adicional.pk})
 
     def test_nomina_y_sorteo_priorizan_minimos_antes_de_cupos_adicionales(self):
         manana = self.eleccion_claustro.turnos_autoridad.get(turno=self.manana)

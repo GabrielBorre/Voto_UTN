@@ -93,6 +93,12 @@ class AsignacionAutoridad(models.Model):
         if self.tipo != self.Tipo.TITULAR:
             raise ValidationError({"tipo": "Solo se admiten autoridades titulares."})
         if self.registro_padron_id and self.mesa_id:
+            duplicada = AsignacionAutoridad.objects.filter(
+                registro_padron__elector_id=self.registro_padron.elector_id,
+                registro_padron__eleccion_id=self.registro_padron.eleccion_id,
+            ).exclude(pk=self.pk).exists()
+            if duplicada:
+                raise ValidationError({"registro_padron": "Esta persona ya tiene una designación de autoridad en la elección."})
             if self.candidatura_id and self.candidatura.registro_padron_id != self.registro_padron_id:
                 raise ValidationError({"candidatura": "Debe corresponder al mismo elector del padron."})
             if self.registro_padron.eleccion_id != self.mesa.eleccion_id:

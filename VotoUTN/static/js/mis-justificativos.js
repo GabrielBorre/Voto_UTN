@@ -3,7 +3,7 @@ const casillaReclamo = document.querySelector('input[type="checkbox"]#id_reclamo
 if (casillaReclamo) {
   const contenedor = (nombre) => document.querySelector(`[data-campo-justificativo="${nombre}"]`);
   const ocultosEnReclamo = ["ausencia", "tipo"].map(contenedor).filter(Boolean);
-  const visiblesEnReclamo = ["comprobante_extraviado"].map(contenedor).filter(Boolean);
+  const visiblesEnReclamo = ["comprobante_extraviado", "registro_reclamado"].map(contenedor).filter(Boolean);
 
   const actualizar = () => {
     const esReclamo = casillaReclamo.checked;
@@ -16,9 +16,10 @@ if (casillaReclamo) {
     });
     visiblesEnReclamo.forEach((campo) => {
       campo.hidden = !esReclamo;
-      campo.querySelectorAll("input").forEach((control) => {
+      campo.querySelectorAll("input, select").forEach((control) => {
         control.disabled = !esReclamo;
-        if (!esReclamo) control.checked = false;
+        control.required = esReclamo && control.dataset.requeridoReclamo === "true";
+        if (!esReclamo && control.type === "checkbox") control.checked = false;
       });
     });
   };
