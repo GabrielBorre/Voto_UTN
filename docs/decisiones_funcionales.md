@@ -78,9 +78,12 @@
 - Puede existir como máximo una elección en estado En preparación, Publicada o
 	En curso en conjunto. Las elecciones finalizadas pueden ser múltiples; mientras
 	exista una elección no finalizada no se permite crear otra.
-- Una elección finalizada queda en modo de consulta: no se pueden editar sus datos
-  ni modificar sus alcances, fechas administrativas, padrón, mesas, autoridades,
-  listas, candidaturas ni resoluciones de justificativos. El historial conserva el acceso de consulta; el
+- Una elección finalizada queda en modo de consulta. Como excepción operativa,
+  el administrador de junta puede asociar a una lista un puesto que ya estaba
+  habilitado para esa elección y claustro. Esta acción no crea ni habilita puestos,
+  no modifica candidatos ni otros datos de la lista. El resto de los datos,
+  alcances, fechas administrativas, padrón, mesas, autoridades, candidaturas y
+  resoluciones de justificativos permanece bloqueado. El historial conserva el acceso de consulta; el
   dashboard por elección finalizada queda pendiente y no forma parte de esta entrega.
 - Cualquier usuario con el rol activo de administrador de junta puede editar y
 	administrar cualquier elección, sin importar quién la creó o qué elección
@@ -176,6 +179,7 @@ Ejemplo: `Sistemas de Información` / `K`.
 - Los puestos se administran como catálogo reutilizable, sin ABM de órganos. Cada puesto se asocia a uno o más claustros desde su listado en Parámetros de elección; esa asociación global limita las opciones al cargar puestos y listas para cada claustro. Los órganos históricos se conservan como clasificación interna.
 - El código de presentación identifica una lista y su alcance dentro de la elección. El número de lista puede repetirse en presentaciones o alcances distintos.
 - Las listas y candidaturas pueden cargarse manualmente o mediante un CSV con previsualización y confirmación.
+- El PDF de boletas agrupa los puestos por elección, claustro, número y nombre de lista y, para los puestos departamentales, por departamento. No se mezclan candidatos de distintos claustros. Los puestos sin departamento (como Consejo Directivo) se incluyen en la boleta del mismo claustro y lista. El PDF usa páginas legales apaisadas, con dos filas por página y cuatro columnas en este orden: Consejo Superior, Consejo Directivo, Consejo Departamental y Ciencias Básicas. Cada cuadrante ocupado contiene una boleta completa; las categorías sin candidaturas quedan vacías. Ciencias Básicas ocupa la tercera columna para Docentes y la cuarta para Estudiantes y Graduados. La boleta de Consejo Departamental también se repite en una fila independiente, solo en la tercera columna. DASUTeN se imprime en una fila independiente, solo en la primera columna, sin duplicarse entre departamentos. Las filas continúan en páginas adicionales manteniendo la grilla de dos por cuatro.
 - Al crear una lista manualmente se pueden asociar en el mismo formulario uno o más puestos ya habilitados para el claustro, o crear y configurar un puesto nuevo para asociarlo automáticamente. Si el puesto no permite filtrar claustros, se habilita para todos los claustros asociados al puesto que participan en la elección. El listado de listas queda visible después de crearla y desde allí se abre la carga de candidatos. El detalle permite agregar otros puestos de forma opcional, o asociar el primero si la lista se creó sin puestos.
 - La gestión web de listas comienza mostrando todos los claustros participantes. Al ingresar en uno, se muestran en ese orden las pestañas «Cargar puestos» y «Cargar listas». «Cargar listas» presenta las listas del claustro con un acceso directo para cargar candidatos en cada una, además del formulario para crear listas; «Cargar puestos» administra sus puestos habilitados. La carga de candidatos se abre desde la lista correspondiente.
 - Desde la pestaña «Cargar puesto» dentro de un claustro, el contexto del claustro fija el alcance del alta en el servidor; un puesto nuevo no puede quedar asociado a otro claustro ni a todos los claustros por manipulación del formulario.

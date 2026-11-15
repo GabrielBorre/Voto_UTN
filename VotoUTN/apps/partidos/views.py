@@ -4,7 +4,7 @@ from uuid import uuid4
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db.models import Count
+from django.db.models import Count, Prefetch
 from django.db.models.deletion import ProtectedError
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -35,7 +35,7 @@ from apps.partidos.services import (
     previsualizar_importacion_candidaturas,
     buscar_elector_candidato,
 )
-from apps.usuarios.permisos import puede_configurar_eleccion
+from apps.usuarios.permisos import puede_administrar_elecciones, puede_configurar_eleccion
 
 
 def _tiene_permiso(request, eleccion):
@@ -88,7 +88,20 @@ def buscar_elector(request, eleccion_id, lista_id):
 @login_required
 def gestionar_partidos(request, eleccion_id, participacion_id=None):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
-    if not _tiene_permiso(request, eleccion):
+    permiso_normal = _tiene_permiso(request, eleccion)
+    modo_asociacion_finalizada = eleccion.estado == Eleccion.Estado.FINALIZADA
+    puede_asociar_en_finalizada = (
+        modo_asociacion_finalizada
+        and puede_administrar_elecciones(request.user, eleccion)
+        and request.method == "POST"
+        and request.POST.get("accion") == "vincular_puesto"
+    )
+    puede_consultar_finalizada = (
+        modo_asociacion_finalizada
+        and request.method in ("GET", "HEAD")
+        and puede_administrar_elecciones(request.user, eleccion)
+    )
+    if not (permiso_normal or puede_asociar_en_finalizada or puede_consultar_finalizada):
         return HttpResponseForbidden("No tiene permiso para gestionar partidos y candidatos.")
 
     pantalla_candidatos = participacion_id is not None
@@ -275,8 +288,41 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
         cantidad_listas=Count("listas", distinct=True),
         cantidad_candidatos=Count("listas__candidatos", distinct=True),
     )
+    participaciones = participaciones.prefetch_related(
+        Prefetch(
+            "listas",
+            queryset=ListaCandidatos.objects.filter(activa=True)
+            .select_related("puesto_eleccion")
+            .prefetch_related(
+                Prefetch(
+                    "candidatos",
+                    queryset=Candidato.objects.filter(activo=True),
+                )
+            ),
+        )
+    )
     if claustro_seleccionado:
         participaciones = participaciones.filter(eleccion_claustro=claustro_seleccionado)
+    for participacion in participaciones:
+        puestos_contados = set()
+        titulares_a_cargar = 0
+        suplentes_a_cargar = 0
+        titulares_cargados = 0
+        suplentes_cargados = 0
+        for lista in participacion.listas.all():
+            for candidato in lista.candidatos.all():
+                if candidato.tipo == Candidato.Tipo.TITULAR:
+                    titulares_cargados += 1
+                elif candidato.tipo == Candidato.Tipo.SUPLENTE:
+                    suplentes_cargados += 1
+            if lista.puesto_eleccion_id and lista.puesto_eleccion_id not in puestos_contados:
+                puestos_contados.add(lista.puesto_eleccion_id)
+                titulares_a_cargar += lista.puesto_eleccion.cantidad_titulares
+                suplentes_a_cargar += lista.puesto_eleccion.cantidad_suplentes
+        participacion.titulares_cargados = titulares_cargados
+        participacion.titulares_a_cargar = titulares_a_cargar
+        participacion.suplentes_cargados = suplentes_cargados
+        participacion.suplentes_a_cargar = suplentes_a_cargar
     claustros = eleccion.elecciones_claustro.select_related("claustro").annotate(
         cantidad_listas=Count("presentaciones_listas", distinct=True),
         cantidad_candidatos=Count("presentaciones_listas__listas__candidatos", distinct=True),
@@ -357,6 +403,7 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
         "partidos/detalle_participacion.html" if pantalla_candidatos else "partidos/gestion.html",
         {
             "eleccion": eleccion,
+            "modo_asociacion_finalizada": modo_asociacion_finalizada,
             "claustros": claustros,
             "claustro_seleccionado": claustro_seleccionado,
             "pestana": pestana,

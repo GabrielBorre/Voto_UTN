@@ -92,7 +92,10 @@ class CatalogosEstandarTests(TestCase):
         self.assertEqual(Departamento.objects.count(), 10)
         self.assertEqual(FechaAdministrativa.objects.count(), 6)
         self.assertEqual(PlantillaNotificacion.objects.count(), 26)
-        self.assertEqual(OrganoElectivo.objects.count(), 3)
+        self.assertEqual(OrganoElectivo.objects.count(), 4)
+        consejo_superior = OrganoElectivo.objects.get(nombre="Consejo Superior", activo=True)
+        formulario_puesto = FormularioCargoElectivo()
+        self.assertIn(consejo_superior, formulario_puesto.fields["organo"].queryset)
         self.assertEqual(CargoElectivo.objects.count(), 3)
         self.assertEqual(TipoJustificativo.objects.count(), 0)
         puesto_departamental = CargoElectivo.objects.get(
@@ -110,7 +113,7 @@ class CatalogosEstandarTests(TestCase):
         call_command("cargar_parametros_estandar", stdout=StringIO())
 
         self.assertEqual(PlantillaNotificacion.objects.count(), 26)
-        self.assertEqual(OrganoElectivo.objects.count(), 3)
+        self.assertEqual(OrganoElectivo.objects.count(), 4)
         self.assertEqual(CargoElectivo.objects.count(), 3)
         self.assertEqual(ids, {codigo: pk for codigo, pk in PlantillaNotificacion.objects.values_list("codigo", "pk")})
         plantilla.refresh_from_db()

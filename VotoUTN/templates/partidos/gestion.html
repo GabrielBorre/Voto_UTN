@@ -4,6 +4,33 @@
 {% block title %}Listas y candidaturas | {{ eleccion.nombre }}{% endblock %}
 
 {% block content %}
+{% if modo_asociacion_finalizada %}
+<section class="hero">
+  <h1>Listas y candidaturas</h1>
+  <p>{{ eleccion.nombre }} está finalizada. Podés consultar las listas y asociarles puestos que ya estaban habilitados.</p>
+</section>
+<div class="management-panel candidaturas-panel">
+  <section class="card management-section" id="listas">
+    <div class="section-title"><h2>Listas cargadas</h2><span class="tag">{{ participaciones|length }} listas</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Claustro</th><th>Número</th><th>Lista</th><th>Puestos</th><th></th></tr></thead>
+        <tbody>
+          {% for participacion in participaciones %}
+            <tr>
+              <td>{{ participacion.eleccion_claustro.claustro|default:"Histórica" }}</td>
+              <td>{{ participacion.numero_lista }}</td>
+              <td>{{ participacion.nombre_lista|default:participacion.partido }}</td>
+              <td>{{ participacion.cantidad_listas }}</td>
+              <td><a class="button primary small" href="{% url 'detalle-participacion-partido' eleccion.id participacion.id %}">Ver puestos de la lista</a></td>
+            </tr>
+          {% empty %}<tr><td colspan="5" class="muted">Todavía no hay listas para esta elección.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% else %}
 {% if claustro_seleccionado %}
 <section class="hero">
   <h1>Listas de {{ claustro_seleccionado.claustro }}</h1>
@@ -30,7 +57,7 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Número</th><th>Lista</th><th>Apoderado/a</th><th>Puestos</th><th>Candidatos</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Número</th><th>Lista</th><th>Apoderado/a</th><th>Puestos</th><th>Candidatos</th><th>Titulares cargados/a cargar</th><th>Suplentes cargados/a cargar</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           {% for participacion in participaciones %}
             <tr>
@@ -39,6 +66,8 @@
               <td>{{ participacion.apoderado_nombre|default:"—" }}</td>
               <td>{{ participacion.cantidad_listas }}</td>
               <td>{{ participacion.cantidad_candidatos }}</td>
+              <td>{{ participacion.titulares_cargados }}/{{ participacion.titulares_a_cargar }}</td>
+              <td>{{ participacion.suplentes_cargados }}/{{ participacion.suplentes_a_cargar }}</td>
               <td><span class="pill {% if participacion.activa %}ok{% else %}gray{% endif %}">{% if participacion.activa %}Activa{% else %}Inactiva{% endif %}</span></td>
               <td class="actions">
                 <a class="button primary small" href="{% url 'detalle-participacion-partido' eleccion.id participacion.id %}">Cargar candidatos</a>
@@ -46,7 +75,7 @@
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="7" class="muted">Todavía no hay listas para este claustro.</td></tr>
+            <tr><td colspan="9" class="muted">Todavía no hay listas para este claustro.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -280,6 +309,7 @@
     </article>
   {% endfor %}
 </section>
+{% endif %}
 {% endif %}
 
 {% include "elecciones/_volver_configuracion.html" %}

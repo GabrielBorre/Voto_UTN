@@ -703,6 +703,41 @@ class PadronViewsTests(TestCase):
         self.assertFalse(validacion_repeticion.errores)
         self.assertEqual(validacion_repeticion.cantidad_existentes, 1)
 
+    def test_confirmar_importacion_asigna_al_alcance_sin_departamento(self):
+        from apps.padron.services import confirmar_importacion
+
+        claustro = Claustro.objects.create(
+            nombre="No docentes",
+            organizacion_departamentos=Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO,
+        )
+        eleccion_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion,
+            claustro=claustro,
+            organizacion_departamentos=Claustro.OrganizacionDepartamentos.SIN_DEPARTAMENTO,
+        )
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=eleccion_claustro,
+        )
+        contenido = (
+            "DNI,Tipo Documento,Legajo,Nombre,Apellido,Departamento,Mail\n"
+            "40123459,DNI,2024009,Ana,Perez,,ana.perez@frba.utn.edu.ar\n"
+        ).encode("utf-8")
+        importacion = ImportacionPadron.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro=eleccion_claustro,
+            archivo=SimpleUploadedFile("no_docentes.csv", contenido, content_type="text/csv"),
+            nombre_archivo="no_docentes.csv",
+            huella_archivo=hashlib.sha256(contenido).hexdigest(),
+            usuario=self.usuario,
+        )
+
+        cantidad = confirmar_importacion(importacion)
+
+        self.assertEqual(cantidad, 1)
+        registro = RegistroPadron.objects.get(eleccion=self.eleccion, legajo="2024009")
+        self.assertEqual(registro.eleccion_claustro_departamento, alcance)
+        self.assertIsNone(registro.eleccion_claustro_departamento.departamento)
+
     def test_confirmar_importacion_recupera_identidad_creada_en_paralelo(self):
         from apps.padron.services import confirmar_importacion
 

@@ -221,6 +221,48 @@ class PartidosViewsTests(PartidosBaseTests):
         self.usuario = get_user_model().objects.create_superuser(username="admin-partidos", password="clave")
         self.client.login(username="admin-partidos", password="clave")
 
+    def test_listado_muestra_cargados_y_a_cargar_por_tipo(self):
+        titular = self.crear_elector_padron(dni="30111222")
+        suplente = self.crear_elector_padron(dni="30222333")
+        Candidato.objects.create(
+            lista=self.lista,
+            elector=titular,
+            nombre=titular.nombre_completo,
+            dni=titular.dni,
+            cargo="Consejero",
+            tipo=Candidato.Tipo.TITULAR,
+            orden=1,
+        )
+        Candidato.objects.create(
+            lista=self.lista,
+            elector=suplente,
+            nombre=suplente.nombre_completo,
+            dni=suplente.dni,
+            cargo="Consejero",
+            tipo=Candidato.Tipo.SUPLENTE,
+            orden=1,
+        )
+
+        respuesta = self.client.get(
+            f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}"
+            f"?claustro={self.eleccion_claustro.id}&pestana=lista"
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        participacion = list(respuesta.context["participaciones"])[0]
+        self.assertEqual(
+            (
+                participacion.titulares_cargados,
+                participacion.titulares_a_cargar,
+                participacion.suplentes_cargados,
+                participacion.suplentes_a_cargar,
+            ),
+            (1, 3, 1, 3),
+        )
+        self.assertContains(respuesta, "Titulares cargados/a cargar")
+        self.assertContains(respuesta, "Suplentes cargados/a cargar")
+        self.assertContains(respuesta, "1/3")
+
     def test_panel_requiere_permiso_y_usa_template_propietario(self):
         administrador = get_user_model().objects.create_user(username="admin-junta-partidos")
         AsignacionRol.objects.create(
@@ -1249,13 +1291,11 @@ class PartidosEleccionCerradaTests(PartidosBaseTests):
         )
         self.client.force_login(self.usuario)
 
-    def test_eleccion_cerrada_bloquea_las_pantallas_de_configuracion_de_candidaturas(self):
+    def test_eleccion_finalizada_solo_permite_consultar_y_asociar_puestos_ya_habilitados(self):
         self.eleccion.estado = Eleccion.Estado.FINALIZADA
         self.eleccion.save(update_fields=("estado",))
 
         rutas = (
-            reverse("gestionar-partidos", args=(self.eleccion.pk,)),
-            reverse("detalle-participacion-partido", args=(self.eleccion.pk, self.participacion.pk)),
             reverse("editar-participacion-partido", args=(self.eleccion.pk, self.participacion.pk)),
             reverse("editar-puesto-eleccion", args=(self.eleccion.pk, self.puesto_eleccion.pk)),
             reverse("importar-candidaturas", args=(self.eleccion.pk,)),
@@ -1264,6 +1304,43 @@ class PartidosEleccionCerradaTests(PartidosBaseTests):
         for ruta in rutas:
             with self.subTest(ruta=ruta):
                 self.assertEqual(self.client.get(ruta).status_code, 403)
+
+        gestion = self.client.get(reverse("gestionar-partidos", args=(self.eleccion.pk,)))
+        self.assertEqual(gestion.status_code, 200)
+        self.assertContains(gestion, "Ver puestos de la lista")
+
+        ruta_detalle = reverse("detalle-participacion-partido", args=(self.eleccion.pk, self.participacion.pk))
+        detalle = self.client.get(ruta_detalle)
+        self.assertEqual(detalle.status_code, 200)
+        self.assertContains(detalle, "Solo se permite asociar puestos que ya estaban habilitados")
+
+        cargo_directivo = CargoElectivo.objects.create(
+            organo=OrganoElectivo.objects.create(nombre="Consejo Directivo"),
+            nombre="Consejero/a directivo/a",
+        )
+        cargo_directivo.claustros_habilitados.add(self.eleccion_claustro.claustro)
+        puesto_directivo = PuestoEleccion.objects.create(
+            puesto=cargo_directivo,
+            eleccion_claustro=self.eleccion_claustro,
+            cantidad_titulares=1,
+        )
+        respuesta = self.client.post(
+            ruta_detalle,
+            {"accion": "vincular_puesto", "puesto_eleccion": puesto_directivo.pk},
+        )
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertTrue(
+            ListaCandidatos.objects.filter(
+                participacion=self.participacion,
+                puesto_eleccion=puesto_directivo,
+            ).exists()
+        )
+
+        respuesta_edicion = self.client.post(
+            ruta_detalle,
+            {"accion": "agregar_candidato"},
+        )
+        self.assertEqual(respuesta_edicion.status_code, 403)
 
     def test_csv_de_lista_no_reemplaza_un_candidato_cargado_despues_de_previsualizar(self):
         self.crear_elector_padron(dni="30777999")

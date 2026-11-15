@@ -9,6 +9,43 @@
 
 <div class="management-panel candidaturas-panel">
   <section class="card management-section" id="candidaturas">
+    {% if modo_asociacion_finalizada %}
+      <div class="section-title">
+        <div>
+          <h2>Puestos de la lista</h2>
+          <p>La elección está finalizada. Solo se permite asociar puestos que ya estaban habilitados; el resto de la información queda en consulta.</p>
+        </div>
+        <span class="tag">Lista {{ participacion_seleccionada.numero_lista }}</span>
+      </div>
+      {% if hay_puestos_disponibles %}
+        <form method="post" action="#candidaturas">
+          {% csrf_token %}<input type="hidden" name="accion" value="vincular_puesto">
+          {% for error in formulario_vincular.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+          <div class="field puesto-selector">
+            <label for="{{ formulario_vincular.puesto_eleccion.id_for_label }}">{{ formulario_vincular.puesto_eleccion.label }}</label>
+            {{ formulario_vincular.puesto_eleccion }}
+            {% for error in formulario_vincular.puesto_eleccion.errors %}<div class="error">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="footer-actions"><button class="button primary" type="submit">Agregar puesto a la lista</button></div>
+        </form>
+      {% else %}
+        <p class="muted">No hay otros puestos habilitados para esta lista.</p>
+      {% endif %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Puesto</th><th>Departamento</th><th>Candidatos cargados</th></tr></thead>
+          <tbody>
+            {% for asociacion in asociaciones %}
+              <tr>
+                <td>{{ asociacion.puesto_eleccion.puesto|default:asociacion.nombre }}</td>
+                <td>{{ asociacion.eleccion_claustro_departamento.departamento|default:"General" }}</td>
+                <td>{{ asociacion.candidatos.count }}</td>
+              </tr>
+            {% empty %}<tr><td colspan="3" class="muted">Todavía no hay puestos asociados.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
     <div class="section-title">
       <div>
         <h2>Candidatos de la lista</h2>
@@ -179,6 +216,7 @@
           </div>
         </div>
       {% endif %}
+    {% endif %}
     {% endif %}
   </section>
 </div>

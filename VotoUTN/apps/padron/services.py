@@ -277,6 +277,24 @@ def detectar_columnas_archivo(contenido: bytes, nombre_archivo: str = "") -> lis
     return [str(columna).strip() for columna in filas[0].keys() if str(columna).strip()]
 
 
+def _configuraciones_por_departamento(eleccion_claustro):
+    configuraciones = {}
+    configuraciones_padron = EleccionClaustroDepartamento.objects.filter(
+        eleccion_claustro=eleccion_claustro,
+    ).filter(
+        Q(departamento__activo=True) | Q(departamento__isnull=True)
+    ).select_related("departamento")
+    for configuracion in configuraciones_padron:
+        departamento = configuracion.departamento
+        if departamento is None:
+            if eleccion_claustro.organizacion_departamentos == "sin_departamento":
+                configuraciones[""] = configuracion
+            continue
+        configuraciones[departamento.codigo.casefold()] = configuracion
+        configuraciones[departamento.nombre.casefold()] = configuracion
+    return configuraciones
+
+
 def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str = "") -> ResultadoValidacion:
     try:
         filas = leer_filas_padron(contenido, nombre_archivo)
@@ -309,20 +327,7 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             [(None, "turno_cursada", "La columna Turno debe acompañar a Sede donde cursa, aunque algunas filas no tengan valor.")],
         )
 
-    configuraciones = {}
-    configuraciones_padron = EleccionClaustroDepartamento.objects.filter(
-        eleccion_claustro=eleccion_claustro,
-    ).filter(
-        Q(departamento__activo=True) | Q(departamento__isnull=True)
-    ).select_related("departamento")
-    for configuracion in configuraciones_padron:
-        departamento = configuracion.departamento
-        if departamento is None:
-            if eleccion_claustro.organizacion_departamentos == "sin_departamento":
-                configuraciones[""] = configuracion
-            continue
-        configuraciones[departamento.codigo.casefold()] = configuracion
-        configuraciones[departamento.nombre.casefold()] = configuracion
+    configuraciones = _configuraciones_por_departamento(eleccion_claustro)
     sedes_disponibles = {sede.nombre.casefold() for sede in Sede.objects.filter(activa=True)}
     turnos_disponibles = {turno.nombre.casefold() for turno in Turno.objects.filter(activo=True)}
     errores = []
@@ -701,13 +706,7 @@ def confirmar_importacion(importacion):
             detalle += f"; y {len(resultado.errores) - 3} error(es) más"
         raise ValueError(f"El archivo ya no cumple las validaciones: {detalle}")
 
-    configuraciones = {}
-    for configuracion in EleccionClaustroDepartamento.objects.filter(
-        eleccion_claustro=importacion.eleccion_claustro,
-    ).select_related("departamento"):
-        departamento = configuracion.departamento
-        configuraciones[departamento.codigo.casefold()] = configuracion
-        configuraciones[departamento.nombre.casefold()] = configuracion
+    configuraciones = _configuraciones_por_departamento(importacion.eleccion_claustro)
     sedes = {sede.nombre.casefold(): sede for sede in Sede.objects.filter(activa=True)}
     turnos = {turno.nombre.casefold(): turno for turno in Turno.objects.filter(activo=True)}
     cantidad_creada = 0
