@@ -105,10 +105,13 @@ cancelación del registro de mesa, incluidos los casos sin inasistencias.
    python manage.py runserver 0.0.0.0:8000
    ```
 
-   `seed_demo_data` es el comando único para preparar un entorno de trabajo compartido: carga los
+   `seed_demo_data` prepara una demostración electoral completa: carga los
    parámetros institucionales estándar y una elección demostrativa idempotente con los cuatro
    claustros, puestos, listas y candidaturas de ejemplo. Si solamente se necesitan los catálogos,
    puede ejecutarse `python manage.py cargar_parametros_estandar`.
+   Para cargar parámetros e identidades de Keycloak sin crear ninguna elección,
+   ejecutar `python manage.py seed_demo_inicial`. Este comando se ejecuta automáticamente
+   únicamente al inicializar una base nueva de la instancia Docker 1.
 
 4. Abrir `http://127.0.0.1:8000/admin/`, crear una Elección habilitada y luego acceder con el usuario creado a `http://127.0.0.1:8000/`.
 

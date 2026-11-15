@@ -291,7 +291,7 @@ Se muestran en vivo solo las validaciones más representativas. El resto se menc
 ### Datos de prueba
 
 1. Levantar el entorno con `docker compose up -d` desde la raíz del repositorio. Verificar que existan los catálogos estándar; si faltan, ejecutar `python manage.py cargar_parametros_estandar` dentro del contenedor `web`.
-2. Verificar que **no haya otra elección sin finalizar**. Tener en cuenta que `seed_demo_data` crea una elección en estado Publicada, que impediría crear la de la demo.
+2. Verificar que **no haya otra elección sin finalizar**. La instancia Docker 1 nueva ejecuta `seed_demo_inicial`, que no crea elecciones. En cambio, `seed_demo_data` crea una elección en estado Publicada, que impediría crear la de la demo.
 3. Verificar que `juanb` tenga el rol activo de **Administrador de junta** y `administrativojunta` el de **Administrativo de junta**.
 4. Recorrer el flujo real con `juanb`:
    1. **Crear elección** con el claustro Estudiantes.

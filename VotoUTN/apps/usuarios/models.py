@@ -38,9 +38,9 @@ class AsignacionRol(models.Model):
             if self.eleccion_id or self.sede_id or self.mesa_id:
                 raise ValidationError("El administrador del sistema no admite alcance electoral.")
             return
-        if self.rol == self.Rol.ADMINISTRATIVO_JUNTA and not self.eleccion_id:
+        if self.rol in (self.Rol.ADMINISTRADOR_JUNTA, self.Rol.ADMINISTRATIVO_JUNTA) and not self.eleccion_id:
             if self.sede_id or self.mesa_id:
-                raise ValidationError("Un administrativo sin elección asignada no admite alcance por sede o mesa.")
+                raise ValidationError("Un rol de junta sin elección asignada no admite alcance por sede o mesa.")
             return
         if not self.eleccion_id:
             raise ValidationError({"eleccion": "El rol requiere una elección."})
