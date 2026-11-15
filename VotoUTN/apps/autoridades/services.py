@@ -74,6 +74,7 @@ def leer_filas_autoridades(contenido: bytes, nombre_archivo: str = "") -> list[d
 
 @transaction.atomic
 def asignar_autoridad(registro_padron, mesa, turno, usuario):
+    Eleccion.objects.select_for_update().get(pk=registro_padron.eleccion_id)
     eleccion_claustro = mesa.eleccion_claustro_departamento.eleccion_claustro
     if not eleccion_claustro.turnos_autoridad.filter(turno=turno).exists():
         raise ValidationError("El turno de trabajo no está habilitado para este claustro.")
@@ -310,7 +311,7 @@ def validar_csv_autoridades(contenido, eleccion_claustro, nombre_archivo=""):
     campo_legajo = encabezados.get("legajo")
     if not campo_documento and not campo_legajo:
         return [], [(None, "El archivo debe incluir Documento (DNI/CUIL) o Legajo.")]
-    normalizadas, errores, vistos = [], [], set()
+    normalizadas, errores, vistos, electores_vistos = [], [], set(), set()
     for numero, fila in enumerate(filas, start=2):
         doc = (fila.get(campo_documento) or "").strip() if campo_documento else ""
         legajo = (fila.get(campo_legajo) or "").strip() if campo_legajo else ""
@@ -319,7 +320,8 @@ def validar_csv_autoridades(contenido, eleccion_claustro, nombre_archivo=""):
         if not doc and not legajo:
             errores.append((numero, "Debe informarse Documento o Legajo."))
             continue
-        if clave in vistos:
+        clave_repetida = clave in vistos
+        if clave_repetida:
             errores.append((numero, "El elector está repetido en el archivo."))
         vistos.add(clave)
         consulta = RegistroPadron.objects.filter(
@@ -331,13 +333,18 @@ def validar_csv_autoridades(contenido, eleccion_claustro, nombre_archivo=""):
             consulta = consulta.filter(elector__tipo_documento__iexact=tipo, elector__dni=doc)
         if legajo:
             consulta = consulta.filter(elector__legajo=legajo)
-        coincidencias = consulta.count()
+        coincidencias = consulta.values("elector_id").distinct().count()
         if coincidencias == 0:
             errores.append((numero, "El elector no pertenece al padron activo de este claustro."))
         elif coincidencias > 1:
             errores.append((numero, "Los identificadores coinciden con más de un elector del padrón."))
-        elif es_candidato_electoral(consulta.select_related("elector").first()):
-            errores.append((numero, "Un candidato electoral no puede ser autoridad de mesa."))
+        else:
+            registro = consulta.select_related("elector").first()
+            if registro.elector_id in electores_vistos and not clave_repetida:
+                errores.append((numero, "El elector está repetido en el archivo."))
+            electores_vistos.add(registro.elector_id)
+            if es_candidato_electoral(registro):
+                errores.append((numero, "Un candidato electoral no puede ser autoridad de mesa."))
         normalizadas.append({"documento": doc, "dni": doc, "tipo_documento": tipo, "legajo": legajo})
     return normalizadas, errores
 
@@ -368,13 +375,15 @@ def importar_autoridades(contenido, eleccion_claustro, usuario, nombre_archivo="
             consulta = consulta.filter(elector__tipo_documento__iexact=fila["tipo_documento"], elector__dni=fila["documento"])
         if fila["legajo"]:
             consulta = consulta.filter(elector__legajo=fila["legajo"])
-        registro = consulta.get()
-        candidatura, creada = CandidaturaAutoridad.objects.get_or_create(
-            registro_padron=registro,
-            defaults={"cargada_por": usuario},
-        )
-        creadas += int(creada)
-        ya_cargadas += int(not creada)
+        creada_para_persona = False
+        for registro in consulta:
+            _, creada = CandidaturaAutoridad.objects.get_or_create(
+                registro_padron=registro,
+                defaults={"cargada_por": usuario},
+            )
+            creada_para_persona |= creada
+        creadas += int(creada_para_persona)
+        ya_cargadas += int(not creada_para_persona)
     distribucion_pendiente = None
     if creadas and not distribuir_al_cargar:
         distribucion_pendiente = "Revisá y confirmá la distribución de la nómina desde autoridades."

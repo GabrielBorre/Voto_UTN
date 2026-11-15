@@ -1,8 +1,11 @@
 from datetime import date, time, timedelta
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
+import jwt
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.core.exceptions import SuspiciousOperation
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -15,9 +18,85 @@ from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Turno
 from apps.usuarios.backend_auth import ElectorUser
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
+from config.views import _keycloak_url_publico, keycloak_login_callback_view, keycloak_login_view
+
+
+class KeycloakInstanciasTests(SimpleTestCase):
+    def test_url_publica_conserva_puerto_predeterminado(self):
+        with override_settings(KEYCLOAK_PUERTO_PUBLICO=8080, KEYCLOAK_RUTA_PUBLICA=""):
+            request = RequestFactory().get("/", HTTP_HOST="localhost:8443")
+            self.assertEqual(_keycloak_url_publico(request), "http://localhost:8080")
+
+    def test_login_separa_puerto_ruta_y_callback_por_instancia(self):
+        for numero in (1, 2, 3):
+            with self.subTest(instancia=numero), override_settings(
+                KEYCLOAK_PUERTO_PUBLICO=8080 + numero,
+                KEYCLOAK_RUTA_PUBLICA=f"/instancia-{numero}",
+                KEYCLOAK_REALM="FRBA",
+                KEYCLOAK_CLIENT_ID="VOTOUTN",
+            ):
+                request = RequestFactory().get(
+                    "/login/", secure=True, HTTP_HOST=f"localhost:{8443 + numero}",
+                )
+                request.session = {}
+                respuesta = keycloak_login_view(request)
+                destino = urlparse(respuesta.url)
+                parametros = parse_qs(destino.query)
+                self.assertEqual(destino.netloc, f"localhost:{8080 + numero}")
+                self.assertEqual(
+                    destino.path, f"/instancia-{numero}/realms/FRBA/protocol/openid-connect/auth",
+                )
+                self.assertEqual(
+                    parametros["redirect_uri"], [f"https://localhost:{8443 + numero}/callback"],
+                )
+                self.assertEqual(
+                    request.session["keycloak_url_publico"],
+                    f"http://localhost:{8080 + numero}/instancia-{numero}",
+                )
+
+    @override_settings(
+        ALLOWED_HOSTS=["[::1]"], KEYCLOAK_PUERTO_PUBLICO=8082, KEYCLOAK_RUTA_PUBLICA="/instancia-2",
+    )
+    def test_url_publica_preserva_host_ipv6(self):
+        request = RequestFactory().get("/", HTTP_HOST="[::1]:8445")
+        self.assertEqual(_keycloak_url_publico(request), "http://[::1]:8082/instancia-2")
+
+    @override_settings(
+        KEYCLOAK_URL_INTERNO="http://keycloak:8080/instancia-2",
+        KEYCLOAK_REALM="FRBA",
+        KEYCLOAK_CLIENT_ID="VOTOUTN",
+    )
+    @patch("config.views.jwt.decode", side_effect=jwt.InvalidTokenError("Firma invalida"))
+    @patch("config.views.PyJWKClient")
+    @patch("config.views.requests.post")
+    def test_callback_envia_host_sin_ruta_y_valida_issuer_de_la_instancia(
+        self, post, cliente_jwk, decodificar,
+    ):
+        request = RequestFactory().get("/callback?code=codigo&state=estado")
+        request.session = {
+            "keycloak_estado": "estado",
+            "keycloak_redirect_uri": "https://localhost:8445/callback",
+            "keycloak_url_publico": "http://localhost:8082/instancia-2",
+        }
+        post.return_value.json.return_value = {"id_token": "token"}
+        with self.assertRaises(SuspiciousOperation):
+            keycloak_login_callback_view(request)
+        self.assertEqual(
+            post.call_args.args[0],
+            "http://keycloak:8080/instancia-2/realms/FRBA/protocol/openid-connect/token",
+        )
+        self.assertEqual(post.call_args.kwargs["headers"], {"Host": "localhost:8082"})
+        self.assertEqual(cliente_jwk.call_args.kwargs["headers"], {"Host": "localhost:8082"})
+        self.assertEqual(
+            decodificar.call_args.kwargs["issuer"],
+            "http://localhost:8082/instancia-2/realms/FRBA",
+        )
+        self.assertEqual(decodificar.call_args.kwargs["audience"], "VOTOUTN")
+        self.assertEqual(decodificar.call_args.kwargs["algorithms"], ["RS256"])
 
 
 class InicioAutenticadoTests(TestCase):
+    @override_settings(KEYCLOAK_PUERTO_PUBLICO=8080, KEYCLOAK_RUTA_PUBLICA="")
     def test_login_redirige_al_flujo_oidc_de_keycloak(self):
         respuesta = self.client.get(reverse("keycloak_login"), HTTP_HOST="localhost:8000")
 

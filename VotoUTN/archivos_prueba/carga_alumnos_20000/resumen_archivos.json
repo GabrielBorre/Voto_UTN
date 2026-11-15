@@ -1,0 +1,45 @@
+{
+  "filas_padron": 20000,
+  "personas_distintas": 18500,
+  "registros_adicionales": 1500,
+  "departamentos": [
+    "K",
+    "I",
+    "R",
+    "O",
+    "S"
+  ],
+  "sede_electoral": "Campus",
+  "maximo_por_mesa": 300,
+  "mesas_principales": 65,
+  "mesas_especiales": 5,
+  "mesas_totales": 70,
+  "mesas_de_300": 60,
+  "mesas_de_200": 10,
+  "autoridades_distintas": 630,
+  "turnos": [
+    "Mañana",
+    "Tarde",
+    "Noche"
+  ],
+  "titulares_por_mesa_y_turno": 3,
+  "registros_sin_restriccion_de_cursada": 20000,
+  "archivos": {
+    "padron_alumnos_20000_filas.csv": {
+      "bytes": 1971472,
+      "sha256": "628b66e3a7aaab6b7f26985beb3e500f5dcbdcc3ce6d1ee5ba78a2e3a116cde7"
+    },
+    "nomina_autoridades_630.csv": {
+      "bytes": 15156,
+      "sha256": "f8ad745647a02697c071ffdfc40b9de66fbb1ce74b00d44d934a239fa28ecc09"
+    },
+    "control_mesas_esperadas.csv": {
+      "bytes": 1880,
+      "sha256": "ce9ab9164d8d044eb0a06b8cfff5fd306efa5c509ab52a872e810c979fac1026"
+    },
+    "control_personas_nomina.csv": {
+      "bytes": 40271,
+      "sha256": "3a5ac95e9b7acfe6afb9f7fed97fe92992c74a2432cc0b1afed6bd5ba87cf6e7"
+    }
+  }
+}

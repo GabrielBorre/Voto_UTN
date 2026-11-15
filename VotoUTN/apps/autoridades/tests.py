@@ -1,5 +1,6 @@
 from datetime import datetime, time, timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model, login
 from django.core.exceptions import ValidationError
 from django.contrib.sessions.backends.db import SessionStore
@@ -762,7 +763,7 @@ class ElectorBackendTests(TestCase):
             "subject": "kc-sub",
         }
         request.session.save()
-        cliente.cookies["sessionid"] = request.session.session_key
+        cliente.cookies[settings.SESSION_COOKIE_NAME] = request.session.session_key
 
         respuesta = cliente.get(reverse("index"), HTTP_HOST="localhost")
 

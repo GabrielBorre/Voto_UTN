@@ -1,6 +1,10 @@
 document.querySelectorAll("[data-autoguardar-configuracion]").forEach((formulario) => {
   if (formulario.closest("fieldset:disabled")) return;
   const estado = formulario.querySelector("[data-autosave-status]");
+  const mostrarEstado = (mensaje) => {
+    estado.textContent = mensaje;
+    estado.hidden = !mensaje;
+  };
   const controles = Array.from(formulario.querySelectorAll("input, select, textarea"))
     .filter((control) => control.name !== "csrfmiddlewaretoken");
 
@@ -34,7 +38,7 @@ document.querySelectorAll("[data-autoguardar-configuracion]").forEach((formulari
     const revisionEnviada = revision;
     let guardadoExitoso = false;
     const terminarCarga = window.VotoUTN.iniciarCarga("Guardando configuración…");
-    estado.textContent = "Guardando…";
+    mostrarEstado("Guardando…");
     guardadoEnCurso = fetch(formulario.action || window.location.href, {
       method: "POST",
       body: prepararDatos(),
@@ -48,14 +52,14 @@ document.querySelectorAll("[data-autoguardar-configuracion]").forEach((formulari
         guardadoExitoso = true;
         if (revision === revisionEnviada) {
           cambiosPendientes = false;
-          estado.textContent = contenido.mensaje || "Configuración guardada automáticamente.";
+          mostrarEstado(contenido.mensaje === "Configuración guardada automáticamente." ? "" : contenido.mensaje || "");
         } else {
-          estado.textContent = "Guardando los últimos cambios…";
+          mostrarEstado("Guardando los últimos cambios…");
         }
         return true;
       })
       .catch(() => {
-        estado.textContent = "No se pudo guardar. Revisá los valores e intentá de nuevo.";
+        mostrarEstado("No se pudo guardar. Revisá los valores e intentá de nuevo.");
         return false;
       })
       .finally(() => {
@@ -75,7 +79,7 @@ document.querySelectorAll("[data-autoguardar-configuracion]").forEach((formulari
   const programarGuardado = () => {
     revision += 1;
     cambiosPendientes = true;
-    estado.textContent = "Hay cambios pendientes de guardar…";
+    mostrarEstado("Hay cambios pendientes de guardar…");
     programarGuardadoAutomatico(450);
   };
 
@@ -88,7 +92,7 @@ document.querySelectorAll("[data-autoguardar-configuracion]").forEach((formulari
     window.clearTimeout(temporizador);
     temporizador = null;
     cambiosPendientes = false;
-    estado.textContent = "Guardando configuración…";
+    mostrarEstado("Guardando configuración…");
   });
 
   document.addEventListener("click", (evento) => {

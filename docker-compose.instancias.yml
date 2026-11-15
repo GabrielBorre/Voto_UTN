@@ -1,0 +1,116 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: voto_utn
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD}
+    ports:
+      - "${PUERTO_DB:?Falta PUERTO_DB}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d voto_utn"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.2
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Falta KEYCLOAK_ADMIN_PASSWORD}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      # La ruta separa las cookies de Keycloak incluso usando el mismo host.
+      KC_HTTP_RELATIVE_PATH: /instancia-${INSTANCIA:?Falta INSTANCIA}
+    ports:
+      - "${PUERTO_KEYCLOAK:?Falta PUERTO_KEYCLOAK}:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./Keycloak/realm-export:/opt/keycloak/data/import:ro
+      - ./Keycloak/themes/utn-login:/opt/keycloak/themes/utn-login:ro
+
+  mailpit:
+    image: axllent/mailpit:v1.31.2
+    restart: unless-stopped
+    ports:
+      - "${PUERTO_MAILPIT:?Falta PUERTO_MAILPIT}:8025"
+      - "${PUERTO_SMTP:?Falta PUERTO_SMTP}:1025"
+    environment:
+      MP_MAX_MESSAGES: "500"
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+
+  web:
+    image: voto-utn-instancias:local
+    build:
+      context: ./VotoUTN
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Falta DJANGO_SECRET_KEY}
+      CLAVE_FIRMA_QR: ${CLAVE_FIRMA_QR:?Falta CLAVE_FIRMA_QR}
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: "*"
+      INSTANCIA_DEMO: ${INSTANCIA}
+      DJANGO_SESSION_COOKIE_NAME: voto_utn_${INSTANCIA}_sessionid
+      DJANGO_CSRF_COOKIE_NAME: voto_utn_${INSTANCIA}_csrftoken
+      POSTGRES_DB: voto_utn
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      EMAIL_HOST: mailpit
+      EMAIL_PORT: "1025"
+      KEYCLOAK_URL_INTERNO: http://keycloak:8080/instancia-${INSTANCIA}
+      KEYCLOAK_PUERTO_PUBLICO: ${PUERTO_KEYCLOAK}
+      KEYCLOAK_RUTA_PUBLICA: /instancia-${INSTANCIA}
+    expose:
+      - "8000"
+    volumes:
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+      - generated_qrs:/app/generated_qrs
+    command: >-
+      sh -c 'if [ "$$INSTANCIA_DEMO" = "1" ]; then
+      python manage.py iniciar_instancia_demo;
+      else python manage.py migrate --noinput; fi &&
+      python manage.py collectstatic --noinput &&
+      python manage.py runserver 0.0.0.0:8000'
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      mailpit:
+        condition: service_started
+
+  proxy:
+    image: caddy:2.10.2
+    restart: unless-stopped
+    environment:
+      PUERTO_HTTPS: ${PUERTO_HTTPS:?Falta PUERTO_HTTPS}
+    ports:
+      - "${PUERTO_HTTP:?Falta PUERTO_HTTP}:8000"
+      - "${PUERTO_HTTPS}:8443"
+    volumes:
+      - ./docker/Caddyfile.instancias:/etc/caddy/Caddyfile:ro
+      - staticfiles:/srv/static:ro
+      - media:/srv/media:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_started
+
+volumes:
+  pgdata:
+  keycloak_data:
+  staticfiles:
+  media:
+  generated_qrs:
+  caddy_data:
+  caddy_config:

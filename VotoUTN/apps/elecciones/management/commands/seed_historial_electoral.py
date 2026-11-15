@@ -257,6 +257,7 @@ class Command(BaseCommand):
         registro, _ = RegistroPadron.objects.get_or_create(
             elector=elector,
             eleccion=eleccion,
+            es_principal=True,
             defaults={
                 "eleccion_claustro_departamento": alcance,
                 "sede": sede,

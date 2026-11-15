@@ -18,7 +18,7 @@ from apps.justificativos.services import (
     validar_comprobante,
 )
 from apps.notificaciones.services import crear_notificacion_resultado_justificativo, enviar_notificacion
-from apps.padron.models import Elector, RegistroPadron
+from apps.padron.models import RegistroPadron
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import (
     es_administrativo_junta,
@@ -30,25 +30,40 @@ from apps.usuarios.services import elector_de_identidad
 
 @login_required
 def mis_justificativos(request):
-    perfil = getattr(request.user, "perfil_electoral", None)
     eleccion = (
         Eleccion.objects.filter(estado__in=ESTADOS_ELECCION_NO_CERRADOS)
         .order_by("-fecha_inicio", "-id")
         .first()
     )
     registro_padron = None
-    dni = getattr(request.user, "dni", None)
-    if perfil is not None and perfil.elector_id:
-        dni = perfil.elector.dni
-    if eleccion is not None:
-        registro_padron = (
-            RegistroPadron.objects.filter(dni=dni, eleccion=eleccion, activo=True)
-            .select_related("eleccion", "elector")
-            .first()
-        )
-    elector = registro_padron.elector if registro_padron else None
-    if elector is None:
+    elector = elector_de_identidad(request.user)
+    if eleccion is None or elector is None:
         return HttpResponseForbidden("No existe un elector asociado a esta identidad en la elección actual.")
+    registros = RegistroPadron.objects.filter(
+        elector=elector,
+        eleccion=eleccion,
+        activo=True,
+    ).select_related(
+        "eleccion",
+        "elector",
+    )
+    ausencia_solicitada = (
+        request.POST.get("ausencia")
+        if request.method == "POST"
+        else request.GET.get("ausencia")
+    )
+    if ausencia_solicitada == JustificativoAusencia.Ausencia.AUTORIDAD:
+        registro_padron = registros.filter(
+            asignacion_autoridad__isnull=False,
+        ).order_by("-es_principal", "pk").first()
+    else:
+        registro_padron = (
+            registros.filter(participaciones__isnull=False)
+            .exclude(justificativos__ausencia=JustificativoAusencia.Ausencia.VOTAR)
+            .order_by("-es_principal", "pk")
+            .first()
+            or registros.filter(es_principal=True).first()
+        )
     estado_habilitado = bool(
         eleccion
         and eleccion.estado in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO)

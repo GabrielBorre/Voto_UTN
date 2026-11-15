@@ -6,6 +6,7 @@ from django.db.models import Case, IntegerField, Value, When
 from apps.asistencia.models import RegistroParticipacion
 from apps.autoridades.models import AsignacionAutoridad
 from apps.justificativos.models import JustificativoAusencia
+from apps.justificativos.services import justificativos_electorales_para_registro
 from apps.mesas.models import Mesa
 from apps.padron.models import AsignacionSedePadron
 
@@ -154,9 +155,8 @@ def exportar_reporte_eleccion(eleccion, tipo):
             participaciones__isnull=False,
         ).select_related("elector", "sede", "asignacion_mesa__mesa").distinct()
         for registro in ausentes:
-            justificativos = JustificativoAusencia.objects.filter(
-                registro_padron=registro,
-                ausencia=JustificativoAusencia.Ausencia.VOTAR,
+            justificativos = justificativos_electorales_para_registro(
+                registro_id=registro.pk, elector_id=registro.elector_id, eleccion_id=registro.eleccion_id,
             )
             if justificativos.filter(estado=JustificativoAusencia.Estado.APROBADO).exists():
                 continue

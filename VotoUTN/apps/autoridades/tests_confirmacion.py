@@ -13,6 +13,7 @@ from apps.autoridades.models import ConfiguracionAutoridades
 from apps.autoridades.seleccion_manual import asignar_manualmente
 from apps.autoridades.services import asignar_autoridad
 from apps.elecciones.models import Eleccion
+from apps.justificativos.models import TipoJustificativo
 from apps.notificaciones.models import EnvioNotificacion
 from apps.padron.models import SolicitudCambioSede
 
@@ -20,6 +21,7 @@ from apps.padron.models import SolicitudCambioSede
 class ConfirmacionAutoridadesTests(TestCase):
     def setUp(self):
         base.TurnosAutoridadesTests.setUp(self)
+        TipoJustificativo.objects.create(nombre="Motivo de demo")
         asignar_autoridad(self.registros[0], self.mesa, self.manana, self.usuario)
         Eleccion.objects.filter(pk=self.eleccion.pk).update(
             estado=Eleccion.Estado.PUBLICADA, fecha_cierre_solicitudes_cambio_sede=timezone.localdate() - timedelta(days=1),

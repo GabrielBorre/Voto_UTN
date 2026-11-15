@@ -264,6 +264,7 @@ class DashboardParticipacionTests(TestCase):
         self.assertContains(respuesta, "Debe haber una elección en curso para poder registrar participación.")
 
     def test_admin_confirma_notificaciones_solo_con_todas_las_mesas_procesadas_y_no_duplica(self):
+        TipoJustificativo.objects.create(nombre="Motivo de demo")
         self.eleccion.estado = Eleccion.Estado.EN_CURSO
         self.eleccion.save(update_fields=("estado",))
         administrador = get_user_model().objects.create_user(username="admin-notificaciones-ausentes")
@@ -364,7 +365,8 @@ class DashboardParticipacionTests(TestCase):
         self.assertEqual(self.eleccion.fecha_limite_justificacion_electores, fecha_limite)
         self.assertEqual(self.eleccion.envios_notificacion.count(), 0)
 
-    def test_confirmacion_habilita_al_elector_ausente_a_presentar_justificativo(self):
+    def test_confirmacion_genera_justificativo_demo_para_el_elector_ausente(self):
+        TipoJustificativo.objects.create(nombre="Motivo de demo")
         self.eleccion.estado = Eleccion.Estado.EN_CURSO
         self.eleccion.save(update_fields=("estado",))
         administrador = get_user_model().objects.create_user(username="admin-abre-justificativos")
@@ -396,18 +398,6 @@ class DashboardParticipacionTests(TestCase):
         respuesta = self.client.get(reverse("mis-justificativos"))
 
         self.assertTrue(respuesta.context["puede_presentar_justificativo_electoral"])
-        self.assertContains(respuesta, 'id="btn-presentar"')
-        tipo = TipoJustificativo.objects.create(nombre="Motivo posterior al escaneo")
-        respuesta = self.client.post(
-            reverse("mis-justificativos"),
-            {
-                "ausencia": JustificativoAusencia.Ausencia.VOTAR,
-                "tipo": tipo.pk,
-                "detalle": "Justificativo presentado luego de confirmar la ausencia.",
-            },
-        )
-
-        self.assertEqual(respuesta.status_code, 302)
         self.assertTrue(
             JustificativoAusencia.objects.filter(
                 registro_padron=self.registros_a[0],

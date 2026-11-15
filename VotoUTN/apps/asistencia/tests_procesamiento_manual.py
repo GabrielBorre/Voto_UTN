@@ -62,6 +62,21 @@ class ProcesamientoManualDeMesaTests(TestCase):
 
         self.assertEqual(self._estado(), Mesa.EstadoEscaneo.PENDIENTE)
 
+    def test_carga_manual_rechaza_elector_de_otra_mesa(self):
+        otra_mesa = Mesa.objects.create(
+            eleccion=self.eleccion, numero=2,
+            eleccion_claustro_departamento=self.configuracion, sede=self.mesa.sede,
+        )
+        resultado = ServicioRegistroParticipacion.registrar_manual(
+            eleccion=self.eleccion, mesa_numero=otra_mesa.numero,
+            dni=self.padron.elector.dni, usuario=self.usuario,
+        )
+
+        self.assertTrue(resultado.invalidos)
+        self.assertFalse(RegistroParticipacion.objects.exists())
+        otra_mesa.refresh_from_db()
+        self.assertEqual(otra_mesa.estado_escaneo, Mesa.EstadoEscaneo.PENDIENTE)
+
     def test_carga_manual_desde_api_pasa_la_mesa_a_en_proceso(self):
         respuesta = self.client.post(
             reverse("api-asistencia-lote", args=(self.eleccion.pk,)),

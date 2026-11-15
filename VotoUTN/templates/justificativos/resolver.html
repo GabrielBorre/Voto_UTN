@@ -29,6 +29,7 @@
   </div>
 
   <div class="request-summary">
+    {% include "justificativos/_alcance.html" %}
     {% if justificativo.reclamo_participacion %}
     <div class="notice">El elector declara que votó pero figura como ausente. Si aprobás el reclamo, se anula la ausencia registrada (queda una copia para auditoría); si lo rechazás, la ausencia se mantiene.</div>
     {% if justificativo.comprobante_extraviado %}<div class="notice">El elector declaró que perdió el comprobante de votación. Requiere revisión manual del padrón.</div>{% endif %}

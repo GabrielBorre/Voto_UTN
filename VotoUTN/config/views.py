@@ -1,5 +1,5 @@
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import jwt
 import requests
@@ -13,11 +13,15 @@ from jwt.exceptions import PyJWKClientError
 
 
 def _keycloak_url_publico(request):
-    # Keycloak publica el puerto 8080 en la misma interfaz que la app; usar el host con el que
+    # Keycloak publica su puerto en la misma interfaz que la app; usar el host con el que
     # el navegador llego (PC por localhost/127.0.0.1, celular por la IP de la red Wi-Fi) permite
     # loguearse desde cualquiera de los dos sin fijar una URL unica en settings.
-    host_navegador = request.get_host().split(":")[0]
-    return f"http://{host_navegador}:{settings.KEYCLOAK_PUERTO_PUBLICO}"
+    host_navegador = urlsplit(f"//{request.get_host()}").hostname
+    if not host_navegador:
+        raise SuspiciousOperation("El host de la autenticacion de Keycloak no es valido")
+    if ":" in host_navegador:
+        host_navegador = f"[{host_navegador}]"
+    return f"http://{host_navegador}:{settings.KEYCLOAK_PUERTO_PUBLICO}{settings.KEYCLOAK_RUTA_PUBLICA}"
 
 
 def keycloak_login_view(request):
@@ -52,7 +56,7 @@ def keycloak_login_callback_view(request):
 
     # Las llamadas server-to-server (token y certs) viajan por la red interna del contenedor,
     # pero se envia el Host publico para que Keycloak emita el mismo "iss" que vio el navegador.
-    encabezado_host = {"Host": keycloak_url_publico.split("://", 1)[1]}
+    encabezado_host = {"Host": urlsplit(keycloak_url_publico).netloc}
     issuer_interno = f"{settings.KEYCLOAK_URL_INTERNO}/realms/{settings.KEYCLOAK_REALM}"
     issuer_publico = f"{keycloak_url_publico}/realms/{settings.KEYCLOAK_REALM}"
     token_url = f"{issuer_interno}/protocol/openid-connect/token"

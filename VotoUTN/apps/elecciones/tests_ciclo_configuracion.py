@@ -384,8 +384,10 @@ class CicloConfiguracionTests(TestCase):
 
     def test_emision_bloquea_todas_las_resoluciones_y_preserva_qr(self):
         self.estado(Eleccion.Estado.EN_CURSO)
-        solicitud = self.solicitud(self.crear_registro("40100003"))
+        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate() - timedelta(days=1)
+        self.eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
         registrar_emision_padron_imprimible(self.eleccion, self.usuario)
+        solicitud = self.solicitud(self.crear_registro("40100003"))
         self.registro.refresh_from_db()
         identificador = self.registro.identificador_qr
         for estado in (SolicitudCambioSede.Estado.APROBADA, SolicitudCambioSede.Estado.RECHAZADA):

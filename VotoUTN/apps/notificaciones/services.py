@@ -181,7 +181,7 @@ def notificar_eleccion_en_curso(eleccion):
             "contenido": (
                 "Hola {nombre_destinatario},\n\n"
                 "La elección {nombre_eleccion} está en curso.\n"
-                "Tu sede asignada es {sede} y tu mesa es {mesa}.\n\n"
+                "Sede de votación: {sede}.\nMesas asignadas: {mesa}.\n\n"
                 "Voto UTN"
             ),
             "roles_destinatarios": [AsignacionRol.Rol.ELECTOR],
@@ -193,6 +193,10 @@ def notificar_eleccion_en_curso(eleccion):
 
 @transaction.atomic
 def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificacion_electores):
+    from django.core.management.base import CommandError
+    from apps.elecciones.demo_generadores import completar_justificativos_demo
+    from apps.justificativos.models import JustificativoAusencia
+
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
     if eleccion.estado != Eleccion.Estado.EN_CURSO:
         raise ValueError("Las notificaciones de ausentes solo se pueden confirmar durante una elección en curso.")
@@ -216,6 +220,10 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
                 "fecha_limite_justificacion_electores",
             )
         )
+        try:
+            completar_justificativos_demo(eleccion, JustificativoAusencia.Ausencia.VOTAR)
+        except CommandError as error:
+            raise ValueError(str(error)) from error
         return []
 
     mesas = Mesa.objects.filter(eleccion=eleccion)
@@ -232,7 +240,8 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
             "asunto": "Información sobre tu participación: {nombre_eleccion}",
             "contenido": (
                 "Hola {nombre_destinatario},\n\n"
-                "En los registros de la elección {nombre_eleccion} figurás como ausente. "
+                "En los registros de la elección {nombre_eleccion} figurás como ausente.\n"
+                "Mesas con ausencia registrada: {mesas_ausentes}.\n\n"
                 "Podés presentar un justificativo hasta el día "
                 "{fecha_limite_justificacion_electores} inclusive, momento en el que finaliza "
                 "el período de justificación de inasistencias electorales.\n\n"
@@ -248,23 +257,30 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
         activo=True,
         asignacion_mesa__mesa__estado_escaneo=Mesa.EstadoEscaneo.PROCESADA,
         participaciones__isnull=False,
-    ).select_related("elector").distinct()
+    ).select_related(
+        "elector", "asignacion_mesa__mesa__sede",
+        "eleccion_claustro_departamento__departamento",
+    ).order_by("elector_id", "-es_principal", "pk").distinct()
+    personas = {}
+    for registro in registros_ausentes:
+        personas.setdefault(registro.elector_id, []).append(registro)
     envios = [
         EnvioNotificacion(
             plantilla=plantilla,
             eleccion=eleccion,
-            elector=registro.elector,
+            elector=registros[0].elector,
             asunto=plantilla.asunto.format(
-                nombre_destinatario=registro.elector.nombre_completo,
+                nombre_destinatario=registros[0].elector.nombre_completo,
                 nombre_eleccion=eleccion.nombre,
             ),
             contenido=plantilla.contenido.format(
-                nombre_destinatario=registro.elector.nombre_completo,
+                nombre_destinatario=registros[0].elector.nombre_completo,
                 nombre_eleccion=eleccion.nombre,
+                mesas_ausentes=_descripcion_mesas(registros),
                 fecha_limite_justificacion_electores=fecha_limite_justificacion_electores.strftime("%d/%m/%Y"),
             ),
         )
-        for registro in registros_ausentes
+        for registros in personas.values()
     ]
     EnvioNotificacion.objects.bulk_create(envios)
     eleccion.notificaciones_ausentes_confirmadas_en = momento_confirmacion
@@ -277,7 +293,28 @@ def crear_notificaciones_ausentes_confirmadas(eleccion, fecha_limite_justificaci
             "fecha_limite_justificacion_electores",
         )
     )
+    try:
+        completar_justificativos_demo(eleccion, JustificativoAusencia.Ausencia.VOTAR)
+    except CommandError as error:
+        raise ValueError(str(error)) from error
     return envios
+
+
+def _descripcion_mesas(registros):
+    descripciones = []
+    for registro in registros:
+        asignacion = getattr(registro, "asignacion_mesa", None)
+        if asignacion is None:
+            descripcion = f"{registro.eleccion_claustro_departamento.departamento}: sin mesa asignada"
+        else:
+            mesa = asignacion.mesa
+            descripcion = mesa.codigo
+            if len(registros) > 1:
+                descripcion += " (especial)" if mesa.es_especial else " (principal)"
+            if mesa.sede_id:
+                descripcion += f" — {mesa.sede.nombre}"
+        descripciones.append(descripcion)
+    return "; ".join(descripciones)
 
 
 def _notificar_electores_de_eleccion(eleccion, plantilla):
@@ -286,9 +323,22 @@ def _notificar_electores_de_eleccion(eleccion, plantilla):
     registros = RegistroPadron.objects.filter(eleccion=eleccion, activo=True).select_related(
         "elector",
         "sede",
+        "asignacion_mesa__mesa__sede",
         "asignacion_mesa__mesa__eleccion_claustro_departamento__departamento",
-    )
+        "eleccion_claustro_departamento__departamento",
+    ).order_by("elector_id", "-es_principal", "pk")
+    personas = {}
     for registro in registros:
+        personas.setdefault(registro.elector_id, []).append(registro)
+    for registros_persona in personas.values():
+        registro = registros_persona[0]
+        sedes = []
+        for item in registros_persona:
+            asignacion = getattr(item, "asignacion_mesa", None)
+            sede = asignacion.mesa.sede if asignacion else None
+            nombre_sede = sede.nombre if sede else "Sin asignar"
+            if nombre_sede not in sedes:
+                sedes.append(nombre_sede)
         envio = crear_notificacion(
             plantilla=plantilla,
             eleccion=eleccion,
@@ -296,8 +346,8 @@ def _notificar_electores_de_eleccion(eleccion, plantilla):
             contexto={
                 "nombre_destinatario": registro.elector.nombre_completo,
                 "nombre_eleccion": eleccion.nombre,
-                "sede": registro.sede.nombre if registro.sede_id else "Sin asignar",
-                "mesa": registro.asignacion_mesa.mesa.codigo if hasattr(registro, "asignacion_mesa") else "Sin asignar",
+                "sede": "; ".join(sedes),
+                "mesa": _descripcion_mesas(registros_persona),
             },
         )
         enviar_notificacion(envio)
