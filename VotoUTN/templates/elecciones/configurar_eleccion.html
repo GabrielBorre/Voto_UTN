@@ -82,9 +82,6 @@
 {% if pendientes_configuracion %}
 <div class="notice"><strong>Configuración pendiente</strong><ul>{% for pendiente in pendientes_configuracion %}<li>{{ pendiente }}</li>{% endfor %}</ul></div>
 {% endif %}
-{% if eleccion.estado != 'en_preparacion' %}
-<div class="notice">La configuración está en modo lectura. {% if eleccion.estado == 'publicada' or eleccion.estado == 'en_curso' %}Se permite modificar las fechas administrativas{% if eleccion.estado == 'en_curso' %}, emitir el padrón imprimible{% endif %} y avanzar al siguiente estado.{% endif %}</div>
-{% endif %}
 {% endblock %}
 {% block scripts %}
 <script type="module" src="{% static 'js/publicar-eleccion.js' %}"></script>

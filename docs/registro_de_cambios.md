@@ -1,5 +1,16 @@
 # Registro de cambios por etapa
 
+## Aprobación individual y confirmaciones de cambios de sede
+
+- `apps/padron/views.py`: la aprobación individual aplica el servicio de
+  resolución y recálculo en una transacción, notifica y vuelve al listado
+  conservando el filtro. Las acciones masivas mantienen su revisión.
+- Las tres plantillas base cargan `js/interfaz.js` con la misma URL sin
+  parámetros que usan los imports ES6. Así se evita ejecutar dos instancias
+  del módulo y abrir otra confirmación al aceptar la primera.
+- `apps/padron/tests.py`: regresiones de aprobación directa, notificación
+  única, permisos, bloqueo por QR, reversión ante error y URL de carga.
+
 ## Autoridades y plazos para demostraciones
 
 - La Junta puede confirmar autoridades antes del vencimiento del plazo de cambios de sede si no quedan solicitudes pendientes. La confirmación cierra nuevas solicitudes y la interfaz lo informa.

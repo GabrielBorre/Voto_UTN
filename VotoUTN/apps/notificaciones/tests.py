@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from apps.asistencia.models import RegistroParticipacion
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
+from apps.justificativos.models import TipoJustificativo
 from apps.notificaciones.forms import FormularioEnviarNotificacion
 from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
 from apps.notificaciones.services import (
@@ -261,6 +262,7 @@ class NotificacionesDestinatariosTests(TestCase):
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
 class NotificacionesAusentesTests(TestCase):
     def test_fecha_limite_inclusiva_se_incluye_en_notificacion_interna_y_correo(self):
+        TipoJustificativo.objects.create(nombre="Motivo de demo")
         eleccion = Eleccion.objects.create(
             nombre="Elección de prueba",
             fecha_inicio=date(2026, 8, 3),

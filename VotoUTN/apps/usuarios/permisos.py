@@ -1,3 +1,5 @@
+from django.db.models import Q
+
 from apps.usuarios.models import AsignacionRol
 from apps.elecciones.models import Eleccion
 from apps.autoridades.models import AsignacionAutoridad
@@ -117,8 +119,7 @@ def puede_registrar_participacion(usuario, eleccion, mesa=None):
 
     asignaciones = asignaciones.filter(
         rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
-        eleccion=eleccion,
-    )
+    ).filter(Q(eleccion=eleccion) | Q(eleccion__isnull=True))
     if mesa is None:
         return asignaciones.exists()
     return asignaciones.filter(mesa__isnull=True, sede__isnull=True).exists() or asignaciones.filter(mesa=mesa).exists() or asignaciones.filter(sede=mesa.sede, mesa__isnull=True).exists()
@@ -136,9 +137,9 @@ def puede_revisar_justificativo(usuario, eleccion):
     if es_administrativo_junta(usuario):
         return True
     return AsignacionRol.objects.filter(
+        Q(eleccion=eleccion) | Q(eleccion__isnull=True),
         usuario=usuario,
         activo=True,
-        eleccion=eleccion,
         rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
     ).exists() or AsignacionRol.objects.filter(usuario=usuario, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists()
 
@@ -150,6 +151,10 @@ def elecciones_con_participacion(usuario):
     if usuario.is_superuser or AsignacionRol.objects.filter(usuario=usuario, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_SISTEMA).exists():
         return elecciones
     if es_administrativo_junta(usuario):
+        return elecciones
+    if AsignacionRol.objects.filter(
+        usuario=usuario, activo=True, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion__isnull=True,
+    ).exists():
         return elecciones
     return elecciones.filter(
         asignaciones_rol__usuario=usuario,

@@ -75,9 +75,9 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
-        eleccion = Eleccion.objects.filter(nombre="2030").first()
+        eleccion = Eleccion.objects.filter(nombre="Eleccion Demo 2026").first()
         if eleccion is None:
-            raise CommandError("No existe Eleccion 2030. Ejecuta antes seed_demo_data.")
+            raise CommandError("No existe Eleccion Demo 2026. Ejecuta antes seed_demo_data.")
 
         configuracion = EleccionClaustroDepartamento.objects.filter(
             eleccion_claustro__eleccion=eleccion,
@@ -85,7 +85,7 @@ class Command(BaseCommand):
         sede = eleccion.elecciones_sede.select_related("sede").first()
         mesa = Mesa.objects.filter(eleccion=eleccion).order_by("numero").first()
         if configuracion is None or sede is None or mesa is None:
-            raise CommandError("La Elección 2030 no tiene configurados padrón, sede y mesa.")
+            raise CommandError("La Elección Demo 2026 no tiene configurados padrón, sede y mesa.")
 
         admin_junta = self._crear_usuario_interno(USUARIOS["administrador_junta"], eleccion, sede.sede)
         administrativo = self._crear_usuario_interno(USUARIOS["administrativo_junta"], eleccion, sede.sede)
@@ -108,7 +108,7 @@ class Command(BaseCommand):
                 .first()
             )
             if turno is None:
-                raise CommandError("La Elección 2030 no tiene turnos de autoridades configurados.")
+                raise CommandError("La Elección Demo 2026 no tiene turnos de autoridades configurados.")
             AsignacionAutoridad.objects.update_or_create(
                 registro_padron=autoridad_2[1],
                 defaults={
