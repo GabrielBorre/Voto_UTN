@@ -163,6 +163,7 @@ class Command(BaseCommand):
         registro, _ = RegistroPadron.objects.update_or_create(
             elector=elector,
             eleccion=eleccion,
+            es_principal=True,
             defaults={
                 "eleccion_claustro_departamento": configuracion,
                 "sede": sede,

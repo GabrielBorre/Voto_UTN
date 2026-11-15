@@ -75,6 +75,14 @@ class NominaAutomaticaTests(TestCase):
         self.assertContains(respuesta, "Revisar distribución propuesta")
         self.assertEqual(ImportacionNominaAutoridades.objects.get().cantidad_validas, 1)
 
+    def test_nomina_rechaza_misma_persona_por_documento_y_legajo(self):
+        from apps.autoridades.services import validar_csv_autoridades
+
+        elector = self.registros[0].elector
+        contenido = f"Documento;Legajo\n{elector.dni};\n;{elector.legajo}\n".encode()
+        _, errores = validar_csv_autoridades(contenido, self.eleccion_claustro, "nomina.csv")
+        self.assertTrue(any(numero == 3 and "repetido" in mensaje for numero, mensaje in errores))
+
     def test_historial_conserva_cancelacion_y_restringe_descarga(self):
         from django.contrib.auth import get_user_model
         self.cargar(confirmar=False)
@@ -163,6 +171,22 @@ class NominaAutomaticaTests(TestCase):
     def test_cambio_de_minimo_invalida_previsualizacion(self):
         self.cargar(confirmar=False)
         self.eleccion_claustro.turnos_autoridad.update(minimo_titulares_por_mesa=2)
+        respuesta = self.client.post(self.ruta, {"confirmar-nomina": "1"}, follow=True)
+        self.assertContains(respuesta, "Los datos cambiaron desde la previsualización")
+        self.assertFalse(AsignacionAutoridad.objects.exists())
+
+    def test_cambio_tipo_mesa_invalida_previsualizacion(self):
+        self.cargar(confirmar=False)
+        self.mesa.es_especial = True
+        self.mesa.save(update_fields=("es_especial",))
+        respuesta = self.client.post(self.ruta, {"confirmar-nomina": "1"}, follow=True)
+        self.assertContains(respuesta, "Los datos cambiaron desde la previsualización")
+        self.assertFalse(AsignacionAutoridad.objects.exists())
+
+    def test_cambio_registro_principal_invalida_previsualizacion(self):
+        self.cargar(confirmar=False)
+        self.registros[0].es_principal = False
+        self.registros[0].save(update_fields=("es_principal",))
         respuesta = self.client.post(self.ruta, {"confirmar-nomina": "1"}, follow=True)
         self.assertContains(respuesta, "Los datos cambiaron desde la previsualización")
         self.assertFalse(AsignacionAutoridad.objects.exists())

@@ -4,9 +4,9 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
 
-from apps.elecciones.models import EleccionClaustroDepartamento
+from apps.elecciones.models import EleccionClaustro, EleccionClaustroDepartamento
 from apps.padron.models import RegistroPadron
-from apps.parametros.models import Departamento
+from apps.parametros.models import Claustro, Departamento
 from apps.partidos.forms import FormularioCandidato
 from apps.partidos.models import Candidato, ImportacionCandidaturas
 from apps.partidos.services import (
@@ -83,6 +83,20 @@ class IdentidadCandidatoTests(PartidosBaseTests):
             self.buscar("LEGAJO", self.elector.legajo)
         self.puesto_eleccion.eleccion_claustro_departamento = None
         self.assertEqual(self.buscar("LEGAJO", self.elector.legajo), self.elector)
+
+    def test_rechaza_registro_de_otro_claustro_aunque_coincida_el_departamento(self):
+        otro_claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion, claustro=Claustro.objects.create(nombre="Otro claustro"),
+        )
+        otro_alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=otro_claustro, departamento=self.configuracion.departamento,
+        )
+        RegistroPadron.objects.filter(elector=self.elector).update(eleccion_claustro_departamento=otro_alcance)
+        with self.assertRaisesMessage(ValidationError, "otro claustro"):
+            self.buscar("DNI", self.elector.dni)
+        candidato = Candidato(lista=self.lista, elector=self.elector, tipo="titular", orden=1)
+        with self.assertRaisesMessage(ValidationError, "otro claustro"):
+            candidato.full_clean()
 
     def test_formulario_por_legajo_toma_nombre_del_padron_ignora_nombre_enviado(self):
         formulario = FormularioCandidato({"tipo_documento": "LEGAJO", "documento": self.elector.legajo,

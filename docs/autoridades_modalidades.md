@@ -36,12 +36,16 @@ mantienen su alcance sobre todo el claustro, indicado en la confirmación.
 
 Al final de la pantalla está «Eliminar todas las asignaciones». Pide confirmación
 y deja las mesas de ese claustro sin autoridades, sin ejecutar un nuevo sorteo.
-Limpia también las selecciones manuales y los destinos laborales
-fijados. Se conservan el padrón, las mesas de votación, la nómina y sus exclusiones,
-el modo, los turnos y los cupos. Permite comenzar una nueva asignación después.
+Elimina también todas las candidaturas de autoridad de ese claustro, incluidas
+las personas excluidas, sus selecciones manuales y sus destinos laborales fijados.
+Se conservan el padrón, las mesas de votación, el modo, los turnos, los cupos y el
+historial de archivos importados. Funciona también si ya no hay asignaciones y
+solo quedaron candidaturas que impiden vaciar el padrón. Después se puede cargar
+otra nómina o volver a sortear desde el padrón activo.
 Está disponible en cualquiera de los modos, con los mismos bloqueos por QR,
 elección abierta/cerrada y avisos de ausencia. Se registra quién la ejecutó y
-cuáles eran las asignaciones eliminadas.
+cuáles eran las asignaciones y candidaturas eliminadas. Las propuestas y
+comparaciones pendientes de la sesión se descartan.
 
 ## Sorteo por mesa
 

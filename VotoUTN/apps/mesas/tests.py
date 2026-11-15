@@ -1,6 +1,7 @@
 from datetime import datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.timezone import make_aware
@@ -67,6 +68,40 @@ class MesasTests(TestCase):
             [1, 2],
         )
         self.assertFalse(hasattr(self.eleccion.mesas.first(), "turno_id"))
+
+    def test_gestion_muestra_si_la_mesa_es_especial(self):
+        usuario = get_user_model().objects.create_user(username="junta")
+        AsignacionRol.objects.create(
+            usuario=usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion,
+        )
+        Mesa.objects.create(
+            eleccion=self.eleccion, numero=1, eleccion_claustro_departamento=self.configuracion,
+            sede=self.sede, es_especial=True,
+        )
+        self.client.force_login(usuario)
+        respuesta = self.client.get(reverse("gestionar-mesas", args=(self.eleccion.pk,)))
+        self.assertContains(respuesta, "Especial")
+
+    def test_mesa_especial_admite_sede_habilitada_para_otro_departamento_del_claustro(self):
+        otro = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=self.configuracion.eleccion_claustro,
+            departamento=Departamento.objects.create(nombre="Industrial", codigo="I"),
+        )
+        mesa = Mesa(eleccion=self.eleccion, numero=41, eleccion_claustro_departamento=otro, sede=self.sede)
+        with self.assertRaises(ValidationError):
+            mesa.full_clean()
+
+        mesa.es_especial = True
+        mesa.full_clean()
+
+    def test_mesa_especial_rechaza_sede_fuera_del_claustro(self):
+        otra_sede = Sede.objects.create(nombre="Sede no habilitada")
+        mesa = Mesa(
+            eleccion=self.eleccion, numero=42, eleccion_claustro_departamento=self.configuracion,
+            sede=otra_sede, es_especial=True,
+        )
+        with self.assertRaises(ValidationError):
+            mesa.full_clean()
 
     def test_gestionar_mesas_conserva_la_ruta_y_requiere_permiso(self):
         usuario = get_user_model().objects.create_user(

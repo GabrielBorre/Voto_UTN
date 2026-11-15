@@ -40,6 +40,7 @@
         <div class="footer-actions">
           <button class="button primary" name="guardar-configuracion">Guardar configuración</button>
         </div>
+        <p class="muted field-help autosave-status" role="status" aria-live="polite" data-autosave-status hidden></p>
         </fieldset>
       </form>
     {% else %}
@@ -81,7 +82,7 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Fecha</th><th>Archivo</th><th>Filas</th><th>Válidas</th><th>Errores</th><th>Estado</th><th>Usuario</th><th></th></tr>
+          <tr><th>Fecha</th><th>Archivo</th><th>Filas</th><th>Personas válidas</th><th>Errores</th><th>Estado</th><th>Usuario</th><th></th></tr>
         </thead>
         <tbody>
           {% for item in importaciones %}
@@ -129,5 +130,5 @@
 
 {% block scripts %}
   {{ block.super }}
-  <script src="{% static 'js/configuracion-padron-autoguardado.js' %}?v=20261009.1" defer></script>
+  <script src="{% static 'js/configuracion-padron-autoguardado.js' %}?v=20261115.1" defer></script>
 {% endblock %}

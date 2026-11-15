@@ -24,6 +24,13 @@ def es_candidato_electoral(registro):
     ).exists()
 
 
+def validar_personas_unicas(registros):
+    """No permite que distintos registros de padrón ocupen más de un cupo."""
+    electores = [registro.elector_id for registro in registros]
+    if len(electores) != len(set(electores)):
+        raise ValidationError("No se guardó la distribución: una persona ocupa más de un cupo.")
+
+
 def bloquear_edicion(claustro):
     eleccion = Eleccion.objects.select_for_update().get(pk=claustro.eleccion_id)
     if eleccion.estado not in (Eleccion.Estado.EN_PREPARACION, Eleccion.Estado.PUBLICADA):
@@ -44,7 +51,7 @@ def _auditar(claustro, usuario, accion, datos):
 
 @transaction.atomic
 def eliminar_asignaciones(claustro, usuario):
-    """Vacía las autoridades del claustro, sin ejecutar otra distribución."""
+    """Vacía asignaciones y candidaturas del claustro, sin redistribuir."""
     from django.core.exceptions import PermissionDenied
     from apps.usuarios.models import AsignacionRol
     from apps.usuarios.permisos import puede_gestionar_autoridades
@@ -57,17 +64,23 @@ def eliminar_asignaciones(claustro, usuario):
     anteriores = list(asignaciones.values(
         "id", "registro_padron_id", "mesa_id", "turno_id", "tipo", "orden_suplencia", "estado",
     ))
+    candidaturas = CandidaturaAutoridad.objects.filter(
+        registro_padron__eleccion_claustro_departamento__eleccion_claustro=claustro,
+    )
+    candidaturas_anteriores = list(candidaturas.values(
+        "id", "registro_padron_id", "excluida", "mesa_manual_id", "turno_manual_id",
+        "tipo_manual", "orden_manual", "mesa_traslado_id", "turno_traslado_id",
+    ))
     AsignacionRol.objects.filter(
         rol=AsignacionRol.Rol.AUTORIDAD_MESA, eleccion=claustro.eleccion, mesa__in=mesas,
     ).delete()
     asignaciones.delete()
-    CandidaturaAutoridad.objects.filter(
-        registro_padron__eleccion_claustro_departamento__eleccion_claustro=claustro,
-    ).update(mesa_manual=None, turno_manual=None, tipo_manual="", orden_manual=None,
-             mesa_traslado=None, turno_traslado=None)
+    candidaturas.delete()
     AsignacionMesa.objects.filter(mesa__in=mesas).update(autoridad_al_final=False)
     _auditar(claustro, usuario, "autoridades.asignaciones_eliminadas", {
         "eliminadas": len(anteriores), "asignaciones_anteriores": anteriores,
+        "candidaturas_eliminadas": len(candidaturas_anteriores),
+        "candidaturas_anteriores": candidaturas_anteriores,
     })
     return len(anteriores)
 
@@ -76,6 +89,12 @@ def _registros(claustro):
     return RegistroPadron.objects.filter(activo=True, eleccion_claustro_departamento__eleccion_claustro=claustro).select_related(
         "elector", "sede", "turno_cursada", "asignacion_mesa__mesa", "asignacion_sede_padron", "candidatura_autoridad",
     ).order_by("elector__apellido", "elector__nombre", "pk")
+
+
+def _tipo_mesa_compatible(registro, mesa):
+    """El registro debe conservar el tipo de su mesa electoral al ejercer."""
+    asignacion = getattr(registro, "asignacion_mesa", None)
+    return asignacion is not None and asignacion.mesa.es_especial == mesa.es_especial
 
 
 def _puede_trabajar(registro, mesa, turno, modo):
@@ -87,6 +106,7 @@ def _puede_trabajar(registro, mesa, turno, modo):
     return (
         registro.activo
         and registro.eleccion_claustro_departamento_id == mesa.eleccion_claustro_departamento_id
+        and _tipo_mesa_compatible(registro, mesa)
         and (_sede_electoral_actual(registro) == mesa.sede_id or traslado or seleccion_fija)
         and (not registro.sede_id or registro.turno_cursada_id)
         and (not registro.turno_cursada_id or not registro.turno_cursada.se_superpone_con(turno))
@@ -99,6 +119,8 @@ def _puede_trabajar_nomina(registro, mesa, turno, opciones, tipo="titular", *, t
     from apps.autoridades.services import _sede_electoral_actual
     propia = getattr(registro, "asignacion_mesa", None)
     if not propia or registro.eleccion_claustro_departamento_id != mesa.eleccion_claustro_departamento_id:
+        return False
+    if not _tipo_mesa_compatible(registro, mesa):
         return False
     if not mesa.sede_id or not mesa.sede.activa:
         return False
@@ -237,6 +259,35 @@ def _optimizar_nomina(candidatos_por_plaza, niveles, fijas):
     return resultado
 
 
+def _resolver_plazas_por_persona(candidatos_por_plaza, fijas, *, modo, niveles):
+    """Resuelve por elector y devuelve el registro elegible para cada plaza."""
+    registros = {registro.pk: registro for plaza in candidatos_por_plaza for registro, _ in plaza}
+    clave_por_elector = {}
+    for registro in registros.values():
+        clave_por_elector[registro.elector_id] = min(
+            clave_por_elector.get(registro.elector_id, registro.pk), registro.pk,
+        )
+    opciones = []
+    for plaza in candidatos_por_plaza:
+        por_persona = {}
+        for registro, distancia in plaza:
+            clave = clave_por_elector[registro.elector_id]
+            anterior = por_persona.get(clave)
+            if anterior is None or distancia < anterior[1]:
+                por_persona[clave] = (registro.pk, distancia)
+        opciones.append(por_persona)
+    fijas_personas = {plaza: clave_por_elector[registros[registro_id].elector_id] for plaza, registro_id in fijas.items()}
+    if len(set(fijas_personas.values())) != len(fijas_personas):
+        raise ValidationError("Una persona no puede conservar dos cupos de autoridad.")
+    if modo == "nomina":
+        candidatos = [[(persona, valor[1]) for persona, valor in plaza.items()] for plaza in opciones]
+        solucion = _optimizar_nomina(candidatos, niveles, fijas_personas)
+    else:
+        solucion = _completar_plazas([list(plaza) for plaza in opciones], fijas_personas)
+    return {plaza: fijas[plaza] if plaza in fijas else opciones[plaza][persona][0]
+            for plaza, persona in solucion.items()}
+
+
 def planificar_distribucion(claustro, opciones, mesas, turnos, *, preservar_asignaciones=True, traslado_sin_reordenar=False):
     """Calcula la cobertura sin guardar ni auditar cambios."""
     anteriores = list(AsignacionAutoridad.objects.filter(mesa__in=mesas).order_by("pk"))
@@ -322,6 +373,7 @@ def planificar_distribucion(claustro, opciones, mesas, turnos, *, preservar_asig
                         and anterior.orden_suplencia == (orden if tipo == "suplente" else None)
                         and registro.pk not in ids_elegibles
                         and registro.eleccion_claustro_departamento_id == mesa.eleccion_claustro_departamento_id
+                        and _tipo_mesa_compatible(registro, mesa)
                         and (not registro.sede_id or registro.turno_cursada_id)
                         and (not registro.turno_cursada_id or not registro.turno_cursada.se_superpone_con(turno))):
                     elegibles.append(registro)
@@ -368,16 +420,19 @@ def planificar_distribucion(claustro, opciones, mesas, turnos, *, preservar_asig
         candidatos_con_distancia = []
         for indice, (mesa, _, _, _) in enumerate(plazas):
             candidatos_con_distancia.append([
-                (r.pk, 0 if getattr(r, "asignacion_mesa", None) and r.asignacion_mesa.mesa_id == mesa.pk
+                (r, 0 if getattr(r, "asignacion_mesa", None) and r.asignacion_mesa.mesa_id == mesa.pk
                  else 1 if _sede_electoral_actual(r) == mesa.sede_id else 2)
                 for r in candidatos_por_plaza[indice]
             ])
         minimos = {config.turno_id: config.minimo_titulares_por_mesa for config in turnos}
         niveles = [0 if orden == 1 else 1 if orden <= minimos[turno.pk] else 2
                    for _, turno, _, orden in plazas]
-        solucion = _optimizar_nomina(candidatos_con_distancia, niveles, fijas)
+        solucion = _resolver_plazas_por_persona(candidatos_con_distancia, fijas, modo="nomina", niveles=niveles)
     else:
-        solucion = _completar_plazas([[r.pk for r in candidatos] for candidatos in candidatos_por_plaza], fijas)
+        solucion = _resolver_plazas_por_persona(
+            [[(r, 0) for r in candidatos] for candidatos in candidatos_por_plaza], fijas,
+            modo=opciones.modo, niveles=[],
+        )
     if len(solucion) != len(set(solucion.values())):
         raise ValidationError("No se guardó la distribución: una persona ocupa más de un cupo.")
     ocupantes = {indice: registro_por_id[persona] for indice, persona in solucion.items()}
@@ -421,6 +476,13 @@ def distribuir(claustro, usuario, *, preservar_asignaciones=True, aplicar_reacom
         claustro, opciones, mesas, turnos, preservar_asignaciones=preservar_asignaciones,
         traslado_sin_reordenar=traslado_sin_reordenar,
     )
+    validar_personas_unicas(ocupantes.values())
+    electores_finales = [registro.elector_id for registro in ocupantes.values()]
+    if AsignacionAutoridad.objects.filter(
+        registro_padron__eleccion_id=claustro.eleccion_id,
+        registro_padron__elector_id__in=electores_finales,
+    ).exclude(mesa__in=mesas, estado=AsignacionAutoridad.Estado.ASIGNADA).exists():
+        raise ValidationError("No se guardó la distribución: una persona ya tiene otra designación en la elección.")
     nuevas = []
     conservadas = []
     registros_finales = set()

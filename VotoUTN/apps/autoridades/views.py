@@ -214,11 +214,33 @@ def revisar_retorno_votacion(request, asignacion_id):
                         or datos != {"asignacion": asignacion_id, "huella": _huella(claustro)}):
                     raise ValidationError("Los datos cambiaron; revisá una nueva propuesta.")
                 movimientos = planificar_retorno(asignacion)
+                filas = {
+                    fila.registro_padron_id: fila
+                    for fila in AsignacionMesa.objects.select_for_update().filter(
+                        registro_padron_id__in=[movimiento["registro"] for movimiento in movimientos],
+                    ).select_related("mesa", "registro_padron__eleccion_claustro_departamento")
+                }
+                destinos = Mesa.objects.in_bulk([movimiento["mesa_id"] for movimiento in movimientos])
+                if len(filas) != len(movimientos) or any(m["mesa_id"] not in destinos for m in movimientos):
+                    raise ValidationError("El padrón cambió; revisá una nueva propuesta.")
+                movimientos = sorted(movimientos, key=lambda m: not filas[m["registro"]].registro_padron.es_principal)
                 for movimiento in movimientos:
-                    AsignacionMesa.objects.filter(registro_padron_id=movimiento["registro"]).update(mesa_id=movimiento["mesa_id"], autoridad_al_final=False)
-                AsignacionSedePadron.objects.update_or_create(registro_padron=asignacion.registro_padron, defaults={
-                    "sede_id": asignacion.mesa_votacion_original.sede_id, "estado": AsignacionSedePadron.Estado.ASIGNADA, "regla_aplicada": None,
-                })
+                    fila = filas[movimiento["registro"]]
+                    mesa = destinos[movimiento["mesa_id"]]
+                    if fila.mesa.sede_id != mesa.sede_id:
+                        sede, _ = AsignacionSedePadron.objects.get_or_create(
+                            registro_padron=fila.registro_padron,
+                            defaults={"sede_id": mesa.sede_id, "estado": AsignacionSedePadron.Estado.ASIGNADA},
+                        )
+                        sede.sede_id = mesa.sede_id
+                        sede.estado = AsignacionSedePadron.Estado.ASIGNADA
+                        sede.regla_aplicada = None
+                        sede.full_clean()
+                        sede.save()
+                    fila.mesa = mesa
+                    fila.autoridad_al_final = False
+                    fila.full_clean()
+                    fila.save(update_fields=("mesa", "autoridad_al_final"))
                 registrar_evento(accion="autoridades.restitucion_mesa_votacion", entidad="RegistroPadron", entidad_id=asignacion.registro_padron_id,
                                  eleccion=eleccion, usuario=request.user, request=request, datos_nuevos={"movimientos": movimientos})
             messages.success(request, f"Se confirmó el regreso y se actualizaron {len(movimientos)} asignaciones de mesa.")
@@ -329,7 +351,7 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
         return redirect("gestionar-autoridades-claustro", eleccion_id=eleccion.id, claustro_id=claustro_id)
     if request.method == "POST" and "eliminar-asignaciones" in request.POST:
         if request.POST.get("confirmar-eliminacion") != "1":
-            messages.error(request, "Confirmá la eliminación de todas las asignaciones antes de continuar.")
+            messages.error(request, "Confirmá la eliminación de todas las asignaciones y candidaturas de autoridad antes de continuar.")
         else:
             from apps.autoridades.distribucion import eliminar_asignaciones
             try:
@@ -339,7 +361,8 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
             else:
                 request.session.pop(clave_propuesta, None)
                 request.session.pop(clave_nomina, None)
-                messages.success(request, f"Se eliminaron {cantidad} asignaciones de autoridades de este claustro. Las mesas quedaron sin autoridades; podés volver a asignarlas cuando lo necesites.")
+                request.session.pop(clave_comparacion, None)
+                messages.success(request, f"Se eliminaron {cantidad} asignaciones y se vació la nómina de posibles autoridades de este claustro. El padrón y las mesas se conservaron.")
         return redirect("gestionar-autoridades-claustro", eleccion_id=eleccion.id, claustro_id=claustro_id)
     if aplicar_modo and formulario_modo.is_valid():
         modo_elegido = formulario_modo.cleaned_data["modo"]
@@ -371,7 +394,9 @@ def gestionar_autoridades_claustro(request, eleccion_id, claustro_id):
                              "sede": formulario_modo.cleaned_data["permitir_cambio_sede"]}
                     propuesta = previsualizar_nomina(eleccion_claustro, request.user, datos)
                     if importacion:
-                        importacion.cantidad_validas = len(registros)
+                        importacion.cantidad_validas = RegistroPadron.objects.filter(
+                            pk__in=registros,
+                        ).values("elector_id").distinct().count()
                         importacion.save(update_fields=("cantidad_validas",))
                         propuesta["importacion_id"] = importacion.pk
                     request.session[clave_nomina] = propuesta

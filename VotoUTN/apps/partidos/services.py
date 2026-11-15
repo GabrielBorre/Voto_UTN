@@ -77,15 +77,20 @@ def buscar_elector_candidato(*, eleccion, tipo_documento, documento, puesto):
         if not documento.isascii() or not documento.isdigit() or len(documento) > 12:
             raise ValidationError("El documento debe contener hasta 12 dígitos.")
         filtro = {"elector__dni": documento, "elector__tipo_documento__iexact": tipo_documento}
-    registro = RegistroPadron.objects.select_related(
+    registros = RegistroPadron.objects.select_related(
         "elector", "eleccion_claustro_departamento",
-    ).filter(eleccion=eleccion, activo=True, **filtro).first()
-    if registro is None:
+    ).filter(eleccion=eleccion, activo=True, **filtro)
+    if not registros.exists():
         raise ValidationError("El documento no pertenece al padrón activo de esta elección.")
-    alcance = registro.eleccion_claustro_departamento
-    if alcance.eleccion_claustro_id != puesto.eleccion_claustro_id:
+    registros = registros.filter(
+        eleccion_claustro_departamento__eleccion_claustro_id=puesto.eleccion_claustro_id,
+    )
+    if not registros.exists():
         raise ValidationError("El elector pertenece a otro claustro del padrón.")
-    if puesto.eleccion_claustro_departamento_id and alcance.id != puesto.eleccion_claustro_departamento_id:
+    if puesto.eleccion_claustro_departamento_id:
+        registros = registros.filter(eleccion_claustro_departamento_id=puesto.eleccion_claustro_departamento_id)
+    registro = registros.first()
+    if registro is None:
         raise ValidationError("El elector pertenece a otro departamento del padrón.")
     return registro.elector
 
