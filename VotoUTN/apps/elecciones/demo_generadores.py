@@ -1,24 +1,16 @@
 import logging
 import random
-from collections import Counter
 
 from django.core.management.base import CommandError
 from django.db import transaction
 
 from apps.autoridades.models import AsignacionAutoridad
-from apps.elecciones.models import Eleccion, EleccionClaustroDepartamentoSede
+from apps.elecciones.models import Eleccion
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
-from apps.padron.models import RegistroPadron, SolicitudCambioSede
+from apps.padron.models import RegistroPadron
 
 
 logger = logging.getLogger(__name__)
-
-OBSERVACIONES = (
-    "Me mudé y la otra sede me queda más cerca.",
-    "Curso la mayoría de las materias en la sede solicitada.",
-    "Por razones laborales me resulta más accesible la sede solicitada.",
-    "Solicito el cambio por cercanía a mi domicilio.",
-)
 
 DETALLES = {
     JustificativoAusencia.Ausencia.VOTAR: (
@@ -44,78 +36,20 @@ def eleccion_actual_demo():
 
 
 @transaction.atomic
-def generar_solicitudes_demo(eleccion, cantidad=70, semilla=None):
+def generar_solicitudes_demo(eleccion):
+    from apps.padron.solicitudes_escenario import (
+        crear_solicitudes_escenario, leer_plan_publicacion, padron_corresponde_al_plan,
+    )
+
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
     if eleccion.estado != Eleccion.Estado.PUBLICADA or eleccion.autoridades_confirmadas_en:
         raise CommandError("Las solicitudes de demo requieren una elección publicada sin autoridades confirmadas.")
-    aleatorio = random.Random(semilla)
-    registros = RegistroPadron.objects.filter(eleccion=eleccion, activo=True).exclude(
-        solicitudes_cambio_sede__isnull=False,
-    ).select_related("asignacion_sede_padron", "eleccion_claustro_departamento").order_by("pk")
-    sedes_por_alcance = {}
-    for alcance_id, sede_id in EleccionClaustroDepartamentoSede.objects.filter(
-        eleccion_claustro_departamento__eleccion_claustro__eleccion=eleccion,
-        sede__activa=True,
-    ).values_list("eleccion_claustro_departamento_id", "sede_id"):
-        sedes_por_alcance.setdefault(alcance_id, set()).add(sede_id)
-
-    candidatos = []
-    for registro in registros:
-        asignacion = getattr(registro, "asignacion_sede_padron", None)
-        origen = asignacion.sede_id if asignacion and asignacion.sede_id else registro.sede_id
-        destinos = sedes_por_alcance.get(registro.eleccion_claustro_departamento_id, set()) - {origen}
-        if origen and destinos:
-            candidatos.append((registro, origen, destinos))
-    aleatorio.shuffle(candidatos)
-    autoridades = set(AsignacionAutoridad.objects.filter(
-        registro_padron__eleccion=eleccion, estado=AsignacionAutoridad.Estado.ASIGNADA,
-    ).values_list("registro_padron_id", flat=True))
-    autoridad_con_solicitud = SolicitudCambioSede.objects.filter(
-        registro_padron_id__in=autoridades,
-    ).exists()
-    candidato_autoridad = None
-    if cantidad > 0 and not autoridad_con_solicitud:
-        candidato_autoridad = next(
-            (candidato for candidato in candidatos if candidato[0].pk in autoridades), None,
-        )
-    candidatos = [candidato for candidato in candidatos if candidato[0].pk not in autoridades]
-    frecuencia = Counter(destino for candidato in candidatos for destino in candidato[2])
-    if candidato_autoridad is not None:
-        frecuencia.update(candidato_autoridad[2])
-    sede_principal = min(frecuencia, key=lambda sede: (-frecuencia[sede], sede)) if frecuencia else None
-    seleccionados = []
-    if candidato_autoridad is not None:
-        destinos = candidato_autoridad[2]
-        destino = sede_principal if sede_principal in destinos else aleatorio.choice(sorted(destinos))
-        seleccionados.append((candidato_autoridad, destino))
-    principales = [candidato for candidato in candidatos if sede_principal in candidato[2]]
-    otros = [candidato for candidato in candidatos if sede_principal not in candidato[2]]
-    # Reservar hasta un 10 % para otras sedes, si es posible.
-    principal_maximo = cantidad - cantidad // 10 - sum(destino == sede_principal for _, destino in seleccionados)
-    seleccionados.extend((c, sede_principal) for c in principales[:principal_maximo])
-    restantes = principales[principal_maximo:] + otros
-    aleatorio.shuffle(restantes)
-    for candidato in restantes[:cantidad - len(seleccionados)]:
-        destinos = candidato[2]
-        alternativas = destinos - {sede_principal}
-        destino = aleatorio.choice(sorted(alternativas or destinos))
-        seleccionados.append((candidato, destino))
-
-    for (registro, origen, _), destino in seleccionados:
-        solicitud = SolicitudCambioSede(
-            registro_padron=registro,
-            sede_origen_id=origen,
-            sede_destino_id=destino,
-            observacion=aleatorio.choice(OBSERVACIONES),
-        )
-        solicitud.full_clean()
-        solicitud.save()
-    if len(seleccionados) < cantidad:
-        logger.warning(
-            "Demo elección %s: se generaron %s de %s solicitudes por falta de electores elegibles.",
-            eleccion.pk, len(seleccionados), cantidad,
-        )
-    return len(seleccionados)
+    plan = leer_plan_publicacion()
+    if not padron_corresponde_al_plan(eleccion, plan):
+        logger.info("Elección %s: el padrón no corresponde al escenario de diecinueve solicitudes; no se generan datos de demo.", eleccion.pk)
+        return 0
+    resultado = crear_solicitudes_escenario(eleccion, plan["solicitudes"])
+    return len(resultado["creadas"])
 
 
 @transaction.atomic

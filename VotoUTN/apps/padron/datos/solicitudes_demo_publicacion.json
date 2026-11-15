@@ -1,0 +1,230 @@
+{
+  "version": 1,
+  "segmento": "segmento_1_500",
+  "claustro": "EST",
+  "solicitantes_nomina_pequena": [
+    "2036000016",
+    "2036000012",
+    "2036000015"
+  ],
+  "solicitudes": [
+    {
+      "dni": "2036000002",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000002",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000003",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000003",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000004",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000004",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000005",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000005",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000006",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000006",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000007",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000007",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000008",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000008",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000009",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000009",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000010",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000010",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000011",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000011",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000012",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000012",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "I",
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000013",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000013",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "I",
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000014",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000014",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "I",
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000015",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000015",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "I",
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000016",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000016",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "I",
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000017",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000017",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "I",
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000018",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000018",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "I",
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000019",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000019",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "I",
+        "K"
+      ]
+    },
+    {
+      "dni": "2036000020",
+      "origen": "Campus",
+      "destino": "Medrano",
+      "legajo": "2036000020",
+      "tipo_documento": "DNI",
+      "departamento_principal": "K",
+      "departamentos": [
+        "I",
+        "K"
+      ]
+    }
+  ]
+}

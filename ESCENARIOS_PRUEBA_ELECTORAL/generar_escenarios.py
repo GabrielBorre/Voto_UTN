@@ -321,10 +321,31 @@ def construir(c, s):
     return archivos
 
 
-def generar(raiz=RAIZ):
+def plan_solicitudes_publicacion(control):
+    """Exporta el mismo lote a los archivos incluidos en la aplicación Django."""
+    planes = control['solicitudes'] + control.get('ampliacion_solicitudes', [])
+    if len(planes) != 19 or len(control.get('solicitantes_nomina_pequena', [])) != 3:
+        raise ValueError('El plan de publicación requiere el escenario de diecinueve solicitudes y tres compartidos.')
+    importaciones = control['claustros']['estudiantes']
+    departamentos = defaultdict(set)
+    for mesa in importaciones['mesas']:
+        for dni in mesa['personas']:
+            departamentos[dni].add(mesa['departamento'])
+    return {'version': 1, 'segmento': control['segmento']['carpeta'],
+            'claustro': control['configuracion']['codigos_claustro']['estudiantes'],
+            'solicitantes_nomina_pequena': control['solicitantes_nomina_pequena'],
+            'solicitudes': [{**fila, 'legajo': fila['dni'], 'tipo_documento': 'DNI',
+                            'departamento_principal': 'K', 'departamentos': sorted(departamentos[fila['dni']])}
+                           for fila in planes]}
+
+
+def generar(raiz=RAIZ, *, destino_plan_publicacion=None):
     c = leer_configuracion(raiz)
     # Construir todo antes de archivar o tocar las salidas vigentes.
     versiones = {s['carpeta']: construir(c, s) for s in c['segmentos']}
+    if destino_plan_publicacion is not None:
+        control_publicacion = json.loads(versiones[c['segmentos'][0]['carpeta']]['control.json'])
+        contenido_plan = json.dumps(plan_solicitudes_publicacion(control_publicacion), ensure_ascii=False, indent=2) + '\n'
     with tempfile.TemporaryDirectory(prefix='escenarios-') as temporal:
         tmp = Path(temporal)
         for nombre, archivos in versiones.items():
@@ -356,10 +377,16 @@ def generar(raiz=RAIZ):
         (raiz / 'DECISIONES_GENERACION.md').write_text((raiz / 'DECISIONES.md').read_text(encoding='utf-8'), encoding='utf-8')
         fuentes = {p.name: p.read_text(encoding='utf-8') for p in raiz.iterdir() if p.suffix in ('.py', '.md') and p.is_file()}
         (raiz / 'VERSION_GENERADA.json').write_text(json.dumps(fuentes, ensure_ascii=False, indent=2), encoding='utf-8')
+    if destino_plan_publicacion is not None:
+        destino_plan_publicacion = Path(destino_plan_publicacion)
+        destino_plan_publicacion.parent.mkdir(parents=True, exist_ok=True)
+        destino_plan_publicacion.write_text(contenido_plan, encoding='utf-8')
     print('Generados y validados: ' + ', '.join(versiones))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.parse_args()
-    generar()
+    parser.add_argument('--exportar-plan-publicacion', action='store_true', help='Actualiza también el lote de diecinueve incluido en Django.')
+    opciones = parser.parse_args()
+    destino = RAIZ.parent / 'VotoUTN/apps/padron/datos/solicitudes_demo_publicacion.json' if opciones.exportar_plan_publicacion else None
+    generar(destino_plan_publicacion=destino)

@@ -9,7 +9,7 @@ import unittest
 from collections import Counter
 from pathlib import Path
 
-from generar_escenarios import RAIZ, construir, generar, leer_configuracion
+from generar_escenarios import RAIZ, construir, generar, leer_configuracion, plan_solicitudes_publicacion
 from ejecutar_escenario import preparar
 
 
@@ -17,6 +17,27 @@ class GeneradorTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.c = leer_configuracion()
+
+    def test_plan_de_publicacion_coincide_con_las_19_y_el_archivo_de_django(self):
+        archivos = construir(self.c, self.c['segmentos'][0])
+        control = json.loads(archivos['control.json'])
+        plan = plan_solicitudes_publicacion(control)
+        ruta = RAIZ.parent / 'VotoUTN/apps/padron/datos/solicitudes_demo_publicacion.json'
+        self.assertEqual(plan, json.loads(ruta.read_text(encoding='utf-8')))
+        self.assertEqual(len(plan['solicitudes']), 19)
+        self.assertEqual(len(plan['solicitantes_nomina_pequena']), 3)
+        filas = list(csv.DictReader(io.StringIO(archivos['padron_estudiantes.csv'].decode('utf-8-sig'))))
+        for solicitud in plan['solicitudes']:
+            persona = [f for f in filas if f['DNI'] == solicitud['dni']]
+            self.assertEqual({f['Depto/Carrera'] for f in persona}, set(solicitud['departamentos']))
+            self.assertEqual({f['Legajo'] for f in persona}, {solicitud['legajo']})
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal) / 'escenarios'
+            raiz.mkdir()
+            shutil.copy2(RAIZ / 'DECISIONES.md', raiz / 'DECISIONES.md')
+            destino = Path(temporal) / 'app/datos/plan.json'
+            generar(raiz, destino_plan_publicacion=destino)
+            self.assertEqual(json.loads(destino.read_text(encoding='utf-8')), plan)
 
     def test_conteos_reproduccion_y_personas_reales(self):
         for s in self.c['segmentos']:

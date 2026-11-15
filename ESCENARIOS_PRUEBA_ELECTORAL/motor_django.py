@@ -11,6 +11,7 @@ from apps.elecciones.models import Eleccion
 from apps.justificativos.forms import FormularioJustificativo
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.padron.forms import FormularioSolicitudCambioSede
+from apps.padron.solicitudes_escenario import crear_solicitudes_escenario
 from apps.padron.models import RegistroPadron, SolicitudCambioSede
 from apps.padron.services import estimar_impacto_mesas_por_sede, solicitudes_cambio_sede_habilitadas
 from apps.usuarios.permisos import puede_gestionar_autoridades
@@ -109,25 +110,9 @@ def ejecutar(datos):
         registros_solicitantes = {r.elector.dni: r for r in estudiantes if r.es_principal and r.elector.dni in {f['dni'] for f in planes}}
         exigir(len(registros_solicitantes) == len(planes), 'Los solicitantes deben tener un registro principal activo.')
         resultado['solicitantes_con_designacion'] = AsignacionAutoridad.objects.filter(registro_padron__elector_id__in=[r.elector_id for r in registros_solicitantes.values()], registro_padron__eleccion=eleccion).count()
-        creadas = []
-        existentes = Counter()
-        for f in planes:
-            r = registros_solicitantes[f['dni']]
-            anterior = SolicitudCambioSede.objects.filter(registro_padron=r).first()
-            if anterior:
-                exigir(anterior.sede_destino.nombre == f['destino'], 'La solicitud existente tiene otro destino.')
-                existentes[anterior.estado] += 1
-                continue
-            exigir(not r.sede_id and not r.qr_generado_en, 'El solicitante debe estar sin actividad y sin QR emitido.')
-            exigir(r.asignacion_sede_padron.sede.nombre == f['origen'], 'La sede de origen cambió.')
-            asociados = [a for a in estudiantes if a.elector_id == r.elector_id]
-            exigir(all(not a.qr_generado_en and not a.sede_id and a.asignacion_sede_padron.sede.nombre == f['origen']
-                and a.eleccion_claustro_departamento.sedes_habilitadas.filter(sede__nombre=f['destino']).exists()
-                for a in asociados), 'Algún departamento adicional no permite el traslado conjunto solicitado.')
-            destino = r.eleccion_claustro_departamento.sedes_habilitadas.get(sede__nombre=f['destino']).sede
-            formulario = FormularioSolicitudCambioSede({'sede_destino': destino.pk, 'observacion': 'Solicitud sintética de escenario electoral.'}, registro_padron=r)
-            exigir(formulario.is_valid(), str(formulario.errors))
-            creadas.append(formulario.save().pk)
+        carga = crear_solicitudes_escenario(eleccion, planes)
+        creadas = carga['creadas']
+        existentes = Counter(carga['existentes_por_estado'])
         # Incluir a Carlos en la simulación sin crear su solicitud real.
         with transaction.atomic():
             carlos = next(r for r in registros_reservados if r.elector.dni == '38999222')

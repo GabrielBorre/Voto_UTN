@@ -1,5 +1,12 @@
 # Registro de cambios por etapa
 
+## Publicación con el escenario reproducible de diecinueve solicitudes
+
+- Se reemplaza la generación aleatoria de setenta solicitudes al publicar por el lote fijo del primer escenario: diez originales y nueve adicionales, con los tres solicitantes compartidos por las nóminas de doce y de 198.
+- `apps/padron/solicitudes_escenario.py` es el servicio compartido por la publicación, el comando Django y el guion externo. Conserva solicitudes resueltas y autoridades, crea únicamente las faltantes y valida plazo, QR, actividad y traslado conjunto.
+- El plan se incluye en `apps/padron/datos/solicitudes_demo_publicacion.json`, disponible también dentro de Docker. El generador lo exporta con `--exportar-plan-publicacion`. Otros padrones se publican sin inventar solicitantes.
+- Se actualizan pruebas, README y guiones. No se cambian modelos ni migraciones ni se resuelven automáticamente solicitudes o designaciones de la elección activa.
+
 ## Aprobación individual y confirmaciones de cambios de sede
 
 - `apps/padron/views.py`: la aprobación individual aplica el servicio de

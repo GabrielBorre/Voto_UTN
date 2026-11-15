@@ -5,6 +5,7 @@ import tempfile
 import time
 from collections import Counter
 from datetime import time as hora, timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
@@ -142,18 +143,17 @@ class EscenariosIntegradosTests(TestCase):
             datos['aplicar'] = False
             simulacion = ejecutar(datos)
             esperadas = s['solicitudes'] + len(control.get('ampliacion_solicitudes', []))
-            self.assertEqual(simulacion['creadas'], esperadas)
-            self.assertFalse(SolicitudCambioSede.objects.exists())
+            faltantes = 0 if compartidos else esperadas
+            self.assertEqual(simulacion['creadas'], faltantes)
+            self.assertEqual(SolicitudCambioSede.objects.count(), esperadas - faltantes)
             datos['aplicar'] = True
             if compartidos:
                 # Completar las nueve faltantes cuando las diez originales ya existen,
                 # incluso si una fue aprobada y ya creó una mesa.
                 with transaction.atomic():
-                    for plan in control['solicitudes']:
-                        r = RegistroPadron.objects.get(eleccion=eleccion, es_principal=True, elector__dni=plan['dni'])
-                        f = FormularioSolicitudCambioSede({'sede_destino': sedes['Medrano'].pk}, registro_padron=r)
-                        self.assertTrue(f.is_valid(), f.errors)
-                        f.save()
+                    # Simular una carga parcial solo dentro de la base de pruebas.
+                    SolicitudCambioSede.objects.filter(registro_padron__elector__dni__in=[
+                        f['dni'] for f in control['ampliacion_solicitudes']]).delete()
                     resolver_solicitud_cambio_sede(SolicitudCambioSede.objects.first(), 'aprobada', usuario)
                     parcial = ejecutar(datos)
                     self.assertEqual(parcial['creadas'], 9)
@@ -162,7 +162,7 @@ class EscenariosIntegradosTests(TestCase):
                     self.assertEqual(SolicitudCambioSede.objects.filter(estado='aprobada').count(), 1)
                     transaction.set_rollback(True)
             resultado = ejecutar(datos)
-            self.assertEqual(resultado['creadas'], esperadas)
+            self.assertEqual(resultado['creadas'], faltantes)
             self.assertEqual(ejecutar(datos)['creadas'], 0)
             if compartidos:
                 self.assertEqual(resultado['solicitantes_nomina_pequena_designados'], 3)
@@ -206,7 +206,10 @@ class EscenariosIntegradosTests(TestCase):
             for ec in ecs.values():
                 redistribuir_autoridades(ec, usuario, preservar_asignaciones=True)
             self.validar_minimos(eleccion)
-            confirmar_autoridades(eleccion.pk, usuario, hoy + timedelta(days=3))
+            # Este guion verifica su propia carga de justificativos. La generación
+            # automática al confirmar se cubre en tests_demo_generadores.
+            with patch('apps.elecciones.demo_generadores.completar_justificativos_demo', return_value=0):
+                confirmar_autoridades(eleccion.pk, usuario, hoy + timedelta(days=3))
             datos['accion'] = 'justificativos'
             datos['tipo'] = TipoJustificativo.objects.create(nombre='Motivos personales').pk
             datos['aplicar'] = False

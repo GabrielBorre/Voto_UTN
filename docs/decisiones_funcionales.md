@@ -303,6 +303,8 @@ Reglas:
 
 ## Resolución de solicitudes de cambio de sede
 
+- En la demostración, publicar una elección cuyo padrón coincide con el primer escenario completa las diecinueve solicitudes predefinidas (diez originales y nueve adicionales), en lugar de generar setenta aleatorias. Tres solicitantes pertenecen a las nóminas de doce y de 198 personas; se conservan las designaciones existentes y Carlos queda reservado para su solicitud manual. La publicación y el comando manual reutilizan el servicio del guion, sin duplicar solicitudes ni cambiar resoluciones. Otros padrones se publican sin datos ficticios aleatorios. El lote respeta plazo, actividad, QR y destinos de todos los registros; un error revierte la publicación y el lote completo.
+
 - «Aprobar» en una solicitud individual aplica directamente la resolución y el
   recálculo, sin pasar por «Revisar cambios de sede». Conserva los permisos,
   bloqueos por emisión de QR, auditoría y notificación al elector. Las
