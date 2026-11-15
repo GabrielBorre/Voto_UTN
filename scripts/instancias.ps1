@@ -32,6 +32,58 @@ function Ejecutar-Compose {
     }
 }
 
+function Instalar-CertificadoCaddy {
+    param([int]$Numero)
+    $Entorno = Join-Path $DirectorioEntornos "instancia-$Numero.env"
+    $Archivo = [System.IO.Path]::GetTempFileName()
+    $Certificado = $null
+    try {
+        $Codigo = 1
+        for ($Intento = 1; $Intento -le 30; $Intento++) {
+            $PreferenciaAnterior = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $Resultado = & docker compose --project-name "voto-utn-$Numero" --env-file $Entorno --file $Compose cp "proxy:/data/caddy/pki/authorities/local/root.crt" $Archivo 2>&1
+                $Codigo = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $PreferenciaAnterior
+            }
+            if ($Codigo -eq 0) {
+                break
+            }
+            if ($Intento -lt 30) {
+                Start-Sleep -Seconds 2
+            }
+        }
+        if ($Codigo -ne 0) {
+            throw "No se pudo obtener el certificado de Caddy de voto-utn-$Numero. $($Resultado | Out-String)"
+        }
+
+        $Certificado = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($Archivo)
+        $RutaCertificado = "Cert:\CurrentUser\Root\$($Certificado.Thumbprint)"
+        if (Test-Path $RutaCertificado) {
+            Write-Host "Certificado de Caddy de voto-utn-$Numero ya instalado para el usuario actual."
+            return
+        }
+
+        & certutil -user -addstore Root $Archivo
+        if ($LASTEXITCODE -ne 0) {
+            throw "No se pudo instalar el certificado de Caddy de voto-utn-$Numero (codigo $LASTEXITCODE)."
+        }
+        if (-not (Test-Path $RutaCertificado)) {
+            throw "El certificado de Caddy de voto-utn-$Numero no aparece en el almacen del usuario actual."
+        }
+        Write-Host "Certificado de Caddy de voto-utn-$Numero instalado para el usuario actual."
+    }
+    finally {
+        if ($null -ne $Certificado) {
+            $Certificado.Dispose()
+        }
+        Remove-Item -LiteralPath $Archivo -Force
+    }
+}
+
 foreach ($Numero in $Instancia) {
     $Entorno = Join-Path $DirectorioEntornos "instancia-$Numero.env"
     if (-not (Test-Path $Entorno)) {
@@ -63,8 +115,14 @@ if ($Accion -eq "up") {
 
 foreach ($Numero in $Instancia) {
     switch ($Accion) {
-        "up" { Ejecutar-Compose -Numero $Numero -Argumentos @("up", "-d", "--no-build") }
-        "start" { Ejecutar-Compose -Numero $Numero -Argumentos @("start") }
+        "up" {
+            Ejecutar-Compose -Numero $Numero -Argumentos @("up", "-d", "--no-build")
+            Instalar-CertificadoCaddy -Numero $Numero
+        }
+        "start" {
+            Ejecutar-Compose -Numero $Numero -Argumentos @("start")
+            Instalar-CertificadoCaddy -Numero $Numero
+        }
         "ps" { Ejecutar-Compose -Numero $Numero -Argumentos @("ps") }
         "stop" { Ejecutar-Compose -Numero $Numero -Argumentos @("stop") }
         "down" { Ejecutar-Compose -Numero $Numero -Argumentos @("down") }

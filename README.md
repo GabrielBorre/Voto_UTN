@@ -62,9 +62,15 @@ la imagen y actualizar las instancias. El stack anterior conserva sus valores
 predeterminados de puertos y cookies.
 
 Para el celular, reemplazar `localhost` por la IP de la PC en la misma red Wi-Fi.
-Cada instancia tiene su propia CA local de Caddy; confiar su certificado en el
-dispositivo para utilizar HTTPS y la camara. Es un entorno de desarrollo, no una
-configuracion de produccion; Keycloak utiliza HTTP y realm con usuarios de demo.
+Cada instancia tiene su propia CA local de Caddy. Al ejecutar `up` o `start`, el
+script obtiene su certificado publico y lo instala, si hace falta, en las
+autoridades raiz de confianza del usuario actual de Windows. Windows puede pedir
+confirmacion para confiar en la CA. Esta confianza permite a esa CA emitir
+certificados para otros sitios, por lo que debe utilizarse solo en un entorno de
+desarrollo confiable. Los certificados instalados no se eliminan con `down`.
+En el celular se debe confiar por separado el certificado de cada instancia para
+utilizar HTTPS y la camara. Es un entorno de desarrollo, no una configuracion de
+produccion; Keycloak utiliza HTTP y realm con usuarios de demo.
 
 ```powershell
 .\scripts\instancias.ps1 ps
