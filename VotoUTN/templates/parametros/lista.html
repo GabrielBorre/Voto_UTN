@@ -39,6 +39,7 @@
           {% if es_turno %}<th>Horario</th>{% endif %}
           {% if es_plantilla %}<th>Categoría</th>{% endif %}
           {% if es_cargo %}<th>Órgano</th>{% endif %}
+          {% if es_cargo %}<th>Claustros asociados</th>{% endif %}
           <th>Estado</th>
           <th></th>
         </tr>
@@ -56,6 +57,23 @@
             {% if es_turno %}<td>{{ objeto.hora_inicio|time:"H:i" }} - {{ objeto.hora_fin|time:"H:i" }}</td>{% endif %}
             {% if es_plantilla %}<td>{{ objeto.get_categoria_display }}</td>{% endif %}
             {% if es_cargo %}<td>{{ objeto.organo.nombre }}</td>{% endif %}
+            {% if es_cargo %}
+              <td class="actions">
+                {% for claustro in claustros %}
+                  <form class="inline-form" method="post" action="{% url 'cambiar-claustro-puesto' objeto.id claustro.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="q" value="{{ consulta }}">
+                    {% if claustro in objeto.claustros_habilitados.all %}
+                      <input type="hidden" name="accion" value="quitar">
+                      <button class="button secondary small" type="submit" aria-label="Quitar {{ objeto.nombre }} de {{ claustro }}">{{ claustro }} ✓</button>
+                    {% else %}
+                      <input type="hidden" name="accion" value="asociar">
+                      <button class="button light small" type="submit" aria-label="Asociar {{ objeto.nombre }} a {{ claustro }}">+ {{ claustro }}</button>
+                    {% endif %}
+                  </form>
+                {% empty %}<span class="muted">No hay claustros activos.</span>{% endfor %}
+              </td>
+            {% endif %}
             <td>
               {% if objeto.activo or objeto.activa %}
                 <span class="pill ok">Activo</span>

@@ -5,13 +5,13 @@
 {% block content %}
 <section class="hero">
   <h1>Puestos a elegir</h1>
-  <p>Definí los puestos reutilizables. El órgano es únicamente el cuerpo representado, por ejemplo Consejo Directivo o DASUTeN. Las listas, números y apoderados se cargan dentro de cada elección.</p>
+  <p>Administrá los puestos reutilizables y definí para qué claustros estarán disponibles. Las cantidades, departamentos, listas y candidaturas se configuran dentro de cada elección.</p>
 </section>
 <section class="toolbar">
   {% for catalogo in catalogos %}
   <article class="option">
     <h2>{{ catalogo.titulo }}</h2>
-    <p>{{ catalogo.cantidad }} registros. {% if catalogo.tipo == "organos-electivos" %}Paso auxiliar: cuerpos representados, como Consejo Directivo, Consejo Departamental o DASUTeN.{% else %}Puestos concretos que luego se habilitarán por claustro y departamento en cada elección.{% endif %}</p>
+    <p>{{ catalogo.cantidad }} puestos registrados. Asociá cada puesto a uno o más claustros para que aparezca únicamente donde corresponda.</p>
     <a class="button secondary" href="{% url 'listar-parametros' catalogo.tipo %}">Administrar</a>
   </article>
   {% endfor %}

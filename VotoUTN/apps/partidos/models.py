@@ -37,11 +37,17 @@ class CargoElectivo(models.Model):
         on_delete=models.PROTECT,
         related_name="cargos",
     )
+    claustros_habilitados = models.ManyToManyField(
+        "parametros.Claustro",
+        related_name="puestos_electivos_habilitados",
+        blank=True,
+        help_text="Claustros para los que puede utilizarse este puesto.",
+    )
     nombre = models.CharField(max_length=120)
     permite_filtrar_claustros = models.BooleanField(
         "permite limitar por claustros",
         default=True,
-        help_text="Permite elegir solo algunos claustros; si no se usa el filtro, se incluyen todos los de la elección.",
+        help_text="Permite elegir un subconjunto de los claustros asociados; sin filtro se incluyen todos los asociados presentes en la elección.",
     )
     descripcion = models.TextField(blank=True)
     permite_filtrar_departamentos = models.BooleanField(

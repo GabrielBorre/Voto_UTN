@@ -109,6 +109,13 @@ class InicioAutenticadoTests(TestCase):
         self.assertEqual(parametros["response_type"], ["code"])
         self.assertEqual(parametros["redirect_uri"], ["http://localhost:8000/callback"])
 
+    @override_settings(KEYCLOAK_PUERTO_PUBLICO="8180")
+    def test_login_usa_el_puerto_publico_configurado_de_keycloak(self):
+        respuesta = self.client.get(reverse("keycloak_login"), HTTP_HOST="localhost:8443")
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(urlparse(respuesta.url).netloc, "localhost:8180")
+
     def test_seccion_protegida_redirige_al_login_configurado(self):
         destino = reverse("gestionar-partidos", args=(4,))
 

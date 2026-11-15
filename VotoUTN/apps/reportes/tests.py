@@ -10,7 +10,6 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import make_aware
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfgen.canvas import Canvas
 
@@ -41,9 +40,8 @@ from apps.partidos.models import (
 )
 from apps.reportes.services import valor_csv
 from apps.reportes.services_boletas_pdf import (
-    MARGEN_SUPERIOR_CONTENIDO,
-    POSICION_LINEA_ENCABEZADO,
-    _construir_contenido_boleta,
+    PAGINA,
+    _crear_filas_boletas,
     _obtener_boletas,
     generar_boletas_pdf,
     validar_boletas_pdf,
@@ -608,7 +606,7 @@ class BoletasPDFTests(TestCase):
             eleccion_claustro=self.eleccion_claustro,
             departamento=self.departamento,
         )
-        self.organo = OrganoElectivo.objects.create(nombre="Consejo de boletas")
+        self.organo = OrganoElectivo.objects.create(nombre="Consejo Departamental")
         self.cargo = CargoElectivo.objects.create(
             organo=self.organo,
             nombre="Consejero/a",
@@ -654,7 +652,7 @@ class BoletasPDFTests(TestCase):
         )
         return participacion
 
-    def crear_elector(self, indice, nombre):
+    def crear_elector(self, indice, nombre, configuracion=None):
         elector = Elector.objects.create(
             legajo=f"B{indice:05d}",
             nombre=nombre,
@@ -664,9 +662,23 @@ class BoletasPDFTests(TestCase):
         RegistroPadron.objects.create(
             elector=elector,
             eleccion=self.eleccion,
-            eleccion_claustro_departamento=self.configuracion,
+            eleccion_claustro_departamento=configuracion or self.configuracion,
         )
         return elector
+
+    def crear_boleta_prueba(self, claustro, departamento, organo, nombre):
+        return {
+            "clave_lista": (self.eleccion.pk, "10", "Lista Azul", claustro),
+            "claustros": [claustro],
+            "departamento": departamento,
+            "puestos": [
+                {
+                    "organo": organo,
+                    "nombre": nombre,
+                    "candidatos": [],
+                }
+            ],
+        }
 
     def test_validacion_indica_cuando_no_hay_candidaturas_activas(self):
         validacion = validar_boletas_pdf(self.eleccion)
@@ -675,11 +687,8 @@ class BoletasPDFTests(TestCase):
         self.assertEqual(validacion.cantidad_boletas, 0)
         self.assertTrue(validacion.motivos)
 
-    def test_titulo_comienza_debajo_de_la_linea_del_encabezado(self):
-        self.assertGreater(
-            MARGEN_SUPERIOR_CONTENIDO,
-            POSICION_LINEA_ENCABEZADO,
-        )
+    def test_pagina_de_boletas_usa_formato_apaisado(self):
+        self.assertGreater(PAGINA[0], PAGINA[1])
 
     def test_genera_una_boleta_por_presentacion_y_alcance(self):
         self.crear_presentacion(
@@ -699,9 +708,252 @@ class BoletasPDFTests(TestCase):
         contenido = generar_boletas_pdf(self.eleccion)
 
         self.assertTrue(validacion.apto)
-        self.assertEqual(validacion.cantidad_boletas, 2)
+        self.assertEqual(validacion.cantidad_boletas, 4)
         self.assertTrue(contenido.startswith(b"%PDF"))
         self.assertEqual(contar_paginas_pdf(contenido), 2)
+
+    def test_agrupa_puestos_de_la_misma_lista_solo_dentro_del_claustro(self):
+        participacion_original = self.crear_presentacion(
+            codigo="SISTEMAS-DOCENTES-2",
+            numero="2",
+            nombre="Lista Sistemas",
+            elector=self.crear_elector(10, "Ana"),
+        )
+        PuestoEleccion.objects.filter(pk=self.puesto.pk).update(
+            cantidad_titulares=3,
+            cantidad_suplentes=3,
+        )
+        claustro_docentes = Claustro.objects.create(nombre="Docentes boletas")
+        alcance_docentes = EleccionClaustro.objects.create(
+            eleccion=self.eleccion,
+            claustro=claustro_docentes,
+        )
+        departamento_estudiantes = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=alcance_docentes,
+            departamento=self.departamento,
+        )
+        puesto_estudiantes = PuestoEleccion.objects.create(
+            puesto=self.cargo,
+            eleccion_claustro=alcance_docentes,
+            eleccion_claustro_departamento=departamento_estudiantes,
+            cantidad_titulares=5,
+            cantidad_suplentes=5,
+        )
+        segunda = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion,
+            codigo_presentacion="SISTEMAS-ESTUDIANTES-2",
+            eleccion_claustro=alcance_docentes,
+            numero_lista="2",
+            nombre_lista="Lista Sistemas",
+        )
+        organo_directivo = OrganoElectivo.objects.create(nombre="Consejo Directivo transversal")
+        cargo_directivo = CargoElectivo.objects.create(
+            organo=organo_directivo,
+            nombre="Consejero/a directivo/a",
+        )
+        puesto_directivo_original = PuestoEleccion.objects.create(
+            puesto=cargo_directivo,
+            eleccion_claustro=self.eleccion_claustro,
+            cantidad_titulares=5,
+            cantidad_suplentes=5,
+        )
+        puesto_directivo_estudiantes = PuestoEleccion.objects.create(
+            puesto=cargo_directivo,
+            eleccion_claustro=alcance_docentes,
+            cantidad_titulares=5,
+            cantidad_suplentes=5,
+        )
+        lista_directiva_original = ListaCandidatos.objects.create(
+            participacion=participacion_original,
+            eleccion_claustro=self.eleccion_claustro,
+            nombre="Consejo Directivo",
+            puesto_eleccion=puesto_directivo_original,
+        )
+        lista_directiva_estudiantes = ListaCandidatos.objects.create(
+            participacion=segunda,
+            eleccion_claustro=alcance_docentes,
+            nombre="Consejo Directivo",
+            puesto_eleccion=puesto_directivo_estudiantes,
+        )
+        Candidato.objects.create(
+            lista=lista_directiva_original,
+            elector=self.crear_elector(12, "Cecilia"),
+            cargo=cargo_directivo.nombre,
+            tipo=Candidato.Tipo.TITULAR,
+            orden=1,
+        )
+        Candidato.objects.create(
+            lista=lista_directiva_estudiantes,
+            elector=self.crear_elector(13, "Diego", departamento_estudiantes),
+            cargo=cargo_directivo.nombre,
+            tipo=Candidato.Tipo.TITULAR,
+            orden=1,
+        )
+        elector = self.crear_elector(11, "Bruno")
+        RegistroPadron.objects.filter(elector=elector).update(
+            eleccion_claustro_departamento=departamento_estudiantes,
+        )
+        lista_estudiantes = ListaCandidatos.objects.create(
+            participacion=segunda,
+            eleccion_claustro=alcance_docentes,
+            eleccion_claustro_departamento=departamento_estudiantes,
+            nombre="Consejo Departamental",
+            puesto_eleccion=puesto_estudiantes,
+        )
+        Candidato.objects.create(
+            lista=lista_estudiantes,
+            elector=elector,
+            cargo=self.cargo.nombre,
+            tipo=Candidato.Tipo.TITULAR,
+            orden=1,
+        )
+        for indice_lista, lista in enumerate(
+            (
+                participacion_original.listas.get(puesto_eleccion=self.puesto),
+                lista_estudiantes,
+                lista_directiva_original,
+                lista_directiva_estudiantes,
+            )
+        ):
+            for tipo, cantidad in (
+                (Candidato.Tipo.TITULAR, lista.puesto_eleccion.cantidad_titulares),
+                (Candidato.Tipo.SUPLENTE, lista.puesto_eleccion.cantidad_suplentes),
+            ):
+                primer_orden = 2 if tipo == Candidato.Tipo.TITULAR else 1
+                for orden in range(primer_orden, cantidad + 1):
+                    Candidato.objects.create(
+                        lista=lista,
+                        elector=self.crear_elector(
+                            20 + indice_lista * 20 + orden + primer_orden * 10,
+                            f"Candidato {indice_lista}-{tipo}-{orden}",
+                            (
+                                departamento_estudiantes
+                                if lista.eleccion_claustro_id == alcance_docentes.id
+                                else self.configuracion
+                            ),
+                        ),
+                        cargo=lista.puesto_eleccion.puesto.nombre,
+                        tipo=tipo,
+                        orden=orden,
+                    )
+
+        boletas = _obtener_boletas(self.eleccion)
+        contenido = generar_boletas_pdf(self.eleccion)
+
+        self.assertEqual(len(boletas), 2)
+        boletas_por_claustro = {
+            boleta["claustros"][0]: boleta
+            for boleta in boletas
+        }
+        boleta_estudiantes = boletas_por_claustro["Estudiantes boletas"]
+        boleta_docentes = boletas_por_claustro["Docentes boletas"]
+        self.assertEqual(len(boleta_docentes["puestos"]), 2)
+        self.assertEqual(len(boleta_estudiantes["puestos"]), 2)
+        self.assertEqual(
+            {
+                candidato.elector.nombre_completo
+                for puesto in boleta_estudiantes["puestos"]
+                for candidato in puesto["candidatos"]
+            },
+            {
+                candidato.elector.nombre_completo
+                for lista in (participacion_original.listas.get(puesto_eleccion=self.puesto), lista_directiva_original)
+                for candidato in lista.candidatos.all()
+            },
+        )
+        self.assertEqual(
+            {
+                candidato.elector.nombre_completo
+                for puesto in boleta_docentes["puestos"]
+                for candidato in puesto["candidatos"]
+            },
+            {
+                candidato.elector.nombre_completo
+                for lista in (lista_estudiantes, lista_directiva_estudiantes)
+                for candidato in lista.candidatos.all()
+            },
+        )
+        filas, puestos_sin_categoria = _crear_filas_boletas(boletas)
+        self.assertEqual(puestos_sin_categoria, [])
+        self.assertEqual(len(filas), 4)
+        for fila in filas:
+            columnas = fila["columnas"]
+            if fila.get("fila_departamental"):
+                self.assertEqual(
+                    [columna is not None for columna in columnas],
+                    [False, False, True, False],
+                )
+            else:
+                self.assertEqual(
+                    [columna is not None for columna in columnas],
+                    [False, True, True, False],
+                )
+        self.assertEqual(contar_paginas_pdf(contenido), 2)
+
+    def test_ciencias_basicas_ocupa_la_columna_correspondiente_al_claustro(self):
+        ciencias_basicas = Departamento.objects.create(
+            nombre="Ciencias Básicas",
+            codigo="Z",
+        )
+
+        for claustro, columna in (
+            ("Estudiantes", 3),
+            ("Graduados", 3),
+            ("Docentes", 2),
+        ):
+            boleta = self.crear_boleta_prueba(
+                claustro,
+                ciencias_basicas,
+                "Consejo Departamental",
+                "Consejero/a",
+            )
+            filas, puestos_sin_categoria = _crear_filas_boletas([boleta])
+
+            self.assertEqual(puestos_sin_categoria, [])
+            self.assertIsNotNone(filas[0]["columnas"][columna])
+            self.assertEqual(
+                sum(columna is not None for columna in filas[0]["columnas"]),
+                1,
+            )
+
+    def test_dasuten_se_imprime_en_fila_independiente_y_no_se_duplica(self):
+        boletas = [
+            self.crear_boleta_prueba(
+                "Estudiantes",
+                self.departamento,
+                "DASUTeN",
+                "Consejero/a",
+            ),
+            self.crear_boleta_prueba(
+                "Estudiantes",
+                self.departamento,
+                "DASUTeN",
+                "Consejero/a",
+            ),
+        ]
+
+        filas, puestos_sin_categoria = _crear_filas_boletas(boletas)
+
+        self.assertEqual(puestos_sin_categoria, [])
+        self.assertEqual(len(filas), 1)
+        self.assertTrue(filas[0]["fila_dasuten"])
+        self.assertEqual(
+            [columna is not None for columna in filas[0]["columnas"]],
+            [True, False, False, False],
+        )
+
+    def test_puesto_sin_categoria_se_informa_sin_generar_boleta(self):
+        boleta = self.crear_boleta_prueba(
+            "Estudiantes",
+            self.departamento,
+            "Otro órgano",
+            "Puesto sin categoría",
+        )
+
+        filas, puestos_sin_categoria = _crear_filas_boletas([boleta])
+
+        self.assertEqual(filas, [])
+        self.assertEqual(puestos_sin_categoria, ["Otro órgano — Puesto sin categoría"])
 
     def test_boleta_imprime_departamento_configurado_en_el_puesto(self):
         participacion = ParticipacionPartido.objects.create(
@@ -726,22 +978,14 @@ class BoletasPDFTests(TestCase):
         )
 
         boleta = _obtener_boletas(self.eleccion)[0]
-        contenido = _construir_contenido_boleta(
-            boleta,
-            {
-                "boleta_titulo": getSampleStyleSheet()["Title"],
-                "presentacion": getSampleStyleSheet()["Normal"],
-                "puesto": getSampleStyleSheet()["Heading2"],
-                "candidato": getSampleStyleSheet()["Normal"],
-            },
-            500,
-        )
+        filas, puestos_sin_categoria = _crear_filas_boletas([boleta])
 
         self.assertEqual(str(boleta["departamento"]), "Sistemas boletas")
-        self.assertIn(
-            "Departamento: Sistemas boletas",
-            contenido[2]._cellvalues[0][0].text,
-        )
+        self.assertEqual(puestos_sin_categoria, [])
+        self.assertEqual(filas[0]["columnas"][2]["departamento"], self.departamento)
+        self.assertIs(filas[1]["columnas"][2], filas[0]["columnas"][2])
+        contenido = generar_boletas_pdf(self.eleccion)
+        self.assertEqual(contar_paginas_pdf(contenido), 1)
 
     def test_vista_genera_pdf_descargable_con_permiso_de_eleccion(self):
         self.crear_presentacion(

@@ -152,14 +152,33 @@ class Command(BaseCommand):
         return usuario
 
     def _crear_elector(self, data, eleccion, configuracion, sede):
-        elector, _ = Elector.objects.update_or_create(
+        registro = RegistroPadron.objects.filter(
+            eleccion=eleccion,
             dni=data["dni"],
-            defaults={
-                "legajo": data["legajo"],
-                "nombre": f"{data['first_name']} {data['last_name']}",
-                "correo_electronico": data["email"],
-            },
-        )
+        ).select_related("elector").first()
+        if registro and registro.legajo != data["legajo"]:
+            raise CommandError("El DNI ya está asociado a otro legajo en esta elección.")
+        if registro is None:
+            registro = RegistroPadron.objects.filter(
+                eleccion=eleccion,
+                legajo=data["legajo"],
+            ).select_related("elector").first()
+        if registro and registro.dni != data["dni"]:
+            raise CommandError("El legajo ya está asociado a otro DNI en esta elección.")
+        if registro:
+            elector = registro.elector
+            elector.dni = data["dni"]
+            elector.legajo = data["legajo"]
+            elector.nombre = f"{data['first_name']} {data['last_name']}"
+            elector.correo_electronico = data["email"]
+            elector.save(update_fields=("dni", "legajo", "nombre", "correo_electronico"))
+        else:
+            elector = Elector.objects.create(
+                dni=data["dni"],
+                legajo=data["legajo"],
+                nombre=f"{data['first_name']} {data['last_name']}",
+                correo_electronico=data["email"],
+            )
         registro, _ = RegistroPadron.objects.update_or_create(
             elector=elector,
             eleccion=eleccion,

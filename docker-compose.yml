@@ -18,6 +18,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.2
     container_name: keycloak
+    restart: unless-stopped
     command: start-dev --import-realm
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
@@ -28,7 +29,7 @@ services:
       - KC_HOSTNAME_STRICT=false
       - KC_HTTP_ENABLED=true
     ports:
-      - "8080:8080"
+      - "8180:8080"
     volumes:
       - ./Keycloak/realm-export:/opt/keycloak/data/import
       - ./Keycloak/themes/utn-login:/opt/keycloak/themes/utn-login
@@ -36,6 +37,7 @@ services:
   mailpit:
     image: axllent/mailpit:v1.31.2
     container_name: mailpit
+    restart: unless-stopped
     ports:
       - "8025:8025" # interfaz web para revisar los correos recibidos
       - "1025:1025" # puerto SMTP que usa Django para enviar los correos
@@ -55,6 +57,7 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - EMAIL_HOST=mailpit
+      - KEYCLOAK_PUERTO_PUBLICO=8180
       - KEYCLOAK_URL_INTERNO=http://keycloak:8080
       # El acceso real llega siempre a traves del proxy (localhost, 127.0.0.1 o la IP de la
       # red Wi-Fi), por eso se permite cualquier host en este stack de desarrollo local.
@@ -66,6 +69,7 @@ services:
       - staticfiles:/app/staticfiles
       - media:/app/media
     command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy

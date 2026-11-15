@@ -1,4 +1,5 @@
-from apps.padron.models import Elector
+from apps.elecciones.models import ESTADOS_ELECCION_NO_CERRADOS
+from apps.padron.models import Elector, RegistroPadron
 
 
 def elector_de_identidad(usuario):
@@ -10,4 +11,14 @@ def elector_de_identidad(usuario):
     dni = getattr(usuario, "dni", None)
     if not dni:
         return None
-    return Elector.objects.filter(dni=dni).first()
+    registro = RegistroPadron.objects.filter(
+        eleccion__estado__in=ESTADOS_ELECCION_NO_CERRADOS,
+        dni=dni,
+        activo=True,
+    ).select_related("elector").first()
+    if registro is not None:
+        return registro.elector
+    electores = Elector.objects.filter(dni=dni)
+    if electores.count() != 1:
+        return None
+    return electores.first()

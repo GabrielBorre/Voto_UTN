@@ -347,7 +347,7 @@ class ServicioRegistroParticipacion:
         ).filter(
             eleccion=eleccion,
             activo=True,
-            elector__dni=str(dni).strip(),
+            dni=str(dni).strip(),
             asignacion_mesa__mesa__numero=mesa_numero,
         ).first()
         mesa = getattr(getattr(padron, "asignacion_mesa", None), "mesa", None)

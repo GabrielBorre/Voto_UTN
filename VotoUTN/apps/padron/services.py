@@ -319,6 +319,24 @@ def detectar_columnas_archivo(contenido: bytes, nombre_archivo: str = "") -> lis
     return [str(columna).strip() for columna in filas[0].keys() if str(columna).strip()]
 
 
+def _configuraciones_por_departamento(eleccion_claustro):
+    configuraciones = {}
+    configuraciones_padron = EleccionClaustroDepartamento.objects.filter(
+        eleccion_claustro=eleccion_claustro,
+    ).filter(
+        Q(departamento__activo=True) | Q(departamento__isnull=True)
+    ).select_related("departamento")
+    for configuracion in configuraciones_padron:
+        departamento = configuracion.departamento
+        if departamento is None:
+            if eleccion_claustro.organizacion_departamentos == "sin_departamento":
+                configuraciones[""] = configuracion
+            continue
+        configuraciones[departamento.codigo.casefold()] = configuracion
+        configuraciones[departamento.nombre.casefold()] = configuracion
+    return configuraciones
+
+
 def validar_departamentos_por_persona(filas, configuraciones):
     """Valida los datos compartidos y la presencia de la fila principal del archivo."""
     grupos = defaultdict(list)
@@ -414,20 +432,7 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
             [(None, "turno_cursada", "La columna Turno debe acompañar a Sede donde cursa, aunque algunas filas no tengan valor.")],
         )
 
-    configuraciones = {}
-    configuraciones_padron = EleccionClaustroDepartamento.objects.filter(
-        eleccion_claustro=eleccion_claustro,
-    ).filter(
-        Q(departamento__activo=True) | Q(departamento__isnull=True)
-    ).select_related("departamento")
-    for configuracion in configuraciones_padron:
-        departamento = configuracion.departamento
-        if departamento is None:
-            if eleccion_claustro.organizacion_departamentos == "sin_departamento":
-                configuraciones[""] = configuracion
-            continue
-        configuraciones[departamento.codigo.casefold()] = configuracion
-        configuraciones[departamento.nombre.casefold()] = configuracion
+    configuraciones = _configuraciones_por_departamento(eleccion_claustro)
     sedes_disponibles = {sede.nombre.casefold() for sede in Sede.objects.filter(activa=True)}
     turnos_disponibles = {turno.nombre.casefold() for turno in Turno.objects.filter(activo=True)}
     errores = []
@@ -500,35 +505,48 @@ def validar_csv_padron(contenido: bytes, eleccion_claustro, nombre_archivo: str 
                 int(fila["nivel"])
             except ValueError:
                 errores.append((numero_fila, "nivel", "Nivel debe ser un número entero."))
-        elector_dni = Elector.objects.filter(dni=fila["dni"]).first()
-        elector_legajo = Elector.objects.filter(legajo=fila["legajo"]).first()
-        if elector_dni and elector_legajo and elector_dni.pk != elector_legajo.pk:
+        registro_dni = RegistroPadron.objects.filter(
+            eleccion=eleccion_claustro.eleccion,
+            dni=fila["dni"],
+        ).select_related("elector").order_by("-es_principal", "pk").first()
+        registro_legajo = RegistroPadron.objects.filter(
+            eleccion=eleccion_claustro.eleccion,
+            legajo=fila["legajo"],
+        ).select_related("elector").order_by("-es_principal", "pk").first()
+        if registro_dni and registro_legajo and registro_dni.elector_id != registro_legajo.elector_id:
             errores.append((numero_fila, "dni", "El DNI y el legajo ya pertenecen a electores distintos."))
         else:
-            elector_existente = elector_dni or elector_legajo
-            if elector_existente:
+            registro_existente = registro_dni or registro_legajo
+            elector_existente = registro_existente.elector if registro_existente else None
+            if registro_existente:
                 identificadores_coinciden = (
-                    elector_dni is not None
-                    and elector_legajo is not None
-                    and elector_dni.pk == elector_legajo.pk
+                    registro_dni is not None
+                    and registro_legajo is not None
+                    and registro_dni.elector_id == registro_legajo.elector_id
                 )
-                if identificadores_coinciden and RegistroPadron.objects.filter(
-                    elector=elector_existente,
-                    eleccion=eleccion_claustro.eleccion,
-                ).exists():
+                if identificadores_coinciden:
                     elector_existente_en_padron = elector_existente.pk
-                if elector_existente.dni != fila["dni"]:
+                if registro_existente.dni != fila["dni"]:
                     errores.append((numero_fila, "dni", "El DNI no coincide con el elector existente."))
-                if elector_existente.legajo != fila["legajo"]:
+                if registro_existente.legajo != fila["legajo"]:
                     errores.append((numero_fila, "legajo", "El legajo no coincide con el elector existente."))
             if elector_existente and configuracion:
-                registros_existentes = RegistroPadron.objects.filter(elector=elector_existente, eleccion=eleccion_claustro.eleccion)
-                if registros_existentes.exclude(eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro).exists():
+                registros_existentes = RegistroPadron.objects.filter(
+                    elector=elector_existente,
+                    eleccion=eleccion_claustro.eleccion,
+                )
+                if registros_existentes.exclude(
+                    eleccion_claustro_departamento__eleccion_claustro=eleccion_claustro,
+                ).exists():
                     errores.append((numero_fila, "departamento", "El elector ya pertenece a otro claustro en esta elección."))
                 principal = registros_existentes.filter(es_principal=True).first()
                 clave_principal = (fila.get("departamento_principal") or fila["departamento"]).casefold()
                 configuracion_principal = configuraciones.get(clave_principal)
-                if principal and configuracion_principal and principal.eleccion_claustro_departamento_id != configuracion_principal.pk:
+                if (
+                    principal
+                    and configuracion_principal
+                    and principal.eleccion_claustro_departamento_id != configuracion_principal.pk
+                ):
                     errores.append((numero_fila, "departamento_principal", "El departamento principal difiere del registro existente de esta elección."))
         if len(errores) == errores_fila_inicio:
             cantidad_validas += 1
@@ -599,7 +617,7 @@ def calcular_mesas_automaticas_eleccion(eleccion, *, usuario=None, request=None,
             "eleccion_claustro_departamento__departamento__nombre",
             "elector__apellido",
             "elector__nombre",
-            "elector__legajo",
+            "legajo",
         )
     )
     claustros_con_electores = {
@@ -838,31 +856,43 @@ def confirmar_importacion(importacion):
             detalle += f"; y {len(resultado.errores) - 3} error(es) más"
         raise ValueError(f"El archivo ya no cumple las validaciones: {detalle}")
 
-    configuraciones = {}
-    for configuracion in EleccionClaustroDepartamento.objects.filter(
-        eleccion_claustro=importacion.eleccion_claustro,
-    ).select_related("departamento"):
-        departamento = configuracion.departamento
-        if departamento is None:
-            configuraciones[""] = configuracion
-        else:
-            configuraciones[departamento.codigo.casefold()] = configuracion
-            configuraciones[departamento.nombre.casefold()] = configuracion
+    configuraciones = _configuraciones_por_departamento(importacion.eleccion_claustro)
     sedes = {sede.nombre.casefold(): sede for sede in Sede.objects.filter(activa=True)}
     turnos = {turno.nombre.casefold(): turno for turno in Turno.objects.filter(activo=True)}
     personas_nuevas = set()
     for fila in resultado.filas:
+        registro_dni = RegistroPadron.objects.filter(
+            eleccion=importacion.eleccion,
+            dni=fila["dni"],
+        ).select_related("elector").order_by("-es_principal", "pk").first()
+        registro_legajo = RegistroPadron.objects.filter(
+            eleccion=importacion.eleccion,
+            legajo=fila["legajo"],
+        ).select_related("elector").order_by("-es_principal", "pk").first()
+        if registro_dni and registro_legajo and registro_dni.elector_id != registro_legajo.elector_id:
+            raise ValueError("El padrón contiene un DNI y un legajo asociados a electores distintos.")
+        registro_existente = registro_dni or registro_legajo
+        elector = registro_existente.elector if registro_existente else None
+        if registro_existente and (
+            registro_existente.dni != fila["dni"]
+            or registro_existente.legajo != fila["legajo"]
+        ):
+            raise ValueError("El padrón ya contiene un DNI o legajo distinto para esta identidad.")
         elector_dni = Elector.objects.filter(dni=fila["dni"]).first()
         elector_legajo = Elector.objects.filter(legajo=fila["legajo"]).first()
-        if elector_dni and elector_legajo and elector_dni.pk != elector_legajo.pk:
-            raise ValueError("El padrón contiene un DNI y un legajo asociados a electores distintos.")
-        elector = elector_dni or elector_legajo
+        if (
+            elector is None
+            and elector_dni
+            and elector_legajo
+            and elector_dni.pk == elector_legajo.pk
+            and not elector_dni.registros_padron.exists()
+        ):
+            elector = elector_dni
+        elector_creado = False
         if elector is None:
             try:
-                # El legajo y el DNI son únicos globalmente. Otra confirmación
-                # concurrente puede crear el elector después de la búsqueda;
-                # el savepoint permite recuperar esa carrera sin abortar todo
-                # el lote ni mostrar una IntegrityError al usuario.
+                # El savepoint permite recuperar una identidad creada en paralelo
+                # sin abortar toda la importación si el INSERT pierde la carrera.
                 with transaction.atomic():
                     elector = Elector.objects.create(
                         dni=fila["dni"],
@@ -873,10 +903,16 @@ def confirmar_importacion(importacion):
                         correo_electronico=fila["mail"],
                         tiene_discapacidad=fila.get("tiene_discapacidad", "").strip().lower() in ("si", "s", "yes", "y", "true", "1"),
                     )
+                    elector_creado = True
             except IntegrityError:
                 elector_dni = Elector.objects.filter(dni=fila["dni"]).first()
                 elector_legajo = Elector.objects.filter(legajo=fila["legajo"]).first()
-                if elector_dni and elector_legajo and elector_dni.pk == elector_legajo.pk:
+                if (
+                    elector_dni
+                    and elector_legajo
+                    and elector_dni.pk == elector_legajo.pk
+                    and not elector_dni.registros_padron.exists()
+                ):
                     elector = elector_dni
                 else:
                     raise ValueError(
@@ -884,7 +920,7 @@ def confirmar_importacion(importacion):
                         f"{fila['legajo']} ya pertenece a otro elector. Revisá los identificadores."
                     )
             # intentar asignar departamento principal si viene en el CSV
-            if elector_dni is None and elector_legajo is None:
+            if elector_creado:
                 dept_principal_code = fila.get("departamento_principal") or ""
                 if dept_principal_code:
                     dept_obj = Departamento.objects.filter(

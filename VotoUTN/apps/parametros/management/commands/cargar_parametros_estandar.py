@@ -42,6 +42,10 @@ DEPARTAMENTOS = (
 
 ORGANOS_ELECTIVOS = (
     (
+        "Consejo Superior",
+        "Órgano de gobierno superior de la Universidad.",
+    ),
+    (
         "Consejo Directivo",
         "Órgano de gobierno de la Facultad Regional con representación de los claustros.",
     ),

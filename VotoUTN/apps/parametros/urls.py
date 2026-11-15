@@ -2,6 +2,7 @@ from django.urls import path
 
 from apps.parametros.views import (
     cambiar_estado_parametro,
+    cambiar_claustro_puesto,
     editar_comunicacion_fecha,
     editar_parametro,
     editar_variante_comunicacion,
@@ -16,6 +17,7 @@ from apps.parametros.views import (
 urlpatterns = [
     path("gestion/parametros/", gestionar_parametros, name="gestionar-parametros"),
     path("gestion/parametros/puestos-a-elegir/", gestionar_catalogos_candidaturas, name="catalogos-candidaturas"),
+    path("gestion/parametros/puestos-electivos/<int:puesto_id>/claustros/<int:claustro_id>/", cambiar_claustro_puesto, name="cambiar-claustro-puesto"),
     path("gestion/parametros/<str:tipo>/", listar_parametros, name="listar-parametros"),
     path("gestion/parametros/<str:tipo>/nuevo/", editar_parametro, name="crear-parametro"),
     path("gestion/parametros/<str:tipo>/<int:objeto_id>/editar/", editar_parametro, name="editar-parametro"),

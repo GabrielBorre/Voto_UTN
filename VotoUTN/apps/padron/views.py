@@ -110,13 +110,13 @@ def exportar_padron_claustro(request, eleccion_id, claustro_id, formato):
     ).select_related(
         "elector", "sede", "eleccion_claustro_departamento__departamento",
         "asignacion_mesa__mesa",
-    ).order_by("elector__dni", "id")
+    ).order_by("dni", "id")
     encabezados = ("DNI", "Tipo documento", "Legajo", "Nombre", "Correo", "Claustro", "Departamento", "Sede", "Mesa")
     filas = (
         (
-            registro.elector.dni,
+            registro.dni,
             registro.elector.tipo_documento,
-            registro.elector.legajo,
+            registro.legajo,
             registro.elector.nombre_completo,
             registro.elector.correo_electronico,
             str(eleccion_claustro.claustro),

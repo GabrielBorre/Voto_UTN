@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.core.management.color import no_style
 from django.db import connection
 from django.db import transaction
+from django.db.models import Q
 
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
@@ -66,7 +67,9 @@ class Command(BaseCommand):
             for _intento in range(30):
                 legajo = self._generar_legajo()
                 dni = self._generar_dni()
-                if not Elector.objects.filter(legajo=legajo).exists() and not Elector.objects.filter(dni=dni).exists():
+                if not RegistroPadron.objects.filter(eleccion=mesa.eleccion).filter(
+                    Q(legajo=legajo) | Q(dni=dni),
+                ).exists():
                     break
             else:
                 raise CommandError("No se pudo generar legajo/dni unicos luego de varios intentos.")
