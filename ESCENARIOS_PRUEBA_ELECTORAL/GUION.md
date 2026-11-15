@@ -11,6 +11,9 @@ python -m unittest test_generador.py
 
 Editar el bloque JSON de `DECISIONES.md` para variar cantidades, pesos o límites.
 Regenerar archiva automáticamente la versión anterior en `historicos/`.
+Para actualizar también el lote incluido en Django y en la imagen Docker, usar
+`python generar_escenarios.py --exportar-plan-publicacion`. Exporta el mismo lote
+de diecinueve personas del primer caso, incluidos los tres solicitantes compartidos.
 No ejecutar el generador histórico dentro del directorio activo: para reproducir
 una versión antigua, copiar la carpeta histórica a otro directorio y trabajar allí.
 
@@ -54,7 +57,10 @@ editados. No cambian parámetros, estados, usuarios, plazos ni configuraciones d
 1. Consultar `control.json`: `manuales` propone dos personas con departamento, sede, tipo de mesa, ordinal dentro del grupo y turno. Usar las mesas reales de la interfaz, no asumir que el ordinal es su número global. Si hubo reordenamientos, verificar nuevamente compatibilidad.
 2. Designar esas dos personas manualmente. Importar `nomina_estudiantes_pequena.csv`, previsualizar y confirmar conservando designaciones. Los archivos `nomina_CLAUSTRO.csv` contienen una nómina amplia para pruebas alternativas; no se necesitan para este guion.
 3. Completar estudiantes por sorteo conservando las selecciones existentes. Sortear los demás claustros. Revisar mínimos por mesa/turno. Registrar tiempos de nómina y sorteo para cada segmento; la nómina pequeña también procesa el padrón completo.
-4. Publicar la elección y habilitar el período de solicitudes. Ejecutar:
+4. Publicar la elección y habilitar el período de solicitudes. En el primer caso,
+la publicación ya completa automáticamente las diecinueve solicitudes. Los
+segmentos segundo y tercero mantienen la carga manual. El comando también sirve
+para verificar o completar el lote sin duplicar las solicitudes creadas al publicar:
 
 ```powershell
 python ejecutar_escenario.py cambios --contenedor $contenedorPrueba --eleccion $eleccionPrueba --segmento $segmentoPrueba

@@ -50,12 +50,12 @@ class GeneradoresDemoTests(TestCase):
                 eleccion_claustro_departamento=self.alcance, sede=self.sedes[0],
             ))
 
-    def test_publicacion_genera_70_y_concentra_al_menos_63_en_una_sede(self):
+    def test_publicacion_de_otro_padron_no_genera_solicitudes_aleatorias(self):
         self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
         solicitudes = SolicitudCambioSede.objects.filter(registro_padron__eleccion=self.eleccion)
-        self.assertEqual(solicitudes.count(), 70)
-        self.assertGreaterEqual(solicitudes.filter(sede_destino=self.sedes[1]).count(), 63)
-        self.assertFalse(solicitudes.exclude(estado=SolicitudCambioSede.Estado.PENDIENTE).exists())
+        self.assertFalse(solicitudes.exists())
+        self.eleccion.refresh_from_db()
+        self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
         self.assertFalse(JustificativoAusencia.objects.exists())
 
     def crear_autoridades(self):
@@ -74,15 +74,15 @@ class GeneradoresDemoTests(TestCase):
             )
         return usuario, mesa
 
-    def test_solicitudes_incluyen_exactamente_una_autoridad_y_69_electores(self):
+    def test_otro_padron_conserva_autoridades_sin_inventar_solicitantes(self):
         self.crear_autoridades()
+        originales = list(AsignacionAutoridad.objects.order_by('pk').values())
         self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
         solicitudes = SolicitudCambioSede.objects.all()
-        self.assertEqual(solicitudes.count(), 70)
-        self.assertEqual(solicitudes.filter(registro_padron__asignacion_autoridad__estado="asignada").count(), 1)
-        self.assertGreaterEqual(solicitudes.filter(sede_destino=self.sedes[1]).count(), 63)
+        self.assertEqual(solicitudes.count(), 0)
         call_command("generar_solicitudes_cambio_sede_demo", stdout=StringIO())
-        self.assertEqual(solicitudes.filter(registro_padron__asignacion_autoridad__estado="asignada").count(), 1)
+        self.assertEqual(solicitudes.count(), 0)
+        self.assertEqual(list(AsignacionAutoridad.objects.order_by('pk').values()), originales)
 
     def test_confirmar_autoridades_genera_dos_justificativos_una_vez(self):
         from apps.autoridades.confirmacion import confirmar_autoridades
@@ -149,7 +149,7 @@ class GeneradoresDemoTests(TestCase):
 
     def test_publicacion_sin_destino_crea_las_posibles(self):
         EleccionClaustroDepartamentoSede.objects.exclude(sede=self.sedes[0]).delete()
-        with self.assertLogs("apps.elecciones.demo_generadores", level="WARNING"):
+        with self.assertLogs("apps.elecciones.demo_generadores", level="INFO"):
             self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
@@ -167,28 +167,26 @@ class GeneradoresDemoTests(TestCase):
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)
         self.assertEqual(self.eleccion.fecha_cierre_solicitudes_cambio_sede, date(2026, 11, 30))
-        self.assertEqual(SolicitudCambioSede.objects.count(), 70)
+        self.assertEqual(SolicitudCambioSede.objects.count(), 0)
 
     def test_error_al_generar_revierte_publicacion_y_solicitudes(self):
-        with patch("apps.elecciones.demo_generadores.SolicitudCambioSede.save", side_effect=IntegrityError("error")):
+        with patch("apps.elecciones.demo_generadores.generar_solicitudes_demo", side_effect=IntegrityError("error")):
             with self.assertRaises(IntegrityError):
                 self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.EN_PREPARACION)
         self.assertFalse(SolicitudCambioSede.objects.exists())
 
-    def test_comando_solicitudes_usa_sede_electoral_y_no_duplica(self):
+    def test_comando_solicitudes_no_modifica_la_sede_de_otro_padron(self):
         self.eleccion.estado = Eleccion.Estado.PUBLICADA
         self.eleccion.save(update_fields=("estado",))
         AsignacionSedePadron.objects.create(
             registro_padron=self.registros[0], sede=self.sedes[1], estado=AsignacionSedePadron.Estado.ASIGNADA,
         )
         for _ in range(2):
-            call_command("generar_solicitudes_cambio_sede_demo", cantidad=80, semilla=3, stdout=StringIO())
-        self.assertEqual(SolicitudCambioSede.objects.count(), 80)
-        solicitud = SolicitudCambioSede.objects.get(registro_padron=self.registros[0])
-        self.assertEqual(solicitud.sede_origen, self.sedes[1])
-        self.assertNotEqual(solicitud.sede_destino, solicitud.sede_origen)
+            call_command("generar_solicitudes_cambio_sede_demo", stdout=StringIO())
+        self.assertFalse(SolicitudCambioSede.objects.exists())
+        self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=self.registros[0]).sede, self.sedes[1])
 
     def test_comandos_justificativos_generan_dos_de_cada_y_evitan_duplicados(self):
         self.eleccion.estado = Eleccion.Estado.EN_CURSO

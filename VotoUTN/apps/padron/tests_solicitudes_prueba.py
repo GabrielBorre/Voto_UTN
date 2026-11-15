@@ -54,11 +54,11 @@ class SolicitudesPruebaTests(TestCase):
         calcular_asignaciones_sede_claustro(self.eleccion_claustro)
         self.assertEqual(AsignacionSedePadron.objects.get(registro_padron=registro).sede, self.sede)
 
-    def test_aprobar_muestra_movimientos_y_solo_aplica_tras_confirmacion(self):
+    def test_aprobacion_masiva_muestra_movimientos_y_solo_aplica_tras_confirmacion(self):
         solicitud = SolicitudCambioSede.objects.create(registro_padron=self.registros[0], sede_origen=self.sede_votacion, sede_destino=self.sede)
         self.client.force_login(self.usuario)
         url = reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,))
-        respuesta = self.client.post(url, {"accion": "aprobar", "solicitud_id": solicitud.pk})
+        respuesta = self.client.post(url, {"accion": "aprobar_seleccionadas", "solicitudes_ids": [solicitud.pk]})
         self.assertEqual(respuesta.status_code, 200)
         self.assertTemplateUsed(respuesta, "padron/revisar_cambios_sede.html")
         solicitud.refresh_from_db()
@@ -74,7 +74,7 @@ class SolicitudesPruebaTests(TestCase):
         solicitud = SolicitudCambioSede.objects.create(registro_padron=self.registros[0], sede_origen=self.sede_votacion, sede_destino=self.sede)
         self.client.force_login(self.usuario)
         url = reverse("gestionar-solicitudes-cambio-sede", args=(self.eleccion.pk,))
-        respuesta = self.client.post(url, {"accion": "aprobar", "solicitud_id": solicitud.pk})
+        respuesta = self.client.post(url, {"accion": "aprobar_seleccionadas", "solicitudes_ids": [solicitud.pk]})
         propuesta = respuesta.context["propuesta"]
         self.registros[1].nivel = "4"
         self.registros[1].save(update_fields=("nivel",))
