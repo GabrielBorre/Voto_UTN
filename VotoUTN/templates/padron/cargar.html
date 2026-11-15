@@ -41,7 +41,7 @@
         <div class="footer-actions">
           <button class="button primary" name="guardar-configuracion">Guardar configuración</button>
         </div>
-        <p class="muted field-help autosave-status" role="status" aria-live="polite" data-autosave-status>Los cambios se guardan automáticamente al editar estos valores.</p>
+        <p class="muted field-help autosave-status" role="status" aria-live="polite" data-autosave-status hidden></p>
         </fieldset>
       </form>
     {% else %}
@@ -131,5 +131,5 @@
 
 {% block scripts %}
   {{ block.super }}
-  <script src="{% static 'js/configuracion-padron-autoguardado.js' %}?v=20261009.1" defer></script>
+  <script src="{% static 'js/configuracion-padron-autoguardado.js' %}?v=20261115.1" defer></script>
 {% endblock %}
