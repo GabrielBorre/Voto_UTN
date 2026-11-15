@@ -1,0 +1,16 @@
+{% if justificativo.ausencia == "votar" and not justificativo.reclamo_participacion %}
+<div class="notice">
+  <p>Esta solicitud cubre todas las mesas de la elección donde el elector figure como ausente. La resolución se aplica a todas esas ausencias.</p>
+  <ul>
+    {% for registro in justificativo.registros_cubiertos %}
+    <li>{{ registro.eleccion_claustro_departamento.departamento }}{% if registro.asignacion_mesa %}: mesa {{ registro.asignacion_mesa.mesa.numero }}{% if registro.asignacion_mesa.mesa.es_especial %} (especial){% endif %}{% endif %}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% elif justificativo.reclamo_participacion %}
+<div class="notice">
+  {% for registro in justificativo.registros_cubiertos %}
+  <p>Mesa reclamada: {{ registro.eleccion_claustro_departamento.departamento }}{% if registro.asignacion_mesa %}, mesa {{ registro.asignacion_mesa.mesa.codigo }}{% if registro.asignacion_mesa.mesa.es_especial %} (especial){% endif %}{% endif %}. El reclamo se resuelve únicamente para esta mesa.</p>
+  {% endfor %}
+</div>
+{% endif %}

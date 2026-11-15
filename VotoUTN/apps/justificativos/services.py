@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
@@ -61,6 +62,30 @@ Validacion = JustificativoAusencia.ValidacionComprobante
 EXTENSIONES_IMAGEN = (".jpg", ".jpeg", ".png")
 
 
+def justificativos_electorales_para_registro(*, registro_id, elector_id, eleccion_id):
+    """Una justificación de ausencia cubre a la persona; un reclamo conserva su mesa."""
+    return JustificativoAusencia.objects.filter(
+        Q(registro_padron_id=registro_id)
+        | Q(
+            reclamo_participacion=False,
+            registro_padron__elector_id=elector_id,
+            registro_padron__eleccion_id=eleccion_id,
+        ),
+        ausencia=JustificativoAusencia.Ausencia.VOTAR,
+    )
+
+
+def registros_ausentes_de_persona(registro_padron):
+    from apps.padron.models import RegistroPadron
+
+    return RegistroPadron.objects.filter(
+        elector_id=registro_padron.elector_id,
+        eleccion_id=registro_padron.eleccion_id,
+        activo=True,
+        participaciones__isnull=False,
+    ).distinct()
+
+
 def puede_presentar_justificativo_electoral(registro_padron, momento=None):
     momento = momento or timezone.now()
     eleccion = registro_padron.eleccion
@@ -72,7 +97,7 @@ def puede_presentar_justificativo_electoral(registro_padron, momento=None):
         and timezone.localdate(momento) > eleccion.fecha_limite_justificacion_electores
     ):
         return False
-    return RegistroParticipacion.objects.filter(registro_padron=registro_padron).exists()
+    return registros_ausentes_de_persona(registro_padron).exists()
 
 
 def estado_justificativo_electoral(justificativo):

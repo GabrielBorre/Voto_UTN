@@ -225,7 +225,7 @@ def _dibujar_encabezado(c, eleccion, mesa):
         lineas.append(f"Departamento: {departamento.nombre}")
     lineas.extend([
         f"Fecha de votación: {fecha_votacion.strftime('%d/%m/%Y')}",
-        f"Sede: {sede_nombre}    Mesa: {mesa.codigo}",
+        f"Sede: {sede_nombre}    Mesa{' especial' if mesa.es_especial else ''}: {mesa.codigo}",
     ])
     c.setFont("Helvetica", 7.5)
     y_info = y - 4 * mm
@@ -346,7 +346,7 @@ def _dibujar_caratula(c, eleccion, mesa):
     c.drawCentredString(centro, y - 20 * mm, f"CLAUSTRO {(claustro.nombre if claustro else 'Sin claustro').upper()}")
 
     c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(centro, y - 38 * mm, "INFORMACIÓN DE MESA")
+    c.drawCentredString(centro, y - 38 * mm, "INFORMACIÓN DE MESA ESPECIAL" if mesa.es_especial else "INFORMACIÓN DE MESA")
 
     c.setFont("Helvetica", 13)
     y_dato = y - 55 * mm

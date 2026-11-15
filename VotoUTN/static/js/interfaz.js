@@ -3,7 +3,7 @@ let dialogo;
 let indicador;
 let temporizadorCarga;
 const operaciones = new Map();
-const formulariosEnviados = new Map();
+const formulariosEnviados = new Set();
 const confirmados = new WeakSet();
 const confirmando = new WeakSet();
 
@@ -157,7 +157,6 @@ export function iniciarCarga(mensaje = "Procesando operación…") {
 
 export function restablecerCarga() {
   operaciones.clear();
-  formulariosEnviados.forEach(({ temporizador }) => window.clearTimeout(temporizador));
   formulariosEnviados.clear();
   actualizarIndicador();
 }
@@ -230,13 +229,10 @@ document.addEventListener("submit", (evento) => {
     const destino = boton?.getAttribute("formtarget") || formulario.target;
     if (evento.defaultPrevented || boton?.matches(":disabled") || esDescarga(formulario)
         || (boton && esDescarga(boton)) || (destino && destino !== "_self")) return;
-    const terminar = iniciarCarga(boton?.dataset.loadingMessage || formulario.dataset.loadingMessage);
-    // Una descarga o una navegación cancelada no emiten pageshow en la página actual.
-    const temporizador = window.setTimeout(() => {
-      terminar();
-      formulariosEnviados.delete(formulario);
-    }, 90000);
-    formulariosEnviados.set(formulario, { temporizador, terminar });
+    iniciarCarga(boton?.dataset.loadingMessage || formulario.dataset.loadingMessage);
+    // Mantener la carga y evitar reenvíos hasta recibir la página de respuesta.
+    // pageshow/pagehide restablecen el estado al navegar o volver desde el historial.
+    formulariosEnviados.add(formulario);
   });
 });
 

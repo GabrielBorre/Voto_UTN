@@ -1,0 +1,78 @@
+# Decisiones de los escenarios electorales
+
+## Uso
+
+Este es el registro de acuerdos y la fuente de configuración del generador.
+Editar exclusivamente el bloque `json` siguiente para cambiar cantidades y reglas.
+Ejecutar `python generar_escenarios.py` después de editarlo. No cambia elecciones.
+Los porcentajes describen datos sintéticos plausibles, no matrícula institucional.
+Una misma semilla reproduce identidades; cambiarla produce otras identidades.
+
+## Configuración activa
+
+```json
+{
+  "version": 1,
+  "semilla": 2026,
+  "departamentos": {"K": 40, "I": 25, "R": 10, "S": 7, "O": 6, "V": 5, "Q": 3, "U": 2, "W": 2},
+  "distribucion_por_claustro": {"estudiantes": {}, "docentes": {}, "graduados": {}},
+  "porcentaje_medrano": {"estudiantes": 50, "docentes": 50, "no_docentes": 50},
+  "secundarios": {"K": 50, "I": 30, "R": 20},
+  "docentes_basicas_porcentaje": 20,
+  "actividad_porcentaje": {"estudiantes": 60, "docentes": 70, "graduados": 0, "no_docentes": 100},
+  "maximo_mesa": {"estudiantes": 60, "docentes": 200, "graduados": 200, "no_docentes": 200},
+  "codigos_claustro": {"estudiantes": "EST", "docentes": "DOC", "graduados": "GRAD", "no_docentes": "ND"},
+  "sedes": ["Campus", "Medrano"],
+  "sede_unica_estudiantes": {"Q": "Campus"},
+  "sede_electoral": {"docentes": "Medrano", "graduados": "Medrano"},
+  "turnos": ["Mañana", "Tarde", "Noche"],
+  "autoridades": {"minimo": 2, "maximo": 3, "manuales": 2, "nomina_pequena": 12},
+  "nomina_movilidad": {"segmento_1_500": {"departamento": "R", "sede": "Medrano", "sede_donantes": "Campus", "reemplazos": 4}},
+  "ampliacion_cambios": {"segmento_1_500": {"cantidad": 9, "departamento_principal": "K", "departamento_adicional": "I", "origen": "Campus", "destino": "Medrano", "minimo_mesas_nuevas": 2, "solicitantes_nomina_pequena": 3}},
+  "segmentos": [
+    {"carpeta": "segmento_1_500", "personas": {"estudiantes": 500, "docentes": 500, "graduados": 500, "no_docentes": 500}, "adicionales": {"estudiantes": 100, "docentes": 100}, "solicitudes": 10, "justificativos": 3},
+    {"carpeta": "segmento_2_1000", "personas": {"estudiantes": 1000, "docentes": 1000, "graduados": 1000, "no_docentes": 1000}, "adicionales": {"estudiantes": 150, "docentes": 150}, "solicitudes": 20, "justificativos": 5},
+    {"carpeta": "segmento_3_2000", "personas": {"estudiantes": 2000, "docentes": 1000, "graduados": 1000, "no_docentes": 1000}, "adicionales": {"estudiantes": 200, "docentes": 150}, "solicitudes": 40, "justificativos": 8}
+  ]
+}
+```
+
+## Acuerdos y criterios de generación
+
+- `departamentos` es la distribución base de ingenierías. Para cambiar solo un claustro, completar su objeto en `distribucion_por_claustro` con los nueve códigos y porcentajes que sumen 100; un objeto vacío hereda la base. En docentes, esos porcentajes distribuyen el resto después de reservar Ciencias Básicas.
+- `porcentaje_medrano` define el reparto inicial por sede (de actividad en docentes, de trabajo en no docentes); las sedes electorales fijas, los grupos pequeños y el ajuste de Sistemas tienen prioridad. Los porcentajes finales por sede pueden diferir debido a esas reglas.
+- Cada segmento se prueba en una elección distinta, secuencialmente. Cada carpeta es autosuficiente.
+- Las cantidades son personas únicas. Un secundario agrega una fila con la misma identidad y un departamento diferente. Graduados no tienen secundarios; no docentes tampoco tienen departamento.
+- Nombres y apellidos habituales, incluyendo tildes y ñ. Nada de nombres numerados o cadenas aleatorias. DNI y legajo únicos; los nombres pueden repetirse.
+- Carlos Gomez conserva DNI 38999222 y legajo 4444443. Es estudiante de Sistemas, nivel inicial, sin actividad ese día, inicialmente Campus. Se excluye de autoridades y de solicitudes automáticas. Se solicita manualmente Campus → Medrano; su futura ausencia electoral queda fuera de esta etapa.
+- Estudiantes: la actividad determina sede; sin actividad, niveles 1–3 Campus y 4–5 Medrano. Una sede única tiene prioridad. Los registros secundarios comparten sede electoral con el principal.
+- Docentes y graduados votan en la sede fija configurada. No docentes votan donde trabajan; todos informan sede y turno. Actividad no equivale a participación electoral.
+- Se distribuyen sedes y turnos equilibradamente. Los grupos estudiantiles pequeños ocupan una sola sede para poder cubrir autoridades. En Sistemas se lleva el tamaño de Medrano a un múltiplo del máximo por mesa próximo a la mitad, para mostrar mesas nuevas con pocos cambios.
+- Secundarios concentrados en tres departamentos, seleccionados entre personas sin actividad; no se obliga a ocupar todas las sedes habilitadas. Redondeo por mayor resto, conservando totales.
+- Cada persona ocupa como máximo una plaza de autoridad en toda la elección. El control utiliza emparejamiento de personas y plazas, respetando actividad y mesas especiales.
+- Dos autoridades manuales y una nómina estudiantil pequeña, distintas entre sí; luego sorteo conservando designaciones. Los otros claustros se sortean. No usar «Recalcular» si elimina las selecciones manuales.
+- El comando `cambios` carga en una ejecución las diez solicitudes originales y las nueve adicionales del primer caso: diecinueve automáticas. Tres de los nueve solicitantes adicionales figuran tanto en la nómina pequeña de doce como en la nómina completa de 198 (también en la de movilidad). Pueden aparecer más solicitantes designados por nómina o sorteo. La presentación conserva todas las designaciones; no importa archivos ni asigna autoridades. Los otros segmentos conservan veinte y cuarenta solicitudes. Carlos se agrega manualmente aparte: totales efectivos 20/21/41.
+- Las nuevas mesas se verifican con servicios reales y el estado actual: objetivo entre una y nueve. No basta estimar por división. Las autoridades de otras personas pueden verse afectadas por reordenamientos; revisar el impacto y completar vacantes antes de confirmar.
+- Justificativos pendientes únicamente de autoridades estudiantiles: uno por grupo mesa/turno con tres titulares, manteniendo al menos dos tras aprobarlos. Si no hay suficientes casos seguros, el script se detiene sin crear un lote parcial.
+- Los correos deben terminar en `@frba.utn.edu.ar` porque el importador actual rechaza otros dominios. Se usan direcciones sintéticas `escenario.*`; ejecutar la demostración con Mailpit o backend local, nunca procesar esos correos hacia un servidor institucional real.
+- No se crean cuentas ni se modifica Keycloak. No se sobrescriben identidades existentes desde estos scripts. La importación de padrones y las configuraciones se confirman por interfaz.
+- Nómina pequeña no garantiza una previsualización rápida: el servicio simula alternativas sobre el padrón completo. Medir tiempos; optimizarlo no forma parte de esta entrega.
+- La nómina alternativa `nomina_estudiantes_movilidad.csv` del primer segmento conserva 198 personas pero reemplaza cuatro candidatos de Electrónica/Medrano por cuatro de Electrónica/Campus, sin actividad ese día ni departamentos secundarios. Sin cambio de sede falta cobertura en Medrano; permitirlo permite cubrirla. Hay lugar en la mesa de destino sin crear mesas nuevas. El padrón, Carlos, las reservas y las nóminas anteriores se conservan. Su configuración está en `nomina_movilidad`; si el padrón cambia y no hay suficientes candidatos compatibles, el generador informa el problema.
+- Para comparar esa nómina hay que partir sin designaciones completas existentes. Las alternativas conservan las designaciones anteriores; importar otro archivo no las borra. Quitar autoridades por la interfaz solo para iniciar esta prueba alternativa, conservando padrón, mesas y reglas, y volver a ejecutar la reserva de solicitantes antes de sortear.
+
+## Históricos
+
+Cada regeneración valida primero todos los archivos. Antes de reemplazarlos copia a
+`historicos/FECHA_HORA/` la versión previa de CSV, scripts, decisiones y guion.
+`DECISIONES_GENERACION.md` conserva el documento exacto usado para esa versión,
+incluso si ya editaste el documento activo. No se archivan históricos dentro de históricos.
+Cambiar el documento no actualiza CSV ni bases automáticamente. Los scripts rechazan
+archivos alterados o desactualizados y no cambian configuraciones de la elección.
+
+## Registro de acuerdos
+
+- 2026-11-15: unificar originales y ampliación bajo `cambios`; `ampliar_cambios` queda como alias del lote completo. Mantener las diecinueve personas, todos los padrones y las nóminas completas. Reemplazar tres integrantes de la nómina pequeña para garantizar tres solicitantes compartidos con la de 198. No excluirlos de autoridades ni cambiar designaciones existentes. La carga omite las solicitudes ya existentes, incluso aprobadas o rechazadas, y muestra cuántos de los tres están efectivamente designados. Para demostrar el aviso hay que aplicar la nómina o designarlos antes de revisar los cambios de sede; pertenecer al CSV no implica una designación guardada.
+- 2026-11-15: ampliar el primer caso con nueve solicitudes adicionales de personas con principal en Sistemas y secundario en Industrial, sin actividad ese día. Se conservan las diez solicitudes originales y todos los padrones; serán diecinueve automáticas más Carlos manual. Se busca crear al menos dos mesas al aprobar: una ordinaria de Sistemas y una especial de Industrial en Medrano. Las nueve personas permiten cubrir los tres turnos de la mesa especial; no crear una mesa especial con una sola persona. La ampliación se configura en `ampliacion_cambios`, se ejecuta con la acción `ampliar_cambios` y no reemplaza autoridades ni aprueba solicitudes.
+- 2026-11-15: durante la prueba publicada se acepta que dos solicitantes sean autoridades sorteadas. No reemplazarlas ni modificar sus designaciones al presentar solicitudes. Para este caso usar `cambios --solo-estudiantes --conservar-autoridades`: valida el padrón estudiantil y crea solicitudes pendientes mediante el formulario normal, sin exigir reservas previas. Mantiene la comprobación de plazo, destino habilitado, identidad, ausencia de actividad y límite de mesas nuevas. La aprobación posterior puede afectar sus designaciones y deberá revisarse por interfaz. Las opciones por defecto conservan el escenario original sin autoridades solicitantes.
+- 2026-11-15: configuración central en Markdown, tres segmentos, nombres reales ficticios y archivo automático de versiones anteriores.
+- 2026-11-15: límites estudiantiles de 60 y de 200 para los demás claustros; no docentes con actividad en todos los registros; docentes y graduados en Medrano.

@@ -1,0 +1,4 @@
+# Conservar los CSV reproducibles y sus firmas SHA-256 en todas las plataformas.
+/ESCENARIOS_PRUEBA_ELECTORAL/**/*.csv -text
+/PRUEBA_20000_ALUMNOS/*.csv -text
+/VotoUTN/archivos_prueba/carga_alumnos_20000/*.csv -text

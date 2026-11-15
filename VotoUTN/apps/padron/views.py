@@ -519,6 +519,7 @@ def mis_solicitudes_cambio_sede(request):
     registros = RegistroPadron.objects.filter(
         elector=elector,
         activo=True,
+        es_principal=True,
         eleccion__estado=Eleccion.Estado.PUBLICADA,
     ).select_related("eleccion", "sede", "eleccion_claustro_departamento__eleccion_claustro__claustro")
     registro = registros.order_by("-eleccion__fecha_inicio", "-eleccion_id").first()
