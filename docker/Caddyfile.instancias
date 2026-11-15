@@ -1,0 +1,31 @@
+{
+	auto_https disable_redirects
+}
+
+http://:8000 {
+	redir https://{host}:{$PUERTO_HTTPS}{uri} permanent
+}
+
+https://:8443 {
+	tls internal {
+		on_demand
+	}
+
+	encode gzip
+
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+	}
+
+	handle /media/justificativos/* {
+		reverse_proxy web:8000
+	}
+
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+
+	reverse_proxy web:8000
+}

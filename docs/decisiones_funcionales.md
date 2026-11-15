@@ -301,6 +301,10 @@ Reglas:
 
 ## Resolución de solicitudes de cambio de sede
 
+- «Aprobar» en una solicitud individual aplica directamente la resolución y el
+  recálculo, sin pasar por «Revisar cambios de sede». Conserva los permisos,
+  bloqueos por emisión de QR, auditoría y notificación al elector. Las
+  aprobaciones masivas mantienen la revisión de su propuesta antes de aplicar.
 - Cada elector puede registrar una única solicitud de cambio de sede por elección, independientemente de su estado (pendiente, aprobada o rechazada).
 - El filtro por estado afecta solo el listado, incluso en modo lectura. Los
   resúmenes y las acciones masivas continúan abarcando todas las solicitudes

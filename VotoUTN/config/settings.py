@@ -72,6 +72,8 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Voto UTN <no-reply@votoutn
 # construiria URLs (redirect_uri de Keycloak incluido) con el esquema http.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
+SESSION_COOKIE_NAME = os.getenv("DJANGO_SESSION_COOKIE_NAME", "sessionid")
+CSRF_COOKIE_NAME = os.getenv("DJANGO_CSRF_COOKIE_NAME", "csrftoken")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
@@ -88,5 +90,7 @@ AUTHENTICATION_BACKENDS = [
 # La URL publica de Keycloak y de VotoUTN se calculan dinamicamente por request (ver
 # config/views.py) para que funcionen tanto desde la PC como desde el celular en la misma red.
 KEYCLOAK_URL_INTERNO = os.getenv("KEYCLOAK_URL_INTERNO", "http://localhost:8080")
+KEYCLOAK_PUERTO_PUBLICO = int(os.getenv("KEYCLOAK_PUERTO_PUBLICO", "8080"))
+KEYCLOAK_RUTA_PUBLICA = os.getenv("KEYCLOAK_RUTA_PUBLICA", "").rstrip("/")
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "FRBA")
 KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "VOTOUTN")
