@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django import forms
 from django.db import transaction
 from django.db.models import Q
@@ -15,14 +17,20 @@ from .models import (
 from apps.mesas.models import Mesa
 from apps.padron.models import RegistroPadron
 from apps.padron.services import claustro_tiene_emision_vigente
-from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede
+from apps.parametros.models import (
+    CODIGOS_FECHAS_ADMINISTRATIVAS_RETIRADAS,
+    Claustro,
+    Departamento,
+    FechaAdministrativa,
+    Sede,
+)
 from .services import agregar_claustro
 
 
 class FormularioFechaLimiteJustificativosElectores(forms.Form):
     fecha_limite_justificacion_electores = forms.DateField(
         label="Último día para presentar justificativos",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
     )
 
     def __init__(self, *args, **kwargs):
@@ -38,6 +46,126 @@ class FormularioFechaLimiteJustificativosElectores(forms.Form):
         return fecha
 
 
+class FormularioEditarPlazoJustificativosElectores(forms.Form):
+    fecha_limite_justificacion_electores = forms.DateField(
+        label="Último día para presentar justificativos",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
+    )
+
+    def __init__(self, *args, eleccion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eleccion = eleccion
+        fecha_minima = timezone.localdate()
+        if eleccion.fecha_limite_justificacion_electores:
+            fecha_minima = max(
+                fecha_minima,
+                eleccion.fecha_limite_justificacion_electores + timedelta(days=1),
+            )
+        self.fields["fecha_limite_justificacion_electores"].initial = fecha_minima
+        self.fields["fecha_limite_justificacion_electores"].widget.attrs["min"] = (
+            fecha_minima.isoformat()
+        )
+
+    def clean_fecha_limite_justificacion_electores(self):
+        fecha = self.cleaned_data["fecha_limite_justificacion_electores"]
+        if fecha < timezone.localdate():
+            raise forms.ValidationError("La fecha límite no puede ser anterior a hoy.")
+        if (
+            self.eleccion.fecha_limite_justificacion_electores
+            and fecha < self.eleccion.fecha_limite_justificacion_electores
+        ):
+            raise forms.ValidationError("No se puede acortar el período de justificativos.")
+        if fecha == self.eleccion.fecha_limite_justificacion_electores:
+            raise forms.ValidationError("La nueva fecha límite debe ser posterior a la actual.")
+        return fecha
+
+
+class FormularioEditarPlazoCambioSede(forms.Form):
+    fecha_cierre_solicitudes_cambio_sede = forms.DateField(
+        label="Fecha límite para solicitar cambio de sede",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
+    )
+
+    def __init__(self, *args, eleccion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eleccion = eleccion
+        fecha_minima = timezone.localdate()
+        if eleccion.fecha_cierre_solicitudes_cambio_sede:
+            fecha_minima = max(
+                fecha_minima,
+                eleccion.fecha_cierre_solicitudes_cambio_sede + timedelta(days=1),
+            )
+        if eleccion.solicitudes_cambio_sede_habilitadas_en:
+            fecha_inicio = timezone.localtime(
+                eleccion.solicitudes_cambio_sede_habilitadas_en
+            ).date()
+            fecha_minima = max(fecha_minima, fecha_inicio)
+        campo_fecha = self.fields["fecha_cierre_solicitudes_cambio_sede"]
+        campo_fecha.initial = fecha_minima
+        campo_fecha.widget.attrs["min"] = fecha_minima.isoformat()
+
+    def clean_fecha_cierre_solicitudes_cambio_sede(self):
+        fecha = self.cleaned_data["fecha_cierre_solicitudes_cambio_sede"]
+        if fecha < timezone.localdate():
+            raise forms.ValidationError("La fecha límite no puede ser anterior a hoy.")
+        if (
+            self.eleccion.fecha_cierre_solicitudes_cambio_sede
+            and fecha <= self.eleccion.fecha_cierre_solicitudes_cambio_sede
+        ):
+            raise forms.ValidationError(
+                "La nueva fecha límite debe ser posterior a la fecha límite actual."
+            )
+        if self.eleccion.solicitudes_cambio_sede_habilitadas_en:
+            fecha_inicio = timezone.localtime(
+                self.eleccion.solicitudes_cambio_sede_habilitadas_en
+            ).date()
+            if fecha < fecha_inicio:
+                raise forms.ValidationError(
+                    "La fecha límite no puede ser anterior al inicio del período."
+                )
+        return fecha
+
+
+class FormularioEditarPlazoEximicionAutoridades(forms.Form):
+    fecha_limite_justificacion_autoridades = forms.DateField(
+        label="Último día para justificar inasistencia como autoridad de mesa",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
+    )
+
+    def __init__(self, *args, eleccion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eleccion = eleccion
+        fecha_minima = timezone.localdate()
+        if eleccion.fecha_limite_justificacion_autoridades:
+            fecha_minima = max(
+                fecha_minima,
+                eleccion.fecha_limite_justificacion_autoridades + timedelta(days=1),
+            )
+        self.fields["fecha_limite_justificacion_autoridades"].initial = fecha_minima
+        self.fields["fecha_limite_justificacion_autoridades"].widget.attrs["min"] = (
+            fecha_minima.isoformat()
+        )
+
+    def clean_fecha_limite_justificacion_autoridades(self):
+        fecha = self.cleaned_data["fecha_limite_justificacion_autoridades"]
+        if fecha < timezone.localdate():
+            raise forms.ValidationError("La fecha límite no puede ser anterior a hoy.")
+        if (
+            self.eleccion.fecha_limite_justificacion_autoridades
+            and fecha <= self.eleccion.fecha_limite_justificacion_autoridades
+        ):
+            raise forms.ValidationError(
+                "La nueva fecha límite debe ser posterior a la fecha límite actual."
+            )
+        if self.eleccion.autoridades_confirmadas_en:
+            fecha_inicio = timezone.localtime(self.eleccion.autoridades_confirmadas_en).date()
+            if fecha < fecha_inicio:
+                raise forms.ValidationError(
+                    "La fecha límite no puede ser anterior al inicio del período."
+                )
+        return fecha
+
+
 class FormularioEleccion(forms.ModelForm):
     sedes = forms.ModelMultipleChoiceField(queryset=Sede.objects.none(), widget=forms.CheckboxSelectMultiple)
     claustros = forms.ModelMultipleChoiceField(queryset=Claustro.objects.none(), widget=forms.CheckboxSelectMultiple)
@@ -48,18 +176,15 @@ class FormularioEleccion(forms.ModelForm):
             "nombre",
             "fecha_inicio",
             "fecha_fin",
-            "fecha_cierre_solicitudes_cambio_sede",
         )
         labels = {
             "nombre": "Nombre de la elección",
             "fecha_inicio": "Inicio del proceso electoral",
             "fecha_fin": "Fin del proceso electoral",
-            "fecha_cierre_solicitudes_cambio_sede": "Cierre de solicitudes de cambio de sede",
         }
         widgets = {
-            "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
-            "fecha_fin": forms.DateInput(attrs={"type": "date"}),
-            "fecha_cierre_solicitudes_cambio_sede": forms.DateInput(attrs={"type": "date"}),
+            "fecha_inicio": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+            "fecha_fin": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -105,11 +230,6 @@ class FormularioPublicarEleccion(forms.Form):
         label="Fecha límite para solicitar cambio de sede",
         widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
     )
-    fecha_limite_justificacion_autoridades = forms.DateField(
-        label="Fecha límite para justificar inasistencia como autoridad de mesa",
-        required=False,
-        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
-    )
 
     def __init__(self, *args, eleccion, **kwargs):
         super().__init__(*args, **kwargs)
@@ -131,6 +251,8 @@ class FormularioFechasAdministrativasEleccion(forms.Form):
         self.definiciones_fechas = list(
             FechaAdministrativa.objects.filter(
                 Q(activa=True) | Q(programaciones__eleccion=eleccion),
+            ).exclude(
+                codigo__in=CODIGOS_FECHAS_ADMINISTRATIVAS_RETIRADAS,
             ).distinct().prefetch_related("claustros")
         )
         programaciones = {
@@ -147,8 +269,8 @@ class FormularioFechasAdministrativasEleccion(forms.Form):
             self.fields[f"fecha_{definicion.id}_valor"] = forms.DateField(
                 required=False,
                 label="Fecha",
-                initial=programacion.fecha if programacion else None,
-                widget=forms.DateInput(attrs={"type": "date"}),
+                initial=programacion.fecha if programacion else timezone.localdate(),
+                widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
             )
 
     def clean(self):
@@ -185,16 +307,11 @@ class FormularioFechasAdministrativasEleccion(forms.Form):
 class FormularioEditarEleccion(forms.ModelForm):
     class Meta:
         model = Eleccion
-        fields = (*FormularioEleccion.Meta.fields, "fecha_limite_justificacion_autoridades")
-        labels = {
-            **FormularioEleccion.Meta.labels,
-            "fecha_limite_justificacion_autoridades": "Fecha límite para justificar inasistencia como autoridad de mesa",
-        }
+        fields = FormularioEleccion.Meta.fields
+        labels = FormularioEleccion.Meta.labels
         widgets = {
-            "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
-            "fecha_fin": forms.DateInput(attrs={"type": "date"}),
-            "fecha_cierre_solicitudes_cambio_sede": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
-            "fecha_limite_justificacion_autoridades": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+            "fecha_inicio": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+            "fecha_fin": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):

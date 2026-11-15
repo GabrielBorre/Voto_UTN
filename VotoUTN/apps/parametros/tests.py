@@ -7,7 +7,7 @@ from io import StringIO
 
 from apps.auditoria.models import EventoAuditoria
 from apps.justificativos.models import TipoJustificativo
-from apps.notificaciones.models import PlantillaNotificacion
+from apps.notificaciones.models import ComunicacionFechaAdministrativa, PlantillaNotificacion
 from apps.parametros.forms import FormularioFechaAdministrativa
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.partidos.forms import FormularioCargoElectivo
@@ -86,7 +86,14 @@ class CatalogosEstandarTests(TestCase):
         )
         self.assertEqual(Turno.objects.count(), 3)
         self.assertEqual(Departamento.objects.count(), 10)
-        self.assertEqual(FechaAdministrativa.objects.count(), 6)
+        self.assertEqual(FechaAdministrativa.objects.count(), 3)
+        self.assertFalse(FechaAdministrativa.objects.filter(
+            codigo__in=(
+                "exhibicion-padron-provisorio",
+                "publicacion-padron-definitivo",
+                "justificacion-ausencia-electoral",
+            ),
+        ).exists())
         self.assertEqual(PlantillaNotificacion.objects.count(), 26)
         self.assertEqual(OrganoElectivo.objects.count(), 3)
         self.assertEqual(CargoElectivo.objects.count(), 3)
@@ -112,6 +119,45 @@ class CatalogosEstandarTests(TestCase):
         plantilla.refresh_from_db()
         self.assertTrue(plantilla.activa)
         self.assertTrue(Sede.objects.filter(pk=extra.pk).exists())
+
+    def test_carga_estandar_no_reactiva_fechas_ni_comunicaciones_retiradas(self):
+        fecha = FechaAdministrativa.objects.create(
+            codigo="exhibicion-padron-provisorio",
+            nombre="Exhibición del padrón provisorio",
+            activa=False,
+        )
+        comunicacion = ComunicacionFechaAdministrativa.objects.create(
+            fecha_administrativa=fecha,
+            codigo="apertura",
+            nombre="Apertura",
+            activa=False,
+        )
+
+        call_command("cargar_parametros_estandar", stdout=StringIO())
+
+        fecha.refresh_from_db()
+        comunicacion.refresh_from_db()
+        self.assertFalse(fecha.activa)
+        self.assertFalse(comunicacion.activa)
+
+        fecha_justificativos = FechaAdministrativa.objects.create(
+            codigo="justificacion-ausencia-electoral",
+            nombre="Justificación ausencia electoral",
+            activa=False,
+        )
+        comunicacion_justificativos = ComunicacionFechaAdministrativa.objects.create(
+            fecha_administrativa=fecha_justificativos,
+            codigo="apertura",
+            nombre="Apertura de justificativos",
+            activa=False,
+        )
+
+        call_command("cargar_parametros_estandar", stdout=StringIO())
+
+        fecha_justificativos.refresh_from_db()
+        comunicacion_justificativos.refresh_from_db()
+        self.assertFalse(fecha_justificativos.activa)
+        self.assertFalse(comunicacion_justificativos.activa)
 
 
 class ValidacionesCatalogosTests(TestCase):

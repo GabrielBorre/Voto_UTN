@@ -1742,6 +1742,68 @@ th a.table-sort-link:focus-visible {
     padding: 14px 0;
 }
 
+.plazo-actual {
+    margin: 1em 0;
+}
+
+.plazo-actual__linea {
+    align-items: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+}
+
+.plazo-actual__texto {
+    color: #3f4754;
+}
+
+.plazo-actual__ayuda {
+    color: #3f4754;
+    margin: .35rem 0 0;
+}
+
+.plazo-edicion {
+    display: block;
+    flex: 0 0 auto;
+    width: fit-content;
+}
+
+.plazo-edicion__activador {
+    align-items: center;
+    border-radius: 6px;
+    color: var(--azul-900);
+    cursor: pointer;
+    display: flex;
+    gap: .15rem;
+    list-style: none;
+    padding: 4px;
+    width: fit-content;
+}
+
+.plazo-edicion__activador::-webkit-details-marker {
+    display: none;
+}
+
+.plazo-edicion__activador:hover,
+.plazo-edicion__activador:focus-visible {
+    background: var(--azul-100);
+}
+
+.plazo-edicion__contenido {
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgb(15 23 42 / 14%);
+    margin-top: 8px;
+    max-width: 100%;
+    padding: 16px;
+    width: 360px;
+}
+
+.btn_editar_plazo {
+    margin-top: 0.75em;
+}
+
 .filters {
     align-items: end;
     display: flex;
