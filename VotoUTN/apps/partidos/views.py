@@ -4,6 +4,7 @@ from uuid import uuid4
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.db.models import Count, Prefetch
 from django.db.models.deletion import ProtectedError
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
@@ -23,18 +24,28 @@ from apps.partidos.forms import (
     FormularioParticipacionPartido,
     FormularioPuestoEleccion,
 )
+from apps.partidos.importacion_puestos import (
+    ENCABEZADOS_PUESTOS,
+    confirmar_puestos_csv,
+    leer_csv_puestos,
+    validar_puestos_csv,
+)
 from apps.partidos.models import Candidato, ImportacionCandidaturas, ListaCandidatos, ParticipacionPartido, PuestoEleccion
 from apps.partidos.services import (
     ENCABEZADOS_CANDIDATURAS,
     ENCABEZADOS_CANDIDATOS_LISTA,
+    ENCABEZADOS_CANDIDATOS_MULTIPUESTO,
     confirmar_candidatos_lista,
+    confirmar_candidatos_multipuesto,
     confirmar_importacion_candidaturas,
     crear_presentacion_con_puestos,
     guardar_con_validacion,
     previsualizar_candidatos_lista,
+    previsualizar_candidatos_multipuesto,
     previsualizar_importacion_candidaturas,
     buscar_elector_candidato,
 )
+from apps.reportes.services import valor_csv
 from apps.usuarios.permisos import puede_administrar_elecciones, puede_configurar_eleccion
 
 
@@ -182,7 +193,56 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
         request.POST if accion == "previsualizar_candidatos" else None,
         request.FILES if accion == "previsualizar_candidatos" else None,
     ) if participacion_seleccionada else None
+    formulario_csv_multipuesto = FormularioImportacionCandidaturas(
+        request.POST if accion == "previsualizar_multipuesto" else None,
+        request.FILES if accion == "previsualizar_multipuesto" else None,
+        prefix="multipuesto",
+    ) if participacion_seleccionada else None
+    formulario_csv_puestos = FormularioImportacionCandidaturas(
+        request.POST if accion == "previsualizar_puestos_csv" else None,
+        request.FILES if accion == "previsualizar_puestos_csv" else None,
+        prefix="puestos_csv",
+    ) if claustro_seleccionado else None
     importacion = None
+    importacion_multipuesto = None
+    previsualizacion_puestos = None
+    errores_puestos = []
+    clave_puestos = f"importacion_puestos_{eleccion.pk}_{claustro_id}" if claustro_seleccionado else None
+    if request.method == "POST" and accion == "previsualizar_puestos_csv":
+        if not claustro_seleccionado or pantalla_candidatos:
+            raise Http404()
+        pestana = "puesto"
+        request.session.pop(clave_puestos, None)
+        if formulario_csv_puestos.is_valid():
+            try:
+                filas_puestos = leer_csv_puestos(formulario_csv_puestos.cleaned_data["archivo"])
+                previsualizacion_puestos, errores_puestos = validar_puestos_csv(claustro_seleccionado, filas_puestos)
+            except ValidationError as error:
+                errores_puestos = error.messages
+            if previsualizacion_puestos and not errores_puestos:
+                token = uuid4().hex
+                request.session[clave_puestos] = {
+                    "token": token, "filas": filas_puestos, "previsualizacion": previsualizacion_puestos,
+                }
+    if request.method == "POST" and accion == "confirmar_puestos_csv":
+        if not claustro_seleccionado or pantalla_candidatos:
+            raise Http404()
+        datos = request.session.get(clave_puestos)
+        if not datos or request.POST.get("token") != datos["token"]:
+            messages.error(request, "La previsualización no está disponible. Volvé a cargar el archivo.")
+        else:
+            try:
+                cantidad = confirmar_puestos_csv(
+                    claustro_seleccionado, datos["filas"], datos["previsualizacion"], request,
+                )
+            except ValidationError as error:
+                messages.error(request, f"No se pudo confirmar: {'; '.join(error.messages)}")
+            except IntegrityError:
+                messages.error(request, "La configuración cambió durante la carga. Volvé a previsualizar el archivo.")
+            else:
+                request.session.pop(clave_puestos, None)
+                messages.success(request, f"Se configuraron {cantidad} puestos.")
+        return redirect(_url_puestos_eleccion(request, eleccion.pk))
     if request.method == "POST" and accion == "configurar_puesto" and formulario_puesto.is_valid():
         configuraciones = formulario_puesto.guardar()
         for configuracion in configuraciones:
@@ -255,6 +315,32 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
             lista=asociacion_seleccionada,
             archivo=formulario_csv.cleaned_data["archivo"], usuario=request.user,
         )
+    if request.method == "POST" and accion == "previsualizar_multipuesto" and formulario_csv_multipuesto and formulario_csv_multipuesto.is_valid():
+        importacion_multipuesto = previsualizar_candidatos_multipuesto(
+            participacion=participacion_seleccionada,
+            archivo=formulario_csv_multipuesto.cleaned_data["archivo"], usuario=request.user,
+        )
+    if request.method == "POST" and accion == "confirmar_multipuesto" and participacion_seleccionada:
+        importacion_multipuesto = get_object_or_404(
+            ImportacionCandidaturas, pk=_id_opcional(request.POST.get("importacion_id")), eleccion=eleccion,
+        )
+        try:
+            cantidad = confirmar_candidatos_multipuesto(importacion_multipuesto, participacion_seleccionada)
+        except (ValidationError, IntegrityError) as error:
+            if isinstance(error, ValidationError):
+                messages.error(request, f"No se pudo confirmar la importación: {'; '.join(error.messages)}")
+            else:
+                messages.error(request, "No se pudo confirmar la importación porque cambió una candidatura o asociación. Volvé a previsualizar el archivo.")
+        else:
+            registrar_evento(
+                accion="confirmar_importacion_candidatos_lista",
+                entidad=importacion_multipuesto._meta.label,
+                entidad_id=importacion_multipuesto.pk,
+                eleccion=eleccion, request=request,
+                datos_nuevos={"candidatos": cantidad, "lista": participacion_seleccionada.pk},
+            )
+            messages.success(request, f"Se cargaron {cantidad} personas candidatas.")
+        return redirect(_url_gestion(eleccion.id, participacion_id))
     if request.method == "POST" and accion == "confirmar_candidatos" and participacion_seleccionada:
         if not asociacion_seleccionada:
             raise Http404()
@@ -424,11 +510,31 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
             "formulario_candidato": formulario_candidato,
             "candidato_en_edicion": candidato_en_edicion,
             "formulario_csv": formulario_csv,
+            "formulario_csv_multipuesto": formulario_csv_multipuesto,
+            "formulario_csv_puestos": formulario_csv_puestos,
+            "previsualizacion_puestos": previsualizacion_puestos,
+            "errores_puestos": errores_puestos,
+            "token_puestos": request.session.get(clave_puestos, {}).get("token") if clave_puestos else None,
             "importacion": importacion,
+            "importacion_multipuesto": importacion_multipuesto,
             "hay_puestos_disponibles": formulario_vincular.fields["puesto_eleccion"].queryset.exists()
             if formulario_vincular else False,
         },
     )
+
+
+@login_required
+def descargar_plantilla_puestos(request, eleccion_id, claustro_id):
+    claustro = get_object_or_404(
+        EleccionClaustro.objects.select_related("eleccion"), pk=claustro_id, eleccion_id=eleccion_id,
+    )
+    if not _tiene_permiso(request, claustro.eleccion):
+        return HttpResponseForbidden("No tiene permiso para descargar esta plantilla.")
+    respuesta = HttpResponse(content_type="text/csv; charset=utf-8")
+    respuesta["Content-Disposition"] = f'attachment; filename="puestos-claustro-{claustro.pk}.csv"'
+    respuesta.write("\ufeff")
+    csv.writer(respuesta, delimiter=";").writerow(ENCABEZADOS_PUESTOS)
+    return respuesta
 
 
 @login_required
@@ -438,6 +544,12 @@ def descargar_plantilla_candidatos_lista(request, eleccion_id, participacion_id)
     )
     if not _tiene_permiso(request, participacion.eleccion):
         return HttpResponseForbidden("No tiene permiso para descargar esta plantilla.")
+    if request.GET.get("formato") == "multipuesto":
+        respuesta = HttpResponse(content_type="text/csv; charset=utf-8")
+        respuesta["Content-Disposition"] = f'attachment; filename="candidatos-lista-{participacion.pk}.csv"'
+        respuesta.write("\ufeff")
+        csv.writer(respuesta, delimiter=";").writerow(ENCABEZADOS_CANDIDATOS_MULTIPUESTO)
+        return respuesta
     lista_id = _id_opcional(request.GET.get("puesto"))
     lista = get_object_or_404(
         ListaCandidatos.objects.select_related(
@@ -456,6 +568,11 @@ def descargar_plantilla_candidatos_lista(request, eleccion_id, participacion_id)
     escritor = csv.writer(respuesta, delimiter=";")
     escritor.writerow(ENCABEZADOS_CANDIDATOS_LISTA)
     config = lista.puesto_eleccion
+    nombre_puesto = valor_csv(config.puesto.nombre)
+    departamento = valor_csv(
+        lista.eleccion_claustro_departamento.departamento.nombre
+        if lista.eleccion_claustro_departamento_id else ""
+    )
     ocupados = set(lista.candidatos.values_list("tipo", "orden"))
     for tipo, cantidad in (
         (Candidato.Tipo.TITULAR, config.cantidad_titulares),
@@ -463,7 +580,7 @@ def descargar_plantilla_candidatos_lista(request, eleccion_id, participacion_id)
     ):
         for orden in range(1, cantidad + 1):
             if (tipo, orden) not in ocupados:
-                escritor.writerow(("DNI", "", tipo, orden))
+                escritor.writerow((nombre_puesto, departamento, "DNI", "", tipo, orden))
     return respuesta
 
 

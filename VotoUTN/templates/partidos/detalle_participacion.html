@@ -59,6 +59,44 @@
     {% else %}
       <p class="candidaturas-lista-actual"><strong>{{ participacion_seleccionada.nombre_lista|default:participacion_seleccionada.partido }}</strong> · {{ participacion_seleccionada.eleccion_claustro.claustro|default:"Alcance histórico" }} · Apoderado/a: {{ participacion_seleccionada.apoderado_nombre|default:"No informado" }}</p>
 
+      <details class="candidaturas-subsection" {% if importacion_multipuesto or formulario_csv_multipuesto.errors %}open{% endif %}>
+        <summary>Importar candidatos de varios puestos por CSV</summary>
+        <p>Indicá puestos habilitados para este claustro. Se asociarán automáticamente a esta lista al confirmar; los candidatos existentes no se reemplazan.</p>
+        <a class="button light" href="{% url 'plantilla-candidatos-lista' eleccion.id participacion_seleccionada.id %}?formato=multipuesto">Descargar plantilla de varios puestos</a>
+        <form method="post" enctype="multipart/form-data" action="#candidaturas">
+          {% csrf_token %}<input type="hidden" name="accion" value="previsualizar_multipuesto">
+          {% for error in formulario_csv_multipuesto.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+          <div class="field puesto-selector">
+            <label for="{{ formulario_csv_multipuesto.archivo.id_for_label }}">{{ formulario_csv_multipuesto.archivo.label }}</label>
+            {{ formulario_csv_multipuesto.archivo }}
+            {% for error in formulario_csv_multipuesto.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
+          </div>
+          <small class="muted field-help">Usá el nombre exacto de cada puesto y departamento; dejá departamento vacío para un puesto general. Indicá tipo_documento (DNI, CUIL o LEGAJO), documento, tipo_candidatura (titular o suplente) y orden.</small>
+          <div class="footer-actions"><button class="button primary" type="submit">Previsualizar varios puestos</button></div>
+        </form>
+        {% if importacion_multipuesto %}
+          <div class="candidaturas-subsection">
+            <h3>Previsualización: {{ importacion_multipuesto.nombre_archivo }}</h3>
+            <p>{{ importacion_multipuesto.cantidad_valida }} de {{ importacion_multipuesto.cantidad_total }} filas válidas.</p>
+            {% for error in importacion_multipuesto.errores %}<div class="error">{{ error }}</div>{% endfor %}
+            {% for advertencia in importacion_multipuesto.advertencias %}<p class="muted">Advertencia: {{ advertencia }}</p>{% endfor %}
+            {% if not importacion_multipuesto.errores %}
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Fila</th><th>Puesto y alcance</th><th>Persona</th><th>Tipo</th><th>Orden</th></tr></thead>
+                  <tbody>{% for fila in importacion_multipuesto.filas %}<tr><td>{{ fila.numero_fila }}</td><td>{{ fila.nombre_puesto }}</td><td>{{ fila.nombre }}</td><td>{{ fila.tipo }}</td><td>{{ fila.orden }}</td></tr>{% endfor %}</tbody>
+                </table>
+              </div>
+              <form method="post" action="#candidaturas">
+                {% csrf_token %}<input type="hidden" name="accion" value="confirmar_multipuesto">
+                <input type="hidden" name="importacion_id" value="{{ importacion_multipuesto.id }}">
+                <div class="footer-actions"><button class="button primary" type="submit">Confirmar carga de varios puestos</button></div>
+              </form>
+            {% endif %}
+          </div>
+        {% endif %}
+      </details>
+
       {% if asociacion_seleccionada %}
         <nav class="gestion-nav" aria-label="Método de carga de candidatos">
           <a class="{% if pestana_candidatos == 'manual' %}active{% endif %}" href="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=manual#candidaturas">Carga manual</a>
@@ -164,7 +202,7 @@
               {{ formulario_csv.archivo }}
               {% for error in formulario_csv.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
             </div>
-            <small class="muted field-help">El puesto seleccionado ya determina el órgano, el puesto y el departamento. Completá únicamente tipo_documento (DNI, CUIL o LEGAJO), documento, tipo_candidatura (titular o suplente) y orden. El orden indica la posición del candidato dentro de la lista. Se admiten también los CSV anteriores, cuyos datos de puesto deben coincidir con el seleccionado.</small>
+            <small class="muted field-help">La plantilla incluye el puesto y departamento seleccionados; dejá el departamento vacío para un puesto general. Completá tipo_documento (DNI, CUIL o LEGAJO) y documento. El orden indica la posición del candidato dentro de la lista. Los datos de puesto deben coincidir con el seleccionado; también se admiten CSV anteriores sin esas columnas.</small>
             <div class="footer-actions"><button class="button primary" type="submit">Previsualizar candidatos</button></div>
           </form>
           {% if importacion %}

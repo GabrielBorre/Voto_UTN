@@ -61,11 +61,20 @@ ORGANOS_ELECTIVOS = (
 
 PUESTOS_ELECTIVOS = (
     (
+        "Consejo Superior",
+        "Consejero/a superior",
+        True,
+        False,
+        "Puesto de representación ante el Consejo Superior.",
+        ("Docentes", "Estudiantes", "Graduados", "No docentes"),
+    ),
+    (
         "Consejo Directivo",
         "Consejero/a directivo/a",
         True,
         False,
         "Puesto de representación general, configurable para uno o más claustros.",
+        ("Docentes", "Estudiantes", "Graduados", "No docentes"),
     ),
     (
         "Consejo Departamental",
@@ -73,6 +82,7 @@ PUESTOS_ELECTIVOS = (
         True,
         True,
         "Puesto configurable por claustro y por departamento de forma independiente.",
+        ("Docentes", "Estudiantes", "Graduados"),
     ),
     (
         "Consejo DASUTeN",
@@ -80,6 +90,7 @@ PUESTOS_ELECTIVOS = (
         True,
         False,
         "Puesto configurable para los claustros que participan de la elección de DASUTeN.",
+        ("Docentes",),
     ),
 )
 
@@ -160,8 +171,8 @@ class Command(BaseCommand):
                 {"descripcion": descripcion, "activo": True},
                 nombre=nombre,
             )
-        for organo_nombre, nombre, filtra_claustros, filtra_departamentos, descripcion in PUESTOS_ELECTIVOS:
-            self._upsert(
+        for organo_nombre, nombre, filtra_claustros, filtra_departamentos, descripcion, claustros in PUESTOS_ELECTIVOS:
+            puesto = self._upsert(
                 conteo,
                 CargoElectivo,
                 {
@@ -173,6 +184,7 @@ class Command(BaseCommand):
                 organo=organos[organo_nombre],
                 nombre=nombre,
             )
+            puesto.claustros_habilitados.set(Claustro.objects.filter(nombre__in=claustros))
 
         fechas = {}
         for codigo, nombre, modalidad, duracion, roles, criterio, evento in FECHAS:

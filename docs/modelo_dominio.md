@@ -183,6 +183,9 @@ Los puestos departamentales predeterminados se crean explícitamente mediante el
 comando `habilitar_puestos_departamentales` para una elección en preparación.
 Configura Estudiantes (3 titulares y 3 suplentes), Docentes (5 y 5) y Graduados
 (2 y 2), excepto Ciencias Básicas, y conserva las configuraciones ya existentes.
+La importación CSV de puestos configura alcances y cantidades para un claustro;
+no crea parámetros nuevos y no reduce cupos por debajo del orden de candidaturas
+existentes. Los cambios se previsualizan, revalidan y auditan.
 
 `ListaCandidatos` vincula una presentación con un `PuestoEleccion`. `Candidato`
 conserva sus datos identificatorios, tipo y orden; las nuevas candidaturas deben
@@ -193,6 +196,9 @@ La candidatura conserva la identidad canónica del elector aunque se la haya bus
 Las referencias opcionales y el identificador independiente se conservan para registros históricos.
 `ImportacionCandidaturas` conserva
 la previsualización, errores, advertencias, usuario y confirmación de cada CSV.
+El CSV multipuesto de una presentación identifica puestos ya habilitados por
+nombre y departamento (vacío para el alcance general); al confirmar crea las
+asociaciones faltantes sin reemplazar candidaturas existentes.
 
 ## Justificativos
 

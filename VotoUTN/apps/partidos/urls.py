@@ -10,6 +10,7 @@ from apps.partidos.views import (
     detalle_participacion,
     descargar_plantilla_candidaturas,
     descargar_plantilla_candidatos_lista,
+    descargar_plantilla_puestos,
     editar_candidato,
     editar_participacion,
     editar_puesto_eleccion,
@@ -23,6 +24,7 @@ from apps.partidos.views import (
 urlpatterns = [
     path("gestion/elecciones/<int:eleccion_id>/partidos/listas/<int:lista_id>/buscar-elector/", buscar_elector, name="buscar-elector-candidato"),
     path("gestion/elecciones/<int:eleccion_id>/partidos/", gestionar_partidos, name="gestionar-partidos"),
+    path("gestion/elecciones/<int:eleccion_id>/partidos/claustros/<int:claustro_id>/puestos/plantilla.csv", descargar_plantilla_puestos, name="plantilla-puestos-csv"),
     path("gestion/elecciones/<int:eleccion_id>/candidaturas/importar/", importar_candidaturas, name="importar-candidaturas"),
     path("gestion/elecciones/<int:eleccion_id>/candidaturas/plantilla.csv", descargar_plantilla_candidaturas, name="plantilla-candidaturas"),
     path("gestion/elecciones/<int:eleccion_id>/partidos/<int:participacion_id>/candidatos/plantilla.csv", descargar_plantilla_candidatos_lista, name="plantilla-candidatos-lista"),

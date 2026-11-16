@@ -1123,18 +1123,12 @@ class PartidosViewsTests(PartidosBaseTests):
         )
         self.assertEqual(plantilla.status_code, 200)
         contenido_plantilla = plantilla.content.decode("utf-8-sig")
-        self.assertTrue(contenido_plantilla.startswith("tipo_documento;documento;tipo_candidatura;orden"))
-        self.assertIn("DNI;;titular;1", contenido_plantilla)
+        self.assertTrue(contenido_plantilla.startswith("puesto;departamento;tipo_documento;documento;tipo_candidatura;orden"))
+        self.assertIn("Consejero/a;Sistemas;DNI;;titular;1", contenido_plantilla)
         self.assertNotIn("organo", contenido_plantilla)
-        self.assertNotIn("puesto", contenido_plantilla)
-        self.assertNotIn("departamento", contenido_plantilla)
         self.assertNotIn("identificador_persona", plantilla.content.decode("utf-8-sig"))
 
-        contenido = "\n".join((
-            "tipo_documento;documento;tipo_candidatura;orden",
-            f"DNI;{elector.dni};titular;1",
-            "DNI;;suplente;1",
-        ))
+        contenido = contenido_plantilla.replace("DNI;;titular;1", f"DNI;{elector.dni};titular;1", 1)
         archivo = SimpleUploadedFile("candidatos-lista.csv", contenido.encode("utf-8"), content_type="text/csv")
         destino = (
             f"{reverse('detalle-participacion-partido', args=(self.eleccion.id, self.participacion.id))}"

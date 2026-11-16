@@ -231,6 +231,45 @@
     </form>
   </section>
 
+  <section class="card management-section" id="importar-puestos">
+    <div class="section-title">
+      <div>
+        <h2>Cargar puestos por CSV</h2>
+        <p>Los tipos de puestos provienen de los parámetros generales: Consejo DASUTeN, Consejo Departamental, Consejo Directivo y Consejo Superior, según los claustros habilitados. También podés usar otros puestos activos configurados allí.</p>
+      </div>
+      <a class="button light" href="{% url 'plantilla-puestos-csv' eleccion.id claustro_seleccionado.id %}">Descargar plantilla de puestos</a>
+    </div>
+    <p>Indicá <code>puesto</code>, <code>departamento</code>, <code>titulares</code> y <code>suplentes</code>. Para Consejo Departamental cargá una fila por departamento, con su nombre o código; para puestos generales dejá el departamento vacío. Los puestos existentes se actualizan sin modificar su estado.</p>
+    <form method="post" enctype="multipart/form-data" action="?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto#importar-puestos">
+      {% csrf_token %}<input type="hidden" name="accion" value="previsualizar_puestos_csv">
+      <div class="field">
+        <label for="{{ formulario_csv_puestos.archivo.id_for_label }}">{{ formulario_csv_puestos.archivo.label }}</label>
+        {{ formulario_csv_puestos.archivo }}
+        {% for error in formulario_csv_puestos.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+      {% for error in formulario_csv_puestos.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+      <div class="footer-actions"><button class="button primary" type="submit">Previsualizar puestos</button></div>
+    </form>
+    {% for error in errores_puestos %}<div class="error">{{ error }}</div>{% endfor %}
+    {% if previsualizacion_puestos %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Fila</th><th>Puesto</th><th>Departamento</th><th>Titulares</th><th>Suplentes</th><th>Operación</th></tr></thead>
+          <tbody>{% for fila in previsualizacion_puestos %}
+            <tr><td>{{ fila.numero }}</td><td>{{ fila.puesto }}</td><td>{{ fila.departamento }}</td><td>{{ fila.titulares }}</td><td>{{ fila.suplentes }}</td><td>{% if fila.existente_id %}Actualizar{% if not fila.activo_anterior %} (inactivo){% endif %}: {{ fila.titulares_anteriores }}/{{ fila.suplentes_anteriores }} anteriores{% else %}Crear{% endif %}</td></tr>
+          {% endfor %}</tbody>
+        </table>
+      </div>
+      {% if not errores_puestos %}
+        <form method="post" action="?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto#importar-puestos">
+          {% csrf_token %}<input type="hidden" name="accion" value="confirmar_puestos_csv">
+          <input type="hidden" name="token" value="{{ token_puestos }}">
+          <div class="footer-actions"><button class="button primary" type="submit">Confirmar puestos</button></div>
+        </form>
+      {% endif %}
+    {% endif %}
+  </section>
+
   <section class="card management-section">
     <div class="section-title">
       <div>

@@ -60,7 +60,7 @@
             {% if es_cargo %}
               <td class="actions">
                 {% for claustro in claustros %}
-                  <form class="inline-form" method="post" action="{% url 'cambiar-claustro-puesto' objeto.id claustro.id %}">
+                  <form class="inline-form" method="post" action="{% url 'cambiar-claustro-puesto' objeto.id claustro.id %}" data-conservar-scroll>
                     {% csrf_token %}
                     <input type="hidden" name="q" value="{{ consulta }}">
                     {% if claustro in objeto.claustros_habilitados.all %}

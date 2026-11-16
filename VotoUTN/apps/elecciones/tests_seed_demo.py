@@ -34,10 +34,15 @@ class SeedDemoDataTests(TestCase):
             )
 
             self.assertEqual(eleccion.elecciones_claustro.count(), 4)
-            self.assertEqual(PuestoEleccion.objects.filter(eleccion_claustro__eleccion=eleccion).count(), 9)
+            self.assertEqual(PuestoEleccion.objects.filter(eleccion_claustro__eleccion=eleccion).count(), 8)
             self.assertEqual(eleccion.partidos_participantes.count(), 10)
-            self.assertEqual(ListaCandidatos.objects.filter(participacion__eleccion=eleccion).count(), 19)
-            self.assertEqual(Candidato.objects.filter(lista__participacion__eleccion=eleccion).count(), 38)
+            self.assertEqual(ListaCandidatos.objects.filter(participacion__eleccion=eleccion).count(), 18)
+            self.assertEqual(Candidato.objects.filter(lista__participacion__eleccion=eleccion).count(), 36)
+            self.assertFalse(PuestoEleccion.objects.filter(
+                eleccion_claustro__eleccion=eleccion,
+                eleccion_claustro__claustro__nombre="No docentes",
+                puesto__organo__nombre="Consejo DASUTeN",
+            ).exists())
             self.assertFalse(Candidato.objects.filter(lista__participacion__eleccion=eleccion, elector__isnull=True).exists())
             for candidato in Candidato.objects.filter(lista__participacion__eleccion=eleccion).select_related("elector", "lista"):
                 candidato.full_clean()
@@ -66,8 +71,8 @@ class SeedDemoDataTests(TestCase):
                 dict(eleccion.partidos_participantes.values_list("codigo_presentacion", "pk")),
             )
             self.assertEqual(eleccion.partidos_participantes.count(), 10)
-            self.assertEqual(ListaCandidatos.objects.filter(participacion__eleccion=eleccion).count(), 19)
-            self.assertEqual(Candidato.objects.filter(lista__participacion__eleccion=eleccion).count(), 38)
+            self.assertEqual(ListaCandidatos.objects.filter(participacion__eleccion=eleccion).count(), 18)
+            self.assertEqual(Candidato.objects.filter(lista__participacion__eleccion=eleccion).count(), 36)
 
 
 class SeedDemoInicialTests(TestCase):

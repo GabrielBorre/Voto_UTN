@@ -103,7 +103,16 @@ class CatalogosEstandarTests(TestCase):
         consejo_superior = OrganoElectivo.objects.get(nombre="Consejo Superior", activo=True)
         formulario_puesto = FormularioCargoElectivo()
         self.assertIn(consejo_superior, formulario_puesto.fields["organo"].queryset)
-        self.assertEqual(CargoElectivo.objects.count(), 3)
+        self.assertEqual(CargoElectivo.objects.count(), 4)
+        claustros_por_organo = {
+            "Consejo Superior": {"Docentes", "Estudiantes", "Graduados", "No docentes"},
+            "Consejo Directivo": {"Docentes", "Estudiantes", "Graduados", "No docentes"},
+            "Consejo Departamental": {"Docentes", "Estudiantes", "Graduados"},
+            "Consejo DASUTeN": {"Docentes"},
+        }
+        for organo, esperados in claustros_por_organo.items():
+            puesto = CargoElectivo.objects.get(organo__nombre=organo)
+            self.assertEqual(set(puesto.claustros_habilitados.values_list("nombre", flat=True)), esperados)
         self.assertEqual(TipoJustificativo.objects.count(), 0)
         puesto_departamental = CargoElectivo.objects.get(
             organo__nombre="Consejo Departamental",
@@ -121,7 +130,10 @@ class CatalogosEstandarTests(TestCase):
 
         self.assertEqual(PlantillaNotificacion.objects.count(), 26)
         self.assertEqual(OrganoElectivo.objects.count(), 4)
-        self.assertEqual(CargoElectivo.objects.count(), 3)
+        self.assertEqual(CargoElectivo.objects.count(), 4)
+        for organo, esperados in claustros_por_organo.items():
+            puesto = CargoElectivo.objects.get(organo__nombre=organo)
+            self.assertEqual(set(puesto.claustros_habilitados.values_list("nombre", flat=True)), esperados)
         self.assertEqual(ids, {codigo: pk for codigo, pk in PlantillaNotificacion.objects.values_list("codigo", "pk")})
         plantilla.refresh_from_db()
         self.assertTrue(plantilla.activa)
@@ -239,6 +251,7 @@ class CatalogosCandidaturasTests(TestCase):
 
         listado = self.client.get(reverse("listar-parametros", args=("puestos-electivos",)))
         self.assertContains(listado, "Docentes ✓")
+        self.assertContains(listado, "data-conservar-scroll", count=4)
         for claustro in claustros[1:]:
             self.assertContains(listado, f"+ {claustro}")
         respuesta = self.client.post(destino, {"accion": "quitar"})
