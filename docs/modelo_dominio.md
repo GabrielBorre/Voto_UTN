@@ -179,10 +179,11 @@ representa una presentación electoral propia de la elección y conserva código
 número y nombre de lista, claustro y apoderado. Su vínculo con `Partido` es opcional
 y existe solamente para compatibilidad histórica.
 
-Los puestos departamentales predeterminados se crean explícitamente mediante el
-comando `habilitar_puestos_departamentales` para una elección en preparación.
-Configura Estudiantes (3 titulares y 3 suplentes), Docentes (5 y 5) y Graduados
-(2 y 2), excepto Ciencias Básicas, y conserva las configuraciones ya existentes.
+Los puestos departamentales predeterminados se crean al agregar departamentos a
+una elección en preparación: Estudiantes (3 titulares y 3 suplentes), Docentes
+(5 y 5) y Graduados (2 y 2), excepto Ciencias Básicas. El comando
+`habilitar_puestos_departamentales` permite completar departamentos existentes;
+no modifica las configuraciones ya existentes.
 La importación CSV de puestos configura alcances y cantidades para un claustro;
 no crea parámetros nuevos y no reduce cupos por debajo del orden de candidaturas
 existentes. Los cambios se previsualizan, revalidan y auditan.

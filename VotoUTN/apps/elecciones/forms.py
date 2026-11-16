@@ -461,8 +461,13 @@ class FormularioDepartamentosClaustro(forms.Form):
         ).delete()
         removidas.delete()
         from apps.padron.services import calcular_asignaciones_sede_claustro
+        from apps.partidos.services import habilitar_puestos_departamentales_predeterminados
 
         calcular_asignaciones_sede_claustro(self.eleccion_claustro)
+        if seleccionados - actuales:
+            habilitar_puestos_departamentales_predeterminados(
+                self.eleccion_claustro, departamento_ids=seleccionados - actuales,
+            )
 
 
 class FormularioPrepararClaustro(forms.ModelForm):

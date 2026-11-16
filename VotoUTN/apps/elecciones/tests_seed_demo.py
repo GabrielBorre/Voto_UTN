@@ -9,10 +9,11 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase, TestCase, override_settings
 
-from apps.elecciones.models import Eleccion
+from apps.elecciones.forms import FormularioDepartamentosClaustro
+from apps.elecciones.models import Eleccion, EleccionClaustro
 from apps.justificativos.models import TipoJustificativo
 from apps.padron.models import RegistroPadron
-from apps.parametros.models import Departamento, Sede, Turno
+from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.partidos.models import Candidato, ListaCandidatos, ParticipacionPartido, PuestoEleccion
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 from apps.usuarios.permisos import (
@@ -97,6 +98,29 @@ class SeedDemoInicialTests(TestCase):
         self.assertTrue(puede_crear_elecciones(get_user_model().objects.get(username="juanb")))
         self.assertEqual(PerfilUsuario.objects.count(), 2)
         self.assertEqual(AsignacionRol.objects.count(), 2)
+
+    def test_puesto_departamental_se_configura_al_agregar_departamento_despues_de_la_semilla(self):
+        call_command("seed_demo_inicial", stdout=StringIO())
+        eleccion = Eleccion.objects.create(
+            nombre="Nueva elección", fecha_inicio=date(2026, 11, 20), fecha_fin=date(2026, 11, 21),
+        )
+        claustro = EleccionClaustro.objects.create(
+            eleccion=eleccion, claustro=Claustro.objects.get(nombre="Docentes"),
+        )
+        departamento = Departamento.objects.get(codigo="K")
+        formulario = FormularioDepartamentosClaustro(
+            data={"departamentos": [departamento.pk]}, eleccion_claustro=claustro,
+        )
+        self.assertTrue(formulario.is_valid(), formulario.errors)
+        formulario.guardar()
+
+        puesto = PuestoEleccion.objects.get(
+            eleccion_claustro=claustro,
+            eleccion_claustro_departamento__departamento=departamento,
+            puesto__nombre="Consejero/a departamental",
+        )
+        self.assertEqual((puesto.cantidad_titulares, puesto.cantidad_suplentes), (5, 5))
+        self.assertFalse(Candidato.objects.exists())
 
     def test_no_asigna_privilegios_a_un_usuario_preexistente_sin_perfil(self):
         usuario = get_user_model().objects.create_user(username="juanb", password="existente")

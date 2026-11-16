@@ -121,11 +121,11 @@ previsualización. La carga manual y CSV comparten búsqueda por DNI, CUIL o leg
 con consulta del nombre antes del guardado y revalidación del padrón al confirmar.
 La creación manual de una lista permite asociarle puestos existentes o configurar
 un puesto nuevo en el mismo formulario, y continuar directamente con la carga de
-candidatos. Al configurar departamentos de Estudiantes, Docentes y Graduados,
-se habilitan automáticamente los puestos departamentales estándar de cinco
-titulares y cinco suplentes, excepto Ciencias Básicas. Al abrir Partidos y
-candidatos también se completa de forma idempotente la configuración automática
-de los departamentos ya seleccionados.
+candidatos. Al agregar departamentos a Estudiantes, Docentes y Graduados se
+habilitan automáticamente los puestos departamentales estándar, con 3, 5 y 2
+titulares y suplentes respectivamente, excepto Ciencias Básicas. Los
+departamentos existentes se pueden completar mediante el comando
+`habilitar_puestos_departamentales`, sin sobrescribir puestos existentes.
 
 ### Cierre de modularizacion
 **Estado:** completado

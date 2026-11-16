@@ -181,6 +181,16 @@ def _obtener_boletas(eleccion):
                     if lista.puesto_eleccion_id
                     else lista.nombre
                 ),
+                "departamento": (
+                    lista.puesto_eleccion.eleccion_claustro_departamento.departamento
+                    if lista.puesto_eleccion_id
+                    and lista.puesto_eleccion.eleccion_claustro_departamento_id
+                    else (
+                        lista.eleccion_claustro_departamento.departamento
+                        if lista.eleccion_claustro_departamento_id
+                        else None
+                    )
+                ),
                 "candidatos": [],
             },
         )
@@ -195,16 +205,51 @@ def _obtener_boletas(eleccion):
 
     grupos_boletas = []
     identidades_con_alcance_departamental = set()
+    listas_basicas_compartidas = {}
+    for clave, grupo in grupos_departamentales.items():
+        if (
+            _es_ciencias_basicas(grupo["departamento"])
+            and _comparte_basicas_por_departamento(grupo["participacion"].eleccion_claustro.claustro.nombre)
+        ):
+            listas_basicas_compartidas.setdefault(clave[:-1], []).extend(grupo["listas"])
+
     for clave, grupo in grupos_departamentales.items():
         clave_lista = clave[:-1]
+        if (
+            clave_lista in listas_basicas_compartidas
+            and _es_ciencias_basicas(grupo["departamento"])
+        ):
+            continue
         identidades_con_alcance_departamental.add(clave_lista)
         for lista in grupo["listas"]:
+            agregar_lista(grupo, lista)
+        for lista in listas_basicas_compartidas.get(clave_lista, ()):
             agregar_lista(grupo, lista)
         grupo_transversal = grupos_transversales.get(clave_lista)
         if grupo_transversal:
             for lista in grupo_transversal["listas"]:
                 agregar_lista(grupo, lista)
         grupos_boletas.append(grupo)
+
+    for clave_lista, listas_basicas in listas_basicas_compartidas.items():
+        if clave_lista in identidades_con_alcance_departamental:
+            continue
+        grupo = {
+            "participacion": listas_basicas[0].participacion,
+            "clave_lista": clave_lista,
+            "claustros": set(),
+            "departamento": None,
+            "listas": [],
+            "puestos": {},
+        }
+        for lista in listas_basicas:
+            agregar_lista(grupo, lista)
+        grupo_transversal = grupos_transversales.get(clave_lista)
+        if grupo_transversal:
+            for lista in grupo_transversal["listas"]:
+                agregar_lista(grupo, lista)
+        grupos_boletas.append(grupo)
+        identidades_con_alcance_departamental.add(clave_lista)
 
     for clave_lista, grupo in grupos_transversales.items():
         if clave_lista not in identidades_con_alcance_departamental:
@@ -244,9 +289,16 @@ def _es_ciencias_basicas(departamento):
     )
 
 
+def _comparte_basicas_por_departamento(claustro):
+    nombre = slugify(claustro)
+    return "estudiante" in nombre or "docente" in nombre
+
+
 def _clasificar_puesto(boleta, puesto):
     claustro = slugify(" ".join(boleta["claustros"]))
-    departamento_especial = _es_ciencias_basicas(boleta["departamento"])
+    departamento_especial = _es_ciencias_basicas(
+        puesto.get("departamento") or boleta["departamento"]
+    )
     nombre = slugify(f"{puesto['organo']} {puesto['nombre']}")
 
     if "dasuten" in nombre:
@@ -256,20 +308,14 @@ def _clasificar_puesto(boleta, puesto):
     if "directivo" in nombre:
         return "directivo"
     if "ciencias-basicas" in nombre and (
-        "estudiante" in claustro or "graduado" in claustro
+        _comparte_basicas_por_departamento(claustro) or "graduado" in claustro
     ):
         return "ciencias_basicas"
     if "departamental" in nombre:
         if departamento_especial and (
-            "estudiante" in claustro or "graduado" in claustro
+            _comparte_basicas_por_departamento(claustro) or "graduado" in claustro
         ):
             return "ciencias_basicas"
-        return "departamental"
-    if (
-        departamento_especial
-        and "docente" in claustro
-        and "ciencias-basicas" in nombre
-    ):
         return "departamental"
     return None
 
@@ -308,7 +354,10 @@ def _crear_filas_boletas(boletas):
 
         if columnas[2] is not None:
             filas.append({
-                "columnas": [None, None, columnas[2], None],
+                "columnas": [
+                    None, None, columnas[2],
+                    columnas[3] if _comparte_basicas_por_departamento(" ".join(boleta["claustros"])) else None,
+                ],
                 "fila_departamental": True,
             })
 

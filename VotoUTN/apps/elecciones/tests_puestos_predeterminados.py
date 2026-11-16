@@ -1,11 +1,12 @@
 from datetime import date
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
 from apps.elecciones.forms import FormularioDepartamentosClaustro
-from apps.elecciones.models import Eleccion, EleccionClaustro
+from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.parametros.models import Claustro, Departamento
 from apps.partidos.models import CargoElectivo, OrganoElectivo, PuestoEleccion
 
@@ -43,10 +44,6 @@ class PuestosDepartamentalesPredeterminadosTests(TestCase):
             self.configurar_departamentos(nombre)[0]
             for nombre in ("Estudiantes", "Docentes", "Graduados")
         ]
-        self.assertFalse(PuestoEleccion.objects.exists())
-
-        call_command("habilitar_puestos_departamentales", str(self.eleccion.pk), verbosity=0)
-
         organo = OrganoElectivo.objects.get(nombre="Consejo Departamental")
         cargo = CargoElectivo.objects.get(
             organo=organo,
@@ -77,23 +74,85 @@ class PuestosDepartamentalesPredeterminadosTests(TestCase):
                 )
 
     def test_guardar_repetidamente_no_duplica_ni_reinicia_cantidades(self):
-        configuracion, _ = self.configurar_departamentos("Estudiantes")
-        call_command("habilitar_puestos_departamentales", str(self.eleccion.pk), verbosity=0)
+        configuracion, formulario = self.configurar_departamentos("Estudiantes")
         puesto = PuestoEleccion.objects.get(
             eleccion_claustro=configuracion,
             eleccion_claustro_departamento__departamento__codigo="K",
         )
-        puesto.cantidad_titulares = 3
-        puesto.save(update_fields=("cantidad_titulares",))
+        puesto.cantidad_titulares = 4
+        puesto.cantidad_suplentes = 4
+        puesto.save(update_fields=("cantidad_titulares", "cantidad_suplentes"))
 
-        call_command("habilitar_puestos_departamentales", str(self.eleccion.pk), verbosity=0)
+        formulario.guardar()
 
         self.assertEqual(
             PuestoEleccion.objects.filter(eleccion_claustro=configuracion).count(),
             2,
         )
         puesto.refresh_from_db()
-        self.assertEqual(puesto.cantidad_titulares, 3)
+        self.assertEqual(puesto.cantidad_titulares, 4)
+        self.assertEqual(puesto.cantidad_suplentes, 4)
+
+    def test_solo_crea_puestos_para_departamentos_recien_agregados(self):
+        configuracion, formulario = self.configurar_departamentos("Estudiantes")
+        puesto = PuestoEleccion.objects.get(
+            eleccion_claustro=configuracion,
+            eleccion_claustro_departamento__departamento__codigo="K",
+        )
+        puesto_id = puesto.pk
+        puesto.delete()
+        nuevo = Departamento.objects.create(nombre="Mecánica", codigo="M")
+        formulario = FormularioDepartamentosClaustro(
+            data={"departamentos": [departamento.pk for departamento in self.departamentos] + [nuevo.pk]},
+            eleccion_claustro=configuracion,
+        )
+        self.assertTrue(formulario.is_valid(), formulario.errors)
+        formulario.guardar()
+
+        self.assertFalse(PuestoEleccion.objects.filter(pk=puesto_id).exists())
+        self.assertFalse(PuestoEleccion.objects.filter(
+            eleccion_claustro=configuracion,
+            eleccion_claustro_departamento__departamento__codigo="K",
+        ).exists())
+        nuevo_puesto = PuestoEleccion.objects.get(
+            eleccion_claustro=configuracion,
+            eleccion_claustro_departamento__departamento=nuevo,
+        )
+        self.assertEqual((nuevo_puesto.cantidad_titulares, nuevo_puesto.cantidad_suplentes), (3, 3))
+
+    def test_comando_completa_departamentos_existentes_sin_modificar_puestos(self):
+        claustro = Claustro.objects.create(nombre="Docentes")
+        configuracion = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=claustro)
+        for departamento in self.departamentos:
+            EleccionClaustroDepartamento.objects.create(
+                eleccion_claustro=configuracion, departamento=departamento,
+            )
+        call_command("habilitar_puestos_departamentales", str(self.eleccion.pk), verbosity=0)
+        puesto = PuestoEleccion.objects.get(
+            eleccion_claustro=configuracion,
+            eleccion_claustro_departamento__departamento__codigo="K",
+        )
+        puesto.cantidad_titulares = 6
+        puesto.save(update_fields=("cantidad_titulares",))
+        call_command("habilitar_puestos_departamentales", str(self.eleccion.pk), verbosity=0)
+        puesto.refresh_from_db()
+        self.assertEqual(puesto.cantidad_titulares, 6)
+        self.assertEqual(PuestoEleccion.objects.filter(eleccion_claustro=configuracion).count(), 2)
+
+    def test_si_falla_creacion_de_puestos_no_se_guardan_departamentos(self):
+        claustro = Claustro.objects.create(nombre="Docentes")
+        configuracion = EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=claustro)
+        formulario = FormularioDepartamentosClaustro(
+            data={"departamentos": [self.departamentos[0].pk]}, eleccion_claustro=configuracion,
+        )
+        self.assertTrue(formulario.is_valid(), formulario.errors)
+        with patch(
+            "apps.partidos.services.habilitar_puestos_departamentales_predeterminados",
+            side_effect=ValueError("error de configuración"),
+        ):
+            with self.assertRaisesMessage(ValueError, "error de configuración"):
+                formulario.guardar()
+        self.assertFalse(configuracion.departamentos.exists())
 
     def test_comando_rechaza_eleccion_inexistente(self):
         with self.assertRaisesMessage(CommandError, "No existe la elección"):

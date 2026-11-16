@@ -42,6 +42,7 @@ from apps.reportes.services import valor_csv
 from apps.reportes.services_boletas_pdf import (
     PAGINA,
     _crear_filas_boletas,
+    _dibujar_boleta_cuadrante,
     _obtener_boletas,
     generar_boletas_pdf,
     validar_boletas_pdf,
@@ -680,6 +681,33 @@ class BoletasPDFTests(TestCase):
             ],
         }
 
+    def agregar_lista_departamental(self, participacion, departamento, indice):
+        alcance = participacion.eleccion_claustro
+        configuracion, _ = EleccionClaustroDepartamento.objects.get_or_create(
+            eleccion_claustro=alcance, departamento=departamento,
+        )
+        puesto, _ = PuestoEleccion.objects.get_or_create(
+            puesto=self.cargo,
+            eleccion_claustro=alcance,
+            eleccion_claustro_departamento=configuracion,
+            defaults={"cantidad_titulares": 2, "cantidad_suplentes": 1},
+        )
+        lista = ListaCandidatos.objects.create(
+            participacion=participacion,
+            eleccion_claustro=alcance,
+            eleccion_claustro_departamento=configuracion,
+            puesto_eleccion=puesto,
+            nombre="Consejo Departamental",
+        )
+        Candidato.objects.create(
+            lista=lista,
+            elector=self.crear_elector(indice, f"Candidata {indice}", configuracion),
+            cargo=self.cargo.nombre,
+            tipo=Candidato.Tipo.TITULAR,
+            orden=1,
+        )
+        return lista
+
     def test_validacion_indica_cuando_no_hay_candidaturas_activas(self):
         validacion = validar_boletas_pdf(self.eleccion)
 
@@ -899,7 +927,7 @@ class BoletasPDFTests(TestCase):
         for claustro, columna in (
             ("Estudiantes", 3),
             ("Graduados", 3),
-            ("Docentes", 2),
+            ("Docentes", 3),
         ):
             boleta = self.crear_boleta_prueba(
                 claustro,
@@ -915,6 +943,239 @@ class BoletasPDFTests(TestCase):
                 sum(columna is not None for columna in filas[0]["columnas"]),
                 1,
             )
+
+    def test_estudiantes_ubica_ciencias_basicas_al_lado_de_cada_departamento_de_la_misma_lista(self):
+        participacion = self.crear_presentacion(
+            codigo="AZUL", numero="10", nombre="Lista Azul", elector=self.crear_elector(100, "Ana"),
+        )
+        otra = self.crear_presentacion(
+            codigo="VERDE", numero="10", nombre="Lista Verde", elector=self.crear_elector(101, "Bea"),
+        )
+        civil = Departamento.objects.create(nombre="Civil", codigo="C")
+        ciencias_basicas = Departamento.objects.create(nombre="Ciencias Básicas", codigo="Z")
+        self.agregar_lista_departamental(participacion, civil, 102)
+        lista_basicas = self.agregar_lista_departamental(participacion, ciencias_basicas, 103)
+
+        boletas = _obtener_boletas(self.eleccion)
+        filas, errores = _crear_filas_boletas(boletas)
+
+        self.assertEqual(errores, [])
+        self.assertEqual(len(boletas), 3)
+        self.assertFalse(any(boleta["departamento"] == ciencias_basicas for boleta in boletas))
+        filas_azules = [fila for fila in filas if any(
+            columna and columna["participacion"].pk == participacion.pk for columna in fila["columnas"]
+        )]
+        self.assertEqual(len(filas_azules), 4)
+        for fila in filas_azules:
+            departamental, basicas = fila["columnas"][2:4]
+            self.assertIsNotNone(departamental)
+            self.assertIsNotNone(basicas)
+            self.assertEqual(basicas["puestos"][0]["candidatos"][0].lista_id, lista_basicas.pk)
+        filas_verdes = [fila for fila in filas if any(
+            columna and columna["participacion"].pk == otra.pk for columna in fila["columnas"]
+        )]
+        self.assertTrue(all(fila["columnas"][3] is None for fila in filas_verdes))
+        with patch(
+            "apps.reportes.services_boletas_pdf._dibujar_boleta_cuadrante",
+            wraps=_dibujar_boleta_cuadrante,
+        ) as dibujar:
+            contenido = generar_boletas_pdf(self.eleccion)
+        self.assertTrue(contenido.startswith(b"%PDF"))
+        dibujadas = [llamada.args[1] for llamada in dibujar.call_args_list]
+        self.assertEqual(dibujadas, [
+            columna for fila in filas for columna in fila["columnas"] if columna is not None
+        ])
+        self.assertTrue(validar_boletas_pdf(self.eleccion).apto)
+
+    def test_estudiantes_con_solo_ciencias_basicas_y_puesto_general_no_crea_departamento_aparte(self):
+        participacion = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion, codigo_presentacion="BASICAS", eleccion_claustro=self.eleccion_claustro,
+            numero_lista="11", nombre_lista="Lista Básicas",
+        )
+        ciencias_basicas = Departamento.objects.create(nombre="Ciencias Basicas", codigo="CB")
+        self.agregar_lista_departamental(participacion, ciencias_basicas, 104)
+        organo = OrganoElectivo.objects.create(nombre="Consejo Directivo")
+        cargo = CargoElectivo.objects.create(organo=organo, nombre="Consejero/a directivo/a")
+        puesto = PuestoEleccion.objects.create(
+            puesto=cargo, eleccion_claustro=self.eleccion_claustro, cantidad_titulares=1, cantidad_suplentes=1,
+        )
+        lista = ListaCandidatos.objects.create(
+            participacion=participacion, eleccion_claustro=self.eleccion_claustro, puesto_eleccion=puesto,
+        )
+        Candidato.objects.create(
+            lista=lista, elector=self.crear_elector(105, "General"), cargo=cargo.nombre,
+            tipo=Candidato.Tipo.TITULAR, orden=1,
+        )
+
+        boletas = _obtener_boletas(self.eleccion)
+        filas, errores = _crear_filas_boletas(boletas)
+
+        self.assertEqual(errores, [])
+        self.assertEqual(len(boletas), 1)
+        self.assertIsNone(boletas[0]["departamento"])
+        self.assertEqual(len(filas), 1)
+        self.assertEqual([columna is not None for columna in filas[0]["columnas"]], [False, True, False, True])
+        self.assertTrue(generar_boletas_pdf(self.eleccion).startswith(b"%PDF"))
+
+    def test_ciencias_basicas_no_se_mezcla_con_otro_claustro_de_la_misma_lista(self):
+        ciencias_basicas = Departamento.objects.create(nombre="Ciencias Básicas", codigo="Z")
+        participacion = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion, codigo_presentacion="BASICAS", eleccion_claustro=self.eleccion_claustro,
+            numero_lista="10", nombre_lista="Lista Azul",
+        )
+        self.agregar_lista_departamental(participacion, ciencias_basicas, 106)
+        docentes = EleccionClaustro.objects.create(
+            eleccion=self.eleccion, claustro=Claustro.objects.create(nombre="Docentes"),
+        )
+        lista_docente = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion, codigo_presentacion="DOCENTES", eleccion_claustro=docentes,
+            numero_lista="10", nombre_lista="Lista Azul",
+        )
+        self.agregar_lista_departamental(lista_docente, self.departamento, 107)
+        lista_basicas_docente = self.agregar_lista_departamental(lista_docente, ciencias_basicas, 108)
+
+        boletas = _obtener_boletas(self.eleccion)
+        filas, errores = _crear_filas_boletas(boletas)
+
+        self.assertEqual(errores, [])
+        self.assertEqual(len(boletas), 2)
+        filas_docentes = [
+            fila for fila in filas
+            if any(columna and columna["participacion"].pk == lista_docente.pk for columna in fila["columnas"])
+        ]
+        self.assertEqual(len(filas_docentes), 2)
+        for fila in filas_docentes:
+            self.assertIsNotNone(fila["columnas"][2])
+            self.assertEqual(
+                fila["columnas"][3]["puestos"][0]["candidatos"][0].lista_id, lista_basicas_docente.pk,
+            )
+        fila_estudiantes = next(
+            fila for fila in filas
+            if any(columna and columna["participacion"].pk == participacion.pk for columna in fila["columnas"])
+        )
+        self.assertEqual(
+            fila_estudiantes["columnas"][3]["puestos"][0]["candidatos"][0].lista_id,
+            participacion.listas.get().pk,
+        )
+
+    def test_docentes_repite_ciencias_basicas_junto_a_cada_departamento_de_la_misma_lista(self):
+        docentes = EleccionClaustro.objects.create(
+            eleccion=self.eleccion, claustro=Claustro.objects.create(nombre="Docentes"),
+        )
+        participacion = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion, codigo_presentacion="DOC-AZUL", eleccion_claustro=docentes,
+            numero_lista="10", nombre_lista="Lista Azul",
+        )
+        otra = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion, codigo_presentacion="DOC-VERDE", eleccion_claustro=docentes,
+            numero_lista="10", nombre_lista="Lista Verde",
+        )
+        civil = Departamento.objects.create(nombre="Civil", codigo="C")
+        ciencias_basicas = Departamento.objects.create(nombre="Ciencias Básicas", codigo="Z")
+        self.agregar_lista_departamental(participacion, self.departamento, 109)
+        self.agregar_lista_departamental(participacion, civil, 110)
+        lista_basicas = self.agregar_lista_departamental(participacion, ciencias_basicas, 111)
+        self.agregar_lista_departamental(otra, self.departamento, 112)
+
+        boletas = _obtener_boletas(self.eleccion)
+        filas, errores = _crear_filas_boletas(boletas)
+
+        self.assertEqual(errores, [])
+        self.assertEqual(len(boletas), 3)
+        self.assertFalse(any(boleta["departamento"] == ciencias_basicas for boleta in boletas))
+        filas_azules = [
+            fila for fila in filas
+            if any(columna and columna["participacion"].pk == participacion.pk for columna in fila["columnas"])
+        ]
+        self.assertEqual(len(filas_azules), 4)
+        for fila in filas_azules:
+            self.assertIsNotNone(fila["columnas"][2])
+            self.assertEqual(fila["columnas"][3]["puestos"][0]["candidatos"][0].lista_id, lista_basicas.pk)
+        filas_verdes = [
+            fila for fila in filas
+            if any(columna and columna["participacion"].pk == otra.pk for columna in fila["columnas"])
+        ]
+        self.assertTrue(all(fila["columnas"][3] is None for fila in filas_verdes))
+        with patch(
+            "apps.reportes.services_boletas_pdf._dibujar_boleta_cuadrante",
+            wraps=_dibujar_boleta_cuadrante,
+        ) as dibujar:
+            contenido = generar_boletas_pdf(self.eleccion)
+        self.assertTrue(contenido.startswith(b"%PDF"))
+        self.assertEqual(
+            [llamada.args[1] for llamada in dibujar.call_args_list],
+            [columna for fila in filas for columna in fila["columnas"] if columna is not None],
+        )
+        self.assertTrue(validar_boletas_pdf(self.eleccion).apto)
+
+    def test_docentes_reconoce_puesto_denominado_ciencias_basicas(self):
+        boleta = self.crear_boleta_prueba(
+            "Docentes", None, "Ciencias Básicas", "Consejero/a",
+        )
+        filas, errores = _crear_filas_boletas([boleta])
+
+        self.assertEqual(errores, [])
+        self.assertEqual([columna is not None for columna in filas[0]["columnas"]], [False, False, False, True])
+
+    def test_docentes_con_solo_ciencias_basicas_y_general_no_crea_departamento_aparte(self):
+        docentes = EleccionClaustro.objects.create(
+            eleccion=self.eleccion, claustro=Claustro.objects.create(nombre="Docentes"),
+        )
+        participacion = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion, codigo_presentacion="DOC-BASICAS", eleccion_claustro=docentes,
+            numero_lista="11", nombre_lista="Lista Básicas",
+        )
+        ciencias_basicas = Departamento.objects.create(nombre="Ciencias Basicas", codigo="CB")
+        configuracion = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=docentes, departamento=ciencias_basicas,
+        )
+        self.agregar_lista_departamental(participacion, ciencias_basicas, 113)
+        organo = OrganoElectivo.objects.create(nombre="Consejo Directivo")
+        cargo = CargoElectivo.objects.create(organo=organo, nombre="Consejero/a directivo/a")
+        puesto = PuestoEleccion.objects.create(
+            puesto=cargo, eleccion_claustro=docentes, cantidad_titulares=1, cantidad_suplentes=1,
+        )
+        lista = ListaCandidatos.objects.create(
+            participacion=participacion, eleccion_claustro=docentes, puesto_eleccion=puesto,
+        )
+        Candidato.objects.create(
+            lista=lista, elector=self.crear_elector(114, "General", configuracion), cargo=cargo.nombre,
+            tipo=Candidato.Tipo.TITULAR, orden=1,
+        )
+
+        boletas = _obtener_boletas(self.eleccion)
+        filas, errores = _crear_filas_boletas(boletas)
+
+        self.assertEqual(errores, [])
+        self.assertEqual(len(boletas), 1)
+        self.assertIsNone(boletas[0]["departamento"])
+        self.assertEqual(len(filas), 1)
+        self.assertEqual([columna is not None for columna in filas[0]["columnas"]], [False, True, False, True])
+        self.assertTrue(generar_boletas_pdf(self.eleccion).startswith(b"%PDF"))
+
+    def test_graduados_conserva_ciencias_basicas_en_un_grupo_separado(self):
+        graduados = EleccionClaustro.objects.create(
+            eleccion=self.eleccion, claustro=Claustro.objects.create(nombre="Graduados"),
+        )
+        participacion = ParticipacionPartido.objects.create(
+            eleccion=self.eleccion, codigo_presentacion="GRAD", eleccion_claustro=graduados,
+            numero_lista="10", nombre_lista="Lista Azul",
+        )
+        ciencias_basicas = Departamento.objects.create(nombre="Ciencias Básicas", codigo="Z")
+        self.agregar_lista_departamental(participacion, self.departamento, 115)
+        lista_basicas = self.agregar_lista_departamental(participacion, ciencias_basicas, 116)
+
+        boletas = _obtener_boletas(self.eleccion)
+        filas, errores = _crear_filas_boletas(boletas)
+
+        self.assertEqual(errores, [])
+        self.assertEqual(len(boletas), 2)
+        fila_basicas = next(fila for fila in filas if fila["columnas"][3] is not None)
+        self.assertIsNone(fila_basicas["columnas"][2])
+        self.assertEqual(fila_basicas["columnas"][3]["puestos"][0]["candidatos"][0].lista_id, lista_basicas.pk)
+        self.assertTrue(all(
+            fila["columnas"][3] is None for fila in filas if fila.get("fila_departamental")
+        ))
 
     def test_dasuten_se_imprime_en_fila_independiente_y_no_se_duplica(self):
         boletas = [

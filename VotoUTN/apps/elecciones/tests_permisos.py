@@ -17,6 +17,7 @@ from apps.elecciones.models import (
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
+from apps.partidos.models import PuestoEleccion
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import puede_crear_elecciones, puede_importar_padron, puede_registrar_participacion, puede_revisar_justificativo
 
@@ -458,6 +459,15 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
                 for configuracion in configuraciones
             )
         )
+        puestos = PuestoEleccion.objects.filter(
+            eleccion_claustro=eleccion_claustro,
+            puesto__nombre="Consejero/a departamental",
+        )
+        self.assertEqual(puestos.count(), 2)
+        self.assertTrue(all(
+            puesto.cantidad_titulares == 5 and puesto.cantidad_suplentes == 5
+            for puesto in puestos
+        ))
 
     def test_no_permite_quitar_un_departamento_utilizado_por_una_mesa(self):
         EleccionSede.objects.create(eleccion=self.eleccion_asignada, sede=self.sede)

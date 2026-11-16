@@ -55,7 +55,7 @@ COMPOSICION_PUESTOS_DEPARTAMENTALES_POR_CLAUSTRO = {
 
 
 @transaction.atomic
-def habilitar_puestos_departamentales_predeterminados(eleccion_claustro):
+def habilitar_puestos_departamentales_predeterminados(eleccion_claustro, *, departamento_ids=None):
     """Crea puestos departamentales faltantes para un claustro y sus departamentos."""
     if _normalizar(eleccion_claustro.claustro.nombre) not in (
         CLAUSTROS_CON_PUESTOS_DEPARTAMENTALES_PREDETERMINADOS
@@ -84,6 +84,8 @@ def habilitar_puestos_departamentales_predeterminados(eleccion_claustro):
     configuraciones = eleccion_claustro.departamentos.filter(
         departamento__isnull=False,
     ).select_related("departamento")
+    if departamento_ids is not None:
+        configuraciones = configuraciones.filter(departamento_id__in=departamento_ids)
     puestos_creados = []
     for configuracion in configuraciones:
         if configuracion.departamento.codigo.casefold() == "z" or (
