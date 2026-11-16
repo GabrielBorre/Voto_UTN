@@ -40,144 +40,46 @@ from apps.parametros.models import Departamento, Sede, Turno
 CANONICAL_FIELDS = ("dni", "legajo", "nombres", "apellidos", "mail", "departamento")
 OPTIONAL_FIELDS = ("tipo_documento", "tiene_discapacidad", "departamento_principal", "sede", "turno_cursada", "nivel")
 
-# Cabeceras exactas que se muestran en la plantilla CSV descargada desde la UI.
+# Compatibilidad con plantillas anteriores que incluían una columna auxiliar.
+COLUMNA_INSTRUCCIONES_PADRON = "Instrucciones"
+MARCA_FILA_INSTRUCCIONES_PADRON = "ESTA FILA DEBE ELIMINARSE"
 PLANTILLA_PADRON_HEADERS = (
-    "DNI",
-    "Tipo Documento",
-    "Legajo",
-    "Nombre",
-    "Apellido",
-    "Depto/Carrera",
-    "Mail",
-    "TieneDiscapacidad",
-    "Departamento Principal",
-    "Sede donde cursa",
-    "Turno",
-    "Nivel",
+    "DNI", "Tipo Documento", "Legajo", "Nombre", "Apellido", "Depto/Carrera",
+    "Mail", "Departamento Principal", "Sede donde asiste", "Turno", "Nivel",
 )
 
 PLANTILLA_PADRON_EJEMPLO = [
     (
-        "40123456",
-        "DNI",
-        "2024001",
-        "Juan",
-        "Perez",
-        "K",
-        "juan.perez@frba.utn.edu.ar",
-        "Si",
-        "K",
-        "Campus",
-        "Mañana",
-        "1",
+        "40000001", "DNI", "2024001", "Juan", "Pérez", "K",
+        "juan.perez@frba.utn.edu.ar", "K", "Campus", "Mañana", "1",
     ),
     (
-        "40234567",
-        "DNI",
-        "2024002",
-        "Maria",
-        "Garcia",
-        "K",
-        "maria.garcia@frba.utn.edu.ar",
-        "No",
-        "K",
-        "Campus",
-        "Mañana",
-        "1",
+        "40000002", "DNI", "2024002", "Ana", "López", "I",
+        "ana.lopez@frba.utn.edu.ar", "I", "Medrano", "Noche", "3",
     ),
     (
-        "40345678",
-        "DNI",
-        "2024003",
-        "Carlos",
-        "Lopez",
-        "K",
-        "carlos.lopez@frba.utn.edu.ar",
-        "Si",
-        "K",
-        "Campus",
-        "Mañana",
-        "2",
+        "40000003", "DNI", "2024003", "María", "Gómez", "Q",
+        "maria.gomez@frba.utn.edu.ar", "Q", "", "", "2",
     ),
     (
-        "20301234567",
-        "CUIL",
-        "2024004",
-        "Lucia",
-        "Diaz",
-        "K",
-        "lucia.diaz@frba.utn.edu.ar",
-        "No",
-        "K",
-        "Campus",
-        "2",
-    ),
-    (
-        "27301234569",
-        "CUIT",
-        "2024005",
-        "Diego",
-        "Ruiz",
-        "K",
-        "diego.ruiz@frba.utn.edu.ar",
-        "No",
-        "K",
-        "Campus",
-        "2",
-    ),
-    (
-        "PAS123456",
-        "PAS",
-        "2024006",
-        "Sofia",
-        "Torres",
-        "K",
-        "sofia.torres@frba.utn.edu.ar",
-        "No",
-        "K",
-        "Campus",
-        "2",
-    ),
-    (
-        "20301234567",
-        "CUIL",
-        "2024004",
-        "Lucia",
-        "Diaz",
-        "K",
-        "lucia.diaz@frba.utn.edu.ar",
-        "No",
-        "K",
-        "Campus",
-        "2",
-    ),
-    (
-        "27301234569",
-        "CUIT",
-        "2024005",
-        "Diego",
-        "Ruiz",
-        "K",
-        "diego.ruiz@frba.utn.edu.ar",
-        "No",
-        "K",
-        "Campus",
-        "2",
-    ),
-    (
-        "PAS123456",
-        "PAS",
-        "2024006",
-        "Sofia",
-        "Torres",
-        "K",
-        "sofia.torres@frba.utn.edu.ar",
-        "No",
-        "K",
-        "Campus",
-        "2",
+        "40000003", "DNI", "2024003", "María", "Gómez", "R",
+        "maria.gomez@frba.utn.edu.ar", "Q", "", "", "2",
     ),
 ]
+
+PLANTILLA_PADRON_DESCRIPCIONES = (
+    "Obligatorio. Número de documento: DNI/CUIL/CUIT de 7 a 12 dígitos; PAS alfanumérico de 5 a 12 caracteres.",
+    "Opciones: DNI, CUIL, CUIT o PAS. Si queda vacío se interpreta como DNI.",
+    "Obligatorio. Hasta 20 caracteres. Debe identificar a la misma persona en todas sus filas.",
+    "Obligatorio. Nombres de la persona, hasta 180 caracteres. Repetirlos en sus registros adicionales.",
+    "Obligatorio. Apellidos de la persona, hasta 180 caracteres. Repetirlos en sus registros adicionales.",
+    "Código o nombre de un departamento cargado en Parámetros, activo y habilitado para este claustro en la elección. Vacío si el claustro no distingue departamentos.",
+    "Obligatorio. Correo válido del dominio @frba.utn.edu.ar. Repetirlo en todas las filas de la persona.",
+    "Departamento cargado en Parámetros, activo y habilitado para este claustro. Si la persona tiene varios registros, repetir el mismo principal e incluir una fila para él. El registro de otro departamento corresponde a una mesa especial.",
+    "Nombre de una sede cargada en Parámetros y activa. Puede quedar vacío; si se informa, Turno es obligatorio. No determina por sí sola la sede electoral.",
+    "Nombre de un turno cargado en Parámetros y activo. Obligatorio cuando se informa Sede donde asiste; ambos pueden quedar vacíos.",
+    "Año o nivel de la carrera al que corresponde la persona. Para estudiantes, indica el año o nivel que cursa; para docentes, el año o nivel en el que dicta clases. Ingresar un número entero: por ejemplo, 1 para primer año o 3 para tercer año. Dejar vacío cuando no corresponda.",
+)
 
 # Mapeo de variantes de cabeceras (normalizadas: lower().strip()) -> campo canónico
 # Soporta el formato antiguo y el nuevo solicitado (ej. 'Nombre' -> 'nombres',
@@ -241,6 +143,23 @@ class ErrorFormatoArchivoPadron(ValueError):
         self.numero_fila = numero_fila
 
 
+def _retirar_instrucciones_padron(registro, numero_fila, filas_previas):
+    """Acepta únicamente la columna auxiliar vacía y exige retirar la guía."""
+    for encabezado in list(registro):
+        if encabezado.strip().casefold() != COLUMNA_INSTRUCCIONES_PADRON.casefold():
+            continue
+        instruccion = registro.pop(encabezado).strip()
+        if instruccion:
+            mensaje = (
+                f"Elimine la fila explicativa marcada «{MARCA_FILA_INSTRUCCIONES_PADRON}» "
+                "antes de importar el padrón."
+                if instruccion == MARCA_FILA_INSTRUCCIONES_PADRON
+                else "La columna Instrucciones debe quedar vacía en todas las filas de datos."
+            )
+            raise ErrorFormatoArchivoPadron(mensaje, filas=filas_previas, numero_fila=numero_fila)
+    return registro
+
+
 def leer_filas_padron(contenido: bytes, nombre_archivo: str = "") -> list[dict[str, str]]:
     nombre_archivo = (nombre_archivo or "").lower()
     if nombre_archivo.endswith((".xlsx", ".xls")):
@@ -251,14 +170,14 @@ def leer_filas_padron(contenido: bytes, nombre_archivo: str = "") -> list[dict[s
             return []
         encabezados = [(valor or "").strip() for valor in filas[0]]
         registros = []
-        for fila in filas[1:]:
+        for numero_fila, fila in enumerate(filas[1:], start=2):
             if not any((valor is not None and str(valor).strip()) for valor in fila):
                 continue
             registro = {}
             for indice, nombre_columna in enumerate(encabezados):
                 valor = fila[indice] if indice < len(fila) else ""
                 registro[nombre_columna] = "" if valor is None else str(valor).strip()
-            registros.append(registro)
+            registros.append(_retirar_instrucciones_padron(registro, numero_fila, registros))
         return registros
 
     try:
@@ -283,7 +202,7 @@ def leer_filas_padron(contenido: bytes, nombre_archivo: str = "") -> list[dict[s
                 "La fila de encabezados contiene columnas duplicadas."
             )
         for numero_fila, valores in enumerate(lector, start=2):
-            if not valores:
+            if not any(valor.strip() for valor in valores):
                 continue
             if len(valores) != len(encabezados):
                 filas.append({
@@ -296,10 +215,11 @@ def leer_filas_padron(contenido: bytes, nombre_archivo: str = "") -> list[dict[s
                     filas=filas,
                     numero_fila=numero_fila,
                 )
-            filas.append({
+            registro = {
                 encabezado: (valor or "").strip()
                 for encabezado, valor in zip(encabezados, valores, strict=True)
-            })
+            }
+            filas.append(_retirar_instrucciones_padron(registro, numero_fila, filas))
     except csv.Error as error:
         raise ErrorFormatoArchivoPadron(
             f"El CSV tiene un formato inválido en la línea {lector.line_num}: {error}",

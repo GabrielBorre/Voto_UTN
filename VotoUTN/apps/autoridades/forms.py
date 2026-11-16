@@ -70,7 +70,10 @@ class FormularioConfiguracionAutoridades(forms.ModelForm):
 
 class FormularioSeleccionMesa(forms.Form):
     turno = forms.ModelChoiceField(queryset=Turno.objects.none(), label="Turno")
-    tipo = forms.ChoiceField(choices=((AsignacionAutoridad.Tipo.TITULAR, "Titular"),), label="Función")
+    tipo = forms.ChoiceField(
+        choices=((AsignacionAutoridad.Tipo.TITULAR, "Titular"),),
+        initial=AsignacionAutoridad.Tipo.TITULAR, required=False, widget=forms.HiddenInput,
+    )
     busqueda = forms.CharField(required=False, max_length=180, label="Buscar por nombre, apellido, documento o legajo",
                                widget=forms.TextInput(attrs={"type": "search", "autocomplete": "off", "placeholder": "Escribí para filtrar las personas disponibles"}))
     registro = forms.ModelChoiceField(queryset=None, label="Persona disponible de la mesa")
@@ -121,6 +124,10 @@ class FormularioSeleccionMesa(forms.Form):
         for campo in self.fields.values():
             campo.widget.attrs["class"] = "input"
         self.fields["registro"].widget.attrs.update(size=7)
+
+
+    def clean_tipo(self):
+        return self.cleaned_data["tipo"] or AsignacionAutoridad.Tipo.TITULAR
 
 
 class FormularioAsignacionAutoridad(forms.Form):

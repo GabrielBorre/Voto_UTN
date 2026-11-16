@@ -397,7 +397,12 @@ class NominaAutomaticaTests(TestCase):
                 pagina = self.client.get(self.ruta)
                 self.assertContains(pagina, "Editar mesa")
                 self.assertNotContains(pagina, '<option value="manual">', html=True)
-                self.assertEqual(self.client.get(ruta_mesa).status_code, 200)
+                pantalla = self.client.get(ruta_mesa)
+                self.assertEqual(pantalla.status_code, 200)
+                self.assertNotContains(pantalla, '<select name="tipo"')
+                self.assertNotContains(pantalla, '<label for="id_tipo">')
+                self.assertContains(pantalla, 'type="hidden" name="tipo" value="titular"')
+                self.assertContains(pantalla, "Elegí el turno y buscá por nombre.")
 
     def test_agregar_y_quitar_manualmente_en_cualquier_modo(self):
         ruta = reverse("seleccionar-autoridades-mesa", args=(self.eleccion.pk, self.eleccion_claustro.pk, self.mesa.pk))
@@ -407,12 +412,41 @@ class NominaAutomaticaTests(TestCase):
                 self.opciones.save()
                 respuesta = self.client.post(ruta, {
                     "seleccionar": "1", "turno": self.manana.pk,
-                    "tipo": "titular", "registro": self.registros[0].pk,
+                    "registro": self.registros[0].pk,
                 }, follow=True)
                 self.assertContains(respuesta, "Designación guardada")
                 asignacion = AsignacionAutoridad.objects.get(registro_padron=self.registros[0])
+                self.assertEqual(asignacion.tipo, "titular")
                 self.client.post(ruta, {"quitar-asignacion": str(asignacion.pk)})
                 self.assertFalse(AsignacionAutoridad.objects.filter(pk=asignacion.pk).exists())
+
+    def test_reemplazo_sin_tipo_conserva_turno_y_funcion(self):
+        anterior = asignar_manualmente(self.mesa, self.manana, self.registros[0], self.usuario, tipo="titular")
+        ruta = reverse("seleccionar-autoridades-mesa", args=(self.eleccion.pk, self.eleccion_claustro.pk, self.mesa.pk))
+        pantalla = self.client.get(ruta, {"reemplazar": anterior.pk})
+        self.assertNotContains(pantalla, '<select name="tipo"')
+        self.assertNotContains(pantalla, '<label for="id_tipo">')
+
+        respuesta = self.client.post(ruta, {
+            "seleccionar": "1", "registro": self.registros[1].pk,
+            "asignacion_a_reemplazar": anterior.pk,
+        }, follow=True)
+
+        self.assertContains(respuesta, "Designación guardada")
+        self.assertFalse(AsignacionAutoridad.objects.filter(pk=anterior.pk).exists())
+        nueva = AsignacionAutoridad.objects.get(registro_padron=self.registros[1])
+        self.assertEqual((nueva.mesa_id, nueva.turno_id, nueva.tipo), (self.mesa.pk, self.manana.pk, "titular"))
+
+    def test_tipo_oculto_no_admite_suplente(self):
+        ruta = reverse("seleccionar-autoridades-mesa", args=(self.eleccion.pk, self.eleccion_claustro.pk, self.mesa.pk))
+        respuesta = self.client.post(ruta, {
+            "seleccionar": "1", "turno": self.manana.pk,
+            "tipo": "suplente", "registro": self.registros[0].pk,
+        })
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn("tipo", respuesta.context["formulario"].errors)
+        self.assertFalse(AsignacionAutoridad.objects.exists())
 
     def test_modo_planilla_retirado_no_cambia_asignaciones(self):
         anterior = asignar_manualmente(self.mesa, self.manana, self.registros[0], self.usuario, tipo="titular")
