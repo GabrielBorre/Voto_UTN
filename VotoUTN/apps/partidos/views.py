@@ -127,10 +127,12 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
         else None
     )
     pestana_solicitada = request.GET.get("pestana")
-    pestana = "puesto" if pestana_solicitada == "puesto" else "lista"
+    pestana = "puesto" if pestana_solicitada in (None, "puesto") else "lista"
     accion = request.POST.get("accion") or (
         "vincular_puesto" if pantalla_candidatos and request.method == "POST" and "puesto_eleccion" in request.POST else None
     )
+    if pestana_solicitada is None and accion == "crear_presentacion":
+        pestana = "lista"
     participacion_id = participacion_id or _id_opcional(request.GET.get("lista"))
     participacion_seleccionada = None
     if participacion_id:

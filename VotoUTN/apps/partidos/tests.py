@@ -297,17 +297,25 @@ class PartidosViewsTests(PartidosBaseTests):
         ].queryset
         self.assertIn(self.puesto_eleccion, puestos_disponibles)
         self.assertContains(respuesta_claustro, 'class="management-panel candidaturas-panel"')
-        self.assertEqual(respuesta_claustro.context["pestana"], "lista")
+        self.assertEqual(respuesta_claustro.context["pestana"], "puesto")
         self.assertContains(respuesta_claustro, "Cargar listas")
         self.assertContains(respuesta_claustro, "Cargar puestos")
         self.assertLess(
             respuesta_claustro.content.index(b"pestana=puesto"),
             respuesta_claustro.content.index(b"pestana=lista"),
         )
-        self.assertContains(respuesta_claustro, "Listas cargadas")
-        self.assertContains(respuesta_claustro, "Universidad Abierta")
-        self.assertContains(respuesta_claustro, "Cargar candidatos")
+        self.assertContains(respuesta_claustro, "Puestos habilitados")
+        self.assertNotContains(respuesta_claustro, "Listas cargadas")
         self.assertNotContains(respuesta_claustro, "Habilitar un puesto")
+
+        respuesta_lista = self.client.get(
+            reverse("gestionar-partidos", args=(self.eleccion.id,)),
+            {"claustro": self.eleccion_claustro.id, "pestana": "lista"},
+        )
+        self.assertEqual(respuesta_lista.context["pestana"], "lista")
+        self.assertContains(respuesta_lista, "Listas cargadas")
+        self.assertContains(respuesta_lista, "Universidad Abierta")
+        self.assertContains(respuesta_lista, "Cargar candidatos")
 
         otra_participacion = ParticipacionPartido.objects.create(
             eleccion=self.eleccion,
@@ -480,7 +488,7 @@ class PartidosViewsTests(PartidosBaseTests):
         )
 
         respuesta = self.client.get(
-            f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}?claustro={self.eleccion_claustro.id}"
+            f"{reverse('gestionar-partidos', args=(self.eleccion.id,))}?claustro={self.eleccion_claustro.id}&pestana=lista"
         )
 
         self.assertEqual(respuesta.status_code, 200)
@@ -741,6 +749,7 @@ class PartidosViewsTests(PartidosBaseTests):
         )
 
         self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.context["pestana"], "lista")
         self.assertContains(respuesta, "Indicá la cantidad de titulares")
         self.assertFalse(ParticipacionPartido.objects.filter(nombre_lista="Lista incompleta").exists())
 
