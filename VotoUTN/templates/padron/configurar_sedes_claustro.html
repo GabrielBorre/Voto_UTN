@@ -18,7 +18,7 @@
     </div>
     <div class="notice">
       Los departamentos con una sola sede habilitada reciben esa sede automáticamente. En los que tienen varias, se evalúan las reglas en orden. Si una regla apunta a una sede que ese departamento no tiene habilitada, se omite para sus electores y se continúa con la siguiente. Si ninguna coincide, la asignación queda pendiente.
-      Esta etapa no genera listas, mesas ni QR; tampoco modifica «Sede donde cursa» en el padrón.
+      Esta etapa no genera listas, mesas ni QR; tampoco modifica «Sede donde asiste» en el padrón.
     </div>
   </section>
 
@@ -94,8 +94,8 @@
           {% endif %}
         {% endfor %}
       </div>
-      <div class="field rule-departments-field">
-        <label>Departamentos incluidos en esta regla</label>
+      <details class="detalle-asignaciones rule-departments-field"{% if formulario.is_bound %} open{% endif %}>
+        <summary>Ver departamentos afectados</summary>
         <div class="checkbox-list rule-department-picker">
           <div class="rule-master-option"><label for="{{ formulario.aplicar_a_todos.id_for_label }}">{{ formulario.aplicar_a_todos }}<span>Todos los departamentos disponibles</span></label></div>
           {% for checkbox in formulario.alcances_especificos %}
@@ -104,7 +104,7 @@
         </div>
         {% if formulario.aplicar_a_todos.help_text %}<small class="muted field-help">{{ formulario.aplicar_a_todos.help_text }}</small>{% endif %}
         {% for error in formulario.alcances_especificos.errors %}<div class="error">{{ error }}</div>{% endfor %}
-      </div>
+      </details>
       <small class="muted field-help">Para valores de texto, podés separar alternativas con comas. Las reglas se prueban de menor a mayor prioridad.</small>
       <div class="footer-actions"><button class="button primary" type="submit">Agregar regla</button></div>
     </form>

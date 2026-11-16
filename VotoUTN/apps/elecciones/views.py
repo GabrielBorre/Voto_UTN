@@ -23,6 +23,7 @@ from .forms import (
     FormularioPublicarEleccion,
 )
 from .services import agregar_claustro, eliminar_claustro
+from .resumen_preparacion import construir_resumen_preparacion
 from .models import (
     ESTADOS_CONFIGURACION_SOLO_LECTURA,
     ESTADOS_ELECCION_NO_CERRADOS,
@@ -497,7 +498,8 @@ def configurar_eleccion(request, eleccion_id):
         or claustros.exclude(departamentos__registros_padron__activo=True).exists()
         or claustros.filter(Q(fecha_votacion__isnull=True) | Q(maximo_votantes_por_mesa__isnull=True)).exists()
     )
-    autoridades_pendientes = eleccion.mesas.filter(autoridades__isnull=True).exists() or not eleccion.mesas.exists()
+    resumen_preparacion = construir_resumen_preparacion(eleccion)
+    autoridades_pendientes = resumen_preparacion["autoridades"]["pendiente"]
     periodo_justificacion_vigente = bool(
         eleccion.estado == Eleccion.Estado.EN_CURSO
         and eleccion.justificacion_electores_habilitada_en
@@ -524,10 +526,13 @@ def configurar_eleccion(request, eleccion_id):
             "padrones_pendientes": padrones_pendientes,
             "alcances_pendientes": alcances_pendientes,
             "autoridades_pendientes": autoridades_pendientes,
+            "mesas_pendientes": resumen_preparacion["mesas"]["pendiente"],
+            "candidaturas_pendientes": resumen_preparacion["candidaturas"]["pendiente"],
+            "resumen_preparacion": resumen_preparacion,
             "periodo_justificacion_vigente": periodo_justificacion_vigente,
             "cantidad_padrones": eleccion.registros_padron.values("elector_id").distinct().count(),
             "cantidad_mesas": eleccion.mesas.count(),
-            "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion).count(),
+            "cantidad_autoridades": AsignacionAutoridad.objects.filter(mesa__eleccion=eleccion, estado="asignada").count(),
             "cantidad_partidos": ParticipacionPartido.objects.filter(eleccion=eleccion, activa=True).count(),
             "cantidad_fechas_administrativas": eleccion.fechas_administrativas.exclude(
                 fecha_administrativa__codigo__in=CODIGOS_FECHAS_ADMINISTRATIVAS_RETIRADAS,
