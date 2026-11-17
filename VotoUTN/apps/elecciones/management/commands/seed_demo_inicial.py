@@ -16,8 +16,7 @@ class Command(BaseCommand):
         call_command("cargar_parametros_estandar", stdout=self.stdout)
         TipoJustificativo.objects.get_or_create(nombre="Certificado medico", defaults={"activo": True})
 
-        for clave in ("administrador_junta", "administrativo_junta"):
-            datos = USUARIOS[clave]
+        for datos in USUARIOS.values():
             usuario, creado = get_user_model().objects.get_or_create(
                 username=datos["username"],
                 defaults={
