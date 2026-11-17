@@ -250,6 +250,23 @@ window.addEventListener("pagehide", restablecerCarga);
 
 const CLAVE_SCROLL_CONSERVADO = "utn:scroll-conservado";
 
+document.addEventListener("click", (evento) => {
+  const enlace = evento.target.closest("a[data-conservar-scroll]");
+  if (!enlace || evento.defaultPrevented || evento.button !== 0 || evento.ctrlKey
+      || evento.metaKey || evento.shiftKey || evento.altKey || enlace.hasAttribute("download")
+      || (enlace.target && enlace.target !== "_self")) return;
+  const destino = new URL(enlace.href);
+  if (destino.origin !== window.location.origin || destino.pathname !== window.location.pathname
+      || destino.hash) return;
+  queueMicrotask(() => {
+    if (evento.defaultPrevented) return;
+    sessionStorage.setItem(CLAVE_SCROLL_CONSERVADO, JSON.stringify({
+      ruta: window.location.pathname,
+      y: window.scrollY,
+    }));
+  });
+});
+
 document.addEventListener("submit", (evento) => {
   const formulario = evento.target;
   if (!(formulario instanceof HTMLFormElement) || formulario.method === "dialog"

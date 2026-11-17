@@ -323,6 +323,7 @@ def _configuraciones_por_departamento(eleccion_claustro):
     configuraciones = {}
     configuraciones_padron = EleccionClaustroDepartamento.objects.filter(
         eleccion_claustro=eleccion_claustro,
+        solo_puesto_electivo=False,
     ).filter(
         Q(departamento__activo=True) | Q(departamento__isnull=True)
     ).select_related("departamento")

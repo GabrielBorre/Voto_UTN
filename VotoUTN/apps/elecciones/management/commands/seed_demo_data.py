@@ -28,6 +28,7 @@ from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, 
 from apps.partidos.models import (
     Candidato,
     CargoElectivo,
+    CupoPuestoClaustro,
     ListaCandidatos,
     ParticipacionPartido,
     PuestoEleccion,
@@ -334,6 +335,11 @@ class Command(BaseCommand):
             for tipo, cantidad in configuracion.items():
                 cargos[tipo].claustros_habilitados.add(
                     elecciones_claustro[claustro_nombre].claustro,
+                )
+                CupoPuestoClaustro.objects.get_or_create(
+                    puesto=cargos[tipo],
+                    claustro=elecciones_claustro[claustro_nombre].claustro,
+                    defaults={"cantidad_titulares": cantidad, "cantidad_suplentes": 1},
                 )
                 alcance_departamental = (
                     configuraciones_departamento[claustro_nombre]

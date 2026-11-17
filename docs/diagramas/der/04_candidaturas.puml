@@ -1,0 +1,139 @@
+@startuml
+title DER - Partidos, puestos y candidaturas
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam entity {
+  BackgroundColor #E8DDF8
+  BorderColor #7655A6
+  FontColor #30234A
+}
+skinparam ArrowColor #77808C
+skinparam TitleFontColor #374151
+
+entity "Partido" as partido {
+  * id : bigint <<PK>>
+  --
+  nombre : varchar(180) <<UQ>>
+  sigla : varchar(32)
+  activo : bool
+}
+entity "OrganoElectivo" as organo {
+  * id : bigint <<PK>>
+  --
+  nombre : varchar(160) <<UQ>>
+  descripcion : text
+  activo : bool
+}
+entity "CargoElectivo" as cargo {
+  * id : bigint <<PK>>
+  organo_id : bigint <<FK>>
+  --
+  nombre : varchar(120)
+  permite_filtrar_claustros : bool
+  descripcion : text
+  permite_filtrar_departamentos : bool
+  activo : bool
+  <<UQ>> (organo_id, nombre)
+}
+entity "CargoElectivo_ClaustrosHabilitados" as cargo_claustros {
+  * id : bigint <<PK>>
+  cargoelectivo_id : bigint <<FK>>
+  claustro_id : bigint <<FK>>
+  --
+  <<UQ>> (cargoelectivo_id, claustro_id)
+}
+entity "ParticipacionPartido" as presentacion {
+  * id : bigint <<PK>>
+  eleccion_id : bigint <<FK>>
+  partido_id : bigint <<FK, NULL>>
+  eleccion_claustro_id : bigint <<FK, NULL>>
+  --
+  codigo_presentacion : varchar(80)
+  numero_lista : varchar(20)
+  nombre_lista : varchar(180)
+  apoderado_nombre : varchar(180)
+  apoderado_email : varchar(254)
+  activa : bool
+  <<UQ parcial>> (eleccion_id, codigo_presentacion) si codigo no vacio
+}
+entity "PuestoEleccion" as puesto_eleccion {
+  * id : bigint <<PK>>
+  puesto_id : bigint <<FK>>
+  eleccion_claustro_id : bigint <<FK>>
+  eleccion_claustro_departamento_id : bigint <<FK, NULL>>
+  --
+  cantidad_titulares : smallint
+  cantidad_suplentes : smallint
+  activo : bool
+  <<UQ parcial>> (eleccion_claustro_id, puesto_id) sin departamento
+  <<UQ parcial>> (eleccion_claustro_departamento_id, puesto_id) con departamento
+}
+entity "ListaCandidatos" as lista {
+  * id : bigint <<PK>>
+  participacion_id : bigint <<FK>>
+  eleccion_claustro_id : bigint <<FK>>
+  eleccion_claustro_departamento_id : bigint <<FK, NULL>>
+  puesto_eleccion_id : bigint <<FK, NULL>>
+  --
+  nombre : varchar(180)
+  activa : bool
+  <<UQ parcial>> (participacion_id, puesto_eleccion_id) si puesto no NULL
+}
+entity "Candidato" as candidato {
+  * id : bigint <<PK>>
+  lista_id : bigint <<FK>>
+  elector_id : bigint <<FK, NULL>>
+  --
+  nombre : varchar(180)
+  identificador_persona : varchar(40)
+  dni : varchar(12)
+  correo_electronico : varchar(254)
+  cargo : varchar(120)
+  tipo : varchar(12)
+  orden : smallint
+  activo : bool
+  <<UQ>> (lista_id, tipo, orden)
+  <<UQ parcial>> (lista_id, dni) si dni no vacio
+  <<UQ parcial>> (lista_id, identificador_persona) si no vacio
+}
+entity "ImportacionCandidaturas" as importacion {
+  * id : bigint <<PK>>
+  eleccion_id : bigint <<FK>>
+  usuario_id : int <<FK, NULL>>
+  --
+  nombre_archivo : varchar(255)
+  estado : varchar(20)
+  filas : jsonb
+  errores : jsonb
+  advertencias : jsonb
+  cantidad_total : int
+  cantidad_valida : int
+  creada_en : timestamptz
+  confirmada_en : timestamptz <<NULL>>
+}
+entity "Eleccion" as eleccion <<referencia>>
+entity "EleccionClaustro" as eleccion_claustro <<referencia>>
+entity "EleccionClaustroDepartamento" as alcance <<referencia>>
+entity "Claustro" as claustro <<referencia>>
+entity "Elector" as elector <<referencia>>
+entity "Usuario" as usuario <<auth.User>>
+
+organo ||--o{ cargo
+cargo ||--o{ cargo_claustros
+claustro ||--o{ cargo_claustros
+eleccion ||--o{ presentacion
+partido |o--o{ presentacion
+eleccion_claustro |o--o{ presentacion
+cargo ||--o{ puesto_eleccion
+eleccion_claustro ||--o{ puesto_eleccion
+alcance |o--o{ puesto_eleccion
+presentacion ||--o{ lista
+eleccion_claustro ||--o{ lista
+alcance |o--o{ lista
+puesto_eleccion |o--o{ lista
+lista ||--o{ candidato
+elector |o--o{ candidato
+eleccion ||--o{ importacion
+usuario |o--o{ importacion
+@enduml

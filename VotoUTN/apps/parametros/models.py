@@ -1,3 +1,5 @@
+import unicodedata
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -73,6 +75,15 @@ class Departamento(models.Model):
     class Meta:
         db_table = "elecciones_departamento"
         ordering = ("nombre",)
+
+    @property
+    def es_ciencias_basicas(self):
+        nombre = unicodedata.normalize("NFKD", self.nombre.strip())
+        nombre = "".join(caracter for caracter in nombre if not unicodedata.combining(caracter))
+        return (
+            self.codigo.strip().casefold() == "z"
+            or " ".join(nombre.casefold().split()) == "ciencias basicas"
+        )
 
     def __str__(self):
         return self.nombre

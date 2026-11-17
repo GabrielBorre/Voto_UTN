@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -487,9 +487,15 @@ def configurar_eleccion(request, eleccion_id):
     alcances_pendientes = (
         not eleccion.elecciones_sede.exists()
         or not claustros.exists()
-        or claustros.filter(Q(sedes_habilitadas__isnull=True) | Q(departamentos__isnull=True)).exists()
+        or claustros.filter(sedes_habilitadas__isnull=True).exists()
+        or any(
+            not eleccion_claustro.departamentos.filter(solo_puesto_electivo=False).exists()
+            for eleccion_claustro in claustros
+        )
         or EleccionClaustroDepartamento.objects.filter(
-            eleccion_claustro__eleccion=eleccion, sedes_habilitadas__isnull=True,
+            eleccion_claustro__eleccion=eleccion,
+            solo_puesto_electivo=False,
+            sedes_habilitadas__isnull=True,
         ).exists()
     )
     padrones_pendientes = (
@@ -836,7 +842,6 @@ def preparar_eleccion(request, eleccion_id):
     if not puede_configurar_eleccion(request.user, eleccion, solo_consulta=True):
         return HttpResponseForbidden("No tiene permiso para preparar esta eleccion.")
     claustros = eleccion.elecciones_claustro.select_related("claustro").prefetch_related(
-        "departamentos__departamento",
         "sedes_habilitadas__sede",
     ).annotate(
         cantidad_electores=Count(
@@ -844,6 +849,14 @@ def preparar_eleccion(request, eleccion_id):
             filter=Q(departamentos__registros_padron__activo=True),
             distinct=True,
         )
+    )
+    claustros = claustros.prefetch_related(
+        Prefetch(
+            "departamentos",
+            queryset=EleccionClaustroDepartamento.objects.filter(
+                solo_puesto_electivo=False,
+            ).select_related("departamento"),
+        ),
     )
     return render(request, "elecciones/preparar_eleccion.html", {"eleccion": eleccion, "claustros": claustros})
 
@@ -1004,8 +1017,12 @@ def gestionar_alcances(request, eleccion_id):
             "formulario_agregar_claustro": formulario,
             "claustros": eleccion.elecciones_claustro.select_related("claustro").prefetch_related(
                 "sedes_habilitadas__sede",
-                "departamentos__departamento",
-                "departamentos__sedes_habilitadas__sede",
+                Prefetch(
+                    "departamentos",
+                    queryset=EleccionClaustroDepartamento.objects.filter(
+                        solo_puesto_electivo=False,
+                    ).select_related("departamento").prefetch_related("sedes_habilitadas__sede"),
+                ),
             ),
         },
     )
@@ -1075,7 +1092,12 @@ def editar_alcance_sedes(request, eleccion_id, tipo, objeto_id):
         objeto = get_object_or_404(EleccionClaustro, pk=objeto_id, eleccion=eleccion)
         titulo = f"Sedes de {objeto.claustro}"
     elif tipo == "departamento":
-        objeto = get_object_or_404(EleccionClaustroDepartamento, pk=objeto_id, eleccion_claustro__eleccion=eleccion)
+        objeto = get_object_or_404(
+            EleccionClaustroDepartamento,
+            pk=objeto_id,
+            eleccion_claustro__eleccion=eleccion,
+            solo_puesto_electivo=False,
+        )
         titulo = f"Sedes de {objeto.nombre_alcance}"
     else:
         raise Http404()

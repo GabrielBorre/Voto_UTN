@@ -1,0 +1,137 @@
+@startuml
+title Elecciones y parametros
+left to right direction
+skinparam classAttributeIconSize 0
+
+package "Parametros" {
+  class Sede {
+    +nombre: str
+    +activa: bool
+  }
+  class Claustro {
+    +nombre: str
+    +abreviatura: str
+    +organizacion_departamentos: OrganizacionDepartamentos
+    +activo: bool
+  }
+  class Turno {
+    +nombre: str
+    +hora_inicio: time
+    +hora_fin: time
+    +activo: bool
+    --
+    +se_superpone_con(otro: Turno): bool
+  }
+  class Departamento {
+    +nombre: str
+    +codigo: str
+    +activo: bool
+  }
+  class FechaAdministrativa {
+    +claustros: Claustro
+    +codigo: str
+    +nombre: str
+    +descripcion: text
+    +modalidad_sugerida: str
+    +duracion_sugerida_dias: int
+    +roles_destinatarios: JSON
+    +alcance_todos_claustros: bool
+    +criterio_destinatarios: str
+    +evento_disparador_sugerido: str
+    +activa: bool
+    --
+    +roles_destinatarios_display: str
+  }
+}
+
+package "Elecciones" {
+  class Eleccion {
+    +autoridades_confirmadas_por: Usuario
+    +nombre: str
+    +fecha_inicio: date
+    +fecha_fin: date
+    +fecha_apertura_padron_provisorio: date
+    +fecha_cierre_padron_provisorio: date
+    +fecha_cierre_candidaturas: date
+    +fecha_publicacion_padron_definitivo: date
+    +fecha_cierre_solicitudes_cambio_sede: date
+    +fecha_limite_justificacion_autoridades: date
+    +autoridades_confirmadas_en: datetime
+    +fecha_limite_justificacion_electores: date
+    +notificaciones_ausentes_confirmadas_en: datetime
+    +justificacion_electores_habilitada_en: datetime
+    +habilitada: bool
+    +estado: Estado
+    +maximo_autoridades_por_mesa: int
+    --
+    +validar_configuracion(validar_turnos: bool): None
+    +cambiar_estado(nuevo_estado: Estado): None
+  }
+  class EleccionSede {
+    +eleccion: Eleccion
+    +sede: Sede
+    .. unique(eleccion, sede) ..
+  }
+  class EleccionClaustro {
+    +eleccion: Eleccion
+    +claustro: Claustro
+    +organizacion_departamentos: str
+    +fecha_votacion: date
+    +maximo_votantes_por_mesa: int
+    .. unique(eleccion, claustro) ..
+  }
+  class EleccionClaustroTurno {
+    +eleccion_claustro: EleccionClaustro
+    +turno: Turno
+    +titulares_por_mesa: int
+    +minimo_titulares_por_mesa: int
+    +suplentes_por_mesa: int
+    .. unique(eleccion_claustro, turno) ..
+  }
+  class EleccionClaustroSede {
+    +eleccion_claustro: EleccionClaustro
+    +sede: Sede
+    .. unique(eleccion_claustro, sede) ..
+  }
+  class EleccionClaustroDepartamento {
+    +eleccion_claustro: EleccionClaustro
+    +departamento: Departamento
+    --
+    +nombre_alcance: str
+    .. unique por claustro y departamento ..
+  }
+  class EleccionClaustroDepartamentoSede {
+    +eleccion_claustro_departamento: EleccionClaustroDepartamento
+    +sede: Sede
+    .. unique(alcance, sede) ..
+  }
+  class FechaAdministrativaEleccion {
+    +eleccion: Eleccion
+    +fecha_administrativa: FechaAdministrativa
+    +fecha: date
+  }
+}
+
+class Usuario <<Django auth.User>>
+
+Eleccion "1" -- "0..*" EleccionSede
+Sede "1" -- "0..*" EleccionSede
+Eleccion "1" -- "0..*" EleccionClaustro
+Claustro "1" -- "0..*" EleccionClaustro
+EleccionClaustro "1" -- "0..*" EleccionClaustroTurno
+Turno "1" -- "0..*" EleccionClaustroTurno
+EleccionClaustro "1" -- "0..*" EleccionClaustroSede
+Sede "1" -- "0..*" EleccionClaustroSede
+EleccionClaustro "1" -- "0..*" EleccionClaustroDepartamento
+Departamento "0..1" -- "0..*" EleccionClaustroDepartamento
+EleccionClaustroDepartamento "1" -- "0..*" EleccionClaustroDepartamentoSede
+Sede "1" -- "0..*" EleccionClaustroDepartamentoSede
+Eleccion "1" -- "0..*" FechaAdministrativaEleccion
+FechaAdministrativa "1" -- "0..*" FechaAdministrativaEleccion
+FechaAdministrativa "0..*" -- "0..*" Claustro : claustros alcanzados
+note bottom of Eleccion
+  UNIQUE parcial: como maximo una eleccion en
+  en_preparacion, publicada o en_curso.
+end note
+Usuario "0..1" -- "0..*" Eleccion : confirma autoridades
+@enduml

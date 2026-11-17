@@ -1,17 +1,23 @@
+from datetime import date
+
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from io import StringIO
 
 from apps.auditoria.models import EventoAuditoria
+from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.justificativos.models import TipoJustificativo
 from apps.notificaciones.models import ComunicacionFechaAdministrativa, PlantillaNotificacion
 from apps.parametros.forms import FormularioFechaAdministrativa
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.partidos.forms import FormularioCargoElectivo
-from apps.partidos.models import CargoElectivo, OrganoElectivo
+from apps.partidos.models import (
+    CargoElectivo, CupoPuestoClaustro, NOMBRE_PUESTO_CIENCIAS_BASICAS, OrganoElectivo, PuestoEleccion,
+)
 
 
 class ParametrosViewsTests(TestCase):
@@ -72,6 +78,81 @@ class ParametrosViewsTests(TestCase):
 
 
 class CatalogosEstandarTests(TestCase):
+    def test_semilla_reutiliza_ciencias_actual_y_conserva_cupos_editados(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Departamental")
+        puesto = CargoElectivo.objects.create(organo=organo, nombre="Ciencias Basicas")
+        estudiantes = Claustro.objects.create(nombre="Estudiantes")
+        puesto.claustros_habilitados.add(estudiantes)
+        CupoPuestoClaustro.objects.create(
+            puesto=puesto, claustro=estudiantes, cantidad_titulares=4, cantidad_suplentes=3,
+        )
+
+        call_command("cargar_parametros_estandar", stdout=StringIO())
+
+        self.assertEqual(CargoElectivo.objects.get(organo=organo, nombre="Ciencias Basicas").pk, puesto.pk)
+        self.assertFalse(CargoElectivo.objects.filter(organo=organo, nombre=NOMBRE_PUESTO_CIENCIAS_BASICAS).exists())
+        cupo = puesto.cupos_claustro.get(claustro=estudiantes)
+        self.assertEqual((cupo.cantidad_titulares, cupo.cantidad_suplentes), (4, 3))
+
+    def test_semilla_reutiliza_nombre_historico_y_conserva_departamento(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Departamental")
+        departamento = Departamento.objects.create(nombre="Ciencias Básicas", codigo="Z")
+        anterior = CargoElectivo.objects.create(
+            organo=organo, nombre=NOMBRE_PUESTO_CIENCIAS_BASICAS,
+            permite_filtrar_departamentos=True, departamento=departamento,
+        )
+
+        call_command("cargar_parametros_estandar", stdout=StringIO())
+
+        anterior.refresh_from_db()
+        self.assertFalse(anterior.es_departamental)
+        self.assertEqual(anterior.departamento_id, departamento.pk)
+        self.assertFalse(CargoElectivo.objects.filter(organo=organo, nombre="Ciencias Basicas").exists())
+        self.assertEqual(
+            set(anterior.claustros_habilitados.values_list("nombre", flat=True)),
+            {"Estudiantes", "Graduados"},
+        )
+
+    def test_semilla_rechaza_dos_puestos_de_ciencias_sin_modificarlos(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Departamental")
+        anterior = CargoElectivo.objects.create(
+            organo=organo, nombre=NOMBRE_PUESTO_CIENCIAS_BASICAS, permite_filtrar_departamentos=True,
+        )
+        CargoElectivo.objects.create(organo=organo, nombre="Ciencias Basicas")
+
+        with self.assertRaisesMessage(CommandError, "dos puestos de Ciencias Básicas"):
+            call_command("cargar_parametros_estandar", stdout=StringIO())
+
+        anterior.refresh_from_db()
+        self.assertTrue(anterior.es_departamental)
+        self.assertEqual(CargoElectivo.objects.count(), 2)
+
+    def test_semilla_no_reemplaza_puestos_departamentales_de_eleccion_en_preparacion(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Departamental")
+        departamento = Departamento.objects.create(nombre="Ciencias Básicas", codigo="Z")
+        cargo = CargoElectivo.objects.create(
+            organo=organo, nombre=NOMBRE_PUESTO_CIENCIAS_BASICAS,
+            permite_filtrar_departamentos=True, departamento=departamento,
+        )
+        claustro = Claustro.objects.create(nombre="Estudiantes")
+        cargo.claustros_habilitados.add(claustro)
+        eleccion = Eleccion.objects.create(
+            nombre="Preparación", fecha_inicio=date(2026, 11, 1), fecha_fin=date(2026, 11, 1),
+        )
+        ec = EleccionClaustro.objects.create(eleccion=eleccion, claustro=claustro)
+        alcance = EleccionClaustroDepartamento.objects.create(eleccion_claustro=ec, departamento=departamento)
+        puesto = PuestoEleccion.objects.create(
+            puesto=cargo, eleccion_claustro=ec, eleccion_claustro_departamento=alcance,
+            cantidad_titulares=3, cantidad_suplentes=3,
+        )
+
+        with self.assertRaisesMessage(CommandError, "alcances departamentales"):
+            call_command("cargar_parametros_estandar", stdout=StringIO())
+
+        cargo.refresh_from_db()
+        self.assertTrue(cargo.es_departamental)
+        self.assertTrue(PuestoEleccion.objects.filter(pk=puesto.pk).exists())
+
     def test_carga_exacta_es_idempotente_reactiva_y_no_elimina_personalizados(self):
         salida = StringIO()
         call_command("cargar_parametros_estandar", stdout=salida)
@@ -103,23 +184,38 @@ class CatalogosEstandarTests(TestCase):
         consejo_superior = OrganoElectivo.objects.get(nombre="Consejo Superior", activo=True)
         formulario_puesto = FormularioCargoElectivo()
         self.assertIn(consejo_superior, formulario_puesto.fields["organo"].queryset)
-        self.assertEqual(CargoElectivo.objects.count(), 4)
-        claustros_por_organo = {
-            "Consejo Superior": {"Docentes", "Estudiantes", "Graduados", "No docentes"},
-            "Consejo Directivo": {"Docentes", "Estudiantes", "Graduados", "No docentes"},
-            "Consejo Departamental": {"Docentes", "Estudiantes", "Graduados"},
-            "Consejo DASUTeN": {"Docentes"},
+        self.assertEqual(CargoElectivo.objects.count(), 5)
+        claustros_por_puesto = {
+            ("Consejo Superior", "Consejero/a superior"): {"Docentes", "Estudiantes", "Graduados", "No docentes"},
+            ("Consejo Directivo", "Consejero/a directivo/a"): {"Docentes", "Estudiantes", "Graduados", "No docentes"},
+            ("Consejo Departamental", "Consejero/a departamental"): {"Docentes", "Estudiantes", "Graduados"},
+            ("Consejo Departamental", "Ciencias Basicas"): {"Estudiantes", "Graduados"},
+            ("Consejo DASUTeN", "Consejero/a DASUTeN"): {"Docentes"},
         }
-        for organo, esperados in claustros_por_organo.items():
-            puesto = CargoElectivo.objects.get(organo__nombre=organo)
+        for (organo, nombre), esperados in claustros_por_puesto.items():
+            puesto = CargoElectivo.objects.get(organo__nombre=organo, nombre=nombre)
             self.assertEqual(set(puesto.claustros_habilitados.values_list("nombre", flat=True)), esperados)
+        puesto_ciencias_basicas = CargoElectivo.objects.get(nombre="Ciencias Basicas")
+        self.assertFalse(puesto_ciencias_basicas.es_departamental)
+        self.assertIsNone(puesto_ciencias_basicas.departamento)
+        cupos_ciencias_basicas = {
+            cupo.claustro.nombre: (cupo.cantidad_titulares, cupo.cantidad_suplentes)
+            for cupo in puesto_ciencias_basicas.cupos_claustro.select_related("claustro")
+        }
+        self.assertEqual(cupos_ciencias_basicas, {"Estudiantes": (3, 3), "Graduados": (2, 2)})
         self.assertEqual(TipoJustificativo.objects.count(), 0)
         puesto_departamental = CargoElectivo.objects.get(
             organo__nombre="Consejo Departamental",
             nombre="Consejero/a departamental",
         )
-        self.assertTrue(puesto_departamental.permite_filtrar_claustros)
-        self.assertTrue(puesto_departamental.permite_filtrar_departamentos)
+        self.assertTrue(puesto_departamental.es_departamental)
+        self.assertIsNone(puesto_departamental.departamento)
+        self.assertFalse(
+            CargoElectivo.objects.get(nombre="Consejero/a superior").es_departamental
+        )
+        cupo_editado = puesto_departamental.cupos_claustro.get(claustro__nombre="Docentes")
+        cupo_editado.cantidad_titulares = 7
+        cupo_editado.save(update_fields=("cantidad_titulares",))
         plantilla = PlantillaNotificacion.objects.get(codigo="padron-definitivo-publicado")
         plantilla.activa = False
         plantilla.save(update_fields=("activa",))
@@ -130,11 +226,12 @@ class CatalogosEstandarTests(TestCase):
 
         self.assertEqual(PlantillaNotificacion.objects.count(), 26)
         self.assertEqual(OrganoElectivo.objects.count(), 4)
-        self.assertEqual(CargoElectivo.objects.count(), 4)
-        for organo, esperados in claustros_por_organo.items():
-            puesto = CargoElectivo.objects.get(organo__nombre=organo)
+        self.assertEqual(CargoElectivo.objects.count(), 5)
+        for (organo, nombre), esperados in claustros_por_puesto.items():
+            puesto = CargoElectivo.objects.get(organo__nombre=organo, nombre=nombre)
             self.assertEqual(set(puesto.claustros_habilitados.values_list("nombre", flat=True)), esperados)
         self.assertEqual(ids, {codigo: pk for codigo, pk in PlantillaNotificacion.objects.values_list("codigo", "pk")})
+        self.assertEqual(puesto_departamental.cupos_claustro.get(claustro__nombre="Docentes").cantidad_titulares, 7)
         plantilla.refresh_from_db()
         self.assertTrue(plantilla.activa)
         self.assertTrue(Sede.objects.filter(pk=extra.pk).exists())
@@ -223,41 +320,89 @@ class CatalogosCandidaturasTests(TestCase):
     def test_se_crea_puesto_y_el_estado_se_audita(self):
         organo = OrganoElectivo.objects.create(nombre="DASUTeN")
         respuesta = self.client.post(reverse("crear-parametro", args=("puestos-electivos",)), {
-            "organo": organo.pk, "nombre": "Representante", "permite_filtrar_claustros": "on",
-            "permite_filtrar_departamentos": "on", "descripcion": "", "activo": "on",
+            "organo": organo.pk, "nombre": "Representante", "tipo_alcance": "departamental",
+            "descripcion": "", "activo": "on",
         })
         self.assertEqual(respuesta.status_code, 302)
         cargo = CargoElectivo.objects.get(organo=organo, nombre="Representante")
+        self.assertTrue(cargo.es_departamental)
         self.client.post(reverse("cambiar-estado-parametro", args=("puestos-electivos", cargo.pk)))
         cargo.refresh_from_db()
         self.assertFalse(cargo.activo)
         self.assertEqual(EventoAuditoria.objects.filter(entidad="partidos.CargoElectivo").count(), 2)
 
-    def test_asociar_y_quitar_claustro_de_puesto_desde_su_listado(self):
+    def test_editar_puesto_define_claustros_cantidades_y_alcance(self):
         organo = OrganoElectivo.objects.create(nombre="Consejo Directivo")
         puesto = CargoElectivo.objects.create(organo=organo, nombre="Consejero/a")
-        claustros = [
-            Claustro.objects.create(nombre=nombre)
-            for nombre in ("Docentes", "Estudiantes", "Graduados", "No docentes")
-        ]
-        claustro = claustros[0]
-        destino = reverse("cambiar-claustro-puesto", args=(puesto.pk, claustro.pk))
+        docentes, estudiantes = (Claustro.objects.create(nombre=nombre) for nombre in ("Docentes", "Estudiantes"))
+        destino = reverse("editar-parametro", args=("puestos-electivos", puesto.pk))
 
-        respuesta = self.client.post(destino, {"accion": "asociar"})
+        formulario = self.client.get(destino)
+        self.assertContains(formulario, "Departamental")
+        self.assertContains(formulario, "General")
+        self.assertNotContains(formulario, 'name="departamento"')
+        self.assertContains(formulario, '<fieldset class="field puesto-alcance">')
+        self.assertContains(formulario, 'class="puesto-alcance-radio"', count=2)
+        self.assertContains(formulario, f'name="titulares_{docentes.pk}"')
+        self.assertContains(formulario, f'name="suplentes_{estudiantes.pk}"')
+
+        respuesta = self.client.post(destino, {
+            "organo": organo.pk, "nombre": "Consejero/a", "tipo_alcance": "departamental", "activo": "on",
+            f"claustro_{docentes.pk}": "on", f"titulares_{docentes.pk}": "5", f"suplentes_{docentes.pk}": "4",
+            f"titulares_{estudiantes.pk}": "2", f"suplentes_{estudiantes.pk}": "2",
+        })
 
         self.assertRedirects(respuesta, reverse("listar-parametros", args=("puestos-electivos",)))
-        self.assertIn(claustro, puesto.claustros_habilitados.all())
-        self.assertEqual(EventoAuditoria.objects.filter(accion="asociar_puesto_claustro").count(), 1)
-
+        puesto.refresh_from_db()
+        self.assertTrue(puesto.es_departamental)
+        self.assertEqual(list(puesto.claustros_habilitados.all()), [docentes])
+        cupo = puesto.cupos_claustro.get()
+        self.assertEqual((cupo.claustro, cupo.cantidad_titulares, cupo.cantidad_suplentes), (docentes, 5, 4))
         listado = self.client.get(reverse("listar-parametros", args=("puestos-electivos",)))
-        self.assertContains(listado, "Docentes ✓")
-        self.assertContains(listado, "data-conservar-scroll", count=4)
-        for claustro in claustros[1:]:
-            self.assertContains(listado, f"+ {claustro}")
-        respuesta = self.client.post(destino, {"accion": "quitar"})
-        self.assertRedirects(respuesta, reverse("listar-parametros", args=("puestos-electivos",)))
-        self.assertNotIn(claustro, puesto.claustros_habilitados.all())
-        self.assertEqual(EventoAuditoria.objects.filter(accion="asociar_puesto_claustro").count(), 2)
+        self.assertContains(listado, "Docentes: 5 tit. / 4 sup.")
+        self.assertContains(listado, "Departamental")
+        self.assertNotContains(listado, "Estudiantes: 2")
+        evento = EventoAuditoria.objects.filter(accion="actualizar_parametro", entidad="partidos.CargoElectivo").get()
+        self.assertIn("Docentes: 5 titulares / 4 suplentes", str(evento.datos_nuevos))
+
+        respuesta = self.client.post(destino, {
+            "organo": organo.pk, "nombre": "Consejero/a", "tipo_alcance": "general", "activo": "on",
+            f"claustro_{estudiantes.pk}": "on", f"titulares_{estudiantes.pk}": "3", f"suplentes_{estudiantes.pk}": "1",
+            f"titulares_{docentes.pk}": "5", f"suplentes_{docentes.pk}": "4",
+        })
+
+        self.assertEqual(respuesta.status_code, 302)
+        puesto.refresh_from_db()
+        self.assertFalse(puesto.es_departamental)
+        self.assertEqual(list(puesto.claustros_habilitados.all()), [estudiantes])
+        self.assertEqual(list(puesto.cupos_claustro.values_list("claustro__nombre", flat=True)), ["Estudiantes"])
+
+    def test_editar_no_altera_departamento_historico(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Departamental")
+        departamento = Departamento.objects.create(nombre="Ciencias Básicas", codigo="Z")
+        puesto = CargoElectivo.objects.create(
+            organo=organo, nombre="Consejero/a", permite_filtrar_departamentos=True,
+            departamento=departamento,
+        )
+        respuesta = self.client.post(reverse("editar-parametro", args=("puestos-electivos", puesto.pk)), {
+            "organo": organo.pk, "nombre": puesto.nombre, "tipo_alcance": "departamental", "activo": "on",
+        })
+        self.assertEqual(respuesta.status_code, 302)
+        puesto.refresh_from_db()
+        self.assertEqual(puesto.departamento_id, departamento.pk)
+
+    def test_cupos_de_claustros_asociados_exigen_titulares_y_suplentes(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Directivo")
+        claustro = Claustro.objects.create(nombre="Docentes")
+
+        respuesta = self.client.post(reverse("crear-parametro", args=("puestos-electivos",)), {
+            "organo": organo.pk, "nombre": "Consejero/a", "tipo_alcance": "general", "activo": "on",
+            f"claustro_{claustro.pk}": "on", f"titulares_{claustro.pk}": "3", f"suplentes_{claustro.pk}": "0",
+        })
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertFalse(CargoElectivo.objects.filter(nombre="Consejero/a").exists())
+        self.assertIn(f"suplentes_{claustro.pk}", respuesta.context["formulario"].errors)
 
     def test_catalogo_de_organos_ya_no_se_ofrece_como_abm(self):
         respuesta = self.client.get(reverse("listar-parametros", args=("organos-electivos",)))
@@ -271,10 +416,10 @@ class CatalogosCandidaturasTests(TestCase):
         CargoElectivo.objects.create(organo=primero, nombre="Representante")
 
         duplicado = FormularioCargoElectivo(data={
-            "organo": primero.pk, "nombre": "Representante", "permite_filtrar_claustros": "on", "activo": "on",
+            "organo": primero.pk, "nombre": "Representante", "tipo_alcance": "general", "activo": "on",
         })
         otro_organo = FormularioCargoElectivo(data={
-            "organo": segundo.pk, "nombre": "Representante", "permite_filtrar_claustros": "on", "activo": "on",
+            "organo": segundo.pk, "nombre": "Representante", "tipo_alcance": "general", "activo": "on",
         })
         formulario_nuevo = FormularioCargoElectivo()
 
@@ -282,11 +427,12 @@ class CatalogosCandidaturasTests(TestCase):
         self.assertTrue(otro_organo.is_valid())
         self.assertNotIn(inactivo, formulario_nuevo.fields["organo"].queryset)
 
-    def test_puesto_sin_filtros_es_valido_y_se_aplicara_a_todos(self):
+    def test_puesto_sin_claustros_es_valido(self):
         organo = OrganoElectivo.objects.create(nombre="Consejo Directivo")
         formulario = FormularioCargoElectivo(data={
             "organo": organo.pk,
             "nombre": "Representante",
+            "tipo_alcance": "general",
             "activo": "on",
         })
 

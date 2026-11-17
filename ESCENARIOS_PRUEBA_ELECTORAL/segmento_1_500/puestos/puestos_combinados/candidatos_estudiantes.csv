@@ -1,0 +1,33 @@
+puesto;departamento;tipo_documento;documento;tipo_candidatura;orden
+Ciencias Basicas;;DNI;36000030;titular;1
+Ciencias Basicas;;DNI;36000031;titular;2
+Ciencias Basicas;;DNI;36000032;titular;3
+Ciencias Basicas;;DNI;36000033;suplente;1
+Ciencias Basicas;;DNI;36000034;suplente;2
+Ciencias Basicas;;DNI;36000035;suplente;3
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000036;titular;1
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000037;titular;2
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000038;titular;3
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000039;suplente;1
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000040;suplente;2
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000041;suplente;3
+Consejero/a directivo/a;;DNI;36000042;titular;1
+Consejero/a directivo/a;;DNI;36000043;titular;2
+Consejero/a directivo/a;;DNI;36000044;titular;3
+Consejero/a directivo/a;;DNI;36000045;titular;4
+Consejero/a directivo/a;;DNI;36000046;titular;5
+Consejero/a directivo/a;;DNI;36000047;suplente;1
+Consejero/a directivo/a;;DNI;36000048;suplente;2
+Consejero/a directivo/a;;DNI;36000049;suplente;3
+Consejero/a directivo/a;;DNI;36000050;suplente;4
+Consejero/a directivo/a;;DNI;36000051;suplente;5
+Consejo Superior;;DNI;36000052;titular;1
+Consejo Superior;;DNI;36000053;titular;2
+Consejo Superior;;DNI;36000054;titular;3
+Consejo Superior;;DNI;36000055;titular;4
+Consejo Superior;;DNI;36000056;titular;5
+Consejo Superior;;DNI;36000057;suplente;1
+Consejo Superior;;DNI;36000058;suplente;2
+Consejo Superior;;DNI;36000059;suplente;3
+Consejo Superior;;DNI;36000060;suplente;4
+Consejo Superior;;DNI;36000061;suplente;5

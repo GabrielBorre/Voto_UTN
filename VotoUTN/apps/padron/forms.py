@@ -118,9 +118,11 @@ class FormularioConfiguracionSede(forms.ModelForm):
         self.padron_votacion = padron_votacion
         self.fields["eleccion_claustro_departamento"].queryset = EleccionClaustroDepartamento.objects.filter(
             eleccion_claustro=padron_votacion.eleccion_claustro,
+            solo_puesto_electivo=False,
         ).select_related("departamento")
         self.fields["sede_predeterminada"].queryset = EleccionClaustroDepartamentoSede.objects.filter(
             eleccion_claustro_departamento__eleccion_claustro=padron_votacion.eleccion_claustro,
+            eleccion_claustro_departamento__solo_puesto_electivo=False,
             sede__activa=True,
         ).select_related("sede", "eleccion_claustro_departamento__departamento")
         self.fields["sede_predeterminada"].label_from_instance = lambda item: f"{item.eleccion_claustro_departamento.nombre_alcance}: {item.sede.nombre}"

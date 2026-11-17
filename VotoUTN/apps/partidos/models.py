@@ -6,6 +6,8 @@ from django.db import models
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.padron.models import Elector
 
+NOMBRE_PUESTO_CIENCIAS_BASICAS = "Consejero/a departamental de Ciencias Básicas"
+
 
 class Partido(models.Model):
     nombre = models.CharField(max_length=180, unique=True)
@@ -47,13 +49,29 @@ class CargoElectivo(models.Model):
     permite_filtrar_claustros = models.BooleanField(
         "permite limitar por claustros",
         default=True,
-        help_text="Permite elegir un subconjunto de los claustros asociados; sin filtro se incluyen todos los asociados presentes en la elección.",
+        help_text="Sin uso: los claustros se definen al asociar el puesto.",
     )
     descripcion = models.TextField(blank=True)
     permite_filtrar_departamentos = models.BooleanField(
-        "permite limitar por departamentos",
+        "puesto departamental",
         default=False,
-        help_text="Permite elegir solo algunos departamentos; funciona independientemente del filtro por claustros.",
+        help_text=(
+            "Departamental: se genera un puesto por cada departamento del claustro y solo pueden "
+            "postularse electores de ese departamento. General: se genera un único puesto por claustro "
+            "y puede postularse cualquier elector del claustro."
+        ),
+    )
+    departamento = models.ForeignKey(
+        "parametros.Departamento",
+        on_delete=models.PROTECT,
+        related_name="puestos_propios",
+        null=True,
+        blank=True,
+        verbose_name="departamento específico",
+        help_text=(
+            "Opcional, para puestos departamentales. Si se indica, el puesto se genera solo para ese "
+            "departamento y los demás puestos departamentales lo omiten."
+        ),
     )
     activo = models.BooleanField(default=True)
 
@@ -63,8 +81,32 @@ class CargoElectivo(models.Model):
             models.UniqueConstraint(fields=("organo", "nombre"), name="cargo_unico_por_organo")
         ]
 
+    @property
+    def es_departamental(self):
+        return self.permite_filtrar_departamentos
+
     def __str__(self):
         return f"{self.nombre} - {self.organo.nombre}"
+
+
+class CupoPuestoClaustro(models.Model):
+    """Cantidad de titulares y suplentes de un puesto para cada claustro asociado."""
+
+    puesto = models.ForeignKey(CargoElectivo, on_delete=models.CASCADE, related_name="cupos_claustro")
+    claustro = models.ForeignKey(
+        "parametros.Claustro", on_delete=models.CASCADE, related_name="cupos_puestos_electivos",
+    )
+    cantidad_titulares = models.PositiveSmallIntegerField(default=1, validators=(MinValueValidator(1),))
+    cantidad_suplentes = models.PositiveSmallIntegerField(default=1, validators=(MinValueValidator(1),))
+
+    class Meta:
+        ordering = ("puesto__nombre", "claustro__nombre")
+        constraints = [
+            models.UniqueConstraint(fields=("puesto", "claustro"), name="cupo_unico_por_puesto_y_claustro"),
+        ]
+
+    def __str__(self):
+        return f"{self.puesto} — {self.claustro}: {self.cantidad_titulares}/{self.cantidad_suplentes}"
 
 class ParticipacionPartido(models.Model):
     eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="partidos_participantes")

@@ -34,18 +34,12 @@
 {% if claustro_seleccionado %}
 <section class="hero">
   <h1>Listas de {{ claustro_seleccionado.claustro }}</h1>
-  <p>{{ eleccion.nombre }}. Consultá las listas de este claustro y cargá candidatos en cada una, o configurá los puestos disponibles.</p>
+  <p>{{ eleccion.nombre }}. Consultá las listas de este claustro y cargá candidatos en cada una.</p>
   <div class="hero-botones">
     <a class="button hero-boton" href="{% url 'gestionar-partidos' eleccion.id %}">Elegir otro claustro</a>
   </div>
 </section>
 
-<nav class="gestion-nav" aria-label="Gestión de listas y puestos">
-  <a class="{% if pestana == 'puesto' %}active{% endif %}" href="?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto">Cargar puestos</a>
-  <a class="{% if pestana == 'lista' %}active{% endif %}" href="?claustro={{ claustro_seleccionado.id }}&amp;pestana=lista">Cargar listas</a>
-</nav>
-
-{% if pestana == 'lista' %}
 <div class="management-panel candidaturas-panel">
   <section class="card management-section" id="listas">
     <div class="section-title">
@@ -57,7 +51,7 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Número</th><th>Lista</th><th>Apoderado/a</th><th>Puestos</th><th>Candidatos cargados</th><th>Titulares cargados/a cargar</th><th>Suplentes cargados/a cargar</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Número</th><th>Lista</th><th>Apoderado/a</th><th>Puestos</th><th>Candidatos cargados</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           {% for participacion in participaciones %}
             <tr>
@@ -66,8 +60,6 @@
               <td>{{ participacion.apoderado_nombre|default:"—" }}</td>
               <td>{{ participacion.cantidad_listas }}</td>
               <td>{{ participacion.cantidad_candidatos }}</td>
-              <td>{{ participacion.titulares_cargados }}/{{ participacion.titulares_a_cargar }}</td>
-              <td>{{ participacion.suplentes_cargados }}/{{ participacion.suplentes_a_cargar }}</td>
               <td><span class="pill {% if participacion.activa %}ok{% else %}gray{% endif %}">{% if participacion.activa %}Activa{% else %}Inactiva{% endif %}</span></td>
               <td class="actions">
                 <a class="button primary small" href="{% url 'detalle-participacion-partido' eleccion.id participacion.id %}">Cargar candidatos</a>
@@ -75,7 +67,7 @@
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="9" class="muted">Todavía no hay listas para este claustro.</td></tr>
+            <tr><td colspan="7" class="muted">Todavía no hay listas para este claustro.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -102,7 +94,7 @@
       </div>
       <div class="gestion-form-grid">
         {% for field in formulario_participacion %}
-          {% if field.name != "eleccion_claustro" and field.name != "puestos_eleccion" and field.name != "puesto_nuevo" and field.name != "departamento_puesto_nuevo" and field.name != "cantidad_titulares_nueva" and field.name != "cantidad_suplentes_nueva" %}
+          {% if field.name != "eleccion_claustro" and field.name != "puestos_eleccion" %}
           <div class="field">
             <label for="{{ field.id_for_label }}">{{ field.label }}</label>
             {{ field }}
@@ -136,184 +128,14 @@
             {% endfor %}
           {% endfor %}
         {% else %}
-          <p class="muted">Todavía no hay puestos habilitados para este claustro. Podés crear el primero en la sección de administración de puestos.</p>
+          <p class="muted">Todavía no hay puestos habilitados para este claustro. Se generan a partir de los parámetros generales: asociá el puesto a {{ claustro_seleccionado.claustro }} en Parámetros generales → Puestos a elegir.</p>
         {% endif %}
         {% for error in formulario_participacion.puestos_eleccion.errors %}<div class="error">{{ error }}</div>{% endfor %}
       </div>
-      <details class="candidaturas-subsection" {% if formulario_participacion.puesto_nuevo.errors or formulario_participacion.departamento_puesto_nuevo.errors or formulario_participacion.cantidad_titulares_nueva.errors or formulario_participacion.cantidad_suplentes_nueva.errors %}open{% endif %}>
-        <summary>¿No está el puesto? Crear uno nuevo para esta lista</summary>
-        <p class="muted">El nuevo puesto se asociará automáticamente a la lista. Según la configuración del puesto, se habilitará para el claustro seleccionado o para todos los claustros. El departamento es opcional; si no lo indicás, el alcance será general.</p>
-        <div class="gestion-form-grid">
-          {% for field in formulario_participacion %}
-            {% if field.name == "puesto_nuevo" or field.name == "departamento_puesto_nuevo" or field.name == "cantidad_titulares_nueva" or field.name == "cantidad_suplentes_nueva" %}
-              <div class="field">
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}<small class="muted field-help">{{ field.help_text }}</small>{% endif %}
-                {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
-              </div>
-            {% endif %}
-          {% endfor %}
-        </div>
-      </details>
       <div class="footer-actions"><button class="button primary" type="submit">Crear lista</button></div>
     </form>
   </section>
 </div>
-{% elif pestana == 'puesto' %}
-<div class="management-panel candidaturas-panel">
-  <section class="card management-section" id="puestos">
-    <div class="section-title">
-      <div>
-        <h2>Cargar puesto</h2>
-        <p>Elegí el puesto, su alcance y la cantidad de personas candidatas.</p>
-      </div>
-      <a class="button light" href="{% url 'catalogos-candidaturas' %}">Administrar parámetros de puestos</a>
-    </div>
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="accion" value="configurar_puesto">
-      {% for error in formulario_puesto.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
-      <div class="field puesto-selector">
-        <label for="{{ formulario_puesto.puesto.id_for_label }}">{{ formulario_puesto.puesto.label }}</label>
-        {{ formulario_puesto.puesto }}
-        {% for error in formulario_puesto.puesto.errors %}<div class="error">{{ error }}</div>{% endfor %}
-      </div>
-
-      <div class="puesto-filtro" data-filtro-puesto>
-        <div class="puesto-filtro-encabezado">
-          <div>
-            <h3>Claustro</h3>
-            <p>El puesto se asociará únicamente a este claustro.</p>
-          </div>
-        </div>
-        <p><strong>{{ claustro_seleccionado.claustro }}</strong></p>
-        {% for error in formulario_puesto.claustros.errors %}<div class="error">{{ error }}</div>{% endfor %}
-      </div>
-
-      <div class="puesto-filtro" data-filtro-puesto>
-        <div class="puesto-filtro-encabezado">
-          <div>
-            <h3>Departamentos</h3>
-            <p>Sin filtro, el puesto tiene alcance general dentro de cada claustro.</p>
-          </div>
-          <div class="field-checkbox puesto-filtro-control">
-            {{ formulario_puesto.limitar_por_departamentos }}
-            <label for="{{ formulario_puesto.limitar_por_departamentos.id_for_label }}">{{ formulario_puesto.limitar_por_departamentos.label }}</label>
-          </div>
-        </div>
-        {% for error in formulario_puesto.limitar_por_departamentos.errors %}<div class="error">{{ error }}</div>{% endfor %}
-        <div class="puesto-filtro-opciones" data-opciones data-tiene-errores="{% if formulario_puesto.departamentos.errors %}true{% else %}false{% endif %}">
-          <span class="puesto-filtro-etiqueta">{{ formulario_puesto.departamentos.label }}</span>
-          {{ formulario_puesto.departamentos }}
-          {% if formulario_puesto.departamentos.help_text %}<small class="muted field-help">{{ formulario_puesto.departamentos.help_text }}</small>{% endif %}
-          {% for error in formulario_puesto.departamentos.errors %}<div class="error">{{ error }}</div>{% endfor %}
-        </div>
-      </div>
-
-      <div class="gestion-form-grid puesto-cantidades">
-        {% for field in formulario_puesto %}
-          {% if field.name == "cantidad_titulares" or field.name == "cantidad_suplentes" %}
-            <div class="field">
-              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-              {{ field }}
-              {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
-            </div>
-          {% endif %}
-        {% endfor %}
-      </div>
-      <div class="footer-actions"><button class="button primary" type="submit">Cargar puesto</button></div>
-    </form>
-  </section>
-
-  <section class="card management-section" id="importar-puestos">
-    <div class="section-title">
-      <div>
-        <h2>Cargar puestos por CSV</h2>
-        <p>Los tipos de puestos provienen de los parámetros generales: Consejo DASUTeN, Consejo Departamental, Consejo Directivo y Consejo Superior, según los claustros habilitados. También podés usar otros puestos activos configurados allí.</p>
-      </div>
-      <a class="button light" href="{% url 'plantilla-puestos-csv' eleccion.id claustro_seleccionado.id %}">Descargar plantilla de puestos</a>
-    </div>
-    <p>Indicá <code>puesto</code>, <code>departamento</code>, <code>titulares</code> y <code>suplentes</code>. Para Consejo Departamental cargá una fila por departamento, con su nombre o código; para puestos generales dejá el departamento vacío.</p>
-    <form method="post" enctype="multipart/form-data" action="?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto#importar-puestos">
-      {% csrf_token %}<input type="hidden" name="accion" value="previsualizar_puestos_csv">
-      <div class="field">
-        <label for="{{ formulario_csv_puestos.archivo.id_for_label }}">{{ formulario_csv_puestos.archivo.label }}</label>
-        {{ formulario_csv_puestos.archivo }}
-        {% for error in formulario_csv_puestos.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
-      </div>
-      {% for error in formulario_csv_puestos.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
-      <div class="footer-actions"><button class="button primary" type="submit">Previsualizar puestos</button></div>
-    </form>
-    {% for error in errores_puestos %}<div class="error">{{ error }}</div>{% endfor %}
-    {% if previsualizacion_puestos %}
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Fila</th><th>Puesto</th><th>Departamento</th><th>Titulares</th><th>Suplentes</th><th>Operación</th></tr></thead>
-          <tbody>{% for fila in previsualizacion_puestos %}
-            <tr><td>{{ fila.numero }}</td><td>{{ fila.puesto }}</td><td>{{ fila.departamento }}</td><td>{{ fila.titulares }}</td><td>{{ fila.suplentes }}</td><td>{% if fila.existente_id %}Actualizar{% if not fila.activo_anterior %} (inactivo){% endif %}: {{ fila.titulares_anteriores }}/{{ fila.suplentes_anteriores }} anteriores{% else %}Crear{% endif %}</td></tr>
-          {% endfor %}</tbody>
-        </table>
-      </div>
-      {% if not errores_puestos %}
-        <form method="post" action="?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto#importar-puestos">
-          {% csrf_token %}<input type="hidden" name="accion" value="confirmar_puestos_csv">
-          <input type="hidden" name="token" value="{{ token_puestos }}">
-          <div class="footer-actions"><button class="button primary" type="submit">Confirmar puestos</button></div>
-        </form>
-      {% endif %}
-    {% endif %}
-  </section>
-
-  <section class="card management-section">
-    <div class="section-title">
-      <div>
-        <h2>Puestos habilitados</h2>
-        <p>Alcances y cantidades configuradas para esta elección.</p>
-      </div>
-      <span class="tag">{{ puestos|length }} configurados</span>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Puesto</th><th>Claustro</th><th>Departamento</th><th>Titulares</th><th>Suplentes</th><th>Estado</th><th></th></tr></thead>
-        <tbody>
-          {% for configuracion in puestos %}
-            <tr>
-              <td>{{ configuracion.puesto }}</td>
-              <td>{{ configuracion.eleccion_claustro.claustro }}</td>
-              <td>{{ configuracion.eleccion_claustro_departamento.departamento|default:"General" }}</td>
-              <td>{{ configuracion.cantidad_titulares }}</td>
-              <td>{{ configuracion.cantidad_suplentes }}</td>
-              <td>{% if configuracion.activo %}<span class="pill ok">Activo</span>{% else %}<span class="pill gray">Inactivo</span>{% endif %}</td>
-              <td class="actions">
-                <a class="button light small" href="{% url 'editar-puesto-eleccion' eleccion.id configuracion.id %}">Editar</a>
-                {% if not configuracion.activo %}
-                  <form class="inline-form" method="post" action="{% url 'cambiar-estado-puesto-eleccion' eleccion.id configuracion.id %}?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto">
-                    {% csrf_token %}<input type="hidden" name="activo" value="1">
-                    <button class="button secondary small" type="submit">Activar</button>
-                  </form>
-                {% endif %}
-                {% if configuracion.cantidad_listas %}
-                  <span title="El puesto está asociado a listas y no se puede eliminar.">
-                    <button class="button light small" type="button" disabled>En uso</button>
-                  </span>
-                {% else %}
-                  <form class="inline-form" method="post" action="{% url 'eliminar-puesto-eleccion' eleccion.id configuracion.id %}?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto" onsubmit="return confirm('¿Eliminar este puesto de la elección? Esta acción no se puede deshacer.');">
-                    {% csrf_token %}
-                    <button class="button light small" type="submit">Eliminar</button>
-                  </form>
-                {% endif %}
-              </td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="7" class="muted">Todavía no se configuraron puestos para esta elección.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-</div>
-{% endif %}
 {% else %}
 <section class="hero">
   <h1>Listas y candidaturas</h1>
@@ -333,8 +155,22 @@
       <div class="option-summary">
         <p><strong>{{ item.cantidad_listas }}</strong> listas registradas</p>
         <p><strong>{{ item.cantidad_candidatos }}</strong> candidatos cargados</p>
-        <p><strong>{{ item.cantidad_puestos }}</strong> puestos habilitados</p>
+        <p><strong>{{ item.cantidad_puestos }}</strong> puestos registrados en la elección</p>
       </div>
+      <details class="puestos-configurados">
+        <summary>Puestos configurados en parámetros generales</summary>
+        <ul>
+          {% for puesto in item.claustro.puestos_configurados %}
+            <li>
+              {{ puesto.nombre }} — {{ puesto.organo.nombre }}
+              ({% if puesto.es_departamental %}Departamental{% else %}General{% endif %})
+            </li>
+          {% empty %}
+            <li>No hay puestos activos configurados para este claustro.</li>
+          {% endfor %}
+        </ul>
+        <p class="muted">Los puestos departamentales se generan según los departamentos habilitados en la elección.</p>
+      </details>
       <a class="button primary" href="?claustro={{ item.id }}">Gestionar listas de {{ item.claustro }}</a>
     </article>
   {% empty %}
@@ -348,8 +184,4 @@
 {% endif %}
 
 {% include "elecciones/_volver_configuracion.html" %}
-{% endblock %}
-
-{% block scripts %}
-<script src="{% static 'js/filtros-puestos.js' %}" defer></script>
 {% endblock %}

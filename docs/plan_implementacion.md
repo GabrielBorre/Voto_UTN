@@ -115,17 +115,17 @@ justificativos y errores de importacion.
 ### Etapa complementaria - Partidos y candidatos
 **Estado:** completada
 
-Incluye presentaciones propias de cada elección, puestos configurables por alcance,
-listas, candidatos nuevos vinculados obligatoriamente a un elector del padrón e importación CSV con
+Incluye presentaciones propias de cada elección, puestos configurados en Parámetros
+generales (alcance departamental o general, claustros y cantidades) que cada elección
+en preparación genera automáticamente, listas, candidatos nuevos vinculados
+obligatoriamente a un elector del padrón e importación CSV con
 previsualización. La carga manual y CSV comparten búsqueda por DNI, CUIL o legajo,
 con consulta del nombre antes del guardado y revalidación del padrón al confirmar.
-La creación manual de una lista permite asociarle puestos existentes o configurar
-un puesto nuevo en el mismo formulario, y continuar directamente con la carga de
-candidatos. Al agregar departamentos a Estudiantes, Docentes y Graduados se
-habilitan automáticamente los puestos departamentales estándar, con 3, 5 y 2
-titulares y suplentes respectivamente, excepto Ciencias Básicas. Los
-departamentos existentes se pueden completar mediante el comando
-`habilitar_puestos_departamentales`, sin sobrescribir puestos existentes.
+La creación manual de una lista permite asociarle los puestos generados para su
+claustro y continuar directamente con la carga de candidatos. Ciencias Básicas se
+selecciona como cualquier departamento del claustro; la semilla configura un puesto
+general para Estudiantes y Graduados y usa el departamental de Z para Docentes. El comando `sincronizar_puestos_eleccion`
+completa elecciones en preparación existentes sin eliminar puestos con listas.
 
 ### Cierre de modularizacion
 **Estado:** completado

@@ -1,0 +1,185 @@
+@startuml
+title Padrón electoral
+left to right direction
+skinparam classAttributeIconSize 0
+
+class Elector {
+  +departamento_principal: Departamento
+  +nombre: str
+  +apellido: str
+  +dni: str
+  +tipo_documento: str
+  +legajo: str
+  +correo_electronico: email
+  --
+  +nombre_completo: str
+}
+class RegistroPadron {
+  +elector: Elector
+  +eleccion: Eleccion
+  +eleccion_claustro_departamento: EleccionClaustroDepartamento
+  +sede: Sede
+  +turno_cursada: Turno
+  +dni: str
+  +legajo: str
+  +activo: bool
+  +identificador_qr: str
+  +qr_generado_en: datetime
+  +numero_mesa_qr: int
+  --
+  +validar_sede(): None
+  +generar_codigo_qr_corto(): str {static}
+  .. unique(DNI, eleccion), unique(legajo, eleccion) ..
+}
+class ImportacionPadron {
+  +eleccion: Eleccion
+  +eleccion_claustro: EleccionClaustro
+  +usuario: Usuario
+  +nombre_archivo: str
+  +estado: str
+  +cantidad_total: int
+  +cantidad_validas: int
+  +cantidad_existentes: int
+  +creada_en: datetime
+  +confirmada_en: datetime
+  --
+  +cantidad_nuevos: int
+}
+class ErrorImportacionPadron {
+  +importacion: ImportacionPadron
+  +fila: int
+  +campo: str
+  +mensaje: str
+}
+class SolicitudCambioSede {
+  +registro_padron: RegistroPadron
+  +sede_origen: Sede
+  +sede_destino: Sede
+  +resuelta_por: Usuario
+  +estado: str
+  +observacion: text
+  +observacion_resolucion: text
+  +creada_en: datetime
+  +resuelta_en: datetime
+}
+class EmisionPadronImprimible {
+  +eleccion_claustro: EleccionClaustro
+  +emitida_por: Usuario
+  +invalidada_por: Usuario
+  +estado: str
+  +emitida_en: datetime
+  +invalidada_en: datetime
+  +motivo_invalidacion: str
+}
+class PadronVotacion {
+  +eleccion_claustro: EleccionClaustro
+  +nombre: str
+  +calculado_en: datetime
+  +creado_en: datetime
+  +actualizado_en: datetime
+}
+class PuestoPadronVotacion {
+  +padron_votacion: PadronVotacion
+  +puesto_eleccion: PuestoEleccion
+}
+class GrupoInclusionPadronVotacion {
+  +padron_votacion: PadronVotacion
+  +orden: int
+}
+class CondicionInclusionPadronVotacion {
+  +grupo: GrupoInclusionPadronVotacion
+}
+class ConfiguracionSedePadronVotacion {
+  +padron_votacion: PadronVotacion
+  +eleccion_claustro_departamento: EleccionClaustroDepartamento
+  +sede_predeterminada: EleccionClaustroDepartamentoSede
+}
+class ReglaAsignacionSede {
+  +configuracion: ConfiguracionSedePadronVotacion
+  +sede_destino: EleccionClaustroDepartamentoSede
+  +orden: int
+}
+class AsignacionPadronVotacion {
+  +padron_votacion: PadronVotacion
+  +registro_padron: RegistroPadron
+  +sede_asignada: EleccionClaustroDepartamentoSede
+  +calculada_en: datetime
+}
+class ConfiguracionSedesClaustro {
+  +eleccion_claustro: EleccionClaustro
+  +actualizada_en: datetime
+}
+class ReglaSedeClaustro {
+  +configuracion: ConfiguracionSedesClaustro
+  +sede_destino: Sede
+  +alcances_especificos: EleccionClaustroDepartamento
+  +orden: int
+  +campo: str
+  +operador: str
+  +valor: str
+  +aplicar_a_todos: bool
+}
+class AsignacionSedePadron {
+  +registro_padron: RegistroPadron
+  +sede: Sede
+  +regla_aplicada: ReglaSedeClaustro
+  +estado: str
+  +calculada_en: datetime
+}
+abstract class BaseCondicionPadron {
+  +campo: str
+  +operador: str
+  +valor: str
+}
+class Eleccion <<referencia>>
+class EleccionClaustro <<referencia>>
+class EleccionClaustroDepartamento <<referencia>>
+class EleccionClaustroDepartamentoSede <<referencia>>
+class Sede <<referencia>>
+class Departamento <<referencia>>
+class Turno <<referencia>>
+class PuestoEleccion <<referencia>>
+class Usuario <<Django auth.User>>
+
+Elector "1" -- "0..*" RegistroPadron
+Departamento "0..1" -- "0..*" Elector : departamento principal
+Eleccion "1" -- "0..*" RegistroPadron
+EleccionClaustroDepartamento "1" -- "0..*" RegistroPadron
+Sede "0..1" -- "0..*" RegistroPadron : sede de cursada
+Turno "0..1" -- "0..*" RegistroPadron : turno de cursada
+Eleccion "1" -- "0..*" ImportacionPadron
+EleccionClaustro "1" -- "0..*" ImportacionPadron
+Usuario "1" -- "0..*" ImportacionPadron
+ImportacionPadron "1" -- "0..*" ErrorImportacionPadron
+RegistroPadron "1" -- "0..*" SolicitudCambioSede
+Sede "1" -- "0..*" SolicitudCambioSede : origen
+Sede "1" -- "0..*" SolicitudCambioSede : destino
+Usuario "0..1" -- "0..*" SolicitudCambioSede : resuelve
+EleccionClaustro "1" -- "0..*" EmisionPadronImprimible
+Usuario "1" -- "0..*" EmisionPadronImprimible : emite
+Usuario "0..1" -- "0..*" EmisionPadronImprimible : invalida
+
+EleccionClaustro "1" -- "0..*" PadronVotacion
+PadronVotacion "1" -- "0..*" PuestoPadronVotacion
+PuestoEleccion "1" -- "0..*" PuestoPadronVotacion
+PadronVotacion "1" -- "0..*" GrupoInclusionPadronVotacion
+GrupoInclusionPadronVotacion "1" -- "0..*" CondicionInclusionPadronVotacion
+BaseCondicionPadron <|-- CondicionInclusionPadronVotacion
+PadronVotacion "1" -- "0..*" ConfiguracionSedePadronVotacion
+EleccionClaustroDepartamento "1" -- "0..*" ConfiguracionSedePadronVotacion
+EleccionClaustroDepartamentoSede "1" -- "0..*" ConfiguracionSedePadronVotacion : sede predeterminada
+ConfiguracionSedePadronVotacion "1" -- "0..*" ReglaAsignacionSede
+EleccionClaustroDepartamentoSede "1" -- "0..*" ReglaAsignacionSede : destino
+BaseCondicionPadron <|-- ReglaAsignacionSede
+PadronVotacion "1" -- "0..*" AsignacionPadronVotacion
+RegistroPadron "1" -- "0..*" AsignacionPadronVotacion
+EleccionClaustroDepartamentoSede "1" -- "0..*" AsignacionPadronVotacion : sede asignada
+EleccionClaustro "1" -- "0..1" ConfiguracionSedesClaustro
+ConfiguracionSedesClaustro "1" -- "0..*" ReglaSedeClaustro
+BaseCondicionPadron <|-- ReglaSedeClaustro
+Sede "1" -- "0..*" ReglaSedeClaustro : destino
+ReglaSedeClaustro "0..*" -- "0..*" EleccionClaustroDepartamento : alcances especificos
+RegistroPadron "1" -- "0..1" AsignacionSedePadron
+Sede "0..1" -- "0..*" AsignacionSedePadron
+ReglaSedeClaustro "0..1" -- "0..*" AsignacionSedePadron : regla aplicada
+@enduml

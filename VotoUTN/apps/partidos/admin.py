@@ -24,13 +24,13 @@ class CargoElectivoAdmin(admin.ModelAdmin):
     list_display = (
         "nombre",
         "organo",
-        "permite_filtrar_claustros",
         "permite_filtrar_departamentos",
         "activo",
     )
     list_filter = ("organo", "activo")
     search_fields = ("nombre", "organo__nombre")
     filter_horizontal = ("claustros_habilitados",)
+    exclude = ("departamento",)
 
 
 @admin.register(ParticipacionPartido)
