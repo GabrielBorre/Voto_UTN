@@ -6,7 +6,8 @@ from django.db import models
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.padron.models import Elector
 
-NOMBRE_PUESTO_CIENCIAS_BASICAS = "Consejero/a departamental de Ciencias Básicas"
+NOMBRE_PUESTO_CIENCIAS_BASICAS = "Consejero/a Ciencias Básicas"
+NOMBRE_PUESTO_SUPERIOR = "Consejero/a Superior"
 
 
 class Partido(models.Model):

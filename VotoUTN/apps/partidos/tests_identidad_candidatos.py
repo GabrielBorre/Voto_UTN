@@ -249,7 +249,7 @@ class CandidatosMultipuestoTests(PartidosBaseTests):
             participacion=otra, eleccion_claustro=self.eleccion_claustro,
             nombre="General", puesto_eleccion=self.general,
         )
-        pantalla = self.client.get(self.url)
+        pantalla = self.client.get(self.url, {"pestana_candidatos": "multipuesto"})
         disponibles = list(pantalla.context["puestos_multipuesto_disponibles"])
         self.assertIn(self.puesto_eleccion, disponibles)
         self.assertNotIn(self.general, disponibles)
@@ -270,13 +270,60 @@ class CandidatosMultipuestoTests(PartidosBaseTests):
     def test_no_reasocia_puesto_eliminado_tras_previsualizar(self):
         importacion = self.previsualizar(f"Consejero/a;Sistemas;DNI;{self.elector.dni};titular;1")
         self.assertEqual(importacion.errores, [])
+        lista_id = self.lista.pk
         self.lista.delete()
 
-        respuesta = self.confirmar(importacion)
-        self.assertRedirects(respuesta, f"{self.url}#importar-multipuesto")
+        respuesta = self.client.post(
+            f"{self.url}?puesto={lista_id}&pestana_candidatos=multipuesto",
+            {"accion": "confirmar_multipuesto", "importacion_id": importacion.pk},
+        )
+        self.assertRedirects(
+            respuesta,
+            f"{self.url}?puesto={self.lista_general.pk}&pestana_candidatos=multipuesto#importar-multipuesto",
+        )
         importacion.refresh_from_db()
         self.assertEqual(importacion.estado, ImportacionCandidaturas.Estado.PREVISUALIZADA)
         self.assertFalse(ListaCandidatos.objects.filter(puesto_eleccion=self.puesto_eleccion).exists())
+        self.assertFalse(Candidato.objects.exists())
+
+    def test_pestana_multipuesto_conserva_errores_y_previsualizacion(self):
+        url = f"{self.url}?puesto={self.lista_general.pk}&pestana_candidatos=multipuesto"
+        respuesta = self.client.post(url, {"accion": "previsualizar_multipuesto"})
+        self.assertEqual(respuesta.context["pestana_candidatos"], "multipuesto")
+        self.assertContains(respuesta, 'class="active" data-conservar-scroll')
+        self.assertContains(respuesta, "Este campo es requerido.")
+
+        contenido = (
+            "puesto;departamento;tipo_documento;documento;tipo_candidatura;orden\n"
+            f"Consejero general;;DNI;{self.elector.dni};titular;1"
+        )
+        respuesta = self.client.post(url, {
+            "accion": "previsualizar_multipuesto",
+            "multipuesto-archivo": SimpleUploadedFile("multipuesto.csv", contenido.encode("utf-8")),
+        })
+        self.assertEqual(respuesta.context["pestana_candidatos"], "multipuesto")
+        self.assertContains(respuesta, "Previsualización: multipuesto.csv")
+        self.assertContains(respuesta, "Confirmar carga de varios puestos")
+        self.assertContains(
+            respuesta,
+            f'action="?puesto={self.lista_general.pk}&amp;pestana_candidatos=multipuesto#importar-multipuesto"',
+            count=2,
+        )
+
+    def test_confirmacion_vuelve_a_pestana_si_se_quitan_todos_los_puestos(self):
+        importacion = self.previsualizar(f"Consejero general;;DNI;{self.elector.dni};titular;1")
+        lista_id = self.lista_general.pk
+        self.lista.delete()
+        self.lista_general.delete()
+
+        respuesta = self.client.post(
+            f"{self.url}?puesto={lista_id}&pestana_candidatos=multipuesto",
+            {"accion": "confirmar_multipuesto", "importacion_id": importacion.pk},
+        )
+
+        self.assertRedirects(respuesta, f"{self.url}?pestana_candidatos=multipuesto#importar-multipuesto")
+        importacion.refresh_from_db()
+        self.assertEqual(importacion.estado, ImportacionCandidaturas.Estado.PREVISUALIZADA)
         self.assertFalse(Candidato.objects.exists())
 
     def test_plantilla_de_puesto_general_sanitiza_y_se_puede_importar(self):
@@ -303,7 +350,7 @@ class CandidatosMultipuestoTests(PartidosBaseTests):
         self.assertTrue(Candidato.objects.filter(lista=lista, elector=self.elector).exists())
 
     def test_importa_varios_puestos_asociados_sin_seleccionarlos(self):
-        pantalla = self.client.get(self.url)
+        pantalla = self.client.get(self.url, {"pestana_candidatos": "multipuesto"})
         self.assertNotContains(pantalla, 'name="multipuesto-puestos_seleccionados"')
         self.assertContains(pantalla, "Indicá en cada fila un puesto activo ya asociado a esta lista")
         self.assertContains(pantalla, "Consejero general")
@@ -324,14 +371,43 @@ class CandidatosMultipuestoTests(PartidosBaseTests):
         )
         self.assertEqual(importacion.errores, [])
         self.assertEqual(importacion.cantidad_valida, 2)
-        respuesta = self.confirmar(importacion)
-        self.assertRedirects(respuesta, f"{self.url}#importar-multipuesto")
+        respuesta = self.client.post(
+            f"{self.url}?puesto={self.lista_general.pk}&pestana_candidatos=multipuesto",
+            {"accion": "confirmar_multipuesto", "importacion_id": importacion.pk},
+        )
+        self.assertRedirects(
+            respuesta,
+            f"{self.url}?puesto={self.lista_general.pk}&pestana_candidatos=multipuesto#importar-multipuesto",
+        )
         importacion.refresh_from_db()
         self.assertEqual(importacion.estado, ImportacionCandidaturas.Estado.CONFIRMADA)
         self.assertEqual(Candidato.objects.filter(elector=self.elector).count(), 2)
         self.assertTrue(ListaCandidatos.objects.filter(
             participacion=self.participacion, puesto_eleccion=self.general,
         ).exists())
+
+    def test_importa_puestos_con_nuevos_nombres(self):
+        self.general.puesto.nombre = "Consejero/a Ciencias Básicas"
+        self.general.puesto.save(update_fields=("nombre",))
+        cargo = CargoElectivo.objects.create(
+            organo=self.organo, nombre="Consejero/a Superior",
+        )
+        cargo.claustros_habilitados.add(self.eleccion_claustro.claustro)
+        puesto = PuestoEleccion.objects.create(
+            puesto=cargo, eleccion_claustro=self.eleccion_claustro,
+            cantidad_titulares=1, cantidad_suplentes=1,
+        )
+        ListaCandidatos.objects.create(
+            participacion=self.participacion, eleccion_claustro=self.eleccion_claustro,
+            nombre="Superior", puesto_eleccion=puesto,
+        )
+        importacion = self.previsualizar(
+            f"Consejero/a Ciencias Básicas;;DNI;{self.elector.dni};titular;1",
+            f"Consejero/a Superior;;DNI;{self.elector.dni};titular;1",
+        )
+        self.assertEqual(importacion.errores, [])
+        self.confirmar(importacion)
+        self.assertEqual(Candidato.objects.filter(elector=self.elector).count(), 2)
 
     def test_rechaza_puesto_habilitado_solo_para_otro_claustro(self):
         otro = EleccionClaustro.objects.create(
@@ -368,7 +444,9 @@ class CandidatosMultipuestoTests(PartidosBaseTests):
     def test_rechaza_importacion_en_lista_sin_puestos(self):
         self.lista.delete()
         self.lista_general.delete()
-        pantalla = self.client.get(self.url)
+        inicio = self.client.get(self.url)
+        self.assertContains(inicio, 'href="?pestana_candidatos=multipuesto"')
+        pantalla = self.client.get(self.url, {"pestana_candidatos": "multipuesto"})
         self.assertContains(pantalla, "No hay puestos activos asociados a esta lista.")
         importacion = self.previsualizar(f"Consejero general;;DNI;{self.elector.dni};titular;1")
         self.assertEqual(importacion.estado, ImportacionCandidaturas.Estado.RECHAZADA)

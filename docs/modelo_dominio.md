@@ -182,7 +182,7 @@ representa una presentación electoral propia de la elección y conserva código
 número y nombre de lista, claustro y apoderado. Su vínculo con `Partido` es opcional
 y existe solamente para compatibilidad histórica.
 
-La semilla estándar carga los cupos iniciales y el puesto general «Ciencias Basicas»
+La semilla estándar carga los cupos iniciales y el puesto general «Consejero/a Ciencias Básicas»
 para Estudiantes y Graduados. Para Docentes se usa el puesto departamental de Z.
 Ciencias Básicas es un departamento ordinario: se selecciona en
 Departamentos y claustros, tiene sedes y su padrón se identifica con el código Z.

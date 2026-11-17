@@ -841,12 +841,15 @@ class PartidosViewsTests(PartidosBaseTests):
         )
         destino = reverse("detalle-participacion-partido", args=(self.eleccion.id, self.participacion.id))
         respuesta = self.client.get(f"{destino}?puesto={self.lista.id}")
-        self.assertContains(respuesta, 'id="importar-multipuesto"')
-        self.assertContains(respuesta, 'enctype="multipart/form-data" action="#importar-multipuesto"')
+        self.assertNotContains(respuesta, 'id="importar-multipuesto"')
         self.assertContains(respuesta, 'id="formulario-candidatos"')
         self.assertContains(
             respuesta,
             f'data-conservar-scroll href="?puesto={self.lista.id}&amp;pestana_candidatos=csv"',
+        )
+        self.assertContains(
+            respuesta,
+            f'data-conservar-scroll href="?puesto={self.lista.id}&amp;pestana_candidatos=multipuesto"',
         )
         self.assertContains(respuesta, f"?puesto={self.lista.id}&amp;editar={candidato.id}#formulario-candidatos")
 
@@ -856,6 +859,16 @@ class PartidosViewsTests(PartidosBaseTests):
             respuesta_csv,
             f'data-conservar-scroll href="?puesto={self.lista.id}&amp;pestana_candidatos=manual"',
         )
+        respuesta_multipuesto = self.client.get(
+            f"{destino}?puesto={self.lista.id}&pestana_candidatos=multipuesto"
+        )
+        self.assertContains(respuesta_multipuesto, 'id="importar-multipuesto"')
+        self.assertContains(
+            respuesta_multipuesto,
+            f'enctype="multipart/form-data" action="?puesto={self.lista.id}&amp;pestana_candidatos=multipuesto#importar-multipuesto"',
+        )
+        self.assertNotContains(respuesta_multipuesto, 'data-busqueda-candidato=')
+        self.assertNotContains(respuesta_multipuesto, 'name="accion" value="previsualizar_candidatos"')
 
     def test_puesto_actual_se_identifica_sin_boton_redundante(self):
         otro_cargo = CargoElectivo.objects.create(

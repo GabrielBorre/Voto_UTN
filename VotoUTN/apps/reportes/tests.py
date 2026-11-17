@@ -41,6 +41,7 @@ from apps.partidos.models import (
 from apps.reportes.services import valor_csv
 from apps.reportes.services_boletas_pdf import (
     PAGINA,
+    _clasificar_puesto,
     _crear_filas_boletas,
     _dibujar_boleta_cuadrante,
     _obtener_boletas,
@@ -587,6 +588,17 @@ class PadronPDFTests(TestCase):
 
 
 class BoletasPDFTests(TestCase):
+    def test_nombres_renombrados_conservan_las_categorias_de_boleta(self):
+        boleta = {"claustros": {"Estudiantes"}, "departamento": None}
+        self.assertEqual(
+            _clasificar_puesto(boleta, {"organo": "Consejo Superior", "nombre": "Consejero/a Superior"}),
+            "superior",
+        )
+        self.assertEqual(
+            _clasificar_puesto(boleta, {"organo": "Consejo Departamental", "nombre": "Consejero/a Ciencias Básicas"}),
+            "ciencias_basicas",
+        )
+
     def setUp(self):
         inicio = make_aware(datetime(2026, 8, 3, 8))
         self.eleccion = Eleccion.objects.create(

@@ -1,9 +1,13 @@
 from datetime import date
+from importlib import import_module
+from types import SimpleNamespace
 
+from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.test import TestCase
 from django.urls import reverse
 from io import StringIO
@@ -66,6 +70,15 @@ class ParametrosViewsTests(TestCase):
         )
         self.assertNotContains(respuesta, "Agrupaciones y cargos a elegir")
 
+    def test_puestos_estandar_se_muestran_con_sus_nuevos_nombres(self):
+        call_command("cargar_parametros_estandar", stdout=StringIO())
+        self.client.force_login(self.usuario)
+
+        respuesta = self.client.get(reverse("listar-parametros", args=("puestos-electivos",)))
+
+        self.assertContains(respuesta, "Consejero/a Superior")
+        self.assertContains(respuesta, "Consejero/a Ciencias Básicas")
+
     def test_alta_y_cambio_de_estado_quedan_auditados(self):
         self.client.login(username="admin", password="clave")
         self.client.post(reverse("crear-parametro", args=("sedes",)), {"nombre": "Medrano", "activa": "on"})
@@ -78,6 +91,45 @@ class ParametrosViewsTests(TestCase):
 
 
 class CatalogosEstandarTests(TestCase):
+    def test_semilla_reutiliza_puesto_superior_anterior(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Superior")
+        puesto = CargoElectivo.objects.create(organo=organo, nombre="Consejo Superior")
+        call_command("cargar_parametros_estandar", stdout=StringIO())
+        puesto.refresh_from_db()
+        self.assertEqual(puesto.nombre, "Consejero/a Superior")
+        self.assertEqual(CargoElectivo.objects.filter(organo=organo).count(), 1)
+
+    def test_migracion_renombra_sin_cambiar_puestos_ni_cupos(self):
+        superior = OrganoElectivo.objects.create(nombre="Consejo Superior")
+        ciencias = OrganoElectivo.objects.create(nombre="Consejo Departamental")
+        puesto_superior = CargoElectivo.objects.create(organo=superior, nombre="Consejo Superior")
+        puesto_ciencias = CargoElectivo.objects.create(organo=ciencias, nombre="Ciencias Basicas")
+        claustro = Claustro.objects.create(nombre="Estudiantes")
+        puesto_ciencias.claustros_habilitados.add(claustro)
+        cupo = CupoPuestoClaustro.objects.create(
+            puesto=puesto_ciencias, claustro=claustro, cantidad_titulares=3, cantidad_suplentes=3,
+        )
+
+        migracion = import_module("apps.partidos.migrations.0016_renombrar_puestos_estandar")
+        migracion.renombrar_puestos(apps, SimpleNamespace(connection=connection))
+        puesto_superior.refresh_from_db()
+        puesto_ciencias.refresh_from_db()
+        cupo.refresh_from_db()
+        self.assertEqual(puesto_superior.nombre, "Consejero/a Superior")
+        self.assertEqual(puesto_ciencias.nombre, NOMBRE_PUESTO_CIENCIAS_BASICAS)
+        self.assertEqual(cupo.puesto_id, puesto_ciencias.pk)
+        self.assertTrue(puesto_ciencias.claustros_habilitados.filter(pk=claustro.pk).exists())
+
+    def test_migracion_rechaza_puestos_equivalentes_sin_fusionar(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Superior")
+        anterior = CargoElectivo.objects.create(organo=organo, nombre="Consejo Superior")
+        nuevo = CargoElectivo.objects.create(organo=organo, nombre="Consejero/a Superior")
+        migracion = import_module("apps.partidos.migrations.0016_renombrar_puestos_estandar")
+
+        with self.assertRaisesMessage(RuntimeError, "varios puestos equivalentes"):
+            migracion.renombrar_puestos(apps, SimpleNamespace(connection=connection))
+        self.assertEqual(CargoElectivo.objects.filter(pk__in=(anterior.pk, nuevo.pk)).count(), 2)
+
     def test_semilla_reutiliza_ciencias_actual_y_conserva_cupos_editados(self):
         organo = OrganoElectivo.objects.create(nombre="Consejo Departamental")
         puesto = CargoElectivo.objects.create(organo=organo, nombre="Ciencias Basicas")
@@ -89,8 +141,8 @@ class CatalogosEstandarTests(TestCase):
 
         call_command("cargar_parametros_estandar", stdout=StringIO())
 
-        self.assertEqual(CargoElectivo.objects.get(organo=organo, nombre="Ciencias Basicas").pk, puesto.pk)
-        self.assertFalse(CargoElectivo.objects.filter(organo=organo, nombre=NOMBRE_PUESTO_CIENCIAS_BASICAS).exists())
+        self.assertEqual(CargoElectivo.objects.get(organo=organo, nombre=NOMBRE_PUESTO_CIENCIAS_BASICAS).pk, puesto.pk)
+        self.assertFalse(CargoElectivo.objects.filter(organo=organo, nombre="Ciencias Basicas").exists())
         cupo = puesto.cupos_claustro.get(claustro=estudiantes)
         self.assertEqual((cupo.cantidad_titulares, cupo.cantidad_suplentes), (4, 3))
 
@@ -98,13 +150,14 @@ class CatalogosEstandarTests(TestCase):
         organo = OrganoElectivo.objects.create(nombre="Consejo Departamental")
         departamento = Departamento.objects.create(nombre="Ciencias Básicas", codigo="Z")
         anterior = CargoElectivo.objects.create(
-            organo=organo, nombre=NOMBRE_PUESTO_CIENCIAS_BASICAS,
+            organo=organo, nombre="Consejero/a departamental de Ciencias Básicas",
             permite_filtrar_departamentos=True, departamento=departamento,
         )
 
         call_command("cargar_parametros_estandar", stdout=StringIO())
 
         anterior.refresh_from_db()
+        self.assertEqual(anterior.nombre, NOMBRE_PUESTO_CIENCIAS_BASICAS)
         self.assertFalse(anterior.es_departamental)
         self.assertEqual(anterior.departamento_id, departamento.pk)
         self.assertFalse(CargoElectivo.objects.filter(organo=organo, nombre="Ciencias Basicas").exists())
@@ -120,7 +173,7 @@ class CatalogosEstandarTests(TestCase):
         )
         CargoElectivo.objects.create(organo=organo, nombre="Ciencias Basicas")
 
-        with self.assertRaisesMessage(CommandError, "dos puestos de Ciencias Básicas"):
+        with self.assertRaisesMessage(CommandError, "varios puestos equivalentes"):
             call_command("cargar_parametros_estandar", stdout=StringIO())
 
         anterior.refresh_from_db()
@@ -186,16 +239,16 @@ class CatalogosEstandarTests(TestCase):
         self.assertIn(consejo_superior, formulario_puesto.fields["organo"].queryset)
         self.assertEqual(CargoElectivo.objects.count(), 5)
         claustros_por_puesto = {
-            ("Consejo Superior", "Consejero/a superior"): {"Docentes", "Estudiantes", "Graduados", "No docentes"},
+            ("Consejo Superior", "Consejero/a Superior"): {"Docentes", "Estudiantes", "Graduados", "No docentes"},
             ("Consejo Directivo", "Consejero/a directivo/a"): {"Docentes", "Estudiantes", "Graduados", "No docentes"},
             ("Consejo Departamental", "Consejero/a departamental"): {"Docentes", "Estudiantes", "Graduados"},
-            ("Consejo Departamental", "Ciencias Basicas"): {"Estudiantes", "Graduados"},
+            ("Consejo Departamental", NOMBRE_PUESTO_CIENCIAS_BASICAS): {"Estudiantes", "Graduados"},
             ("Consejo DASUTeN", "Consejero/a DASUTeN"): {"Docentes"},
         }
         for (organo, nombre), esperados in claustros_por_puesto.items():
             puesto = CargoElectivo.objects.get(organo__nombre=organo, nombre=nombre)
             self.assertEqual(set(puesto.claustros_habilitados.values_list("nombre", flat=True)), esperados)
-        puesto_ciencias_basicas = CargoElectivo.objects.get(nombre="Ciencias Basicas")
+        puesto_ciencias_basicas = CargoElectivo.objects.get(nombre=NOMBRE_PUESTO_CIENCIAS_BASICAS)
         self.assertFalse(puesto_ciencias_basicas.es_departamental)
         self.assertIsNone(puesto_ciencias_basicas.departamento)
         cupos_ciencias_basicas = {
@@ -211,7 +264,7 @@ class CatalogosEstandarTests(TestCase):
         self.assertTrue(puesto_departamental.es_departamental)
         self.assertIsNone(puesto_departamental.departamento)
         self.assertFalse(
-            CargoElectivo.objects.get(nombre="Consejero/a superior").es_departamental
+            CargoElectivo.objects.get(nombre="Consejero/a Superior").es_departamental
         )
         cupo_editado = puesto_departamental.cupos_claustro.get(claustro__nombre="Docentes")
         cupo_editado.cantidad_titulares = 7

@@ -149,7 +149,10 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
         if asociacion_id:
             asociacion_seleccionada = next((item for item in asociaciones if item.pk == asociacion_id), None)
             if asociacion_seleccionada is None:
-                raise Http404()
+                if accion == "confirmar_multipuesto":
+                    asociacion_seleccionada = asociaciones[0] if asociaciones else None
+                else:
+                    raise Http404()
         elif asociaciones:
             asociacion_seleccionada = asociaciones[0]
         candidato_id = _id_opcional(request.GET.get("editar"))
@@ -159,12 +162,15 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
             candidato_en_edicion = get_object_or_404(
                 Candidato, pk=candidato_id, lista=asociacion_seleccionada,
             )
-    pestana_candidatos = (
-        "csv"
-        if request.GET.get("pestana_candidatos") == "csv"
-        or accion in ("previsualizar_candidatos", "confirmar_candidatos")
-        else "manual"
-    )
+    pestana_solicitada_candidatos = request.GET.get("pestana_candidatos")
+    if accion in ("previsualizar_multipuesto", "confirmar_multipuesto"):
+        pestana_candidatos = "multipuesto"
+    elif accion in ("previsualizar_candidatos", "confirmar_candidatos"):
+        pestana_candidatos = "csv"
+    elif pestana_solicitada_candidatos in ("csv", "multipuesto"):
+        pestana_candidatos = pestana_solicitada_candidatos
+    else:
+        pestana_candidatos = "manual"
     if candidato_en_edicion:
         pestana_candidatos = "manual"
 
@@ -267,7 +273,15 @@ def gestionar_partidos(request, eleccion_id, participacion_id=None):
                 datos_nuevos={"candidatos": cantidad, "lista": participacion_seleccionada.pk},
             )
             messages.success(request, f"Se cargaron {cantidad} personas candidatas.")
-        return redirect(_url_gestion(eleccion.id, participacion_id, ancla="importar-multipuesto"))
+        return redirect(
+            _url_gestion(
+                eleccion.id,
+                participacion_id,
+                asociacion_seleccionada.id if asociacion_seleccionada else None,
+                pestana_candidatos="multipuesto",
+                ancla="importar-multipuesto",
+            )
+        )
     if request.method == "POST" and accion == "confirmar_candidatos" and participacion_seleccionada:
         if not asociacion_seleccionada:
             raise Http404()

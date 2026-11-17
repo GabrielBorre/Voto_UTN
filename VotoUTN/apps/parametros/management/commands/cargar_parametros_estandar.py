@@ -14,6 +14,7 @@ from apps.partidos.models import (
     CargoElectivo,
     CupoPuestoClaustro,
     NOMBRE_PUESTO_CIENCIAS_BASICAS,
+    NOMBRE_PUESTO_SUPERIOR,
     OrganoElectivo,
 )
 from apps.partidos.services import sincronizar_puestos_en_preparacion
@@ -69,7 +70,7 @@ ORGANOS_ELECTIVOS = (
 PUESTOS_ELECTIVOS = (
     (
         "Consejo Superior",
-        "Consejero/a superior",
+        NOMBRE_PUESTO_SUPERIOR,
         False,
         "Puesto de representación ante el Consejo Superior.",
         {"Docentes": (5, 5), "Estudiantes": (5, 5), "Graduados": (5, 5), "No docentes": (5, 5)},
@@ -90,7 +91,7 @@ PUESTOS_ELECTIVOS = (
     ),
     (
         "Consejo Departamental",
-        "Ciencias Basicas",
+        NOMBRE_PUESTO_CIENCIAS_BASICAS,
         False,
         "Puesto general de Ciencias Básicas para estudiantes y graduados.",
         {"Estudiantes": (3, 3), "Graduados": (2, 2)},
@@ -182,18 +183,23 @@ class Command(BaseCommand):
                 nombre=nombre,
             )
         for organo_nombre, nombre, es_departamental, descripcion, cupos in PUESTOS_ELECTIVOS:
-            if nombre == "Ciencias Basicas":
+            nombres_anteriores = {
+                NOMBRE_PUESTO_CIENCIAS_BASICAS: ("Ciencias Basicas", "Consejero/a departamental de Ciencias Básicas"),
+                NOMBRE_PUESTO_SUPERIOR: ("Consejo Superior", "Consejero/a superior"),
+            }
+            if nombre in nombres_anteriores:
                 existentes = list(CargoElectivo.objects.filter(
                     organo=organos[organo_nombre],
-                    nombre__in=(nombre, NOMBRE_PUESTO_CIENCIAS_BASICAS),
+                ).filter(
+                    nombre__in=(nombre, *nombres_anteriores[nombre]),
                 ))
                 if len(existentes) > 1:
                     raise CommandError(
-                        "Hay dos puestos de Ciencias Básicas. Revisalos antes de ejecutar la semilla."
+                        f"Hay varios puestos equivalentes a {nombre}. Revisalos antes de ejecutar la semilla."
                     )
                 if existentes:
                     anterior = existentes[0]
-                    if anterior.es_departamental and anterior.configuraciones_eleccion.filter(
+                    if nombre == NOMBRE_PUESTO_CIENCIAS_BASICAS and anterior.es_departamental and anterior.configuraciones_eleccion.filter(
                         eleccion_claustro__eleccion__estado=Eleccion.Estado.EN_PREPARACION,
                         eleccion_claustro_departamento__isnull=False,
                     ).exists():
@@ -201,7 +207,9 @@ class Command(BaseCommand):
                             "El puesto de Ciencias Básicas tiene alcances departamentales en una elección "
                             "en preparación. Revisalos antes de convertirlo a general."
                         )
-                    nombre = anterior.nombre
+                    if anterior.nombre != nombre:
+                        anterior.nombre = nombre
+                        anterior.save(update_fields=("nombre",))
             puesto = self._upsert(
                 conteo,
                 CargoElectivo,
