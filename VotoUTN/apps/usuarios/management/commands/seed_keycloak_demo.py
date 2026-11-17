@@ -2,21 +2,36 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
-from apps.elecciones.models import Eleccion, EleccionClaustroDepartamento
-from apps.mesas.models import Mesa
-from apps.padron.models import Elector, RegistroPadron
+from apps.elecciones.models import Eleccion
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
 USUARIOS = {
-    "administrador_junta": {
+    "administrador_junta_juan": {
         "username": "juanb",
-        "first_name": "Juan M",
+        "first_name": "Juan",
         "last_name": "Bal",
         "email": "juanb@frba.utn.edu.ar",
-        "dni": "35444111",
+        "dni": "20111222",
         "legajo": "1111110",
+        "rol": AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+    },
+    "administrador_junta": {
+        "username": "adminjunta",
+        "first_name": "Admin",
+        "last_name": "Junta",
+        "email": "adminjunta@frba.utn.edu.ar",
+        "dni": "20222333",
+        "legajo": "3334440",
+        "rol": AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
+    },
+    "administrador_junta_1": {
+        "username": "adminjunta1",
+        "first_name": "Admin",
+        "last_name": "Junta",
+        "email": "adminjunta1@frba.utn.edu.ar",
+        "dni": "20333444",
+        "legajo": "4445550",
         "rol": AsignacionRol.Rol.ADMINISTRADOR_JUNTA,
     },
     "administrativo_junta": {
@@ -24,54 +39,24 @@ USUARIOS = {
         "first_name": "Administrativo",
         "last_name": "Junta",
         "email": "administrativojunta@frba.utn.edu.ar",
-        "dni": "22555777",
-        "legajo": "2222221",
+        "dni": "25111222",
+        "legajo": "5556660",
         "rol": AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
     },
-    "autoridad_mesa": {
-        "username": "autmesa",
-        "first_name": "Mesa",
-        "last_name": "Entrada",
-        "email": "autmesa@frba.utn.edu.ar",
-        "dni": "28111333",
-        "legajo": "3333332",
-    },
-    "autoridad_mesa_2": {
-        "username": "autmesa2",
-        "first_name": "Jorgito",
-        "last_name": "Valdano",
-        "email": "autmesa2@frba.utn.edu.ar",
-        "dni": "28111334",
-        "legajo": "3333333",
-    },
-    "elector": {
-        "username": "alumnocg",
-        "first_name": "Carlos",
-        "last_name": "Gomez",
-        "email": "alumnocg@frba.utn.edu.ar",
-        "dni": "38999222",
-        "legajo": "4444443",
-    },
-    "elector_2": {
-        "username": "alumnocg2",
-        "first_name": "Cachito",
-        "last_name": "Galan",
-        "email": "alumnocg2@frba.utn.edu.ar",
-        "dni": "38999223",
-        "legajo": "4444444",
+    "administrativo_junta_1": {
+        "username": "administrativojunta1",
+        "first_name": "Administrativo",
+        "last_name": "Junta",
+        "email": "administrativojunta1@frba.utn.edu.ar",
+        "dni": "25222333",
+        "legajo": "6667770",
+        "rol": AsignacionRol.Rol.ADMINISTRATIVO_JUNTA,
     },
 }
 
 
 class Command(BaseCommand):
-    help = "Carga identidades locales de prueba compatibles con usuarios de Keycloak."
-
-    def add_arguments(self, parser):
-        parser.add_argument(
-            "--asignar-autoridad",
-            action="store_true",
-            help="Asigna la candidatura de autmesa a la primera mesa demo.",
-        )
+    help = "Carga las cuentas internas definidas en USUARIOS para la elección demo."
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -79,50 +64,16 @@ class Command(BaseCommand):
         if eleccion is None:
             raise CommandError("No existe Eleccion Demo 2026. Ejecuta antes seed_demo_data.")
 
-        configuracion = EleccionClaustroDepartamento.objects.filter(
-            eleccion_claustro__eleccion=eleccion,
-        ).first()
         sede = eleccion.elecciones_sede.select_related("sede").first()
-        mesa = Mesa.objects.filter(eleccion=eleccion).order_by("numero").first()
-        if configuracion is None or sede is None or mesa is None:
-            raise CommandError("La Elección Demo 2026 no tiene configurados padrón, sede y mesa.")
+        if sede is None:
+            raise CommandError("La Elección Demo 2026 no tiene una sede configurada.")
 
-        admin_junta = self._crear_usuario_interno(USUARIOS["administrador_junta"], eleccion, sede.sede)
-        administrativo = self._crear_usuario_interno(USUARIOS["administrativo_junta"], eleccion, sede.sede)
+        for datos in USUARIOS.values():
+            self._crear_usuario_interno(datos, eleccion, sede.sede)
 
-        autoridad = self._crear_elector(USUARIOS["autoridad_mesa"], eleccion, configuracion, None)
-        # La candidata no cursa en la sede electoral donde se la asigna.
-        autoridad_2 = self._crear_elector(USUARIOS["autoridad_mesa_2"], eleccion, configuracion, None)
-        elector = self._crear_elector(USUARIOS["elector"], eleccion, configuracion, sede.sede)
-        elector_2 = self._crear_elector(USUARIOS["elector_2"], eleccion, configuracion, sede.sede)  
-        candidatura, _ = CandidaturaAutoridad.objects.get_or_create(
-            registro_padron=autoridad_2[1],
-            defaults={"cargada_por": admin_junta},
-        )
-
-        if options["asignar_autoridad"]:
-            turno = (
-                mesa.eleccion_claustro_departamento.eleccion_claustro.turnos_autoridad
-                .select_related("turno")
-                .order_by("turno__hora_inicio")
-                .first()
-            )
-            if turno is None:
-                raise CommandError("La Elección Demo 2026 no tiene turnos de autoridades configurados.")
-            AsignacionAutoridad.objects.update_or_create(
-                registro_padron=autoridad_2[1],
-                defaults={
-                    "candidatura": candidatura,
-                    "mesa": mesa,
-                    "turno": turno.turno,
-                    "asignada_por": admin_junta,
-                },
-            )
-
-        self.stdout.write(self.style.SUCCESS("Datos locales de Keycloak cargados correctamente."))
-        self.stdout.write("Usuarios internos: juanb (administrador de junta), administrativojunta (administrativo de junta).")
-        self.stdout.write("Identidades virtuales: autmesa (candidata a autoridad), alumnocg (elector).")
-        self.stdout.write("Use --asignar-autoridad para asignar autmesa a la primera mesa demo.")
+        self.stdout.write(self.style.SUCCESS("Cuentas de demostración creadas o actualizadas."))
+        nombres = ", ".join(datos["username"] for datos in USUARIOS.values())
+        self.stdout.write(f"Usuarios internos creados o actualizados: {nombres}.")
 
     def _crear_usuario_interno(self, data, eleccion, sede):
         User = get_user_model()
@@ -150,43 +101,3 @@ class Command(BaseCommand):
             defaults={"sede": sede, "mesa": None, "activo": True},
         )
         return usuario
-
-    def _crear_elector(self, data, eleccion, configuracion, sede):
-        registro = RegistroPadron.objects.filter(
-            eleccion=eleccion,
-            dni=data["dni"],
-        ).select_related("elector").first()
-        if registro and registro.legajo != data["legajo"]:
-            raise CommandError("El DNI ya está asociado a otro legajo en esta elección.")
-        if registro is None:
-            registro = RegistroPadron.objects.filter(
-                eleccion=eleccion,
-                legajo=data["legajo"],
-            ).select_related("elector").first()
-        if registro and registro.dni != data["dni"]:
-            raise CommandError("El legajo ya está asociado a otro DNI en esta elección.")
-        if registro:
-            elector = registro.elector
-            elector.dni = data["dni"]
-            elector.legajo = data["legajo"]
-            elector.nombre = f"{data['first_name']} {data['last_name']}"
-            elector.correo_electronico = data["email"]
-            elector.save(update_fields=("dni", "legajo", "nombre", "correo_electronico"))
-        else:
-            elector = Elector.objects.create(
-                dni=data["dni"],
-                legajo=data["legajo"],
-                nombre=f"{data['first_name']} {data['last_name']}",
-                correo_electronico=data["email"],
-            )
-        registro, _ = RegistroPadron.objects.update_or_create(
-            elector=elector,
-            eleccion=eleccion,
-            es_principal=True,
-            defaults={
-                "eleccion_claustro_departamento": configuracion,
-                "sede": sede,
-                "activo": True,
-            },
-        )
-        return elector, registro
