@@ -431,14 +431,15 @@ class InicioElectorTests(TestCase):
         )
         self.client.force_login(usuario)
 
-    def test_muestra_rol_autoridad_para_asignacion_de_eleccion_en_curso(self):
+    def test_muestra_rol_elector_hasta_confirmar_asignacion_de_autoridad(self):
         self.crear_asignacion_autoridad(self.registro_en_curso)
         self.iniciar_sesion_local_con_rol_autoridad(self.eleccion_en_curso)
 
         respuesta = self.client.get(reverse("inicio-autenticado"))
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertContains(respuesta, "Rol: <b>Elector</b>")
+        self.assertNotContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
         self.assertTrue(respuesta.context["nav_es_autoridad"])
 
     def test_muestra_rol_autoridad_para_asignacion_de_eleccion_publicada(self):
@@ -452,7 +453,7 @@ class InicioElectorTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
-        self.assertContains(respuesta, "Se informará cuando la elección esté en curso")
+        self.assertContains(respuesta, "Se informará próximamente")
         self.assertNotContains(respuesta, asignacion.mesa.codigo)
         self.assertTrue(respuesta.context["nav_es_autoridad"])
 
@@ -464,6 +465,9 @@ class InicioElectorTests(TestCase):
 
         respuesta = self.client.get(reverse("inicio-autenticado"))
 
+        self.assertContains(respuesta, "Rol: <b>Elector</b>")
+        self.assertNotContains(respuesta, "Rol: <b>Autoridad de Mesa</b>")
+        self.assertTrue(respuesta.context["nav_es_autoridad"])
         self.assertNotContains(respuesta, str(asignacion.turno))
         self.assertNotContains(respuesta, "Desempeño como Autoridad de Mesa")
 
@@ -586,7 +590,7 @@ class InicioElectorTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, self.eleccion_en_curso.nombre)
-        self.assertContains(respuesta, "Se informará cuando la elección esté en curso")
+        self.assertContains(respuesta, "Se informará próximamente")
         self.assertNotContains(respuesta, mesa.codigo)
         self.assertEqual(
             [registro.eleccion_id for registro in respuesta.context["registros"]],
@@ -713,6 +717,14 @@ class InicioElectorTests(TestCase):
     def test_muestra_la_situacion_electoral_calculada_por_el_historial(self):
         url = reverse("inicio-autenticado")
 
+        self.eleccion_en_curso.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion_en_curso.save(update_fields=("estado",))
+        publicada = self.client.get(url)
+        self.assertContains(publicada, "pill info")
+        self.assertContains(publicada, "Publicada")
+
+        self.eleccion_en_curso.estado = Eleccion.Estado.EN_CURSO
+        self.eleccion_en_curso.save(update_fields=("estado",))
         en_curso = self.client.get(url)
         self.assertContains(en_curso, "pill info")
         self.assertContains(en_curso, "En Curso")

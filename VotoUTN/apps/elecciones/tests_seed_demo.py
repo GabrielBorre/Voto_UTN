@@ -82,7 +82,10 @@ class SeedDemoInicialTests(TestCase):
         self.assertTrue(TipoJustificativo.objects.filter(nombre="Certificado medico").exists())
         for username, rol in (
             ("juanb", AsignacionRol.Rol.ADMINISTRADOR_JUNTA),
+            ("adminjunta", AsignacionRol.Rol.ADMINISTRADOR_JUNTA),
+            ("adminjunta1", AsignacionRol.Rol.ADMINISTRADOR_JUNTA),
             ("administrativojunta", AsignacionRol.Rol.ADMINISTRATIVO_JUNTA),
+            ("administrativojunta1", AsignacionRol.Rol.ADMINISTRATIVO_JUNTA),
         ):
             usuario = get_user_model().objects.get(username=username)
             self.assertFalse(usuario.has_usable_password())
@@ -90,8 +93,8 @@ class SeedDemoInicialTests(TestCase):
             asignacion.full_clean()
             self.assertIsNone(asignacion.eleccion)
         self.assertTrue(puede_crear_elecciones(get_user_model().objects.get(username="juanb")))
-        self.assertEqual(PerfilUsuario.objects.count(), 2)
-        self.assertEqual(AsignacionRol.objects.count(), 2)
+        self.assertEqual(PerfilUsuario.objects.count(), 5)
+        self.assertEqual(AsignacionRol.objects.count(), 5)
 
     def test_no_asigna_privilegios_a_un_usuario_preexistente_sin_perfil(self):
         usuario = get_user_model().objects.create_user(username="juanb", password="existente")
