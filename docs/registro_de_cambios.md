@@ -1,5 +1,24 @@
 # Registro de cambios por etapa
 
+## Foto de instancia 2 sin turnos ni candidatos de autoridades de Estudiantes
+
+- Se modifica unicamente `.instancias/foto-instancia-1.sql` (excluida de Git)
+  para quitar, dentro de autoridades de mesa del claustro Estudiantes, los
+  3 turnos configurados con sus maximos y minimos de titulares
+  (`EleccionClaustroTurno`) y los 198 candidatos a autoridad cargados
+  (`CandidaturaAutoridad`). Quedan 9 turnos y 232 candidatos de los demas
+  claustros. No habia asignaciones de autoridad que dependieran de esas
+  candidaturas porque las designaciones de Estudiantes ya se habian retirado.
+- Se verifica en una base temporal que ninguna otra tabla ni secuencia cambie:
+  los 500 registros del padron y las 19 mesas de Estudiantes se conservan. La
+  exportacion se restaura en otra base temporal y se comprueba igualdad de las
+  68 tablas y las 67 secuencias antes de reemplazar atomicamente la foto fija.
+- Se actualiza `README.md`. No se cambian scripts ni modelos y no se crean
+  migraciones. Las bases actuales de las instancias no se modifican; el ajuste
+  se aplica al inicializar una base vacia de la instancia 2 o al ejecutar
+  `restaurar-foto -Instancia 2`, que reemplaza todos los datos de esa
+  instancia.
+
 ## Historial de padrones y motivos de la foto
 
 - Se eliminan de la foto las siete entradas del historial de importaciones

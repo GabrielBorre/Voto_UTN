@@ -140,10 +140,10 @@ foreach ($Numero in $Instancia) {
             "PUERTO_DB=$(5432 + $Numero)"
             "PUERTO_MAILPIT=$(8025 + $Numero)"
             "PUERTO_SMTP=$(1025 + $Numero)"
-            "POSTGRES_PASSWORD=$(Nueva-Clave)"
-            "DJANGO_SECRET_KEY=$(Nueva-Clave)"
-            "CLAVE_FIRMA_QR=$(Nueva-Clave)"
-            "KEYCLOAK_ADMIN_PASSWORD=$(Nueva-Clave)"
+            "POSTGRES_PASSWORD=admin"
+            "DJANGO_SECRET_KEY=admin"
+            "CLAVE_FIRMA_QR=admin"
+            "KEYCLOAK_ADMIN_PASSWORD=admin"
         )
         [System.IO.File]::WriteAllLines($Entorno, $Contenido)
     }

@@ -51,8 +51,10 @@ los datos de PostgreSQL, incluidas las identidades locales. La foto no incluye
 el historial de archivos de nómina y conserva los tipos de justificativo
 «Certificado medico», «Enfermedad o accidente», «Obligaciones laborales»,
 «Otro» y «Cuidado de familiar». También se retiraron las
-designaciones de autoridades del claustro Estudiantes; los demás claustros,
-electores, mesas y candidaturas se conservan. Estos ajustes no modifican las
+designaciones de autoridades del claustro Estudiantes, sus 3 turnos
+configurados (con sus máximos y mínimos de titulares) y sus 198 candidatos a
+autoridad de mesa; los demás claustros, electores, mesas y candidaturas se
+conservan. Estos ajustes no modifican las
 bases actuales de las instancias. La foto tampoco incluye el historial de
 importaciones de padrón ni sus errores asociados; los registros del padrón
 permanecen intactos.
