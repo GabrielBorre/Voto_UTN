@@ -17,7 +17,7 @@ from apps.notificaciones.models import (
     VarianteComunicacionFechaAdministrativa,
 )
 from apps.partidos.forms import FormularioCargoElectivo
-from apps.partidos.models import CargoElectivo
+from apps.partidos.models import CargoElectivo, CupoPuestoClaustro, NOMBRE_PUESTO_CIENCIAS_BASICAS
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.parametros.forms import (
     FormularioClaustro,
@@ -109,8 +109,18 @@ def listar_parametros(request, tipo):
     configuracion = obtener_parametro(tipo)
     consulta = request.GET.get("q", "").strip()
     objetos = configuracion["modelo"].objects.all()
+    cupo_ciencias_basicas_docentes = None
     if configuracion.get("es_cargo"):
         objetos = objetos.select_related("organo", "departamento").prefetch_related("cupos_claustro__claustro")
+        cupo_ciencias_basicas_docentes = CupoPuestoClaustro.objects.filter(
+            puesto__organo__nombre="Consejo Departamental",
+            puesto__nombre="Consejero/a departamental",
+            puesto__permite_filtrar_departamentos=True,
+            puesto__activo=True,
+            puesto__organo__activo=True,
+            puesto__claustros_habilitados__nombre="Docentes",
+            claustro__nombre="Docentes",
+        ).select_related("claustro").first()
     if consulta:
         filtro = Q(nombre__icontains=consulta)
         if configuracion["codigo"]:
@@ -129,6 +139,8 @@ def listar_parametros(request, tipo):
             "tiene_codigo": configuracion["codigo"], "es_fecha": configuracion.get("es_fecha", False),
             "es_plantilla": configuracion.get("es_plantilla", False), "es_turno": configuracion.get("es_turno", False),
             "es_cargo": configuracion.get("es_cargo", False),
+            "nombre_puesto_ciencias_basicas": NOMBRE_PUESTO_CIENCIAS_BASICAS,
+            "cupo_ciencias_basicas_docentes": cupo_ciencias_basicas_docentes,
             "es_claustro": configuracion.get("es_claustro", False),
             "es_catalogo_candidaturas": configuracion.get("grupo") == "puestos",
         },

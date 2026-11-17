@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.core.exceptions import ValidationError
-from django.db import connection
+from django.db import connection, transaction
 from django.test import TestCase
 from django.urls import reverse
 from io import StringIO
@@ -20,7 +20,8 @@ from apps.parametros.forms import FormularioFechaAdministrativa
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.partidos.forms import FormularioCargoElectivo
 from apps.partidos.models import (
-    CargoElectivo, CupoPuestoClaustro, NOMBRE_PUESTO_CIENCIAS_BASICAS, OrganoElectivo, PuestoEleccion,
+    Candidato, CargoElectivo, CupoPuestoClaustro, ListaCandidatos, NOMBRE_PUESTO_CIENCIAS_BASICAS,
+    OrganoElectivo, ParticipacionPartido, PuestoEleccion,
 )
 
 
@@ -79,6 +80,23 @@ class ParametrosViewsTests(TestCase):
         self.assertContains(respuesta, "Consejero/a Superior")
         self.assertContains(respuesta, "Consejero/a Ciencias Básicas")
 
+    def test_tabla_de_ciencias_basicas_muestra_cupo_departamental_de_docentes(self):
+        call_command("cargar_parametros_estandar", stdout=StringIO())
+        self.client.force_login(self.usuario)
+        generales = CargoElectivo.objects.get(nombre=NOMBRE_PUESTO_CIENCIAS_BASICAS)
+        departamental = CargoElectivo.objects.get(nombre="Consejero/a departamental")
+        cupo = departamental.cupos_claustro.get(claustro__nombre="Docentes")
+        cupo.cantidad_titulares = 7
+        cupo.save(update_fields=("cantidad_titulares",))
+
+        respuesta = self.client.get(reverse("listar-parametros", args=("puestos-electivos",)))
+
+        self.assertContains(respuesta, "Docentes: 7 tit. / 5 sup. (departamental Z)")
+        self.assertFalse(generales.claustros_habilitados.filter(nombre="Docentes").exists())
+        departamental.claustros_habilitados.remove(cupo.claustro)
+        respuesta = self.client.get(reverse("listar-parametros", args=("puestos-electivos",)))
+        self.assertNotContains(respuesta, "(departamental Z)")
+
     def test_alta_y_cambio_de_estado_quedan_auditados(self):
         self.client.login(username="admin", password="clave")
         self.client.post(reverse("crear-parametro", args=("sedes",)), {"nombre": "Medrano", "activa": "on"})
@@ -91,6 +109,75 @@ class ParametrosViewsTests(TestCase):
 
 
 class CatalogosEstandarTests(TestCase):
+    def test_migracion_actualiza_solo_cupos_solicitados_y_eleccion_en_preparacion(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Directivo")
+        cargo = CargoElectivo.objects.create(organo=organo, nombre="Consejero/a directivo/a")
+        graduados = Claustro.objects.create(nombre="Graduados")
+        no_docentes = Claustro.objects.create(nombre="No docentes")
+        docentes = Claustro.objects.create(nombre="Docentes")
+        cargo.claustros_habilitados.add(graduados, no_docentes, docentes)
+        for claustro, titulares, suplentes in ((graduados, 10, 1), (no_docentes, 2, 1), (docentes, 1, 1)):
+            CupoPuestoClaustro.objects.create(
+                puesto=cargo, claustro=claustro, cantidad_titulares=titulares, cantidad_suplentes=suplentes,
+            )
+        preparacion = Eleccion.objects.create(nombre="Preparación", fecha_inicio=date(2026, 11, 1), fecha_fin=date(2026, 11, 1))
+        finalizada = Eleccion.objects.create(
+            nombre="Finalizada", fecha_inicio=date(2026, 10, 1), fecha_fin=date(2026, 10, 1),
+            estado=Eleccion.Estado.FINALIZADA,
+        )
+        ec_grad = EleccionClaustro.objects.create(eleccion=preparacion, claustro=graduados)
+        ec_nd = EleccionClaustro.objects.create(eleccion=preparacion, claustro=no_docentes)
+        ec_final = EleccionClaustro.objects.create(eleccion=finalizada, claustro=graduados)
+        puesto = PuestoEleccion.objects.create(
+            puesto=cargo, eleccion_claustro=ec_grad, cantidad_titulares=10, cantidad_suplentes=1,
+        )
+        historico = PuestoEleccion.objects.create(
+            puesto=cargo, eleccion_claustro=ec_final, cantidad_titulares=10, cantidad_suplentes=1,
+        )
+
+        migracion = import_module("apps.partidos.migrations.0017_actualizar_cupos_estandar")
+        migracion.actualizar_cupos(apps, SimpleNamespace(connection=connection))
+
+        cupo_graduados = cargo.cupos_claustro.get(claustro=graduados)
+        self.assertEqual((cupo_graduados.cantidad_titulares, cupo_graduados.cantidad_suplentes), (5, 5))
+        self.assertEqual(
+            list(cargo.cupos_claustro.filter(claustro=docentes).values_list("cantidad_titulares", "cantidad_suplentes")),
+            [(1, 1)],
+        )
+        puesto.refresh_from_db()
+        historico.refresh_from_db()
+        self.assertEqual((puesto.cantidad_titulares, puesto.cantidad_suplentes), (5, 5))
+        self.assertEqual((historico.cantidad_titulares, historico.cantidad_suplentes), (10, 1))
+        nuevo = PuestoEleccion.objects.get(puesto=cargo, eleccion_claustro=ec_nd)
+        self.assertEqual((nuevo.cantidad_titulares, nuevo.cantidad_suplentes), (1, 1))
+
+    def test_migracion_rechaza_reduccion_que_afecta_candidaturas(self):
+        organo = OrganoElectivo.objects.create(nombre="Consejo Directivo")
+        cargo = CargoElectivo.objects.create(organo=organo, nombre="Consejero/a directivo/a")
+        graduados = Claustro.objects.create(nombre="Graduados")
+        cargo.claustros_habilitados.add(graduados)
+        cupo = CupoPuestoClaustro.objects.create(
+            puesto=cargo, claustro=graduados, cantidad_titulares=10, cantidad_suplentes=1,
+        )
+        eleccion = Eleccion.objects.create(nombre="Preparación", fecha_inicio=date(2026, 11, 1), fecha_fin=date(2026, 11, 1))
+        ec = EleccionClaustro.objects.create(eleccion=eleccion, claustro=graduados)
+        puesto = PuestoEleccion.objects.create(puesto=cargo, eleccion_claustro=ec, cantidad_titulares=10, cantidad_suplentes=1)
+        participacion = ParticipacionPartido.objects.create(
+            eleccion=eleccion, eleccion_claustro=ec, numero_lista="1", codigo_presentacion="TEST",
+        )
+        lista = ListaCandidatos.objects.create(participacion=participacion, eleccion_claustro=ec, puesto_eleccion=puesto)
+        Candidato.objects.create(lista=lista, nombre="Candidata", cargo="Consejera", tipo="titular", orden=6)
+
+        migracion = import_module("apps.partidos.migrations.0017_actualizar_cupos_estandar")
+        with self.assertRaisesMessage(RuntimeError, "candidaturas titular fuera del nuevo cupo"):
+            with transaction.atomic():
+                migracion.actualizar_cupos(apps, SimpleNamespace(connection=connection))
+        cupo.refresh_from_db()
+        puesto.refresh_from_db()
+        self.assertEqual((cupo.cantidad_titulares, cupo.cantidad_suplentes), (10, 1))
+        self.assertEqual((puesto.cantidad_titulares, puesto.cantidad_suplentes), (10, 1))
+        self.assertEqual(Candidato.objects.filter(lista=lista).count(), 1)
+
     def test_semilla_reutiliza_puesto_superior_anterior(self):
         organo = OrganoElectivo.objects.create(nombre="Consejo Superior")
         puesto = CargoElectivo.objects.create(organo=organo, nombre="Consejo Superior")
@@ -243,11 +330,22 @@ class CatalogosEstandarTests(TestCase):
             ("Consejo Directivo", "Consejero/a directivo/a"): {"Docentes", "Estudiantes", "Graduados", "No docentes"},
             ("Consejo Departamental", "Consejero/a departamental"): {"Docentes", "Estudiantes", "Graduados"},
             ("Consejo Departamental", NOMBRE_PUESTO_CIENCIAS_BASICAS): {"Estudiantes", "Graduados"},
-            ("Consejo DASUTeN", "Consejero/a DASUTeN"): {"Docentes"},
+            ("Consejo DASUTeN", "Consejero/a DASUTeN"): {"Docentes", "No docentes"},
         }
         for (organo, nombre), esperados in claustros_por_puesto.items():
             puesto = CargoElectivo.objects.get(organo__nombre=organo, nombre=nombre)
             self.assertEqual(set(puesto.claustros_habilitados.values_list("nombre", flat=True)), esperados)
+        for organo, claustro, esperado in (
+            ("Consejo Superior", "Docentes", (15, 15)),
+            ("Consejo Superior", "Graduados", (5, 5)),
+            ("Consejo Superior", "No docentes", (5, 5)),
+            ("Consejo Directivo", "Graduados", (5, 5)),
+            ("Consejo Directivo", "No docentes", (1, 1)),
+            ("Consejo DASUTeN", "Docentes", (2, 2)),
+            ("Consejo DASUTeN", "No docentes", (2, 2)),
+        ):
+            cupo = CupoPuestoClaustro.objects.get(puesto__organo__nombre=organo, claustro__nombre=claustro)
+            self.assertEqual((cupo.cantidad_titulares, cupo.cantidad_suplentes), esperado)
         puesto_ciencias_basicas = CargoElectivo.objects.get(nombre=NOMBRE_PUESTO_CIENCIAS_BASICAS)
         self.assertFalse(puesto_ciencias_basicas.es_departamental)
         self.assertIsNone(puesto_ciencias_basicas.departamento)

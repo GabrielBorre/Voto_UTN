@@ -62,6 +62,9 @@
                 {% for cupo in objeto.cupos_claustro.all %}
                   <span class="tag">{{ cupo.claustro }}: {{ cupo.cantidad_titulares }} tit. / {{ cupo.cantidad_suplentes }} sup.</span>
                 {% empty %}<span class="muted">Sin claustros asociados.</span>{% endfor %}
+                {% if objeto.nombre == nombre_puesto_ciencias_basicas and objeto.organo.nombre == "Consejo Departamental" and cupo_ciencias_basicas_docentes %}
+                  <span class="tag">{{ cupo_ciencias_basicas_docentes.claustro }}: {{ cupo_ciencias_basicas_docentes.cantidad_titulares }} tit. / {{ cupo_ciencias_basicas_docentes.cantidad_suplentes }} sup. (departamental Z)</span>
+                {% endif %}
               </td>
             {% endif %}
             <td>

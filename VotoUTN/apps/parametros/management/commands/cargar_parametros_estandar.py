@@ -73,14 +73,14 @@ PUESTOS_ELECTIVOS = (
         NOMBRE_PUESTO_SUPERIOR,
         False,
         "Puesto de representación ante el Consejo Superior.",
-        {"Docentes": (5, 5), "Estudiantes": (5, 5), "Graduados": (5, 5), "No docentes": (5, 5)},
+        {"Docentes": (15, 15), "Estudiantes": (5, 5), "Graduados": (5, 5), "No docentes": (5, 5)},
     ),
     (
         "Consejo Directivo",
         "Consejero/a directivo/a",
         False,
         "Puesto de representación general, configurable para uno o más claustros.",
-        {"Docentes": (5, 5), "Estudiantes": (5, 5), "Graduados": (5, 5), "No docentes": (5, 5)},
+        {"Docentes": (5, 5), "Estudiantes": (5, 5), "Graduados": (5, 5), "No docentes": (1, 1)},
     ),
     (
         "Consejo Departamental",
@@ -101,7 +101,7 @@ PUESTOS_ELECTIVOS = (
         "Consejero/a DASUTeN",
         False,
         "Puesto configurable para los claustros que participan de la elección de DASUTeN.",
-        {"Docentes": (2, 2)},
+        {"Docentes": (2, 2), "No docentes": (2, 2)},
     ),
 )
 
