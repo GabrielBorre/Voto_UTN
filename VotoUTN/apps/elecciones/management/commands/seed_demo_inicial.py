@@ -8,13 +8,23 @@ from apps.usuarios.management.commands.seed_keycloak_demo import USUARIOS
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
 
+TIPOS_JUSTIFICATIVO_INICIALES = (
+    "Certificado medico",
+    "Enfermedad o accidente",
+    "Obligaciones laborales",
+    "Otro",
+    "Cuidado de familiar",
+)
+
+
 class Command(BaseCommand):
     help = "Carga parametros e identidades de demostracion sin crear elecciones."
 
     @transaction.atomic
     def handle(self, *args, **options):
         call_command("cargar_parametros_estandar", stdout=self.stdout)
-        TipoJustificativo.objects.get_or_create(nombre="Certificado medico", defaults={"activo": True})
+        for nombre in TIPOS_JUSTIFICATIVO_INICIALES:
+            TipoJustificativo.objects.get_or_create(nombre=nombre, defaults={"activo": True})
 
         for clave in ("administrador_junta", "administrativo_junta"):
             datos = USUARIOS[clave]

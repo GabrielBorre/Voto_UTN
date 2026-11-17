@@ -17,7 +17,7 @@ from apps.justificativos.services import (
     restaurar_participacion_anulada,
     validar_comprobante,
 )
-from apps.notificaciones.services import crear_notificacion_resultado_justificativo, enviar_notificacion
+from apps.notificaciones.services import crear_notificacion_resultado_justificativo
 from apps.padron.models import RegistroPadron
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import (
@@ -312,11 +312,11 @@ def resolver_justificativo(request, justificativo_id):
             formulario.add_error(None, error)
         else:
             if envio is not None:
-                correo_enviado = enviar_notificacion(envio)
-                if correo_enviado:
-                    messages.success(request, "El justificativo fue resuelto y se notificó al elector por correo.")
-                else:
-                    messages.warning(request, "El justificativo fue resuelto y la notificación está disponible en la web, pero no se pudo enviar el correo al elector.")
+                messages.success(
+                    request,
+                    "El justificativo fue resuelto. La notificación está disponible en la web "
+                    "y el correo se enviará en segundo plano.",
+                )
             else:
                 messages.success(request, "El justificativo fue actualizado.")
             return redirect("gestionar-justificativos", eleccion_id=justificativo.registro_padron.eleccion_id)

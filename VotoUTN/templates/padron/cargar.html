@@ -7,7 +7,7 @@
     <h1>Padrón de {{ claustro.claustro }}</h1>
     <p>{{ eleccion.nombre }}. Configurá los datos operativos, cargá el archivo y consultá sus importaciones.</p>
   </div>
-  <div class="hero-botones"><a class="button hero-boton" href="{% url 'gestionar-mesas' eleccion.id %}?claustro={{ claustro.id }}">Ver mesas de {{ claustro.claustro }}</a></div>
+  <div class="hero-botones"><a class="button hero-boton" href="{% url 'gestionar-mesas' eleccion.id %}?claustro={{ claustro.id }}">Ver mesas de {{ claustro.claustro }}</a><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <div class="management-panel padron-panel">

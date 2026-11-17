@@ -117,18 +117,13 @@ cancelación del registro de mesa, incluidos los casos sin inasistencias.
 
 ### Datos de demostración para solicitudes y justificativos
 
-**Al publicar una elección con el padrón del primer escenario electoral**, se
-completa automáticamente el lote fijo de **19 solicitudes**: diez originales y
-nueve adicionales Campus → Medrano. Tres solicitantes están en las nóminas de
-12 y de 198 personas; sus designaciones se conservan. Carlos queda reservado
-para solicitar su cambio manualmente. No se aprueban solicitudes ni se cambian mesas.
-
-La aplicación comprueba los documentos, legajos y departamentos del escenario.
-Si el padrón no corresponde, publica sin generar solicitudes ficticias para
-otras personas. Las solicitudes ya existentes, incluso aprobadas o rechazadas,
-se conservan; una reejecución solo completa las faltantes. Una solicitud inválida
-revierte todo el lote y la publicación. Se respetan plazo, sede electoral,
-actividad, destinos habilitados de todos los registros asociados y QR emitidos.
+**Al publicar una elección**, se crean hasta **30 solicitudes** exclusivamente
+de Estudiantes sin designación de autoridad en ningún registro de la elección.
+La selección es determinista, excluye a Carlos para su solicitud manual y respeta
+actividad, QR, sede asignada y una sede alternativa común a todos los registros.
+Si hay menos candidatos, crea las posibles sin informar faltantes. Las solicitudes
+existentes y las autoridades se conservan; no se aprueban solicitudes ni se cambian mesas.
+Una falla al guardar revierte todo el lote y la publicación.
 
 Al **Confirmar autoridades de mesa** se generan automáticamente hasta dos
 justificativos de autoridades. Al **Notificar ausentes** se generan hasta dos
@@ -149,14 +144,20 @@ python manage.py generar_justificativos_autoridades_demo
 
 Para completar manualmente el mismo lote en una elección publicada sin
 autoridades confirmadas, ejecutar `python manage.py generar_solicitudes_cambio_sede_demo`.
-Este comando usa las mismas diecinueve personas y ya no admite `--cantidad` ni
+Este comando completa hasta treinta estudiantes elegibles y no admite `--cantidad` ni
 `--semilla`. Los comandos de justificativos conservan ambas opciones y crean datos de demo
 directamente y no comprueban si el período de presentación está abierto.
 
-El plan de publicación se incluye en `apps/padron/datos/solicitudes_demo_publicacion.json`,
-también disponible dentro de Docker. Para actualizarlo junto con los escenarios,
+Los planes históricos del guion externo siguen incluidos en `apps/padron/datos/`;
+no determinan las treinta solicitudes al publicar. Para regenerarlos junto con los escenarios,
 ejecutar desde `ESCENARIOS_PRUEBA_ELECTORAL/`:
 `python generar_escenarios.py --exportar-plan-publicacion`.
+
+Los correos de todas las operaciones se procesan con
+`python manage.py procesar_notificaciones --continuo`, ejecutado automáticamente
+por el servicio Docker `notificaciones`. Publicación e inicio también difieren
+la creación masiva de avisos; las demás operaciones guardan avisos internos pendientes.
+La prioridad, reintentos y operación de la cola se documentan en el README de la raíz.
 
 Con Docker, desde la raíz del repositorio, anteponer
 `docker compose exec web` a cada comando `python manage.py`.

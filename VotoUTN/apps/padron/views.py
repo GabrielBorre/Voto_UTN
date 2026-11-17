@@ -51,7 +51,6 @@ from apps.padron.services import calcular_mesas_automaticas_eleccion, claustro_t
 from apps.padron.services import eleccion_tiene_padron_emitido
 from apps.notificaciones.services import (
     crear_notificacion_resultado_cambio_sede,
-    enviar_notificacion,
 )
 from apps.usuarios.services import elector_de_identidad
 
@@ -613,7 +612,7 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
                         return render(request, "padron/revisar_cambios_sede.html", {"eleccion": eleccion, "detalle": detalle,
                                       "propuesta": signing.dumps(firmado, salt="cambios-sede")})
                 for solicitud in SolicitudCambioSede.objects.filter(pk__in=detalle["resultado"]["resueltas_ids"]):
-                    enviar_notificacion(crear_notificacion_resultado_cambio_sede(solicitud))
+                    crear_notificacion_resultado_cambio_sede(solicitud)
                 resultado = detalle["resultado"]
                 messages.success(request, f"Solicitudes resueltas. Aprobadas: {resultado['aprobadas']}. Rechazadas: {resultado['rechazadas']}. Pendientes: {resultado['pendientes']}.")
                 destino = reverse("gestionar-solicitudes-cambio-sede", args=(eleccion.pk,))
@@ -640,9 +639,8 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
             except ValueError as error:
                 messages.error(request, str(error))
             else:
-                envio = crear_notificacion_resultado_cambio_sede(solicitud)
-                enviar_notificacion(envio)
-                messages.success(request, "La solicitud fue resuelta y se notificó al elector.")
+                crear_notificacion_resultado_cambio_sede(solicitud)
+                messages.success(request, "La solicitud fue resuelta. El correo se enviará en segundo plano.")
             destino = reverse("gestionar-solicitudes-cambio-sede", args=(eleccion.id,))
             estado_filtro = request.GET.get("estado", "")
             if estado_filtro in SolicitudCambioSede.Estado.values:
@@ -684,8 +682,7 @@ def gestionar_solicitudes_cambio_sede(request, eleccion_id):
                 messages.error(request, str(error))
             else:
                 for solicitud in SolicitudCambioSede.objects.filter(pk__in=resultado["resueltas_ids"]):
-                    envio = crear_notificacion_resultado_cambio_sede(solicitud)
-                    enviar_notificacion(envio)
+                    crear_notificacion_resultado_cambio_sede(solicitud)
                 messages.success(
                     request,
                     f"Solicitudes resueltas. Aprobadas: {resultado['aprobadas']}. "

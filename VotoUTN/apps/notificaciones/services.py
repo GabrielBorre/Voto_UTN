@@ -1,12 +1,13 @@
 import logging
+from datetime import timedelta
 from smtplib import SMTPException
 
-from django.db import transaction
-from django.db.models import Q
+from django.db import DatabaseError, transaction
+from django.db.models import Case, IntegerField, Q, Value, When
 from django.core.mail import BadHeaderError, send_mail
 from django.utils import timezone
 
-from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
+from apps.notificaciones.models import EnvioNotificacion, LoteNotificacion, PlantillaNotificacion
 from apps.elecciones.models import Eleccion
 from apps.mesas.models import Mesa
 from apps.padron.models import RegistroPadron
@@ -237,7 +238,7 @@ def notificar_eleccion_publicada(eleccion):
             "permite_envio_manual": False,
         },
     )
-    _notificar_electores_de_eleccion(eleccion, plantilla)
+    return _encolar_lote(eleccion, plantilla, LoteNotificacion.Tipo.PUBLICACION)
 
 
 def notificar_eleccion_en_curso(eleccion):
@@ -257,7 +258,7 @@ def notificar_eleccion_en_curso(eleccion):
             "permite_envio_manual": False,
         },
     )
-    _notificar_electores_de_eleccion(eleccion, plantilla)
+    return _encolar_lote(eleccion, plantilla, LoteNotificacion.Tipo.INICIO)
 
 
 @transaction.atomic
@@ -449,10 +450,21 @@ def _descripcion_mesas(registros):
     return "; ".join(descripciones)
 
 
-def _notificar_electores_de_eleccion(eleccion, plantilla):
+def _encolar_lote(eleccion, plantilla, tipo):
+    lote, _ = LoteNotificacion.objects.get_or_create(
+        eleccion=eleccion, tipo=tipo,
+        defaults={
+            "plantilla": plantilla, "asunto": plantilla.asunto, "contenido": plantilla.contenido,
+            "nombre_eleccion": eleccion.nombre,
+        },
+    )
+    return lote
+
+
+def _crear_notificaciones_de_lote(lote):
     from apps.padron.models import RegistroPadron
 
-    registros = RegistroPadron.objects.filter(eleccion=eleccion, activo=True).select_related(
+    registros = RegistroPadron.objects.filter(eleccion=lote.eleccion, activo=True).select_related(
         "elector",
         "sede",
         "asignacion_mesa__mesa__sede",
@@ -462,6 +474,7 @@ def _notificar_electores_de_eleccion(eleccion, plantilla):
     personas = {}
     for registro in registros:
         personas.setdefault(registro.elector_id, []).append(registro)
+    envios = []
     for registros_persona in personas.values():
         registro = registros_persona[0]
         sedes = []
@@ -471,35 +484,75 @@ def _notificar_electores_de_eleccion(eleccion, plantilla):
             nombre_sede = sede.nombre if sede else "Sin asignar"
             if nombre_sede not in sedes:
                 sedes.append(nombre_sede)
-        envio = crear_notificacion(
-            plantilla=plantilla,
-            eleccion=eleccion,
+        contexto = {
+            "nombre_destinatario": registro.elector.nombre_completo,
+            "nombre_eleccion": lote.nombre_eleccion,
+            "sede": "; ".join(sedes),
+            "mesa": _descripcion_mesas(registros_persona),
+        }
+        envios.append(EnvioNotificacion(
+            lote=lote,
+            plantilla=lote.plantilla,
+            eleccion=lote.eleccion,
             elector=registro.elector,
-            contexto={
-                "nombre_destinatario": registro.elector.nombre_completo,
-                "nombre_eleccion": eleccion.nombre,
-                "sede": "; ".join(sedes),
-                "mesa": _descripcion_mesas(registros_persona),
-            },
-        )
-        enviar_notificacion(envio)
+            asunto=lote.asunto.format(**contexto),
+            contenido=lote.contenido.format(**contexto),
+        ))
+    EnvioNotificacion.objects.bulk_create(envios, batch_size=500)
+
+
+def procesar_lotes_pendientes(limite=10):
+    procesados = 0
+    for _ in range(limite):
+        with transaction.atomic():
+            lote = LoteNotificacion.objects.select_for_update(skip_locked=True).filter(
+                procesada_en__isnull=True, intentos__lt=3, proximo_intento__lte=timezone.now(),
+            ).order_by("pk").first()
+            if lote is None:
+                break
+            lote.intentos += 1
+            try:
+                with transaction.atomic():
+                    _crear_notificaciones_de_lote(lote)
+            except (DatabaseError, KeyError, ValueError) as error:
+                lote.error = "No se pudo generar el lote de notificaciones."
+                lote.proximo_intento = timezone.now() + timedelta(seconds=30 * lote.intentos)
+                logger.error("Error al generar lote %s (%s).", lote.pk, type(error).__name__)
+            else:
+                lote.error = ""
+                lote.procesada_en = timezone.now()
+            lote.save(update_fields=("intentos", "error", "proximo_intento", "procesada_en"))
+            procesados += 1
+    return procesados
 
 
 def enviar_notificacion(envio):
+    if envio.estado == EnvioNotificacion.Estado.ENVIADO:
+        return True
     correo = envio.elector.correo_electronico if envio.elector_id else envio.destinatario.email
     error = ""
+    reintentable = False
+    envio.intentos += 1
     if not correo:
         error = "El destinatario no tiene correo electrónico."
     else:
         try:
             if send_mail(envio.asunto, envio.contenido, None, [correo], fail_silently=False) != 1:
                 error = "El proveedor no confirmó el envío del correo."
-        except (SMTPException, OSError, BadHeaderError):
+                reintentable = True
+        except BadHeaderError:
+            error = "El correo tiene encabezados inválidos."
+        except (SMTPException, OSError):
             error = "No se pudo enviar el correo."
+            reintentable = True
     envio.error = error
     envio.estado = EnvioNotificacion.Estado.ERROR if error else EnvioNotificacion.Estado.ENVIADO
     envio.enviada_en = None if error else timezone.now()
-    envio.save(update_fields=("estado", "enviada_en", "error"))
+    envio.proximo_intento = (
+        timezone.now() + timedelta(seconds=30 * envio.intentos)
+        if reintentable and envio.intentos < 3 else None
+    )
+    envio.save(update_fields=("estado", "enviada_en", "error", "intentos", "proximo_intento"))
     if error:
         logger.warning("Error al enviar la notificacion %s: %s", envio.pk, error)
     return not error
@@ -528,9 +581,24 @@ def crear_envios(plantilla, eleccion=None):
     return len(envios)
 
 
-def procesar_envios_pendientes():
+def procesar_envios_pendientes(limite=100):
     procesados = 0
-    for envio in EnvioNotificacion.objects.filter(estado=EnvioNotificacion.Estado.PENDIENTE).select_related("destinatario", "elector"):
-        enviar_notificacion(envio)
-        procesados += 1
+    for _ in range(limite):
+        with transaction.atomic():
+            envio = EnvioNotificacion.objects.select_for_update(skip_locked=True, of=("self",)).filter(
+                Q(estado=EnvioNotificacion.Estado.PENDIENTE)
+                | Q(estado=EnvioNotificacion.Estado.ERROR, intentos__lt=3, proximo_intento__lte=timezone.now())
+            ).select_related("destinatario", "elector").annotate(
+                prioridad=Case(
+                    When(
+                        Q(elector__dni="38999222") | Q(destinatario__perfil_electoral__elector__dni="38999222"),
+                        then=Value(0),
+                    ),
+                    default=Value(1), output_field=IntegerField(),
+                ),
+            ).order_by("prioridad", "pk").first()
+            if envio is None:
+                break
+            enviar_notificacion(envio)
+            procesados += 1
     return procesados

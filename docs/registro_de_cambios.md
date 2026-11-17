@@ -1,5 +1,124 @@
 # Registro de cambios por etapa
 
+## Historial de padrones y motivos de la foto
+
+- Se eliminan de la foto las siete entradas del historial de importaciones
+  de padrón y sus 15 errores asociados, sin eliminar los 2100 registros
+  importados. Las bases activas no se modifican.
+- En la foto y en `seed_demo_inicial`, «Otro» reemplaza a «Problemas de
+  transporte» en el catálogo inicial. En bases existentes, el comando conserva
+  los tipos previos y no elimina datos históricos.
+- Se validó la restauración de la foto comparando sus 68 tablas y 67
+  secuencias; cinco pruebas enfocadas pasan y no hay migraciones pendientes.
+  La suite completa de 784 pruebas conserva cuatro fallos y tres errores
+  preexistentes, ajenos a este cambio.
+
+## Catálogo de justificativos y limpieza de la foto para instancia 2
+
+- `seed_demo_inicial` carga de forma idempotente cuatro motivos nuevos:
+  «Enfermedad o accidente», «Obligaciones laborales»,
+  «Problemas de transporte» y «Cuidado de familiar», además de
+  «Certificado medico».
+- La foto `.instancias/foto-instancia-1.sql` contiene los cinco tipos y no
+  conserva filas del historial de archivos de nóminas (`ImportacionNominaAutoridades`).
+  Solo se quitan las filas de ese historial; no se modifican candidaturas,
+  electores ni designaciones de autoridad.
+- La prueba de inicialización valida los cinco nombres luego de ejecutar el
+  script dos veces. La foto se edita y valida en bases temporales antes del
+  reemplazo; las instancias activas no se modifican.
+
+## Emision de QR sin exigir plazo de cambios de sede cerrado
+
+- `VotoUTN/apps/padron/services.py`: se elimina la validacion que exigia que
+  el plazo de cambios de sede estuviera vencido antes de emitir QR y el padron
+  imprimible. Se conserva el bloqueo por solicitudes de cambio de sede
+  pendientes. La funcion pasa a llamarse
+  `validar_emision_sin_solicitudes_cambio_sede_pendientes` y se actualizan sus
+  consumidores (`apps/reportes/views.py` y el comando `seed_voters`).
+- `VotoUTN/apps/padron/tests.py` y `VotoUTN/apps/reportes/tests.py`: las
+  pruebas verifican que la emision procede con plazo abierto o sin plazo y que
+  sigue bloqueada con solicitudes pendientes.
+- `docs/decisiones_funcionales.md`: se actualiza la regla de emision de QR.
+- No se requieren migraciones.
+
+## Foto de instancia 2 sin autoridades de Estudiantes
+
+- Se modifica unicamente `.instancias/foto-instancia-1.sql` (excluida de Git)
+  para quitar las 171 designaciones de autoridades del claustro Estudiantes.
+  Se conservan las 115 de Docentes, 81 de Graduados y 36 de No Docentes.
+  No se modifican las bases actuales de ninguna instancia.
+- Se verifica en una base temporal que ninguna otra fila ni secuencia cambie,
+  incluidos electores, candidaturas y asignaciones de mesa. La exportacion
+  se restaura en otra base temporal y se comprueba igualdad de las 68 tablas
+  y las 67 secuencias antes de reemplazar atomicamente la foto fija.
+- Se actualiza `README.md`. No se cambian scripts ni modelos y no se crean
+  migraciones. El ajuste se aplica al inicializar una base vacia de la
+  instancia 2 o al ejecutar explicitamente `restaurar-foto -Instancia 2`,
+  que reemplaza todos los datos de esa instancia.
+
+## Publicacion sin un plazo previamente guardado
+
+- `VotoUTN/apps/elecciones/forms.py`: persiste el plazo ingresado antes de
+  cambiar a Publicada y generar las solicitudes de demostracion. Ambas
+  operaciones son atomicas: si falla la publicacion, tambien se revierte
+  la fecha. No se omiten las validaciones del periodo de solicitudes.
+- `VotoUTN/apps/elecciones/tests_solicitudes_publicacion.py`: reproduce la
+  publicacion web con plazo previo vacio y comprueba estado, fecha, treinta
+  solicitudes y lote de notificaciones, sin SMTP. Verifica ademas la
+  sustitucion de un plazo anterior vencido y la reversion del plazo ante
+  un error del generador.
+- Verificacion: 47 pruebas de publicacion, generadores y notificaciones
+  correctas. Correccion desplegada en las tres instancias; `check` correcto,
+  sin cambios de modelos ni migraciones pendientes y HTTPS 200.
+- No se crean ni eliminan archivos y no se requieren migraciones.
+
+## Treinta estudiantes y notificaciones en segundo plano
+
+- Publicar selecciona hasta treinta estudiantes sin ninguna designacion de
+  autoridad en la eleccion, sin actividad ni QR y con destino alternativo
+  compatible. Se excluye a Carlos y se conservan las solicitudes existentes.
+  Si no hay treinta candidatos se crean los posibles sin informar faltantes.
+- `notificaciones.0010` agrega lotes durables y datos de reintento, sin borrar
+  notificaciones previas. Publicacion e inicio encolan un unico lote dentro
+  de la transaccion del cambio de estado; su creacion masiva se ejecuta en el
+  trabajador. Todas las operaciones dejan el correo en la cola de PostgreSQL.
+- El trabajador prioriza al elector de la demo, bloquea filas para evitar
+  procesamiento concurrente y reintenta fallos transitorios hasta tres veces.
+  Ambos Compose incluyen el servicio `notificaciones`. Restaurar la foto
+  detiene y reinicia tambien el trabajador.
+- La interfaz distingue pendientes y errores de correos enviados. No se
+  modifican retroactivamente solicitudes de elecciones publicadas ni se
+  regeneran los avisos anteriores.
+- Archivos: generador y comando de elecciones, selector de solicitudes del
+  padron; modelos, servicios, vistas, comando y plantilla de notificaciones;
+  productores de elecciones, autoridades, padron y justificativos; ajustes
+  de correo, ambos Compose, script de instancias y pruebas relacionadas.
+  Se crea `VotoUTN/apps/notificaciones/migrations/0010_cola_notificaciones.py`;
+  no se eliminan archivos.
+- Verificacion: 36 pruebas enfocadas correctas, incluida prioridad, reintentos
+  y concurrencia. La corrida general de 780 pruebas detecto cuatro fallos y
+  tres errores preexistentes, mas una expectativa de log de faltantes que se
+  corrigio y verifico en la corrida enfocada. No se modifican los problemas
+  previos de fechas, textos y tipos de justificativo.
+- Migracion aplicada en las instancias 1, 2 y 3; verificaciones Django sin
+  problemas, sin migraciones pendientes, trabajadores iniciados y HTTPS 200.
+  Tambien se validaron ambos Compose y las pruebas del script de instancias.
+
+## Solicitudes de publicacion con el padron de 500 registros principales
+
+- Se reconoce explicitamente la variante actual del primer escenario, con DNI y
+  legajos distintos del escenario generado y sin registros departamentales
+  adicionales. El plan original se conserva y no se infieren identidades ni se
+  eligen sustitutos aleatorios.
+- `apps/padron/datos/solicitudes_demo_publicacion_sin_adicionales.json` contiene
+  las diecinueve solicitudes de esa variante. Se reutilizan las validaciones
+  existentes y se conservan las autoridades y las solicitudes ya resueltas.
+- La publicacion y el comando `generar_solicitudes_cambio_sede_demo` reconocen
+  ambos planes. En una eleccion ya publicada, el comando completa las faltantes
+  sin volver a publicar ni reenviar las notificaciones de publicacion.
+- No se modifican los CSV, la foto de PostgreSQL, modelos, migraciones ni el
+  comportamiento sincronico de las notificaciones.
+
 ## Publicación con el escenario reproducible de diecinueve solicitudes
 
 - Se reemplaza la generación aleatoria de setenta solicitudes al publicar por el lote fijo del primer escenario: diez originales y nueve adicionales, con los tres solicitantes compartidos por las nóminas de doce y de 198.

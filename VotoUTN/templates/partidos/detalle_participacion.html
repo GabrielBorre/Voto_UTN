@@ -2,9 +2,12 @@
 {% load static %}
 {% block title %}Candidatos de {{ participacion_seleccionada.nombre_lista }} | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Candidatos de la lista {{ participacion_seleccionada.numero_lista }}</h1>
   <p>{{ eleccion.nombre }} · {{ participacion_seleccionada.nombre_lista|default:participacion_seleccionada.partido }}</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <div class="management-panel candidaturas-panel">

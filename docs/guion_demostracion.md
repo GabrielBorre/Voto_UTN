@@ -299,12 +299,12 @@ Se muestran en vivo solo las validaciones más representativas. El resto se menc
    3. Importar el padrón CSV (por ejemplo, `padron_estudiantes_500.csv`). Debe incluir a `alumnocg` (DNI 38999222) y `autmesa` (DNI 28111333) con el mismo DNI, legajo, nombre y correo que tienen en Keycloak.
    4. Configurar las reglas de asignación de sedes y el **máximo de electores por mesa**. Se recomienda 30 o menos, para que `MESA_DEMO` tenga carátula y dos hojas.
    5. Importar las autoridades por CSV (por ejemplo, `plantilla_autoridades_5_Estudiantes.csv`) incluyendo a `autmesa`. **Dejar su asignación pendiente** para confirmarla en vivo (etapa 3).
-   6. **Publicar elección**, completando las fechas solicitadas. Con `ESCENARIOS_PRUEBA_ELECTORAL/segmento_1_500/padron_estudiantes.csv`, se completan automáticamente las 19 solicitudes previstas. Tres solicitantes están en las nóminas de 12 y de 198; sus designaciones se conservan. Otros padrones se publican sin solicitudes ficticias aleatorias.
+   6. **Publicar elección**, completando las fechas solicitadas. Se crean hasta 30 solicitudes de Estudiantes sin designación de autoridad. Si no alcanzan los candidatos compatibles, se crean las posibles sin aviso de faltantes. Los correos se procesan en segundo plano, priorizando a Carlos, que queda reservado para su solicitud manual.
    7. Revisar y resolver las solicitudes pendientes antes de confirmar las autoridades definitivas. Para mostrar una solicitud en la etapa 4, aprobar al menos una de un elector que **no sea** Carlos.
    8. **Iniciar elección** y **Generar padrón imprimible**.
 5. Anotar `MESA_DEMO` (la mesa de Carlos, que figura en su Inicio) y elegir `MESA_MANUAL`.
 6. **Procesar todas las demás mesas** antes de la demo con el botón **Registrar** del tablero. Solo deben quedar pendientes `MESA_DEMO` y `MESA_MANUAL`.
-7. **No dejar justificativos pendientes** que no sean el de la demo; si no, no se puede finalizar. Confirmar autoridades genera hasta dos justificativos de autoridades (resolver antes de iniciar). Notificar ausentes genera hasta dos de electores (resolver antes de finalizar). En el primer escenario, designar antes de publicar a las tres personas compartidas por las nóminas para mostrar el aviso de autoridades afectadas; puede haber otras elegidas por sorteo.
+7. **No dejar justificativos pendientes** que no sean el de la demo; si no, no se puede finalizar. Confirmar autoridades genera hasta dos justificativos de autoridades (resolver antes de iniciar). Notificar ausentes genera hasta dos de electores (resolver antes de finalizar). Las solicitudes automáticas no incluyen autoridades.
 
 > Los nombres `padron_estudiantes_500.csv` y `plantilla_autoridades_5_Estudiantes.csv` son los archivos del equipo. No están en el repositorio y **no hay un comando que arme este escenario automáticamente**: hay que prepararlo con el flujo anterior.
 

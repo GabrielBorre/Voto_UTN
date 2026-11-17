@@ -55,7 +55,6 @@ from apps.notificaciones.services import (
     crear_notificacion_cambio_plazo_eximicion_autoridad,
     crear_notificaciones_cambio_plazo_solicitudes_cambio_sede,
     crear_notificaciones_ausentes_confirmadas,
-    enviar_notificacion,
     notificar_eleccion_en_curso,
     notificar_eleccion_publicada,
 )
@@ -347,7 +346,6 @@ def confirmar_notificaciones_ausentes(request, eleccion_id):
         messages.error(request, str(error))
         return redirect(f"{reverse('lista-elecciones')}?eleccion={eleccion.pk}")
 
-    enviados = 0 if confirmacion_previa else sum(enviar_notificacion(envio) for envio in envios)
     registrar_evento(
         accion=(
             "eleccion.periodo_justificacion_electores_habilitado"
@@ -361,8 +359,7 @@ def confirmar_notificaciones_ausentes(request, eleccion_id):
         request=request,
         datos_nuevos={
             "notificaciones_creadas": len(envios),
-            "correos_enviados": enviados,
-            "correos_no_enviados": len(envios) - enviados,
+            "correos_pendientes": len(envios),
             "fecha_limite_justificacion_electores": formulario.cleaned_data[
                 "fecha_limite_justificacion_electores"
             ].isoformat(),
@@ -375,14 +372,11 @@ def confirmar_notificaciones_ausentes(request, eleccion_id):
         )
     elif not envios:
         messages.success(request, "Escaneo confirmado: no se registraron ausentes para notificar.")
-    elif enviados == len(envios):
-        messages.success(request, f"Se notificó a {len(envios)} electores ausentes por correo y en la aplicación.")
     else:
-        messages.warning(
+        messages.success(
             request,
             f"Se generaron notificaciones para {len(envios)} ausentes. "
-            f"Correos enviados: {enviados}; con error: {len(envios) - enviados}. "
-            "Las notificaciones permanecen disponibles en la aplicación.",
+            "Los correos se enviarán en segundo plano; las notificaciones ya están disponibles en la aplicación.",
         )
     return redirect(f"{reverse('lista-elecciones')}?eleccion={eleccion.pk}")
 
@@ -574,9 +568,6 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                     eleccion,
                     nueva_fecha,
                 )
-                transaction.on_commit(
-                    lambda: [enviar_notificacion(envio) for envio in envios]
-                )
                 registrar_evento(
                     accion="eleccion.plazo_cambio_sede_modificado",
                     entidad="Eleccion",
@@ -597,7 +588,7 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                 if envios:
                     messages.success(
                         request,
-                        f"Se actualizó la fecha límite y se notificó a {len(envios)} electores.",
+                        f"Se actualizó la fecha límite. Quedaron {len(envios)} correos pendientes de envío.",
                     )
                 else:
                     messages.success(
@@ -650,9 +641,6 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                     )
                     for asignacion in asignaciones
                 ]
-                transaction.on_commit(
-                    lambda: [enviar_notificacion(envio) for envio in envios]
-                )
                 registrar_evento(
                     accion="eleccion.plazo_eximicion_autoridades_modificado",
                     entidad="Eleccion",
@@ -673,7 +661,7 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                 if envios:
                     messages.success(
                         request,
-                        f"Se actualizó la fecha límite y se notificó a {len(envios)} autoridades.",
+                        f"Se actualizó la fecha límite. Quedaron {len(envios)} correos pendientes de envío.",
                     )
                 else:
                     messages.success(
@@ -705,7 +693,6 @@ def gestionar_fechas_administrativas(request, eleccion_id):
             except ValueError as error:
                 formulario_plazo.add_error("fecha_limite_justificacion_electores", str(error))
             else:
-                enviados = sum(enviar_notificacion(envio) for envio in envios)
                 registrar_evento(
                     accion="eleccion.plazo_justificativos_electores_modificado",
                     entidad="Eleccion",
@@ -725,8 +712,7 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                             ].isoformat()
                         ),
                         "notificaciones_creadas": len(envios),
-                        "correos_enviados": enviados,
-                        "correos_no_enviados": len(envios) - enviados,
+                        "correos_pendientes": len(envios),
                     },
                 )
                 if not envios:
@@ -734,16 +720,10 @@ def gestionar_fechas_administrativas(request, eleccion_id):
                         request,
                         "Se actualizó el plazo. No hay ausentes sin justificativo electoral para notificar.",
                     )
-                elif enviados == len(envios):
+                else:
                     messages.success(
                         request,
-                        f"Se actualizó el plazo y se notificó a {enviados} electores ausentes.",
-                    )
-                else:
-                    messages.warning(
-                        request,
-                        f"Se actualizó el plazo. Se notificó a {enviados} de {len(envios)} electores; "
-                        f"{len(envios) - enviados} correos no pudieron enviarse.",
+                        f"Se actualizó el plazo. Quedaron {len(envios)} correos pendientes de envío.",
                     )
                 return redirect("gestionar-fechas-administrativas", eleccion_id=eleccion.id)
 
@@ -928,15 +908,14 @@ def cambiar_estado_eleccion(request, eleccion_id):
                     ]
                     raise ValidationError(errores)
                 formulario.publicar()
+                notificar_eleccion_publicada(eleccion)
             else:
                 eleccion.cambiar_estado(nuevo_estado)
+                if nuevo_estado == Eleccion.Estado.EN_CURSO:
+                    notificar_eleccion_en_curso(eleccion)
     except ValidationError as error:
         messages.error(request, " ".join(error.messages), extra_tags=ETIQUETA_POPUP_TRANSICION)
     else:
-        if nuevo_estado == Eleccion.Estado.PUBLICADA:
-            notificar_eleccion_publicada(eleccion)
-        elif nuevo_estado == Eleccion.Estado.EN_CURSO:
-            notificar_eleccion_en_curso(eleccion)
         registrar_evento(
             accion="eleccion.cambio_estado",
             entidad="Eleccion",

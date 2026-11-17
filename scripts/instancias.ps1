@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("up", "stop", "start", "down", "ps")]
+    [ValidateSet("up", "stop", "start", "down", "ps", "restaurar-foto")]
     [string]$Accion = "up",
     [ValidateRange(1, 3)]
     [int[]]$Instancia = @(1, 2, 3)
@@ -10,6 +10,11 @@ $Raiz = Split-Path $PSScriptRoot -Parent
 $Compose = Join-Path $Raiz "docker-compose.instancias.yml"
 $DirectorioEntornos = Join-Path $Raiz ".instancias"
 $Instancia = @($Instancia | Select-Object -Unique)
+$FotoPostgres = Join-Path $DirectorioEntornos "foto-instancia-1.sql"
+
+if ($Accion -eq "restaurar-foto" -and ($Instancia.Count -ne 1 -or $Instancia[0] -ne 2)) {
+    throw "La accion restaurar-foto requiere -Instancia 2 y reemplaza sus datos."
+}
 
 function Nueva-Clave {
     $Bytes = New-Object byte[] 32
@@ -29,6 +34,42 @@ function Ejecutar-Compose {
     & docker compose --project-name "voto-utn-$Numero" --env-file $Entorno --file $Compose @Argumentos
     if ($LASTEXITCODE -ne 0) {
         throw "Docker Compose fallo para voto-utn-$Numero (codigo $LASTEXITCODE)."
+    }
+}
+
+function Restaurar-FotoPostgres {
+    if (-not (Test-Path -LiteralPath $FotoPostgres -PathType Leaf)) {
+        throw "Falta la foto fija de PostgreSQL: $FotoPostgres. No se inicializara una base diferente."
+    }
+
+    $ArchivoContenedor = "/tmp/voto-utn-foto-$([guid]::NewGuid().ToString('N')).sql"
+    try {
+        Ejecutar-Compose -Numero 2 -Argumentos @("cp", $FotoPostgres, "db:$ArchivoContenedor")
+        Ejecutar-Compose -Numero 2 -Argumentos @(
+            "exec", "-T", "db", "psql", "-U", "postgres", "-d", "voto_utn",
+            "--no-psqlrc", "--set", "ON_ERROR_STOP=1", "--single-transaction",
+            "--command", "DROP SCHEMA public CASCADE; CREATE SCHEMA public;",
+            "--file", $ArchivoContenedor
+        ) | Out-Null
+        Write-Host "Foto fija de PostgreSQL restaurada en voto-utn-2."
+    }
+    finally {
+        Ejecutar-Compose -Numero 2 -Argumentos @("exec", "-T", "db", "rm", "-f", $ArchivoContenedor)
+    }
+}
+
+function Inicializar-FotoPostgres {
+    Ejecutar-Compose -Numero 2 -Argumentos @("up", "-d", "--wait", "db")
+    $Tablas = Ejecutar-Compose -Numero 2 -Argumentos @(
+        "exec", "-T", "db", "psql", "-U", "postgres", "-d", "voto_utn",
+        "--no-psqlrc", "-Atc",
+        "SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema' AND c.relkind IN ('r', 'p');"
+    )
+    if ([int]::Parse(($Tablas -join "").Trim()) -eq 0) {
+        Restaurar-FotoPostgres
+    }
+    else {
+        Write-Host "Base existente en voto-utn-2: se conservan sus datos."
     }
 }
 
@@ -116,8 +157,20 @@ if ($Accion -eq "up") {
 foreach ($Numero in $Instancia) {
     switch ($Accion) {
         "up" {
+            if ($Numero -eq 2) {
+                Inicializar-FotoPostgres
+            }
             Ejecutar-Compose -Numero $Numero -Argumentos @("up", "-d", "--no-build")
             Instalar-CertificadoCaddy -Numero $Numero
+        }
+        "restaurar-foto" {
+            if (-not (Test-Path -LiteralPath $FotoPostgres -PathType Leaf)) {
+                throw "Falta la foto fija de PostgreSQL: $FotoPostgres."
+            }
+            Ejecutar-Compose -Numero 2 -Argumentos @("up", "-d", "--wait", "db")
+            Ejecutar-Compose -Numero 2 -Argumentos @("stop", "web", "notificaciones")
+            Restaurar-FotoPostgres
+            Ejecutar-Compose -Numero 2 -Argumentos @("up", "-d", "--no-build", "web", "notificaciones")
         }
         "start" {
             Ejecutar-Compose -Numero $Numero -Argumentos @("start")

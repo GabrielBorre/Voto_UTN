@@ -3,7 +3,8 @@
 {% block title %}{% if nav_en_historial %}Consultar{% else %}Revisar{% endif %} justificativo | {{ justificativo.registro_padron.eleccion.nombre }}{% endblock %}
 
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   {% if nav_en_historial %}
     <h1>Consultar justificativo</h1>
     <p>{{ justificativo.registro_padron.eleccion.nombre }} está en el historial. Esta solicitud solo puede consultarse.</p>
@@ -11,6 +12,8 @@
     <h1>Revisar justificativo</h1>
     <p>{{ justificativo.registro_padron.eleccion.nombre }}. Revisá la solicitud antes de registrar su resolución.</p>
   {% endif %}
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <section class="card form-card">

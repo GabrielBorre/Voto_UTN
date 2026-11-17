@@ -247,9 +247,9 @@ class JustificacionDepartamentosMultiplesTests(TestCase):
         self.client.force_login(self.junta)
         ruta = reverse("resolver-justificativo", args=(justificativo.pk,))
         self.assertContains(self.client.get(ruta), "Mesa reclamada")
-        with patch("apps.justificativos.views.enviar_notificacion", return_value=True) as enviar:
+        with patch("apps.notificaciones.services.send_mail") as enviar:
             self.assertEqual(self.client.post(ruta, {"estado": "aprobado"}).status_code, 302)
-        enviar.assert_called_once()
+        enviar.assert_not_called()
         self.assertTrue(self.registros[0].participaciones.exists())
         self.assertFalse(self.registros[1].participaciones.exists())
         self.client.force_login(self.usuario)

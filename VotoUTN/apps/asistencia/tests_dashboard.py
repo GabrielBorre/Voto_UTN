@@ -243,17 +243,15 @@ class DashboardParticipacionTests(TestCase):
         nueva_fecha = timezone.localdate() + timedelta(days=8)
         url = reverse("gestionar-fechas-administrativas", args=(self.eleccion.pk,))
 
-        with patch(
-            "apps.notificaciones.services.send_mail",
-            side_effect=[1, 0, 1],
-        ), self.assertLogs("apps.notificaciones.services", level="WARNING"):
+        with patch("apps.notificaciones.services.send_mail") as correo:
             respuesta = self.client.post(url, {
                 "accion": "actualizar_plazo_justificativos",
                 "fecha_limite_justificacion_electores": nueva_fecha.isoformat(),
             }, follow=True)
+            correo.assert_not_called()
 
         self.assertRedirects(respuesta, url, fetch_redirect_response=False)
-        self.assertContains(respuesta, "Se notificó a 2 de 3 electores")
+        self.assertContains(respuesta, "Quedaron 3 correos pendientes de envío")
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.fecha_limite_justificacion_electores, nueva_fecha)
         self.assertEqual(self.eleccion.justificacion_electores_habilitada_en, inicio_original)
@@ -261,8 +259,8 @@ class DashboardParticipacionTests(TestCase):
         nuevos_envios = EnvioNotificacion.objects.exclude(pk__in=ids_envios_iniciales)
         self.assertEqual(nuevos_envios.count(), 3)
         self.assertEqual(
-            nuevos_envios.filter(estado=EnvioNotificacion.Estado.ERROR).count(),
-            1,
+            nuevos_envios.filter(estado=EnvioNotificacion.Estado.PENDIENTE).count(),
+            3,
         )
         self.assertSetEqual(
             set(nuevos_envios.values_list("elector_id", flat=True)),

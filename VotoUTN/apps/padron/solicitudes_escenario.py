@@ -13,11 +13,14 @@ from apps.padron.services import solicitudes_cambio_sede_habilitadas
 
 
 RUTA_PLAN_PUBLICACION = Path(__file__).with_name("datos") / "solicitudes_demo_publicacion.json"
+RUTA_PLAN_PUBLICACION_SIN_ADICIONALES = (
+    RUTA_PLAN_PUBLICACION.with_name("solicitudes_demo_publicacion_sin_adicionales.json")
+)
 
 
-def leer_plan_publicacion():
+def leer_plan_publicacion(ruta=RUTA_PLAN_PUBLICACION):
     try:
-        plan = json.loads(RUTA_PLAN_PUBLICACION.read_text(encoding="utf-8"))
+        plan = json.loads(ruta.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise ValidationError("No se pudo cargar el plan de solicitudes de publicación.") from error
     documentos = {fila["dni"] for fila in plan["solicitudes"]}
@@ -60,6 +63,52 @@ def padron_corresponde_al_plan(eleccion, plan):
         if departamentos != set(fila["departamentos"]):
             return False
     return True
+
+
+def seleccionar_solicitudes_publicacion(eleccion):
+    from apps.autoridades.models import AsignacionAutoridad
+
+    autoridades = AsignacionAutoridad.objects.filter(
+        registro_padron__eleccion=eleccion,
+    ).values("registro_padron__elector_id")
+    registros = RegistroPadron.objects.filter(
+        eleccion=eleccion, activo=True,
+        eleccion_claustro_departamento__eleccion_claustro__claustro__abreviatura__iexact="EST",
+    ).exclude(elector_id__in=autoridades).exclude(elector__dni="38999222").select_related(
+        "elector", "asignacion_sede_padron__sede",
+    ).prefetch_related("eleccion_claustro_departamento__sedes_habilitadas__sede").order_by("elector_id", "pk")
+    por_persona = defaultdict(list)
+    for registro in registros:
+        por_persona[registro.elector_id].append(registro)
+    existentes = set(SolicitudCambioSede.objects.filter(
+        registro_padron__eleccion=eleccion, registro_padron__elector_id__in=por_persona,
+    ).values_list("registro_padron__elector_id", flat=True))
+    cantidad = max(0, 30 - len(existentes))
+    planes = []
+    for elector_id, asociados in por_persona.items():
+        if len(planes) == cantidad:
+            break
+        if elector_id in existentes or sum(r.es_principal for r in asociados) != 1:
+            continue
+        origenes, destinos = set(), None
+        for registro in asociados:
+            asignacion = getattr(registro, "asignacion_sede_padron", None)
+            if registro.sede_id or registro.qr_generado_en or not asignacion or not asignacion.sede_id:
+                break
+            origenes.add(asignacion.sede.nombre)
+            habilitadas = {
+                s.sede.nombre for s in registro.eleccion_claustro_departamento.sedes_habilitadas.all()
+                if s.sede.activa
+            }
+            destinos = habilitadas if destinos is None else destinos & habilitadas
+        else:
+            if len(origenes) == 1 and destinos - origenes:
+                planes.append({
+                    "dni": asociados[0].elector.dni,
+                    "origen": next(iter(origenes)),
+                    "destino": sorted(destinos - origenes)[0],
+                })
+    return planes
 
 
 @transaction.atomic

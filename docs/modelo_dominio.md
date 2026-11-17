@@ -215,6 +215,15 @@ rechaza, la ausencia se restaura desde esa copia.
 - `ComunicacionFechaAdministrativa`
 - `VarianteComunicacionFechaAdministrativa`
 - `EnvioNotificacion`
+- `LoteNotificacion`: tarea durable y única por elección y evento (publicación o
+  inicio), con copia de la plantilla, intentos, próxima ejecución y error.
+  Su procesamiento crea los avisos internos fuera de la petición web.
+
+`EnvioNotificacion` es también la cola de correo de todas las operaciones.
+Conserva intentos y próximo reintento, y opcionalmente el lote que lo creó.
+La unicidad de lote/elector impide crear dos avisos para la misma persona y
+evento. Los trabajadores bloquean cada fila mientras la procesan; los enviados
+no se vuelven a tomar. Los errores transitorios se reintentan hasta tres veces.
 
 `EnvioNotificacion` conserva una copia del asunto y contenido renderizados para
 correo y web. Requiere un destinatario local (`auth.User`) o un `Elector`, sin

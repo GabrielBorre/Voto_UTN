@@ -2,9 +2,12 @@
 {% load static %}
 {% block title %}Candidatos | {{ lista.nombre }}{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>{{ lista.puesto_eleccion.puesto|default:lista.nombre }}</h1>
   <p>Lista {{ lista.participacion.numero_lista }} — {{ lista.participacion.nombre_lista|default:lista.participacion.partido }} · {{ lista.eleccion_claustro.claustro }}{% if lista.eleccion_claustro_departamento %} / {{ lista.eleccion_claustro_departamento.departamento }}{% endif %}.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <div class="management-panel candidaturas-panel">

@@ -1,9 +1,12 @@
 {% extends "gestion/base.html" %}
 {% block title %}{{ titulo }} | Junta Electoral UTN{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>{{ titulo }}</h1>
   <p>Seleccioná las sedes habilitadas. No se pueden quitar sedes que ya tengan mesas asignadas.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <section class="card form-card">

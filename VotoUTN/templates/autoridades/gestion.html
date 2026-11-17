@@ -1,9 +1,12 @@
 {% extends "gestion/base.html" %}
 {% block title %}Autoridades de mesa | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Autoridades de mesa</h1>
   <p>{{ eleccion.nombre }}. Elegí el claustro para configurar sus turnos y autoridades de mesa.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 {% if eleccion.estado == 'publicada' %}
 <section class="card management-section">

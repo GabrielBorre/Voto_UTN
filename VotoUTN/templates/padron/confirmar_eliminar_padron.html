@@ -1,9 +1,12 @@
 {% extends "gestion/base.html" %}
 {% block title %}Eliminar padrón | {{ claustro.claustro }}{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Eliminar padrón completo</h1>
   <p>{{ eleccion.nombre }} · {{ claustro.claustro }}</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <section class="card padron-delete-confirmation">

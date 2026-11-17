@@ -237,11 +237,12 @@ class FormularioPublicarEleccion(forms.Form):
         for nombre, campo in self.fields.items():
             campo.initial = getattr(eleccion, nombre)
 
+    @transaction.atomic
     def publicar(self):
         for nombre in self.fields:
             setattr(self.eleccion, nombre, self.cleaned_data[nombre])
-        self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
         self.eleccion.save(update_fields=tuple(self.fields))
+        self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
 
 
 class FormularioFechasAdministrativasEleccion(forms.Form):

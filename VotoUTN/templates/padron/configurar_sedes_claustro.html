@@ -2,9 +2,12 @@
 {% load static %}
 {% block title %}Asignación de sedes | {{ claustro.claustro }}{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Asignación de sedes</h1>
   <p>{{ eleccion.nombre }} · {{ claustro.claustro }}. Se asigna una sede electoral a cada elector del padrón.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <div class="management-panel padron-panel">
