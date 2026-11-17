@@ -57,7 +57,7 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Número</th><th>Lista</th><th>Apoderado/a</th><th>Puestos</th><th>Candidatos</th><th>Titulares cargados/a cargar</th><th>Suplentes cargados/a cargar</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Número</th><th>Lista</th><th>Apoderado/a</th><th>Puestos</th><th>Candidatos cargados</th><th>Titulares cargados/a cargar</th><th>Suplentes cargados/a cargar</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           {% for participacion in participaciones %}
             <tr>
@@ -222,11 +222,6 @@
           {% endif %}
         {% endfor %}
       </div>
-      <div class="field-checkbox puesto-estado">
-        {{ formulario_puesto.activo }}
-        <label for="{{ formulario_puesto.activo.id_for_label }}">{{ formulario_puesto.activo.label }}</label>
-        {% for error in formulario_puesto.activo.errors %}<div class="error">{{ error }}</div>{% endfor %}
-      </div>
       <div class="footer-actions"><button class="button primary" type="submit">Cargar puesto</button></div>
     </form>
   </section>
@@ -239,7 +234,7 @@
       </div>
       <a class="button light" href="{% url 'plantilla-puestos-csv' eleccion.id claustro_seleccionado.id %}">Descargar plantilla de puestos</a>
     </div>
-    <p>Indicá <code>puesto</code>, <code>departamento</code>, <code>titulares</code> y <code>suplentes</code>. Para Consejo Departamental cargá una fila por departamento, con su nombre o código; para puestos generales dejá el departamento vacío. Los puestos existentes se actualizan sin modificar su estado.</p>
+    <p>Indicá <code>puesto</code>, <code>departamento</code>, <code>titulares</code> y <code>suplentes</code>. Para Consejo Departamental cargá una fila por departamento, con su nombre o código; para puestos generales dejá el departamento vacío.</p>
     <form method="post" enctype="multipart/form-data" action="?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto#importar-puestos">
       {% csrf_token %}<input type="hidden" name="accion" value="previsualizar_puestos_csv">
       <div class="field">
@@ -292,11 +287,12 @@
               <td>{% if configuracion.activo %}<span class="pill ok">Activo</span>{% else %}<span class="pill gray">Inactivo</span>{% endif %}</td>
               <td class="actions">
                 <a class="button light small" href="{% url 'editar-puesto-eleccion' eleccion.id configuracion.id %}">Editar</a>
-                <form class="inline-form" method="post" action="{% url 'cambiar-estado-puesto-eleccion' eleccion.id configuracion.id %}?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto">
-                  {% csrf_token %}
-                  <input type="hidden" name="activo" value="{% if configuracion.activo %}0{% else %}1{% endif %}">
-                  <button class="button secondary small">{% if configuracion.activo %}Desactivar{% else %}Activar{% endif %}</button>
-                </form>
+                {% if not configuracion.activo %}
+                  <form class="inline-form" method="post" action="{% url 'cambiar-estado-puesto-eleccion' eleccion.id configuracion.id %}?claustro={{ claustro_seleccionado.id }}&amp;pestana=puesto">
+                    {% csrf_token %}<input type="hidden" name="activo" value="1">
+                    <button class="button secondary small" type="submit">Activar</button>
+                  </form>
+                {% endif %}
                 {% if configuracion.cantidad_listas %}
                   <span title="El puesto está asociado a listas y no se puede eliminar.">
                     <button class="button light small" type="button" disabled>En uso</button>

@@ -4,7 +4,7 @@ from uuid import uuid4
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch
 from django.db.models.deletion import ProtectedError
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
@@ -646,6 +646,7 @@ def cambiar_estado_puesto_eleccion(request, eleccion_id, puesto_id):
 
 @login_required
 @require_POST
+@transaction.atomic
 def eliminar_puesto_eleccion(request, eleccion_id, puesto_id):
     puesto = get_object_or_404(
         PuestoEleccion.objects.select_related(
@@ -669,6 +670,7 @@ def eliminar_puesto_eleccion(request, eleccion_id, puesto_id):
         "cantidad_titulares": puesto.cantidad_titulares,
         "cantidad_suplentes": puesto.cantidad_suplentes,
     }
+    puesto_id = puesto.pk
     try:
         puesto.delete()
     except ProtectedError:
@@ -677,7 +679,7 @@ def eliminar_puesto_eleccion(request, eleccion_id, puesto_id):
         registrar_evento(
             accion="eliminar_puesto_eleccion",
             entidad=puesto._meta.label,
-            entidad_id=puesto.pk,
+            entidad_id=puesto_id,
             eleccion=puesto.eleccion,
             request=request,
             datos_anteriores=datos_anteriores,
@@ -800,6 +802,43 @@ def editar_candidato(request, eleccion_id, candidato_id):
         messages.success(request, "El candidato fue actualizado.")
         return redirect(_url_gestion(eleccion_id, candidato.lista.participacion_id, candidato.lista_id))
     return render(request, "partidos/candidato_formulario.html", {"candidato": candidato, "formulario": formulario})
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def eliminar_candidato(request, eleccion_id, candidato_id):
+    eleccion = get_object_or_404(Eleccion.objects.select_for_update(), pk=eleccion_id)
+    if not _tiene_permiso(request, eleccion):
+        return HttpResponseForbidden("No tiene permiso para eliminar candidatos de esta elección.")
+    candidato = get_object_or_404(
+        Candidato.objects.select_for_update().select_related("lista__participacion"),
+        pk=candidato_id,
+        lista__participacion__eleccion=eleccion,
+    )
+    participacion_id = candidato.lista.participacion_id
+    lista_id = candidato.lista_id
+    datos_anteriores = {
+        "lista": lista_id,
+        "elector": candidato.elector_id,
+        "nombre": candidato.nombre,
+        "dni": candidato.dni,
+        "cargo": candidato.cargo,
+        "tipo": candidato.tipo,
+        "orden": candidato.orden,
+        "activo": candidato.activo,
+    }
+    candidato.delete()
+    registrar_evento(
+        accion="eliminar_candidato",
+        entidad=Candidato._meta.label,
+        entidad_id=candidato_id,
+        eleccion=eleccion,
+        request=request,
+        datos_anteriores=datos_anteriores,
+    )
+    messages.success(request, "La candidatura fue eliminada. El elector permanece en el padrón.")
+    return redirect(_url_gestion(eleccion_id, participacion_id, lista_id))
 
 
 def _cambiar_estado(request, objeto, campo, destino, **destino_kwargs):

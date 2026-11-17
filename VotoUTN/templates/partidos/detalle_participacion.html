@@ -156,10 +156,12 @@
                     {% else %}
                       <a class="button light small" href="?puesto={{ asociacion.id }}#candidaturas">Editar candidatos</a>
                     {% endif %}
-                    <form class="inline-form" method="post" action="{% url 'cambiar-estado-lista-candidatos' eleccion.id asociacion.id %}">
-                      {% csrf_token %}<input type="hidden" name="activo" value="{% if asociacion.activa %}0{% else %}1{% endif %}">
-                      <button class="button secondary small" type="submit">{% if asociacion.activa %}Desactivar{% else %}Activar{% endif %}</button>
-                    </form>
+                    {% if not asociacion.activa %}
+                      <form class="inline-form" method="post" action="{% url 'cambiar-estado-lista-candidatos' eleccion.id asociacion.id %}">
+                        {% csrf_token %}<input type="hidden" name="activo" value="1">
+                        <button class="button secondary small" type="submit">Activar</button>
+                      </form>
+                    {% endif %}
                   </td>
                 </tr>
               {% empty %}<tr><td colspan="5" class="muted">Todavía no vinculaste puestos a esta lista.</td></tr>{% endfor %}
@@ -242,9 +244,15 @@
                     <td><span class="pill {% if candidato.activo %}ok{% else %}gray{% endif %}">{% if candidato.activo %}Activo{% else %}Inactivo{% endif %}</span></td>
                     <td class="actions">
                       <a class="button light small" href="?puesto={{ asociacion_seleccionada.id }}&amp;editar={{ candidato.id }}#candidaturas">Editar</a>
-                      <form class="inline-form" method="post" action="{% url 'cambiar-estado-candidato' eleccion.id candidato.id %}">
-                        {% csrf_token %}<input type="hidden" name="activo" value="{% if candidato.activo %}0{% else %}1{% endif %}">
-                        <button class="button secondary small" type="submit">{% if candidato.activo %}Desactivar{% else %}Activar{% endif %}</button>
+                      {% if not candidato.activo %}
+                        <form class="inline-form" method="post" action="{% url 'cambiar-estado-candidato' eleccion.id candidato.id %}">
+                          {% csrf_token %}<input type="hidden" name="activo" value="1">
+                          <button class="button secondary small" type="submit">Activar</button>
+                        </form>
+                      {% endif %}
+                      <form class="inline-form" method="post" action="{% url 'eliminar-candidato' eleccion.id candidato.id %}" onsubmit="return confirm('¿Eliminar esta candidatura? Esta acción no se puede deshacer. El elector permanecerá en el padrón.');">
+                        {% csrf_token %}
+                        <button class="button light small" type="submit">Eliminar</button>
                       </form>
                     </td>
                   </tr>

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -8,6 +9,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils.timezone import make_aware
 
+from apps.auditoria.models import EventoAuditoria
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento
@@ -314,6 +316,7 @@ class PartidosViewsTests(PartidosBaseTests):
         )
         self.assertEqual(respuesta_lista.context["pestana"], "lista")
         self.assertContains(respuesta_lista, "Listas cargadas")
+        self.assertContains(respuesta_lista, "<th>Candidatos cargados</th>", html=True)
         self.assertContains(respuesta_lista, "Universidad Abierta")
         self.assertContains(respuesta_lista, "Cargar candidatos")
 
@@ -398,6 +401,62 @@ class PartidosViewsTests(PartidosBaseTests):
         )
         self.assertFalse(PuestoEleccion.objects.filter(pk=puesto.pk).exists())
         self.assertContains(self.client.get(respuesta.url), "El puesto fue eliminado.")
+        self.assertTrue(EventoAuditoria.objects.filter(
+            accion="eliminar_puesto_eleccion", entidad_id=str(puesto.id),
+        ).exists())
+
+    def test_puestos_muestran_eliminar_y_solo_permiten_reactivar_inactivos(self):
+        puesto = PuestoEleccion.objects.create(
+            puesto=CargoElectivo.objects.create(organo=self.organo, nombre="Puesto inactivo"),
+            eleccion_claustro=self.eleccion_claustro, cantidad_titulares=1, activo=False,
+        )
+        puesto.puesto.claustros_habilitados.add(self.eleccion_claustro.claustro)
+        respuesta = self.client.get(
+            reverse("gestionar-partidos", args=(self.eleccion.id,)),
+            {"claustro": self.eleccion_claustro.id, "pestana": "puesto"},
+        )
+        self.assertContains(respuesta, reverse("eliminar-puesto-eleccion", args=(self.eleccion.id, puesto.id)))
+        self.assertContains(respuesta, reverse("cambiar-estado-puesto-eleccion", args=(self.eleccion.id, puesto.id)))
+        self.assertNotContains(respuesta, "Desactivar")
+        self.assertNotContains(respuesta, 'name="puesto-activo"')
+        self.assertContains(respuesta, "En uso")
+        respuesta_edicion = self.client.get(reverse("editar-puesto-eleccion", args=(self.eleccion.id, puesto.id)))
+        self.assertNotContains(respuesta_edicion, 'name="activo"')
+
+        self.client.post(
+            reverse("cambiar-estado-puesto-eleccion", args=(self.eleccion.id, puesto.id)), {"activo": "1"},
+        )
+        puesto.refresh_from_db()
+        self.assertTrue(puesto.activo)
+
+    def test_puesto_nuevo_se_crea_activo_y_edicion_conserva_estado_existente(self):
+        cargo = CargoElectivo.objects.create(organo=self.organo, nombre="Puesto nuevo")
+        cargo.claustros_habilitados.add(self.eleccion_claustro.claustro)
+        respuesta = self.client.post(
+            reverse("gestionar-partidos", args=(self.eleccion.id,)),
+            {
+                "accion": "configurar_puesto", "puesto-puesto": cargo.id,
+                "puesto-cantidad_titulares": 1, "puesto-cantidad_suplentes": 1,
+            },
+        )
+        self.assertEqual(respuesta.status_code, 302)
+        puesto = PuestoEleccion.objects.get(puesto=cargo, eleccion_claustro=self.eleccion_claustro)
+        self.assertTrue(puesto.activo)
+        puesto.activo = False
+        puesto.save(update_fields=("activo",))
+
+        respuesta = self.client.post(
+            reverse("editar-puesto-eleccion", args=(self.eleccion.id, puesto.id)),
+            {
+                "puesto": cargo.id, "tipo_alcance": FormularioPuestoEleccion.TIPO_CLAUSTRO,
+                "eleccion_claustro": self.eleccion_claustro.id, "cantidad_titulares": 2,
+                "cantidad_suplentes": 1, "activo": "on",
+            },
+        )
+        self.assertEqual(respuesta.status_code, 302)
+        puesto.refresh_from_db()
+        self.assertFalse(puesto.activo)
+        self.assertEqual(puesto.cantidad_titulares, 2)
 
     def test_puesto_asociado_a_lista_no_se_puede_eliminar(self):
         respuesta = self.client.post(
@@ -981,6 +1040,84 @@ class PartidosViewsTests(PartidosBaseTests):
             f"{reverse('detalle-participacion-partido', args=(self.eleccion.id, self.participacion.id))}?puesto={self.lista.id}#candidaturas",
         )
         self.assertFalse(candidato.activo)
+
+    def test_eliminar_candidato_conserva_padron_y_registra_auditoria(self):
+        elector = self.crear_elector_padron(dni="30777667")
+        candidato = Candidato.objects.create(
+            lista=self.lista, elector=elector, nombre=elector.nombre_completo, dni=elector.dni,
+            cargo="Consejero", tipo=Candidato.Tipo.TITULAR, orden=1,
+        )
+        destino = reverse("eliminar-candidato", args=(self.eleccion.id, candidato.id))
+        detalle = self.client.get(reverse(
+            "detalle-participacion-partido", args=(self.eleccion.id, self.participacion.id),
+        ))
+        detalle_lista = self.client.get(reverse(
+            "detalle-lista-candidatos", args=(self.eleccion.id, self.lista.id),
+        ))
+        for respuesta in (detalle, detalle_lista):
+            self.assertContains(respuesta, destino)
+            self.assertNotContains(respuesta, "Desactivar")
+
+        respuesta = self.client.post(destino)
+        self.assertRedirects(
+            respuesta,
+            f"{reverse('detalle-participacion-partido', args=(self.eleccion.id, self.participacion.id))}"
+            f"?puesto={self.lista.id}#candidaturas",
+        )
+        self.assertFalse(Candidato.objects.filter(pk=candidato.id).exists())
+        self.assertTrue(Elector.objects.filter(pk=elector.pk).exists())
+        self.assertTrue(RegistroPadron.objects.filter(elector=elector, eleccion=self.eleccion).exists())
+        evento = EventoAuditoria.objects.get(accion="eliminar_candidato", entidad_id=str(candidato.id))
+        self.assertEqual(evento.usuario, self.usuario)
+        self.assertEqual(evento.datos_anteriores["elector"], elector.id)
+        self.assertEqual(evento.datos_anteriores["lista"], self.lista.id)
+        Candidato.objects.create(
+            lista=self.lista, elector=elector, nombre=elector.nombre_completo, dni=elector.dni,
+            cargo="Consejero", tipo=Candidato.Tipo.TITULAR, orden=1,
+        )
+
+    def test_eliminar_candidato_exige_post_permiso_y_eleccion_en_preparacion(self):
+        candidato = Candidato.objects.create(
+            lista=self.lista, nombre="Histórico", cargo="Consejero", orden=1,
+        )
+        destino = reverse("eliminar-candidato", args=(self.eleccion.id, candidato.id))
+        self.assertEqual(self.client.get(destino).status_code, 405)
+        sin_permiso = get_user_model().objects.create_user(username="sin-permiso-eliminar")
+        self.client.force_login(sin_permiso)
+        self.assertEqual(self.client.post(destino).status_code, 403)
+        self.client.force_login(self.usuario)
+        self.eleccion.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion.save(update_fields=("estado",))
+        self.assertEqual(self.client.post(destino).status_code, 403)
+        self.assertTrue(Candidato.objects.filter(pk=candidato.pk).exists())
+        self.assertFalse(EventoAuditoria.objects.filter(accion="eliminar_candidato").exists())
+
+    def test_eliminar_candidato_revierte_si_falla_auditoria(self):
+        candidato = Candidato.objects.create(
+            lista=self.lista, nombre="Histórico", cargo="Consejero", orden=1,
+        )
+        with patch("apps.partidos.views.registrar_evento", side_effect=RuntimeError("fallo de auditoría")):
+            with self.assertRaisesMessage(RuntimeError, "fallo de auditoría"):
+                self.client.post(reverse("eliminar-candidato", args=(self.eleccion.id, candidato.id)))
+        self.assertTrue(Candidato.objects.filter(pk=candidato.pk).exists())
+
+    def test_candidato_inactivo_se_puede_reactivar_o_eliminar(self):
+        elector = self.crear_elector_padron(dni="30777668")
+        candidato = Candidato.objects.create(
+            lista=self.lista, elector=elector, nombre=elector.nombre_completo, dni=elector.dni,
+            cargo="Consejero", tipo=Candidato.Tipo.TITULAR, orden=1, activo=False,
+        )
+        respuesta = self.client.get(reverse(
+            "detalle-participacion-partido", args=(self.eleccion.id, self.participacion.id),
+        ))
+        self.assertContains(respuesta, reverse("cambiar-estado-candidato", args=(self.eleccion.id, candidato.id)))
+        self.assertContains(respuesta, reverse("eliminar-candidato", args=(self.eleccion.id, candidato.id)))
+        self.assertNotContains(respuesta, "Desactivar")
+        self.client.post(
+            reverse("cambiar-estado-candidato", args=(self.eleccion.id, candidato.id)), {"activo": "1"},
+        )
+        candidato.refresh_from_db()
+        self.assertTrue(candidato.activo)
 
     def test_edita_candidato_en_la_misma_pantalla(self):
         elector = self.crear_elector_padron(dni="30777667")

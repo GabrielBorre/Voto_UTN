@@ -256,7 +256,6 @@ class FormularioPuestoEleccion(forms.ModelForm):
             "eleccion_claustro_departamento",
             "cantidad_titulares",
             "cantidad_suplentes",
-            "activo",
         )
 
     def __init__(self, *args, eleccion, **kwargs):
@@ -373,8 +372,6 @@ class FormularioHabilitacionPuesto(forms.Form):
     )
     cantidad_titulares = forms.IntegerField(label="Cantidad de titulares", min_value=1)
     cantidad_suplentes = forms.IntegerField(label="Cantidad de suplentes", min_value=1)
-    activo = forms.BooleanField(required=False, initial=True)
-
     def __init__(self, *args, eleccion, claustro_objetivo=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.eleccion = eleccion
@@ -406,7 +403,7 @@ class FormularioHabilitacionPuesto(forms.Form):
         estilizar_campos(self)
         for nombre in ("claustros", "departamentos"):
             self.fields[nombre].widget.attrs["class"] = "checkbox-list"
-        for nombre in ("limitar_por_claustros", "limitar_por_departamentos", "activo"):
+        for nombre in ("limitar_por_claustros", "limitar_por_departamentos"):
             self.fields[nombre].widget.attrs.pop("class", None)
 
     def clean(self):
@@ -476,7 +473,6 @@ class FormularioHabilitacionPuesto(forms.Form):
             "puesto": datos["puesto"],
             "cantidad_titulares": datos["cantidad_titulares"],
             "cantidad_suplentes": datos["cantidad_suplentes"],
-            "activo": datos["activo"],
         }
         if not datos["limitar_por_departamentos"]:
             for eleccion_claustro in datos["claustros_efectivos"]:
