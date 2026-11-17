@@ -26,8 +26,7 @@ class Command(BaseCommand):
         for nombre in TIPOS_JUSTIFICATIVO_INICIALES:
             TipoJustificativo.objects.get_or_create(nombre=nombre, defaults={"activo": True})
 
-        for clave in ("administrador_junta", "administrativo_junta"):
-            datos = USUARIOS[clave]
+        for datos in USUARIOS.values():
             usuario, creado = get_user_model().objects.get_or_create(
                 username=datos["username"],
                 defaults={
