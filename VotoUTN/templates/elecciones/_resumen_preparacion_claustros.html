@@ -1,0 +1,13 @@
+<p>{{ resumen.listos }} de {{ resumen.total }} claustros listos.</p>
+{% if resumen.total %}
+<details>
+  <summary>Ver estado por claustro</summary>
+  <ul>
+    {% for item in resumen.claustros %}
+    <li><strong>{{ item.claustro }}</strong>: {% if item.listo %}Listo{% else %}{{ item.pendientes|join:"; " }}{% endif %}.</li>
+    {% endfor %}
+  </ul>
+</details>
+{% else %}
+<p>Falta configurar los claustros participantes.</p>
+{% endif %}

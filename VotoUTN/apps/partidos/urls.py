@@ -11,6 +11,7 @@ from apps.partidos.views import (
     descargar_plantilla_candidaturas,
     descargar_plantilla_candidatos_lista,
     editar_candidato,
+    eliminar_candidato,
     editar_participacion,
     editar_puesto_eleccion,
     eliminar_puesto_eleccion,
@@ -36,5 +37,6 @@ urlpatterns = [
     path("gestion/elecciones/<int:eleccion_id>/partidos/listas/<int:lista_id>/", detalle_lista, name="detalle-lista-candidatos"),
     path("gestion/elecciones/<int:eleccion_id>/partidos/listas/<int:lista_id>/estado/", cambiar_estado_lista, name="cambiar-estado-lista-candidatos"),
     path("gestion/elecciones/<int:eleccion_id>/partidos/candidatos/<int:candidato_id>/editar/", editar_candidato, name="editar-candidato"),
+    path("gestion/elecciones/<int:eleccion_id>/partidos/candidatos/<int:candidato_id>/eliminar/", eliminar_candidato, name="eliminar-candidato"),
     path("gestion/elecciones/<int:eleccion_id>/partidos/candidatos/<int:candidato_id>/estado/", cambiar_estado_candidato, name="cambiar-estado-candidato"),
 ]

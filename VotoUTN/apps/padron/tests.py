@@ -1,3 +1,4 @@
+import csv
 import io
 import hashlib
 from datetime import datetime, time, timedelta
@@ -454,7 +455,7 @@ class PadronViewsTests(TestCase):
         self.assertContains(respuesta, 'name="configuracion-maximo_votantes_por_mesa"')
         self.assertContains(respuesta, "data-autoguardar-configuracion")
         self.assertNotContains(respuesta, "Los cambios se guardan automáticamente")
-        self.assertContains(respuesta, 'data-autosave-status hidden></p>')
+        self.assertNotContains(respuesta, "data-autosave-status")
         self.assertContains(respuesta, 'name="guardar-configuracion">Guardar configuración</button>')
         self.assertNotContains(respuesta, 'name="configuracion-departamentos"')
         self.assertNotContains(respuesta, 'name="configuracion-sedes"')
@@ -642,19 +643,28 @@ class PadronViewsTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta["Content-Type"], "text/csv; charset=utf-8")
 
-    def test_descargar_plantilla_padron_incluye_fila_de_ejemplo(self):
+    def test_descargar_plantilla_padron_incluye_ejemplos_y_guia(self):
         self.client.login(username="admin", password="clave")
 
         respuesta = self.client.get(reverse("descargar-plantilla-padron", args=(self.eleccion.id, self.eleccion_claustro.id)))
 
         self.assertEqual(respuesta.status_code, 200)
-        contenido = respuesta.content.decode("utf-8-sig")
-        lineas = contenido.splitlines()
-        self.assertGreaterEqual(len(lineas), 2)
-        self.assertEqual(lineas[0], "DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde cursa,Turno,Nivel")
-        self.assertEqual(lineas[1], "40123456,DNI,2024001,Juan,Perez,K,juan.perez@frba.utn.edu.ar,Si,K,Campus,Mañana,1")
-        tipos = {fila.split(",")[1] for fila in lineas[1:]}
-        self.assertTrue({"DNI", "CUIL", "CUIT", "PAS"}.issubset(tipos))
+        filas = list(csv.reader(io.StringIO(respuesta.content.decode("utf-8-sig"))))
+        self.assertEqual(filas[0], [
+            "DNI", "Tipo Documento", "Legajo", "Nombre", "Apellido", "Depto/Carrera",
+            "Mail", "Departamento Principal", "Sede donde asiste", "Turno", "Nivel",
+        ])
+        self.assertEqual(len(filas), 7)
+        self.assertTrue(all(len(fila) == 11 for fila in filas))
+        self.assertEqual(len({fila[0] for fila in filas[1:5]}), 3)
+        self.assertEqual(filas[3][:5], filas[4][:5])
+        self.assertNotEqual(filas[3][5], filas[4][5])
+        self.assertEqual(filas[3][7], filas[4][7])
+        self.assertFalse(any(filas[5]))
+        self.assertNotIn("Instrucciones", filas[0])
+        self.assertIn("DNI, CUIL, CUIT o PAS", filas[6][1])
+        self.assertIn("Para estudiantes", filas[6][10])
+        self.assertIn("para docentes", filas[6][10])
 
     def test_importacion_acepta_tipos_documento_definidos_y_rechaza_otros(self):
         from apps.padron.services import validar_csv_padron
@@ -1638,6 +1648,36 @@ class AsignacionSedesClaustroTests(TestCase):
             "CheckboxSelectMultiple",
         )
         self.assertNotContains(respuesta, "Calcular asignaciones")
+        self.assertContains(respuesta, '<option value="sede_donde_cursa">Sede donde asiste</option>', html=True)
+        self.assertNotContains(respuesta, "Sede donde cursa")
+        self.assertContains(respuesta, '<summary>Ver departamentos afectados</summary>', html=True)
+        self.assertContains(respuesta, '<details class="detalle-asignaciones rule-departments-field">')
+        self.assertNotContains(respuesta, '<details class="detalle-asignaciones rule-departments-field" open>')
+
+    def test_regla_invalida_abre_departamentos_y_conserva_la_seleccion(self):
+        usuario = get_user_model().objects.create_user(username="junta-regla-invalida")
+        AsignacionRol.objects.create(usuario=usuario, rol=AsignacionRol.Rol.ADMINISTRADOR_JUNTA, eleccion=self.eleccion)
+        self.client.force_login(usuario)
+        url = reverse("configurar-sedes-claustro", args=(self.eleccion.pk, self.claustro.pk))
+
+        respuesta = self.client.post(url, {
+            "campo": "nivel", "operador": "igual", "valor": "sin número",
+            "sede_destino": self.medrano.pk, "alcances_especificos": [self.alcance_a.pk],
+        })
+
+        self.assertContains(respuesta, '<details class="detalle-asignaciones rule-departments-field" open>')
+        self.assertContains(respuesta, "Nivel debe ser un número entero.")
+        formulario = respuesta.context["formulario"]
+        self.assertEqual(formulario["alcances_especificos"].value(), [str(self.alcance_a.pk)])
+        self.assertFalse(formulario["aplicar_a_todos"].value())
+        self.assertFalse(self.configuracion.reglas.exists())
+
+        sin_departamentos = self.client.post(url, {
+            "campo": "nivel", "operador": "igual", "valor": "2", "sede_destino": self.campus.pk,
+        })
+        self.assertContains(sin_departamentos, '<details class="detalle-asignaciones rule-departments-field" open>')
+        self.assertContains(sin_departamentos, "Seleccioná uno o más departamentos para esta regla.")
+        self.assertFalse(self.configuracion.reglas.exists())
 
     def test_eliminar_regla_compacta_prioridades_y_recalcula_sedes_y_mesas(self):
         usuario = get_user_model().objects.create_user(username="junta-regla-automatica", password="clave")
@@ -1867,6 +1907,9 @@ class AsignacionSedesClaustroTests(TestCase):
     def test_salta_destino_no_habilitado_y_continua_con_la_siguiente_regla(self):
         regla_medrano = self.crear_regla(1, "nivel", "2", self.medrano)
         regla_campus = self.crear_regla(2, "sede_donde_cursa", "Campus", self.campus)
+        regla_campus.refresh_from_db()
+        self.assertEqual(regla_campus.campo, "sede_donde_cursa")
+        self.assertEqual(regla_campus.get_campo_display(), "Sede donde asiste")
 
         resultado = calcular_asignaciones_sede_claustro(self.claustro)
 
@@ -2590,6 +2633,7 @@ class SolicitudCambioSedeTests(TestCase):
                 contenido = render_to_string(plantilla)
                 self.assertIn('<script type="module" src="/static/js/interfaz.js"></script>', contenido)
                 self.assertNotIn('/static/js/interfaz.js?v=', contenido)
+                self.assertIn('<script type="module" src="/static/js/conservar-posicion.js?v=20261116.2"></script>', contenido)
 
     def _confirmar_aprobacion_masiva(self, accion, **datos):
         AsignacionRol.objects.create(

@@ -724,3 +724,43 @@ def cambiar_estado_candidato(request, eleccion_id, candidato_id):
         request, candidato, "activo",
         _url_gestion(eleccion_id, candidato.lista.participacion_id, candidato.lista_id),
     )
+
+
+@login_required
+@require_POST
+def eliminar_candidato(request, eleccion_id, candidato_id):
+    candidato = get_object_or_404(
+        Candidato.objects.select_related(
+            "lista__participacion__eleccion",
+            "lista__participacion__eleccion_claustro__claustro",
+            "lista__puesto_eleccion__puesto",
+        ),
+        pk=candidato_id,
+        lista__participacion__eleccion_id=eleccion_id,
+    )
+    eleccion = candidato.lista.participacion.eleccion
+    if not _tiene_permiso(request, eleccion):
+        return HttpResponseForbidden("No tiene permiso para eliminar este candidato.")
+
+    lista_id = candidato.lista_id
+    participacion_id = candidato.lista.participacion_id
+    datos_anteriores = {
+        "nombre": candidato.nombre,
+        "dni": candidato.dni,
+        "tipo": candidato.tipo,
+        "orden": candidato.orden,
+        "lista": candidato.lista.participacion.nombre_lista,
+        "puesto": str(candidato.lista.puesto_eleccion.puesto),
+    }
+    candidato_id = candidato.pk
+    candidato.delete()
+    registrar_evento(
+        accion="eliminar_candidato",
+        entidad=Candidato._meta.label,
+        entidad_id=candidato_id,
+        eleccion=eleccion,
+        request=request,
+        datos_anteriores=datos_anteriores,
+    )
+    messages.success(request, "El candidato fue eliminado.")
+    return redirect(_url_gestion(eleccion_id, participacion_id, lista_id))

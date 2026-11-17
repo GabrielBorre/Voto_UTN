@@ -444,3 +444,59 @@ por las decisiones de cambio de mesa y sede indicadas arriba.
 - En el cálculo separado de padrones de votación, los cargos generales corresponden únicamente al registro principal; cada adicional recibe solo los cargos de su departamento. La detección de cargos duplicados se realiza por persona.
 - Los avisos de publicación, de mesas al iniciar la elección y de ausencia se generan una vez por persona y elección. El aviso de inicio incluye todas sus mesas; el aviso de ausencia indica únicamente las mesas donde figure ausente.
 - Al presentar «Voté, pero aparezco como ausente» se elige la mesa si hay varias ausencias. El servidor limita la selección a los registros activos de la propia persona en esa elección con ausencia registrada y sin solicitud previa para esa mesa. La firma y el identificador del QR se validan contra el registro elegido.
+
+
+## Plantilla explicativa del padrón
+
+- La plantilla descargable contiene once columnas de dominio, sin `TieneDiscapacidad` ni columna auxiliar `Instrucciones`. Usa el encabezado `Sede donde asiste`; el importador conserva las variantes históricas y el soporte opcional de discapacidad.
+- Incluye cuatro registros ficticios de tres personas, departamentos variados y sede/turno presentes o vacíos. La cuarta fila repite la identidad de la tercera y conserva su departamento principal para ilustrar una mesa especial en otro departamento.
+- Después de los ejemplos se agrega una fila vacía y una fila con descripciones, opciones y restricciones bajo cada columna. El archivo se prepara reemplazando los ejemplos y las descripciones por los datos del padrón. Por decisión posterior se retira la columna Instrucciones y su aviso; los archivos anteriores con esa columna vacía siguen siendo compatibles en CSV y Excel.
+- Departamento y departamento principal deben corresponder a parámetros activos habilitados para el claustro en la elección; sede y turno deben existir y estar activos. Informar sede exige turno.
+- `Nivel` indica el año o nivel de la carrera que cursa el estudiante o en el que dicta clases el docente. Se expresa como número entero y queda vacío cuando no corresponde; no es un catálogo parametrizable.
+
+
+## Mensajes del autoguardado de configuración del padrón
+
+- Al elegir fecha de votación y máximo por mesa no se muestran mensajes de estado bajo el botón dentro del recuadro de configuración, incluidos los de cambios pendientes, guardado en curso, resultado y fallo.
+- Se conserva el botón Guardar configuración y el funcionamiento previo del autoguardado. La validación de campos, el procesamiento de mesas y el aviso al intentar salir con cambios que no pudieron guardarse mantienen su comportamiento.
+
+
+## Posición de la página tras operar en la misma pantalla
+
+- Los envíos de formularios y los enlaces de filtros o paginación que recarguen la misma ruta conservan la posición horizontal y vertical, aunque cambien los parámetros de consulta. Esto incluye agregar, eliminar y reordenar reglas de sede.
+- Se captura la posición al abandonar realmente la página y se consume al cargar la siguiente. Cancelar una confirmación o hacer una operación sin navegación no deja una restauración pendiente.
+- Una ruta distinta mantiene su navegación habitual; los enlaces a secciones explícitas conservan su ancla. El historial sigue utilizando la restauración nativa del navegador.
+- El almacenamiento de sesión bloqueado o corrupto no interrumpe los diálogos ni el resto de la interfaz.
+
+
+## Cambios de reglas rechazados por sedes protegidas
+
+- Agregar, eliminar y reordenar reglas de sede y su recálculo forman una única transacción, con bloqueo de la elección y revalidación de permisos y estado antes de modificar datos.
+- Si el cálculo de sedes rechaza el cambio por un registro protegido incompatible con su principal, se conservan la regla, sus prioridades y las referencias de asignación; la pantalla muestra el motivo en lugar de un error 500. Las protecciones de autoridades y cambios de sede aprobados se mantienen.
+
+## Carga del módulo de conservación de posición
+
+- La conservación de posición se carga desde un módulo independiente con URL versionada en las tres plantillas base. Se mantiene la URL única del módulo de diálogos para no duplicar sus instancias. La posición se restaura al terminar la carga de la página y en el siguiente cuadro de renderizado.
+
+## Texto y departamentos de las reglas de sede
+
+- El campo de condición se presenta como «Sede donde asiste», tanto al agregar como al consultar reglas existentes. Se conserva el identificador interno `sede_donde_cursa` y el dato de asistencia del padrón, distinto de la sede electoral asignada.
+- Los controles de alcance se agrupan en «Ver departamentos afectados», un desplegable nativo que inicia cerrado. Abrir o cerrar no cambia selecciones ni envía el formulario. Se mantienen «Todos los departamentos disponibles» y la selección individual.
+- Cuando un alta devuelve errores, el desplegable se muestra abierto, conservando los departamentos y mostrando sus errores. Se reutilizan los estilos del detalle de asignaciones y el JavaScript existente de selección, sin duplicar controladores.
+
+## Función de la selección manual de autoridades
+
+- La edición manual de una mesa no muestra un selector de función, dado que solo se admiten titulares. El formulario conserva el tipo como campo oculto, lo valida y utiliza Titular si no se informa.
+- El reemplazo mantiene el turno y función de la designación original. Se conservan la validación de cupos, elegibilidad, horarios, permisos y la confirmación de asignación provisoria.
+
+## Texto del botón de carga de nómina
+
+- La carga de nómina de autoridades muestra «Validar archivo» al entrar y al cambiar de modalidad. Conserva el flujo existente de validación y revisión de la distribución antes de confirmar las asignaciones.
+
+## Estado de las tarjetas de preparación por claustro
+
+- Las tarjetas de Autoridades, Mesas y Puestos/listas/candidaturas evalúan todos los claustros participantes de la elección. Un claustro vacío no se excluye: su falta de padrón, mesas o candidaturas queda pendiente. Una elección sin claustros tampoco está lista.
+- Mesas requiere padrón activo y configuración de fecha y máximo por claustro, mesas existentes, sede electoral resuelta y todos los registros activos asignados a mesas compatibles con elección, alcance, sede y tipo principal/adicional. Se informa si una mesa supera el máximo.
+- Autoridades hereda los pendientes de padrón y mesas del claustro y exige turnos configurados y el mínimo de titulares activos en cada combinación de mesa y turno. Las autoridades rechazadas no cubren el mínimo. No se exige completar el máximo.
+- Puestos/listas/candidaturas requiere padrón activo, puestos y presentaciones activos del claustro, listas con puesto activo de su mismo alcance y al menos un candidato activo por lista, válido en el padrón y dentro de los órdenes configurados. No exige llenar todos los cupos ni todos los puestos del catálogo. Las presentaciones sin claustro no completan otro claustro.
+- Las tres tarjetas muestran cuántos claustros están listos y permiten desplegar el motivo por claustro. Se recalculan al consultar sin modificar datos ni cambiar las reglas de publicación, confirmación o inicio.

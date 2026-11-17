@@ -46,7 +46,7 @@ if (selectorModo && explicaciones.length) {
       archivoNomina.required = selectorModo.value === "nomina";
     }
     const textoAplicar = {
-      nomina: "Previsualizar nómina",
+      nomina: "Validar archivo",
       aleatorio: "Sortear todas las mesas",
     }[selectorModo.value];
     if (!textoAplicar) {

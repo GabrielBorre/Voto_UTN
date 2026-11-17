@@ -1721,3 +1721,350 @@ Verificación:
 - La confirmación conservó los 2.000 registros. Los resultados comparativos están en el LEEME de la nómina.
 - Persisten las demoras de otra sede sin reordenar: 331,416 segundos en ese ensayo. Las otras alternativas demoraron 8,268; 10,855; 39,990 y 30,329 segundos. Son referencias de un ensayo parcialmente concurrente con la suite en otra base, no garantías ni una optimización aplicada.
 - El ensayo integral de 20.000 filas y las mejoras de rendimiento siguen pendientes como subetapas separadas.
+
+
+## 2026-11-15 — Plantilla de padrón con ejemplos y definiciones
+
+Se reemplazan los ejemplos desalineados de la plantilla CSV por cuatro registros
+de tres personas, incluido un departamento adicional para mesa especial. La
+plantilla usa Sede donde asiste, omite discapacidad e incluye Turno y la
+definición acordada de Nivel para estudiantes y docentes. Agrega una fila vacía
+y una guía por columna con la marca ESTA FILA DEBE ELIMINARSE.
+
+La lectura de CSV y Excel admite la columna auxiliar Instrucciones únicamente
+vacía. Si persiste la guía, exige eliminarla con un error de archivo explícito;
+las filas separadoras vacías no se incorporan como electores. Se conservan los
+formatos históricos y el rechazo de otras columnas desconocidas.
+
+Archivos modificados: `VotoUTN/apps/padron/services.py`,
+`VotoUTN/apps/padron/views.py`, `VotoUTN/apps/padron/tests.py`,
+`VotoUTN/templates/padron/cargar.html`, `docs/decisiones_funcionales.md` y este
+registro. Se crea `VotoUTN/apps/padron/tests_plantilla.py`. No se eliminan
+archivos ni se modifica el esquema de la base de datos.
+
+Verificación:
+
+- 42 pruebas dirigidas aprobadas en PostgreSQL, incluidas cinco regresiones nuevas de CSV/Excel, guía sin eliminar, columna auxiliar, compatibilidad e importación con mesa especial.
+- La suite completa ejecutó 780 pruebas en 233,390 segundos: 772 aprobadas y los mismos cinco fallos y tres errores anteriores de develop en fechas, interfaz de elecciones y generación de justificativos demo. No se modifican esos flujos en esta subetapa.
+- `python manage.py check` sin incidencias; `python manage.py makemigrations --check` sin cambios; `git diff --check` sin errores.
+- `python manage.py migrate --plan` identifica las doce migraciones de develop que ya estaban pendientes en la base habitual. No se aplican a esa base; esta subetapa no genera migraciones.
+- El CSV `ESCENARIOS_PRUEBA_ELECTORAL/segmento_1_500/padron_estudiantes.csv` conserva sus encabezados y sus 600 registros de 500 personas. Su reducción a 500 registros sigue pendiente como otra subetapa.
+- Los cambios de plantilla están aplicados; la validación general del proyecto no se considera cerrada por los fallos previos y las migraciones pendientes.
+
+
+## 2026-11-15 — Retiro de la columna Instrucciones
+
+Se retira únicamente la columna auxiliar de la plantilla descargable y su
+aviso, conservando las once columnas de datos, los cuatro registros de ejemplo,
+la separación y las descripciones. La ayuda de carga explica que el archivo se
+prepara reemplazando esos contenidos por los datos del padrón. Los archivos
+anteriores con Instrucciones vacía conservan compatibilidad.
+
+Se modifican `VotoUTN/apps/padron/services.py`, `views.py`, `tests.py`,
+`tests_plantilla.py`, `VotoUTN/templates/padron/cargar.html`,
+`docs/decisiones_funcionales.md` y este registro. No se crean ni eliminan
+archivos del proyecto ni se generan migraciones.
+
+Verificación del retiro:
+
+- 42 pruebas dirigidas aprobadas en 15,525 segundos, incluida la descarga con once columnas y la importación CSV/Excel de los ejemplos y de archivos anteriores.
+- `check` sin incidencias, `makemigrations --check` sin cambios y `git diff --check` sin errores.
+- `migrate --plan` conserva las doce migraciones anteriores pendientes en la base habitual; no se aplican en esta tarea.
+- La suite con `--keepdb --noinput --failfast` detectó 780 casos y se detuvo tras 31 pruebas por el error previo de tipos de justificativo demo al notificar ausentes. La validación general sigue pendiente; los resultados completos anteriores se conservan arriba.
+- No se modifican los CSV ni las capacidades de los escenarios de ejemplo. La consulta de su configuración confirma Estudiantes 60 y Docentes, Graduados y No docentes 200 por mesa. La elección habitual segmento1 solo tiene Estudiantes configurado, con máximo 60.
+
+
+## 2026-11-16 — Padrón de estudiantes de ejemplo con 500 registros principales
+
+Se retiran las cien filas de departamentos adicionales de
+`ESCENARIOS_PRUEBA_ELECTORAL/segmento_1_500/padron_estudiantes.csv`.
+Se conservan las mismas quinientas personas, el orden, los encabezados, la
+codificación y cada valor de sus registros principales, incluido Carlos.
+El archivo queda con quinientas filas de datos y sin registros de mesa especial.
+
+Solo se modifican ese CSV y este registro. No se crean ni eliminan archivos del
+proyecto, no se importan datos en la base habitual y no se modifican nóminas,
+otros claustros, segmentos ni código de la aplicación.
+
+Antes de editar ya se comprobó que las diez huellas de CSV del control del
+primer segmento no coinciden con los archivos actuales de develop. El control
+y el generador conservan la versión anterior de las identidades y cantidades;
+su reconciliación queda fuera de este ajuste del archivo. Regenerar los
+escenarios con esa configuración volvería a producir cien adicionales para
+estudiantes. Tampoco se valida en esta tarea el guion anterior de diecinueve
+solicitudes, que incluía movimientos de registros de mesas especiales.
+
+Verificación del archivo de 500:
+
+- Comparación exacta: cien filas eliminadas, ninguna agregada; los quinientos registros conservados son idénticos a los principales originales, incluyendo orden, encabezados, DNI, legajos y restantes campos. Los nueve CSV restantes del segmento conservan sus huellas.
+- Importación del archivo real en una transacción de la base de pruebas PostgreSQL: quinientas personas, quinientos registros principales y quinientas asignaciones de mesa; ninguna mesa especial ni mesa con más de sesenta electores. Prueba aprobada en 14,396 segundos, con archivos temporales y reversión de los datos de prueba.
+- Después de guardar, el archivo vuelve a contar quinientos registros, quinientos DNI únicos y cero departamentos adicionales.
+- `python manage.py check` sin incidencias; `python manage.py makemigrations --check` sin cambios; `git diff --check` sin errores.
+- `python manage.py migrate --plan` conserva las doce migraciones previas pendientes. La suite con `--keepdb --noinput --failfast` se detuvo tras 31 pruebas por el error previo de tipos de justificativo demo; la validación general del proyecto sigue pendiente.
+
+
+## 2026-11-16 — Retiro de mensajes debajo de Guardar configuración
+
+Se elimina el área de estado del autoguardado dentro del recuadro de
+configuración del padrón y todas las escrituras de mensajes sobre ella. El
+script deja de depender de ese elemento y de mostrar allí la respuesta de
+recalcular mesas. Se actualiza su versión en la plantilla para evitar que un
+script anterior busque el elemento retirado.
+
+Se conserva el botón Guardar configuración, el envío automático y manual, los
+controles de cambios concurrentes, la validación, el indicador general de carga
+y el aviso de salida cuando no se pudieron guardar los cambios. No se modifica
+el endpoint, los permisos, los modelos ni la base habitual.
+
+Archivos modificados: `VotoUTN/static/js/configuracion-padron-autoguardado.js`,
+`VotoUTN/templates/padron/cargar.html`, `VotoUTN/apps/padron/tests.py`,
+`docs/decisiones_funcionales.md` y este registro. No se crean ni eliminan
+archivos del proyecto y no se requieren migraciones nuevas.
+
+Verificación de mensajes del autoguardado:
+
+- Las 33 pruebas de `apps.padron.tests.PadronViewsTests` aprobaron en 14,070 segundos: la pantalla conserva fecha, máximo, botón y atributos de autoguardado, sin área de mensajes de estado; el endpoint sigue persistiendo los cambios automáticos y manuales.
+- `node --check` sin errores. Ejercicio de ejecución del JavaScript sin elemento de estado: guardado exitoso y fallo de conexión, POST con los indicadores esperados, limpieza del temporizador al usar el botón manual y confirmación de salida si no se pudo guardar. Los casos aprobaron sin intentar escribir mensajes en el DOM.
+- `python manage.py check` sin incidencias; `python manage.py makemigrations --check` sin cambios; `git diff --check` sin errores.
+- `python manage.py migrate --plan` conserva las doce migraciones anteriores pendientes de develop en la base habitual; esta tarea no las aplica ni agrega migraciones.
+- La verificación general del proyecto sigue pendiente por las incidencias previas documentadas; esta entrega ejecuta las pruebas del flujo afectado, sin modificar esos otros flujos.
+
+
+## 2026-11-16 — Conservar posición en acciones de la misma pantalla
+
+La interfaz compartida conserva la posición al volver a la misma ruta después
+de formularios, filtros, paginación o navegación por JavaScript. La captura se
+realiza en pagehide y deja de depender de atributos en formularios concretos,
+por lo que alcanza a agregar, eliminar y reordenar reglas de sede. Los cambios
+de pantalla y las anclas explícitas conservan su comportamiento habitual.
+
+Se protege la lectura y escritura del almacenamiento de sesión para que un
+bloqueo o dato corrupto no interrumpa los diálogos. Se preserva la URL única del
+módulo compartido y sus importaciones para evitar duplicar la interfaz.
+
+Se modifica `VotoUTN/static/js/interfaz.js`, `docs/decisiones_funcionales.md`
+y este registro. Se crea `VotoUTN/pruebas_js/conservar-posicion.test.cjs` con
+pruebas de navegación del módulo real. No se eliminan archivos ni se modifican
+modelos, endpoints, migraciones o datos de la base habitual.
+
+Verificación de posición conservada:
+
+- Las pruebas reprodujeron seis fallos con el módulo anterior, incluidos los POST no marcados, filtros, posición horizontal y almacenamiento bloqueado. Con el módulo corregido aprobaron los diez casos de navegación, cambio de ruta, anclas, cancelación sin navegación, datos corruptos y compatibilidad.
+- `node --test VotoUTN/pruebas_js/conservar-posicion.test.cjs`: diez pruebas aprobadas. `node --check VotoUTN/static/js/interfaz.js`: sin errores de sintaxis. Son pruebas del módulo real en contextos de página simulados, no una ejecución de navegador gráfico.
+- `python manage.py test apps.padron.tests.AsignacionSedesClaustroTests apps.padron.tests.SolicitudCambioSedeTests --keepdb --noinput`: 33 pruebas aprobadas en 6,539 segundos. Incluyen reglas, operaciones y conservación de filtros, y que las plantillas base y los imports comparten la misma URL del módulo de diálogos.
+- `python manage.py check` sin incidencias; `python manage.py makemigrations --check` sin cambios; `git diff --check` sin errores.
+- `python manage.py migrate --plan` conserva las doce migraciones anteriores pendientes de develop; no se aplican ni se agregan migraciones en esta tarea. La validación general mantiene pendientes las incidencias previas documentadas.
+
+
+## 2026-11-16 — Actualización segura de la base recuperada para probar configuración
+
+El inicio de junta fallaba porque faltaba
+`elecciones_eleccion.solicitudes_cambio_sede_habilitadas_en`. La base habitual
+conservaba doce migraciones pendientes de develop. Sobre una copia restaurada
+se reprodujo además el fallo de `padron.0012_identidad_electoral_por_eleccion`:
+intentaba crear unicidad global por elección antes de llegar a la restricción
+parcial para los registros principales, incompatible con los cien adicionales.
+
+Se recupera del trabajo previo la migración de reemplazo
+`VotoUTN/apps/padron/migrations/0018_identidad_electoral_multidepartamental_segura.py`.
+No se modifican ni eliminan migraciones históricas ni se simula su aplicación.
+La nueva ruta parte de registros por departamento, copia DNI y legajo del mismo
+elector y crea directamente las restricciones parciales sobre principales.
+Django conserva las rutas históricas en instalaciones con aplicación parcial.
+
+Se crea `VotoUTN/apps/padron/tests_migracion_identidad.py` con regresiones de
+actualización desde una base con principales y adicionales: preservación de
+identidad y QR, y rechazo de otra persona principal con el mismo DNI o legajo.
+Solo se modifica este registro, además de esos dos archivos nuevos.
+
+Antes de la actualización se creó un pg_dump completo, restaurado en
+`ensayo_reparacion_voto_20261116`, y una copia local fuera del repositorio:
+`C:/Users/domin/AppData/Local/Temp/voto_utn_reparacion_20261116/respaldo_antes_migraciones.dump`.
+La copia coincidió por cantidad y SHA-256 del contenido con diez tablas de
+dominio. La elección 4, segmento1, ya estaba en En preparación por solicitud
+expresa, auditada en el evento 378. Se preservan los datos de la base habitual;
+el CSV de quinientas filas no se importa en esta tarea.
+
+Verificación de reparación de migraciones:
+
+- Respaldo completo restaurado y coincidente con diez tablas de dominio. Se reprodujo en el ensayo la violación de unicidad de la ruta antigua y luego se migró sin errores con la ruta de reemplazo.
+- Tres regresiones de migración aprobadas en 69,919 segundos. Verifican datos y QR sin cambios, DNI compartido con adicionales y rechazo de otro principal por DNI o legajo.
+- La base habitual se actualizó después del ensayo. Comparación de diez tablas: contenido previo idéntico, excluyendo solamente las columnas nuevas. Se conservan 505 electores, 600 registros, 22 mesas, 600 asignaciones, 198 autoridades, 208 candidaturas de autoridad y 19 solicitudes.
+- Inicio de junta, configuración de elección, padrón y reglas de sede responden HTTP 200 con autenticación local verificada en una transacción revertida. La elección 4 sigue En preparación. Reparación auditada en el evento 379.
+- `check` sin incidencias; `makemigrations --check` sin cambios; `migrate --plan` sin operaciones pendientes.
+- Suite completa: 783 pruebas en 346,928 segundos; 776 aprobadas, cuatro fallos y tres errores de los flujos anteriores de fechas y notificadores demo. Las tres pruebas nuevas de migración aprobaron. La validación general sigue pendiente por esas incidencias, no por migraciones pendientes.
+
+
+
+## 2026-11-16 — Reglas de sede atómicas ante un registro adicional protegido
+
+Al eliminar la regla de nivel hasta tercero, el recálculo rechazó una sede
+protegida incompatible con su principal. La vista borraba antes la regla y
+dejaba sus referencias a NULL, y luego mostraba error 500. Se reproduce con
+principales y adicionales compartiendo sede y autoridad en el adicional.
+
+Los POST de agregar, eliminar y reordenar se ejecutan ahora en una sola
+transacción, bloqueando primero la elección. Un ValueError del cálculo revierte
+la operación completa y vuelve al listado con su motivo. Se conservan las
+protecciones funcionales y los recálculos válidos.
+
+Se modifica `VotoUTN/apps/padron/views.py`, `docs/decisiones_funcionales.md` y
+este registro. Se crea `VotoUTN/apps/padron/tests_reglas_sede_atomicidad.py` con
+tres regresiones reales de eliminación, reordenamiento y alta incompatibles.
+No se modifica el modelo ni se requieren migraciones nuevas para esta corrección.
+
+Recuperación y verificación de reglas atómicas:
+
+- Las tres regresiones reprodujeron HTTP 500 al agregar, eliminar y reordenar con un adicional protegido. Después de corregir, los tres casos vuelven con aviso y conservan todos los datos, y las 36 pruebas de reglas y solicitudes aprobaron en 7,981 segundos.
+- Se comprobó contra el respaldo que el intento fallido había eliminado la regla 8 y dejado 250 referencias a NULL, sin otros cambios en esas asignaciones. Antes de cualquier restauración, el usuario quitó las autoridades y reemplazó las reglas por interfaz; se respetan sus cambios posteriores y no se restaura la configuración del respaldo.
+- El error de cálculo sigue rechazando una sede protegida incompatible, pero ya no deja un borrado parcial ni responde con error 500.
+
+
+
+## 2026-11-16 — Carga versionada de la conservación de posición
+
+El usuario seguía viendo saltos al agregar, ordenar y eliminar reglas. En
+Chrome con el HTML real de la pantalla de ensayo y sus estáticos se reprodujeron
+los tres saltos a cero al cargar el módulo antiguo, mientras que el módulo
+actual conservaba la posición. Esto identifica la caché del módulo antiguo
+como una causa compatible con lo observado, sin inspeccionar la sesión del usuario.
+
+Se separa la conservación de posición en
+`VotoUTN/static/js/conservar-posicion.js`, cargado con versión propia en
+`VotoUTN/templates/base.html`, `gestion/base.html` y
+`elecciones/base_publica.html`. `interfaz.js` conserva su URL compartida con
+los imports de diálogos y deja de gestionar la posición. El nuevo módulo
+restaura después de pageshow y del siguiente cuadro de renderizado, conserva
+las exclusiones de rutas y anclas y acepta el formato anterior almacenado.
+
+Se modifican también `VotoUTN/pruebas_js/conservar-posicion.test.cjs`,
+`VotoUTN/apps/padron/tests.py`, `docs/decisiones_funcionales.md` y este
+registro. No se modifican datos habituales ni se generan migraciones.
+
+Verificación de posición versionada:
+
+- Chrome real con el HTML autenticado de la copia de ensayo y los estáticos actuales del servidor: agregar conservó 3192 píxeles, ordenar 1563 y eliminar 1601. Se simularon los POST y sus redirecciones en un servidor aislado, sin enviar cambios a la base habitual. Se repitió con el módulo de diálogos antiguo y el nuevo módulo de posición para comprobar compatibilidad con caché previa. Se cerró el navegador de ensayo al terminar.
+- Once pruebas de navegación aprobadas con `node --test VotoUTN/pruebas_js/conservar-posicion.test.cjs`. Sintaxis válida en ambos módulos JavaScript. Se verifica la URL compartida de diálogos y la carga versionada de posición en las tres plantillas base.
+- Las 36 pruebas de reglas, solicitudes y atomicidad aprobaron en 7,921 segundos. Los rechazos por adicionales protegidos conservan reglas, asignaciones, mesas y autoridades.
+- `python manage.py check`: sin incidencias. `makemigrations --check`: sin cambios. `migrate --plan`: sin operaciones pendientes. `git diff --check`: sin errores.
+- Las verificaciones de esta corrección aprobaron. La última suite completa, anterior a estos ajustes, mantiene los cuatro fallos y tres errores previos documentados en la reparación de migraciones; no se declara completada la validación general.
+- Se respetan las eliminaciones de autoridades y las reglas nuevas realizadas por el usuario. Para incorporar el nuevo script en una página que ya estaba abierta, recargar esa página una vez.
+
+## 2026-11-16 — Nombre de sede de asistencia y departamentos desplegables
+
+Se actualiza la etiqueta de condición a «Sede donde asiste» desde la definición
+compartida, para cubrir formularios, reglas existentes y descripciones calculadas.
+Se mantiene la clave interna `sede_donde_cursa`, las reglas guardadas y la
+compatibilidad de importación de planillas nuevas y anteriores.
+
+La selección de departamentos se agrupa en un `<details>` nativo con el texto
+«Ver departamentos afectados», cerrado al entrar y abierto si vuelve un
+formulario inválido. Los checkboxes y sus nombres se conservan dentro del
+formulario; el script existente sigue sincronizando la opción de todos con
+las individuales. No se agregan manejadores JavaScript ni estilos nuevos.
+
+Archivos modificados: `VotoUTN/apps/padron/models.py`,
+`VotoUTN/apps/padron/tests.py`,
+`VotoUTN/templates/padron/configurar_sedes_claustro.html`,
+`docs/decisiones_funcionales.md` y este registro. Se crea
+`VotoUTN/apps/padron/migrations/0019_etiquetas_sede_donde_asiste.py` para las
+tres condiciones concretas que heredan el campo compartido; no cambia los
+valores ni columnas existentes. No se eliminan archivos.
+
+Verificación de sede de asistencia y desplegable:
+
+- Las 37 pruebas de reglas de sede, solicitudes y atomicidad aprobaron en 7,792 segundos. Incluyen la etiqueta nueva con la clave histórica, el cálculo con reglas existentes y el formulario inválido que conserva departamentos, abre el desplegable y muestra errores sin crear reglas.
+- Chrome real con HTML autenticado de la base de ensayo y estáticos actuales: a 1200 y 390 píxeles de ancho, el desplegable inicia cerrado, abre y cierra, conserva selecciones individuales y sincroniza la opción de todos sin navegar. La prueba usa un servidor aislado y simula las redirecciones, sin enviar cambios a la elección habitual. El navegador de ensayo se cerró al terminar.
+- La misma prueba de navegador conserva el desplazamiento al agregar (2774 píxeles), ordenar (1563) y eliminar (1601). Las once pruebas JavaScript de conservación de posición también aprobaron.
+- La pantalla de reglas de la elección habitual respondió HTTP 200, con el nuevo texto y el desplegable cerrado, mediante una lectura autenticada dentro de una transacción revertida.
+- `sqlmigrate padron 0019` mostró tres operaciones sin SQL de modificación de estructura o datos. La migración se aplicó correctamente en la base habitual. `check`: sin incidencias; `makemigrations --check`: sin cambios; `migrate --plan`: sin operaciones pendientes; `git diff --check`: sin errores.
+- Suite completa: 787 pruebas en 332,731 segundos, 780 aprobadas, cuatro fallos y tres errores. Los siete casos coinciden exactamente con los registrados antes de esta tarea: avisos de ausencia con tipos demo y expectativas anteriores de fechas/interfaz de elecciones. No aparecen incidencias nuevas; la validación general sigue pendiente por esos casos.
+
+## 2026-11-16 — Selección manual sin selector de función
+
+Se retira el selector visible que solo ofrecía Titular. El formulario usa un
+campo oculto con ese valor y lo completa si no se envía, manteniendo el rechazo
+de tipos inválidos. La pantalla pide elegir turno y persona. Los reemplazos
+siguen fijando la función y turno originales; se mantienen los controles del
+servicio y las confirmaciones existentes.
+
+Se modifican `VotoUTN/apps/autoridades/forms.py`,
+`VotoUTN/templates/autoridades/seleccionar_mesa.html`,
+`VotoUTN/apps/autoridades/tests_nomina.py`, `docs/decisiones_funcionales.md`
+y este registro. No se crean ni eliminan archivos, no se modifican modelos ni
+se requieren migraciones. Las pruebas no modifican la elección del usuario.
+
+Verificación de función manual oculta:
+
+- Las 184 pruebas de `apps.autoridades` aprobaron en 75,153 segundos. La edición en nómina, sorteo y modo histórico manual no muestra selector ni etiqueta de función. Las altas sin enviar tipo guardan Titular, el reemplazo sin tipo ni turno conserva el cupo original y un tipo inválido sigue rechazándose sin crear autoridades.
+- Lectura autenticada de una mesa de la elección habitual: HTTP 200, campo Titular oculto y ningún selector ni etiqueta de función en el formulario. La transacción de verificación se revirtió, sin asignar ni reemplazar personas.
+- `python manage.py check`: sin incidencias; `makemigrations --check`: sin cambios; `migrate --plan`: sin operaciones pendientes; `git diff --check`: sin errores.
+- La comprobación general con `--keepdb --noinput --failfast` detectó 789 pruebas y se detuvo tras 31 en 8,102 segundos por el error anterior de tipos de justificativo demo en el aviso de ausencias. No se repite toda la suite de la tarea anterior, que registró cuatro fallos y tres errores; la validación general sigue pendiente. La suite completa de autoridades sí aprobó.
+
+## 2026-11-16 — Botón Validar archivo en nómina de autoridades
+
+Se cambia «Previsualizar nómina» por «Validar archivo» en la plantilla y en
+el JavaScript que actualiza el botón al cambiar de modalidad. Se versiona el
+recurso para que una copia anterior en caché no reponga el texto antiguo.
+Se conserva el envío, la validación y la revisión de propuestas antes de
+confirmar asignaciones.
+
+Archivos modificados: `VotoUTN/templates/autoridades/gestion_claustro.html`,
+`VotoUTN/static/js/explicacion-modo-autoridades.js`,
+`docs/decisiones_funcionales.md` y este registro. No se crean ni eliminan
+archivos ni se modifican modelos, migraciones o datos de la elección.
+
+Verificación del texto Validar archivo:
+
+- Las 37 pruebas existentes de nómina aprobaron en 37,663 segundos. Cubren validación, revisión sin asignar, alternativas, confirmación, errores de archivo y conservación de designaciones manuales.
+- La plantilla renderizada para el modo nómina muestra Validar archivo y carga el recurso con versión 20261116.1. El JavaScript usa el mismo texto al cambiar de modalidad. La página habitual de autoridades respondió HTTP 200 en una lectura autenticada dentro de una transacción revertida.
+- `node --check` sin errores; `check` sin incidencias; `makemigrations --check` sin cambios; `migrate --plan` sin operaciones pendientes; `git diff --check` sin errores.
+- La comprobación general con `--keepdb --noinput --failfast` detectó 789 pruebas y se detuvo tras 31 en 7,702 segundos por el error previo de tipos de justificativo demo en los avisos de ausencia. La validación general sigue pendiente por las incidencias ya registradas.
+
+## 2026-11-16 — Tarjetas pendientes ante claustros sin preparar
+
+Se reproduce el falso verde de Autoridades, Mesas y Candidaturas con una
+elección de cuatro claustros donde solo uno tiene padrón, mesa, autoridad y
+candidatura. Los controles anteriores recorrían únicamente las mesas
+existentes o comprobaban una presentación global.
+
+El resumen toma ahora todos los claustros participantes, conserva como
+pendientes los vacíos y comprueba sus prerrequisitos antes de la cobertura.
+Autoridades valida el mínimo de cada mesa y turno con designaciones activas;
+Mesas exige distribución completa y compatible del padrón activo;
+Candidaturas exige puestos, presentaciones, listas y candidatos válidos de
+cada claustro sin requerir llenar todos los cupos. Las tres tarjetas muestran
+el avance y un detalle desplegable por claustro. Las consultas son de lectura
+y no alteran los permisos ni las transiciones electorales.
+
+Se crean `VotoUTN/apps/elecciones/resumen_preparacion.py`,
+`VotoUTN/apps/elecciones/tests_resumen_preparacion.py` y
+`VotoUTN/templates/elecciones/_resumen_preparacion_claustros.html`.
+Se modifican `VotoUTN/apps/elecciones/views.py`,
+`VotoUTN/templates/elecciones/configurar_eleccion.html`,
+`docs/decisiones_funcionales.md` y este registro. No se eliminan archivos
+ni se modifican modelos o migraciones.
+
+También se actualiza una expectativa en
+`VotoUTN/apps/autoridades/tests_distribucion.py` que aún buscaba el texto
+Previsualizar nómina, reemplazado por Validar archivo en el punto anterior.
+
+Verificación de tarjetas por claustro:
+
+- Antes de corregir, la regresión de cuatro claustros con uno completo reprodujo el falso estado listo en las tres tarjetas. Después aprobaron 15 regresiones en 3,859 segundos: claustros vacíos o agregados posteriormente, padrón inactivo, falta de mesas o asignaciones, sede pendiente, mínimos por turno, autoridad rechazada, candidaturas inactivas, presentaciones sin claustro, capacidad y tipos de mesa. Se conserva el caso válido de adicionales en mesa especial.
+- Verificación final conjunta: las 55 pruebas de resumen y distribución de autoridades aprobaron en 13,123 segundos, incluida la expectativa actualizada del botón de nómina.
+- Lectura autenticada de configuración habitual: HTTP 200 y tres detalles por claustro. El resumen hizo diez consultas y tardó 0,073 segundos en esa medición local. Se revirtió la transacción de verificación. La elección tenía un solo claustro participante; los parámetros del catálogo que aún no participan no se agregan automáticamente.
+- `check`: sin incidencias; `makemigrations --check`: sin cambios; `migrate --plan`: sin operaciones pendientes; `git diff --check`: sin errores.
+- Suite completa: 804 pruebas en 348,548 segundos, 796 aprobadas, cinco fallos y tres errores. Uno de los fallos era exclusivamente la expectativa anterior del botón de nómina: se actualizó y la distribución completa aprobó en la verificación final. Los otros siete casos coinciden exactamente con los cuatro fallos y tres errores previos de fechas, pantallas de elecciones y justificativos demo. No se declara cerrada la validación general.
+
+Reapertura solicitada para probar otro claustro:
+
+Durante la verificación, el usuario pidió retroceder segmento1 (elección 4),
+que había publicado por interfaz, para agregar un claustro. Se comprobó que
+no tenía participación ni QR emitidos ni autoridades definitivas confirmadas.
+En una transacción se llevó a En preparación, con habilitada=False y sin
+habilitación de solicitudes de cambio de sede. Se conservaron fechas, 600
+registros, 15 mesas, 600 asignaciones, una autoridad y 19 solicitudes. La
+excepción quedó auditada en el evento 384, sin cambiar las transiciones
+normales del sistema. Una lectura autenticada confirmó HTTP 200 y el alta de
+claustro habilitada en `/gestion/elecciones/4/alcances/`.

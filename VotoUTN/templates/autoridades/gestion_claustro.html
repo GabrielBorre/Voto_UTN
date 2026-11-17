@@ -36,7 +36,7 @@
       </div>
       <div class="field" data-entrada-nomina{% if modo_vista != 'nomina' %} hidden{% endif %}><label for="{{ formulario_nomina.archivo.id_for_label }}">Archivo de nómina CSV o Excel</label>{{ formulario_nomina.archivo }}{% for error in formulario_nomina.archivo.errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}<a class="button light small" href="{% url 'descargar-plantilla-autoridades-claustro' eleccion.id eleccion_claustro.id %}?modo=nomina">Descargar plantilla de nómina</a></div>
       <div class="footer-actions" data-acciones-modo>
-        {% if modo_vista != 'manual' %}<button type="submit" class="button primary" data-boton-aplicar name="aplicar-modo"{% if modo_vista == 'aleatorio' and not eleccion.autoridades_confirmadas_en %} data-confirm="Este sorteo es provisorio y puede cambiar antes de la confirmación definitiva. ¿Querés aplicarlo?" data-confirm-title="Sorteo provisorio" data-confirm-accept="Aplicar sorteo"{% endif %}>{% if modo_vista == 'aleatorio' %}Sortear todas las mesas{% elif modo_vista == 'nomina' %}Previsualizar nómina{% endif %}</button>{% endif %}
+        {% if modo_vista != 'manual' %}<button type="submit" class="button primary" data-boton-aplicar name="aplicar-modo"{% if modo_vista == 'aleatorio' and not eleccion.autoridades_confirmadas_en %} data-confirm="Este sorteo es provisorio y puede cambiar antes de la confirmación definitiva. ¿Querés aplicarlo?" data-confirm-title="Sorteo provisorio" data-confirm-accept="Aplicar sorteo"{% endif %}>{% if modo_vista == 'aleatorio' %}Sortear todas las mesas{% elif modo_vista == 'nomina' %}Validar archivo{% endif %}</button>{% endif %}
         {% if modo_vista == 'aleatorio' %}<button type="submit" class="button secondary" data-boton-recalcular name="recalcular-distribucion" data-confirm="Se eliminarán todas las asignaciones actuales, aleatorias y manuales, y se generará una distribución nueva desde cero. ¿Continuar?" data-confirm-title="Recalcular distribución" data-confirm-accept="Recalcular">Recalcular</button>{% endif %}
       </div>
     </form>
@@ -146,4 +146,4 @@
   </form>{% endif %}
 </div>
 {% endblock %}
-{% block scripts %}<script type="module" src="{% static 'js/explicacion-modo-autoridades.js' %}?v=20261107.1"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/explicacion-modo-autoridades.js' %}?v=20261116.1"></script>{% endblock %}

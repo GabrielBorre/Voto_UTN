@@ -23,7 +23,7 @@
 </section>
 <section class="card management-section" id="seleccion">
   <h2>{% if formulario.reemplazo %}Reemplazar a {{ formulario.reemplazo.registro_padron.elector.nombre_completo }}{% else %}Asignar una persona{% endif %}</h2>
-  <p>Elegí turno y función, y buscá por nombre. Se muestran personas de esta mesa sin asignación y sin superposición con el turno en el que asisten a la sede.</p>
+  <p>Elegí el turno y buscá por nombre. Se muestran personas de esta mesa sin asignación y sin superposición con el turno en el que asisten a la sede.</p>
   {% if formulario.reemplazo %}<p class="notice">La persona elegida ocupará el mismo turno y función de la designación que estás reemplazando.</p>{% endif %}
   <form method="post" class="autoridades-modo-form" id="seleccion-manual-form"{% if not eleccion.autoridades_confirmadas_en %} data-confirm="Esta asignación es provisoria y puede cambiar antes de la confirmación definitiva. ¿Querés continuar?" data-confirm-title="Asignación provisoria" data-confirm-accept="Continuar"{% endif %}>
     {% csrf_token %}

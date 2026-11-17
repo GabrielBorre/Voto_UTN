@@ -290,7 +290,7 @@ class BaseCondicionPadron(models.Model):
         DEPARTAMENTO = "departamento", "Departamento"
         DEPARTAMENTO_PRINCIPAL = "departamento_principal", "Departamento principal"
         NIVEL = "nivel", "Nivel"
-        SEDE_DONDE_CURSA = "sede_donde_cursa", "Sede donde cursa"
+        SEDE_DONDE_CURSA = "sede_donde_cursa", "Sede donde asiste"
         DISCAPACIDAD = "discapacidad", "Tiene discapacidad"
 
     class Operador(models.TextChoices):

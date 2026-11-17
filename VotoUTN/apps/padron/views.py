@@ -26,6 +26,7 @@ from apps.padron.models import (
 from apps.padron.forms import FormularioArchivoPadron, FormularioReglaSedeClaustro, FormularioSolicitudCambioSede
 from apps.padron.services_pdf import generar_padron_claustro_pdf, nombre_archivo_padron_claustro_pdf
 from apps.padron.services import (
+    PLANTILLA_PADRON_DESCRIPCIONES,
     PLANTILLA_PADRON_EJEMPLO,
     PLANTILLA_PADRON_HEADERS,
     alcances_con_sedes_multiples,
@@ -90,6 +91,8 @@ def descargar_plantilla_padron(request, eleccion_id, claustro_id):
     escritor.writerow(PLANTILLA_PADRON_HEADERS)
     for fila in PLANTILLA_PADRON_EJEMPLO:
         escritor.writerow(fila)
+    escritor.writerow(("",) * len(PLANTILLA_PADRON_HEADERS))
+    escritor.writerow(PLANTILLA_PADRON_DESCRIPCIONES)
     return respuesta
 
 
@@ -390,6 +393,18 @@ def _recalcular_con_mensaje(request, claustro, prefijo):
 
 @login_required
 def configurar_sedes_claustro(request, eleccion_id, claustro_id):
+    if request.method != "POST":
+        return _configurar_sedes_claustro(request, eleccion_id, claustro_id)
+    try:
+        with transaction.atomic():
+            get_object_or_404(Eleccion.objects.select_for_update(), pk=eleccion_id)
+            return _configurar_sedes_claustro(request, eleccion_id, claustro_id)
+    except ValueError as error:
+        messages.error(request, f"No se aplicó el cambio de regla. {error}")
+        return redirect("configurar-sedes-claustro", eleccion_id=eleccion_id, claustro_id=claustro_id)
+
+
+def _configurar_sedes_claustro(request, eleccion_id, claustro_id):
     claustro = get_object_or_404(EleccionClaustro, pk=claustro_id, eleccion_id=eleccion_id)
     if not puede_configurar_eleccion(request.user, claustro.eleccion, solo_consulta=request.method in ("GET", "HEAD")):
         return HttpResponseForbidden("No tiene permiso para configurar las sedes del padrón.")
