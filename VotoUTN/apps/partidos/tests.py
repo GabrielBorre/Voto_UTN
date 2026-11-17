@@ -882,26 +882,40 @@ class PartidosViewsTests(PartidosBaseTests):
             participacion=self.participacion, eleccion_claustro=self.eleccion_claustro,
             nombre="Representante", puesto_eleccion=otro_puesto,
         )
+        Candidato.objects.create(
+            lista=otra_asociacion, nombre="Candidata del otro puesto", dni="30777667",
+            cargo="Representante", tipo=Candidato.Tipo.TITULAR, orden=1,
+        )
         destino = reverse("detalle-participacion-partido", args=(self.eleccion.id, self.participacion.id))
         respuesta = self.client.get(f"{destino}?puesto={self.lista.id}")
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Seleccionado", count=1)
         self.assertContains(respuesta, "Editar candidatos", count=1)
-        self.assertContains(respuesta, f"?puesto={otra_asociacion.id}#formulario-candidatos")
+        self.assertContains(respuesta, f"?puesto={otra_asociacion.id}#lista-candidatos")
         self.assertContains(respuesta, 'class="candidaturas-puesto-seleccionado"', count=1)
+        respuesta_otro_puesto = self.client.get(f"{destino}?puesto={otra_asociacion.id}")
+        self.assertEqual(respuesta_otro_puesto.context["asociacion_seleccionada"], otra_asociacion)
+        self.assertContains(respuesta_otro_puesto, 'id="lista-candidatos"')
+        self.assertContains(respuesta_otro_puesto, "Candidata del otro puesto")
 
         respuesta_csv = self.client.get(
             f"{destino}?puesto={self.lista.id}&pestana_candidatos=csv"
         )
         self.assertContains(
             respuesta_csv,
-            f"?puesto={otra_asociacion.id}&amp;pestana_candidatos=csv#formulario-candidatos",
+            f"?puesto={otra_asociacion.id}&amp;pestana_candidatos=csv#lista-candidatos",
         )
         respuesta_otro_puesto = self.client.get(
             f"{destino}?puesto={otra_asociacion.id}&pestana_candidatos=csv"
         )
         self.assertEqual(respuesta_otro_puesto.context["pestana_candidatos"], "csv")
+        self.assertContains(respuesta_otro_puesto, 'id="lista-candidatos"')
+        self.assertContains(respuesta_otro_puesto, "Candidata del otro puesto")
+        respuesta_multipuesto = self.client.get(
+            f"{destino}?puesto={self.lista.id}&pestana_candidatos=multipuesto"
+        )
+        self.assertContains(respuesta_multipuesto, f"?puesto={otra_asociacion.id}#lista-candidatos")
 
     def test_desactiva_candidato_mediante_post(self):
         candidato = Candidato.objects.create(

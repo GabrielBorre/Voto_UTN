@@ -956,7 +956,7 @@ class BoletasPDFTests(TestCase):
                 1,
             )
 
-    def test_estudiantes_ubica_ciencias_basicas_al_lado_de_cada_departamento_de_la_misma_lista(self):
+    def test_estudiantes_ubica_ciencias_basicas_en_la_fila_principal_de_cada_departamento(self):
         participacion = self.crear_presentacion(
             codigo="AZUL", numero="10", nombre="Lista Azul", elector=self.crear_elector(100, "Ana"),
         )
@@ -981,8 +981,11 @@ class BoletasPDFTests(TestCase):
         for fila in filas_azules:
             departamental, basicas = fila["columnas"][2:4]
             self.assertIsNotNone(departamental)
-            self.assertIsNotNone(basicas)
-            self.assertEqual(basicas["puestos"][0]["candidatos"][0].lista_id, lista_basicas.pk)
+            if fila.get("fila_departamental"):
+                self.assertIsNone(basicas)
+            else:
+                self.assertIsNotNone(basicas)
+                self.assertEqual(basicas["puestos"][0]["candidatos"][0].lista_id, lista_basicas.pk)
         filas_verdes = [fila for fila in filas if any(
             columna and columna["participacion"].pk == otra.pk for columna in fila["columnas"]
         )]
@@ -1028,6 +1031,46 @@ class BoletasPDFTests(TestCase):
         self.assertEqual(len(filas), 1)
         self.assertEqual([columna is not None for columna in filas[0]["columnas"]], [False, True, False, True])
         self.assertTrue(generar_boletas_pdf(self.eleccion).startswith(b"%PDF"))
+
+    def test_estudiantes_no_imprime_basicas_en_segunda_fila_fisica(self):
+        cargo = CargoElectivo.objects.create(
+            organo=self.organo, nombre="Consejero/a Ciencias Básicas",
+        )
+        puesto = PuestoEleccion.objects.create(
+            puesto=cargo, eleccion_claustro=self.eleccion_claustro,
+            cantidad_titulares=1, cantidad_suplentes=1,
+        )
+        for indice in range(4):
+            participacion = ParticipacionPartido.objects.create(
+                eleccion=self.eleccion, eleccion_claustro=self.eleccion_claustro,
+                codigo_presentacion=f"BASICAS-{indice}", numero_lista=str(indice + 1),
+                nombre_lista=f"Lista {indice + 1}",
+            )
+            lista = ListaCandidatos.objects.create(
+                participacion=participacion, eleccion_claustro=self.eleccion_claustro,
+                puesto_eleccion=puesto,
+            )
+            Candidato.objects.create(
+                lista=lista, elector=self.crear_elector(120 + indice, f"Estudiante {indice}"),
+                cargo=cargo.nombre, tipo=Candidato.Tipo.TITULAR, orden=1,
+            )
+
+        filas, errores = _crear_filas_boletas(_obtener_boletas(self.eleccion))
+
+        self.assertEqual(errores, [])
+        self.assertEqual(len(filas), 4)
+        self.assertIsNotNone(filas[0]["columnas"][3])
+        self.assertIsNone(filas[1]["columnas"][3])
+        self.assertIsNotNone(filas[2]["columnas"][3])
+        self.assertIsNone(filas[3]["columnas"][3])
+        self.assertEqual(validar_boletas_pdf(self.eleccion).cantidad_boletas, 2)
+        with patch(
+            "apps.reportes.services_boletas_pdf._dibujar_boleta_cuadrante",
+            wraps=_dibujar_boleta_cuadrante,
+        ) as dibujar:
+            contenido = generar_boletas_pdf(self.eleccion)
+        self.assertEqual(contar_paginas_pdf(contenido), 2)
+        self.assertEqual(dibujar.call_count, 2)
 
     def test_ciencias_basicas_no_se_mezcla_con_otro_claustro_de_la_misma_lista(self):
         ciencias_basicas = Departamento.objects.create(nombre="Ciencias Básicas", codigo="Z")

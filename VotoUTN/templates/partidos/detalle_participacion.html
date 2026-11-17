@@ -111,7 +111,7 @@
                     {% if asociacion_seleccionada.id == asociacion.id %}
                       <strong class="pill info">Seleccionado</strong>
                     {% else %}
-                      <a class="button light small" href="?puesto={{ asociacion.id }}{% if pestana_candidatos == 'csv' %}&amp;pestana_candidatos=csv{% endif %}#formulario-candidatos">Editar candidatos</a>
+                      <a class="button light small" href="?puesto={{ asociacion.id }}{% if pestana_candidatos == 'csv' %}&amp;pestana_candidatos=csv{% endif %}#lista-candidatos">Editar candidatos</a>
                     {% endif %}
                     {% if not asociacion.activa %}
                       <form class="inline-form" method="post" action="{% url 'cambiar-estado-lista-candidatos' eleccion.id asociacion.id %}">
@@ -248,7 +248,7 @@
         </div>
         {% endif %}
 
-        <div class="candidaturas-subsection">
+        <div class="candidaturas-subsection" id="lista-candidatos">
           <div class="section-title"><div><h3>Candidatos de este puesto</h3><p>Titulares y suplentes ya cargados.</p></div><span class="tag">{{ asociacion_seleccionada.candidatos.count }} candidatos cargados</span></div>
           <div class="table-wrap">
             <table>

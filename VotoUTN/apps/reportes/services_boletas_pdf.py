@@ -377,6 +377,11 @@ def _crear_filas_boletas(boletas):
                 "fila_dasuten": True,
             })
 
+    for fila in filas[1::FILAS_POR_PAGINA]:
+        basicas = fila["columnas"][3]
+        if basicas and "estudiante" in slugify(" ".join(basicas["claustros"])):
+            fila["columnas"][3] = None
+
     return filas, sorted(puestos_sin_categoria)
 
 
