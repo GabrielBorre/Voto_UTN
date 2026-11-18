@@ -1,0 +1,5 @@
+﻿codigo_presentacion;numero_lista;nombre_lista;apoderado_nombre;apoderado_email;claustro;organo;puesto;departamento;tipo_documento;documento;tipo_candidatura;orden
+NODOC-3-SEG1;3;Integración;Apoderado externo No docentes Lista 3;apoderado.nodocentes3@example.org;No docentes;Consejo Directivo;Consejero/a directivo/a;;DNI;36300470;titular;1
+NODOC-3-SEG1;3;Integración;Apoderado externo No docentes Lista 3;apoderado.nodocentes3@example.org;No docentes;Consejo Directivo;Consejero/a directivo/a;;DNI;36300435;suplente;1
+NODOC-3-SEG1;3;Integración;Apoderado externo No docentes Lista 3;apoderado.nodocentes3@example.org;No docentes;Consejo DASUTeN;Consejero/a DASUTeN;;DNI;36300345;titular;1
+NODOC-3-SEG1;3;Integración;Apoderado externo No docentes Lista 3;apoderado.nodocentes3@example.org;No docentes;Consejo DASUTeN;Consejero/a DASUTeN;;DNI;36300074;suplente;1

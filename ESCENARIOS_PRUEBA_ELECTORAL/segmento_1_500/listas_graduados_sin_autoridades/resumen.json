@@ -1,0 +1,85 @@
+{
+  "padron_origen": "ESCENARIOS_PRUEBA_ELECTORAL\\segmento_1_500\\padrones_sin_autoridades_instancia_3\\padron_graduados_sin_autoridades.csv",
+  "sha256_padron_origen": "8a1ab5a4bb1da19a599dea381ab2f8427e50f6daf6388a80e2c978c793b7acf8",
+  "sha256_autoridades_origen": "cbf125fec8da9edecbd081c2e3f1cdc20045e1a3b2182d6dc5ddf196c3cabadf",
+  "semilla_seleccion": 20261118,
+  "porcentaje_minimo": 50,
+  "porcentaje_aplicado": 100,
+  "personas_disponibles": 419,
+  "candidatos_distintos": 72,
+  "personas_no_seleccionadas": 347,
+  "departamentos": [
+    {
+      "codigo": "K",
+      "nombre": "Ingeniería en Sistemas de Información",
+      "personas_disponibles": 191,
+      "personas_necesarias_ambas_listas": 8
+    },
+    {
+      "codigo": "I",
+      "nombre": "Ingeniería Industrial",
+      "personas_disponibles": 116,
+      "personas_necesarias_ambas_listas": 8
+    },
+    {
+      "codigo": "R",
+      "nombre": "Ingeniería Electrónica",
+      "personas_disponibles": 41,
+      "personas_necesarias_ambas_listas": 8
+    }
+  ],
+  "apoderados_externos": true,
+  "listas": [
+    {
+      "codigo_presentacion": "GRAD-19-SEG1",
+      "numero_lista": "19",
+      "nombre_lista": "19 de agosto",
+      "apoderado_nombre": "Apoderado externo Graduados Lista 19",
+      "apoderado_email": "apoderado.graduados19@example.org",
+      "archivo_importacion_completa": "importacion_completa/lista_19_19_de_agosto.csv",
+      "archivo_multipuesto": "lista_19_19_de_agosto.csv",
+      "candidatos": 36,
+      "titulares": 18,
+      "suplentes": 18,
+      "puestos": 6,
+      "cobertura_por_puesto": 100,
+      "departamentos_origen": {
+        "I": 11,
+        "K": 12,
+        "O": 3,
+        "Q": 1,
+        "R": 7,
+        "S": 2
+      }
+    },
+    {
+      "codigo_presentacion": "GRAD-3-SEG1",
+      "numero_lista": "3",
+      "nombre_lista": "Club del Graduado",
+      "apoderado_nombre": "Apoderado externo Graduados Lista 3",
+      "apoderado_email": "apoderado.graduados3@example.org",
+      "archivo_importacion_completa": "importacion_completa/lista_3_club_del_graduado.csv",
+      "archivo_multipuesto": "lista_3_club_del_graduado.csv",
+      "candidatos": 36,
+      "titulares": 18,
+      "suplentes": 18,
+      "puestos": 6,
+      "cobertura_por_puesto": 100,
+      "departamentos_origen": {
+        "I": 10,
+        "K": 16,
+        "O": 1,
+        "R": 6,
+        "S": 3
+      }
+    }
+  ],
+  "distribucion_total_departamentos": {
+    "I": 21,
+    "K": 28,
+    "O": 4,
+    "Q": 1,
+    "R": 13,
+    "S": 5
+  }
+}

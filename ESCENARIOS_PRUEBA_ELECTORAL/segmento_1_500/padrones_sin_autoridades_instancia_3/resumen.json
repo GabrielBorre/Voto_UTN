@@ -1,0 +1,125 @@
+{
+  "foto": ".instancias\\foto-instancia-3\\postgres.sql",
+  "capturada_en": "2026-11-17T03:45:51.1205285-03:00",
+  "instancia": 3,
+  "eleccion": {
+    "id": "1",
+    "nombre": "Demo 2026",
+    "estado": "en_curso"
+  },
+  "sha256_foto_archivo": "0e0d19d13dffe9685496bfee3cd624fdb42be7b9599ac87feabf4ddac2a1ffa0",
+  "sha256_foto_lf": "ec046937c0e59fed2c013246a4901868c41e3e605ea86ec0df202e0353978c5c",
+  "criterio": "Excluir todas las filas de personas con autoridad asignada en la foto y las exclusiones adicionales indicadas, por tipo y numero de documento.",
+  "autoridades_por_estado": {
+    "asignada": 402,
+    "rechazada": 1
+  },
+  "personas_autoridades_asignadas": 402,
+  "autoridades_asignadas_sin_coincidencia": [],
+  "padrones": [
+    {
+      "archivo_original": "padron_estudiantes.csv",
+      "claustro": "Estudiantes",
+      "archivo_generado": "padron_estudiantes_sin_autoridades.csv",
+      "filas_originales": 500,
+      "personas_originales": 500,
+      "filas_excluidas": 171,
+      "personas_excluidas": 171,
+      "personas_excluidas_por_autoridad": 170,
+      "personas_excluidas_adicionalmente": 1,
+      "exclusiones_adicionales": [
+        {
+          "tipo_documento": "DNI",
+          "documento": "38999222"
+        }
+      ],
+      "filas_generadas": 329,
+      "personas_generadas": 329,
+      "distribucion_departamentos": {
+        "I": 89,
+        "K": 163,
+        "O": 12,
+        "Q": 6,
+        "R": 32,
+        "S": 18,
+        "U": 1,
+        "V": 7,
+        "W": 1
+      },
+      "sha256_original": "4a1bb94cfe45062179f32dfcd8b917b43efce342109e3b5a34619c8336d5c932",
+      "sha256_generado": "4027187acd8fdce1eb1976395a3f619f6e379e9106e9b02b85d252ebc56ff18d"
+    },
+    {
+      "archivo_original": "padron_docentes.csv",
+      "claustro": "Docentes",
+      "archivo_generado": "padron_docentes_sin_autoridades.csv",
+      "filas_originales": 600,
+      "personas_originales": 500,
+      "filas_excluidas": 149,
+      "personas_excluidas": 115,
+      "personas_excluidas_por_autoridad": 115,
+      "personas_excluidas_adicionalmente": 0,
+      "exclusiones_adicionales": [],
+      "filas_generadas": 451,
+      "personas_generadas": 385,
+      "distribucion_departamentos": {
+        "I": 100,
+        "K": 172,
+        "O": 15,
+        "Q": 3,
+        "R": 40,
+        "S": 19,
+        "V": 11,
+        "Z": 91
+      },
+      "sha256_original": "bb464a34d44b273bdf77e2c54f7d533e5b644b351406b583f08e3d96ebe9c534",
+      "sha256_generado": "55edee2f7017c6d8f5c574d5f8d1df761e11f5a287d8b7455717c75aa1d3673b"
+    },
+    {
+      "archivo_original": "padron_graduados.csv",
+      "claustro": "Graduados",
+      "archivo_generado": "padron_graduados_sin_autoridades.csv",
+      "filas_originales": 500,
+      "personas_originales": 500,
+      "filas_excluidas": 81,
+      "personas_excluidas": 81,
+      "personas_excluidas_por_autoridad": 81,
+      "personas_excluidas_adicionalmente": 0,
+      "exclusiones_adicionales": [],
+      "filas_generadas": 419,
+      "personas_generadas": 419,
+      "distribucion_departamentos": {
+        "I": 116,
+        "K": 191,
+        "O": 21,
+        "Q": 6,
+        "R": 41,
+        "S": 26,
+        "U": 1,
+        "V": 16,
+        "W": 1
+      },
+      "sha256_original": "ed01db3e681ee091e5d3d0f3b8d0bd06667ec36db52861532457a5dc2c70ab59",
+      "sha256_generado": "8a1ab5a4bb1da19a599dea381ab2f8427e50f6daf6388a80e2c978c793b7acf8"
+    },
+    {
+      "archivo_original": "padron_no_docentes.csv",
+      "claustro": "No docentes",
+      "archivo_generado": "padron_no_docentes_sin_autoridades.csv",
+      "filas_originales": 500,
+      "personas_originales": 500,
+      "filas_excluidas": 36,
+      "personas_excluidas": 36,
+      "personas_excluidas_por_autoridad": 36,
+      "personas_excluidas_adicionalmente": 0,
+      "exclusiones_adicionales": [],
+      "filas_generadas": 464,
+      "personas_generadas": 464,
+      "distribucion_departamentos": {
+        "Sin departamento": 464
+      },
+      "sha256_original": "849d45399c422058ad83d8c317809ddb5f98d93fd539803ee61863f51cecd897",
+      "sha256_generado": "e3320e8b627fa32eace0b705dd888417246afa547c1fb29c028db08ea87fd494"
+    }
+  ]
+}

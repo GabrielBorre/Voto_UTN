@@ -1,0 +1,42 @@
+{
+  "padron_origen": "ESCENARIOS_PRUEBA_ELECTORAL\\segmento_1_500\\padrones_sin_autoridades_instancia_3\\padron_no_docentes_sin_autoridades.csv",
+  "sha256_padron_origen": "e3320e8b627fa32eace0b705dd888417246afa547c1fb29c028db08ea87fd494",
+  "sha256_autoridades_origen": "cbf125fec8da9edecbd081c2e3f1cdc20045e1a3b2182d6dc5ddf196c3cabadf",
+  "semilla": 20261118,
+  "personas_disponibles": 464,
+  "personas_seleccionadas": 8,
+  "personas_no_seleccionadas": 456,
+  "candidatos_por_lista": 4,
+  "directivo_por_lista": {
+    "titulares": 1,
+    "suplentes": 1,
+    "cobertura_estandar": 100
+  },
+  "dasuten_por_lista": {
+    "titulares": 1,
+    "suplentes": 1,
+    "cobertura_estandar": 50
+  },
+  "listas": [
+    {
+      "codigo_presentacion": "NODOC-9-SEG1",
+      "numero_lista": "9",
+      "nombre_lista": "Unión y Participación",
+      "apoderado_nombre": "Apoderado externo No docentes Lista 9",
+      "apoderado_email": "apoderado.nodocentes9@example.org",
+      "claustro": "No docentes",
+      "archivo": "lista_9_union_y_participacion.csv",
+      "origen_apoderado": "Ficticio externo al padrón, sin candidatura"
+    },
+    {
+      "codigo_presentacion": "NODOC-3-SEG1",
+      "numero_lista": "3",
+      "nombre_lista": "Integración",
+      "apoderado_nombre": "Apoderado externo No docentes Lista 3",
+      "apoderado_email": "apoderado.nodocentes3@example.org",
+      "claustro": "No docentes",
+      "archivo": "lista_3_integracion.csv",
+      "origen_apoderado": "Ficticio externo al padrón, sin candidatura"
+    }
+  ]
+}

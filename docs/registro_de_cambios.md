@@ -1,5 +1,36 @@
 # Registro de cambios por etapa
 
+## Casos de candidatos para los cuatro claustros - 18 de noviembre de 2026
+
+Se publican las cuatro carpetas `listas_*_sin_autoridades` en
+`ESCENARIOS_PRUEBA_ELECTORAL/segmento_1_500/`, los padrones filtrados de origen
+y los cinco generadores correspondientes en `scripts/`. Se mantienen los dos
+CSV multipuesto de Estudiantes previamente publicados, sin modificar sus bytes.
+
+Las listas comprenden Estudiantes 19 y 3; Graduados 19 y 3; Docentes 19 y 2 con
+tres sublistas departamentales y una presentación de Directivo y DASUTeN por
+familia; y No docentes 9 — Unión y Participación y 3 — Integración. Hay catorce
+presentaciones. Los apoderados son ejemplos ficticios externos al padrón.
+Superior comparte las mismas treinta personas en las tres sublistas de cada
+familia docente. No hay otras repeticiones entre cargos o listas de un claustro.
+El caso docente usa cupo 2 y 2 en Directivo, según confirmación del usuario.
+
+`crear_listas_para_csv.py`, `test_crear_listas_para_csv.py` y `CREAR_LISTAS.md`
+se agregan en la carpeta común. El script requiere ID explícito de elección
+En preparación, previsualiza por defecto y aplica con `--aplicar`. Prepara
+las catorce presentaciones con cincuenta asociaciones, conserva datos existentes
+y no carga candidatos ni cambia parámetros, puestos o padrones. Si falta un
+claustro o puesto o hay un conflicto, rechaza la operación sin carga parcial.
+Se puede filtrar por claustro. Las instrucciones explican la carga posterior
+mediante los CSV de uno o varios puestos.
+
+Los cuatro generadores reproducen exactamente los archivos suministrados.
+Las doce pruebas del script verifican creación sin candidatos, previsualización
+sin escrituras, idempotencia, reutilización de listas manuales y apoderados,
+asociaciones faltantes, configuración y cupos incompatibles y reversión ante
+fallos de auditoría. No se modifican modelos ni migraciones ni se ejecuta la
+creación de listas sobre una base habitual como parte de la publicación.
+
 ## Marca de agua en dos renglones y actualizacion del contenedor
 
 - La marca de agua dibuja «Demo Proyecto Final» y «VOTO UTN» por separado:

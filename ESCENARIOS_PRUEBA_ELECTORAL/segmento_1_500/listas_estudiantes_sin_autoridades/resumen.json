@@ -1,0 +1,62 @@
+{
+  "padron_origen": "ESCENARIOS_PRUEBA_ELECTORAL\\segmento_1_500\\padrones_sin_autoridades_instancia_3\\padron_estudiantes_sin_autoridades.csv",
+  "sha256_padron_origen": "4027187acd8fdce1eb1976395a3f619f6e379e9106e9b02b85d252ebc56ff18d",
+  "sha256_autoridades_origen": "cbf125fec8da9edecbd081c2e3f1cdc20045e1a3b2182d6dc5ddf196c3cabadf",
+  "semilla_seleccion": 20261118,
+  "porcentaje_minimo": 50,
+  "porcentaje_aplicado": 100,
+  "personas_disponibles": 329,
+  "candidatos_distintos": 88,
+  "personas_no_seleccionadas": 241,
+  "departamentos": [
+    {
+      "codigo": "K",
+      "nombre": "Ingeniería en Sistemas de Información",
+      "personas_disponibles": 163,
+      "personas_necesarias_ambas_listas": 12
+    },
+    {
+      "codigo": "I",
+      "nombre": "Ingeniería Industrial",
+      "personas_disponibles": 89,
+      "personas_necesarias_ambas_listas": 12
+    },
+    {
+      "codigo": "R",
+      "nombre": "Ingeniería Electrónica",
+      "personas_disponibles": 32,
+      "personas_necesarias_ambas_listas": 12
+    }
+  ],
+  "apoderados_externos": true,
+  "listas": [
+    {
+      "codigo_presentacion": "EST-19-SEG1",
+      "numero_lista": "19",
+      "nombre_lista": "19 de agosto",
+      "apoderado_nombre": "Apoderado externo Lista 19",
+      "apoderado_email": "apoderado.lista19@example.org",
+      "archivo_importacion_completa": "lista_19_19_de_agosto.csv",
+      "archivo_multipuesto": "multipuesto/lista_19_19_de_agosto.csv",
+      "candidatos": 44,
+      "titulares": 22,
+      "suplentes": 22,
+      "puestos": 6,
+      "cobertura_por_puesto": 100
+    },
+    {
+      "codigo_presentacion": "EST-3-SEG1",
+      "numero_lista": "3",
+      "nombre_lista": "Franja Morada",
+      "apoderado_nombre": "Apoderado externo Lista 3",
+      "apoderado_email": "apoderado.lista3@example.org",
+      "archivo_importacion_completa": "lista_3_franja_morada.csv",
+      "archivo_multipuesto": "multipuesto/lista_3_franja_morada.csv",
+      "candidatos": 44,
+      "titulares": 22,
+      "suplentes": 22,
+      "puestos": 6,
+      "cobertura_por_puesto": 100
+    }
+  ]
+}

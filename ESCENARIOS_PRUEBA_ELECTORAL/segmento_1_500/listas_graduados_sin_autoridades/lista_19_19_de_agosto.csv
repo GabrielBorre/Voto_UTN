@@ -1,0 +1,37 @@
+﻿puesto;departamento;tipo_documento;documento;tipo_candidatura;orden
+Consejero/a Superior;;DNI;36218004;titular;1
+Consejero/a Superior;;DNI;36209012;titular;2
+Consejero/a Superior;;DNI;36200010;titular;3
+Consejero/a Superior;;DNI;36209088;titular;4
+Consejero/a Superior;;DNI;36200027;titular;5
+Consejero/a Superior;;DNI;36200070;suplente;1
+Consejero/a Superior;;DNI;36236022;suplente;2
+Consejero/a Superior;;DNI;36209075;suplente;3
+Consejero/a Superior;;DNI;36209017;suplente;4
+Consejero/a Superior;;DNI;36254015;suplente;5
+Consejero/a directivo/a;;DNI;36218028;titular;1
+Consejero/a directivo/a;;DNI;36227026;titular;2
+Consejero/a directivo/a;;DNI;36209002;titular;3
+Consejero/a directivo/a;;DNI;36218007;titular;4
+Consejero/a directivo/a;;DNI;36236026;titular;5
+Consejero/a directivo/a;;DNI;36227025;suplente;1
+Consejero/a directivo/a;;DNI;36236025;suplente;2
+Consejero/a directivo/a;;DNI;36200081;suplente;3
+Consejero/a directivo/a;;DNI;36200059;suplente;4
+Consejero/a directivo/a;;DNI;36209030;suplente;5
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200125;titular;1
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200034;titular;2
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200065;suplente;1
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200083;suplente;2
+Consejero/a departamental;Ingeniería Industrial;DNI;36209023;titular;1
+Consejero/a departamental;Ingeniería Industrial;DNI;36209065;titular;2
+Consejero/a departamental;Ingeniería Industrial;DNI;36209079;suplente;1
+Consejero/a departamental;Ingeniería Industrial;DNI;36209014;suplente;2
+Consejero/a departamental;Ingeniería Electrónica;DNI;36218033;titular;1
+Consejero/a departamental;Ingeniería Electrónica;DNI;36218026;titular;2
+Consejero/a departamental;Ingeniería Electrónica;DNI;36218015;suplente;1
+Consejero/a departamental;Ingeniería Electrónica;DNI;36218040;suplente;2
+Consejero/a Ciencias Básicas;;DNI;36200079;titular;1
+Consejero/a Ciencias Básicas;;DNI;36200032;titular;2
+Consejero/a Ciencias Básicas;;DNI;36200100;suplente;1
+Consejero/a Ciencias Básicas;;DNI;36209055;suplente;2
