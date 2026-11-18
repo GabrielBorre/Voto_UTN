@@ -11,7 +11,7 @@ from apps.elecciones.models import (
     EleccionClaustroDepartamento,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
-from apps.padron.models import Elector, RegistroPadron
+from apps.padron.models import AsignacionSedePadron, Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede
 
 
@@ -32,7 +32,7 @@ class ConsultaPadronApiTests(TestCase):
             eleccion=self.eleccion,
             claustro=claustro,
         )
-        configuracion = EleccionClaustroDepartamento.objects.create(
+        self.configuracion = EleccionClaustroDepartamento.objects.create(
             eleccion_claustro=eleccion_claustro,
             departamento=departamento,
         )
@@ -45,7 +45,7 @@ class ConsultaPadronApiTests(TestCase):
         self.registro = RegistroPadron.objects.create(
             elector=elector,
             eleccion=self.eleccion,
-            eleccion_claustro_departamento=configuracion,
+            eleccion_claustro_departamento=self.configuracion,
             sede=self.sede,
         )
 
@@ -57,7 +57,16 @@ class ConsultaPadronApiTests(TestCase):
         )
 
     def test_consulta_por_dni_devuelve_datos_del_padron_y_mesa(self):
-        mesa = Mesa.objects.create(eleccion=self.eleccion, numero=12)
+        mesa = Mesa.objects.create(
+            eleccion=self.eleccion,
+            eleccion_claustro_departamento=self.configuracion,
+            numero=12,
+        )
+        AsignacionSedePadron.objects.create(
+            registro_padron=self.registro,
+            sede=self.sede,
+            estado=AsignacionSedePadron.Estado.ASIGNADA,
+        )
         AsignacionMesa.objects.create(registro_padron=self.registro, mesa=mesa)
 
         respuesta = self.consultar("40123456")
@@ -72,7 +81,7 @@ class ConsultaPadronApiTests(TestCase):
                 "dni": "40123456",
                 "sede": "Campus",
                 "especialidad": "Sistemas",
-                "mesa": "Mesa 12",
+                "mesa": "K-012",
             },
         )
 
@@ -81,6 +90,45 @@ class ConsultaPadronApiTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.json()["mesa"], "Sin asignar")
+
+    def test_consulta_por_dni_funciona_en_eleccion_publicada(self):
+        self.eleccion.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion.save(update_fields=("estado",))
+        self.registro.sede = None
+        self.registro.save(update_fields=("sede",))
+        AsignacionSedePadron.objects.create(
+            registro_padron=self.registro,
+            sede=self.sede,
+            estado=AsignacionSedePadron.Estado.ASIGNADA,
+        )
+        mesa = Mesa.objects.create(eleccion=self.eleccion, numero=12)
+        AsignacionMesa.objects.create(registro_padron=self.registro, mesa=mesa)
+
+        respuesta = self.consultar("40123456")
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.json()["nombre"], "Ana")
+        self.assertEqual(respuesta.json()["sede"], "Campus")
+        self.assertEqual(
+            respuesta.json()["mesa"],
+            "Se informará próximamente.",
+        )
+
+    def test_consulta_usa_sede_de_mesa_si_no_hay_asignacion_de_sede(self):
+        sede_electoral = Sede.objects.create(nombre="Medrano")
+        self.registro.sede = None
+        self.registro.save(update_fields=("sede",))
+        mesa = Mesa.objects.create(
+            eleccion=self.eleccion,
+            numero=13,
+            sede=sede_electoral,
+        )
+        AsignacionMesa.objects.create(registro_padron=self.registro, mesa=mesa)
+
+        respuesta = self.consultar("40123456")
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.json()["sede"], "Medrano")
 
     def test_consulta_sin_codigo_es_rechazada(self):
         respuesta = self.client.post(

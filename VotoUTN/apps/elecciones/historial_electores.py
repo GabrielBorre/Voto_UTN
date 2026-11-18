@@ -22,8 +22,10 @@ def _estado_registro(registro, momento, justificativo_compartido=None):
     )
     if justificativo is None and registro.activo and participacion:
         justificativo = justificativo_compartido
+    if eleccion.estado == Eleccion.Estado.PUBLICADA:
+        return "Publicada", "info", justificativo
     if (
-        eleccion.estado in (Eleccion.Estado.PUBLICADA, Eleccion.Estado.EN_CURSO)
+        eleccion.estado == Eleccion.Estado.EN_CURSO
         and not eleccion.notificaciones_ausentes_confirmadas_en
     ):
         return "En Curso", "info", justificativo

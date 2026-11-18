@@ -26,15 +26,19 @@ class APIVistaConsultaPadron(APIView):
             RegistroPadron.objects.filter(
                 activo=True,
                 eleccion__habilitada=True,
-                eleccion__estado=Eleccion.Estado.EN_CURSO,
+                eleccion__estado__in=(
+                    Eleccion.Estado.PUBLICADA,
+                    Eleccion.Estado.EN_CURSO,
+                ),
             )
             .filter(Q(dni=codigo) | Q(legajo=codigo))
             .select_related(
                 "elector",
-                "sede",
+                "eleccion",
                 "eleccion_claustro_departamento__departamento",
                 "eleccion_claustro_departamento__eleccion_claustro__claustro",
-                "asignacion_mesa__mesa",
+                "asignacion_sede_padron__sede",
+                "asignacion_mesa__mesa__sede",
             )
             .order_by("-eleccion__fecha_inicio")
             .first()
@@ -45,11 +49,21 @@ class APIVistaConsultaPadron(APIView):
                 status=404,
             )
 
-        try:
-            numero_mesa = registro.asignacion_mesa.mesa.numero
-            mesa = f"Mesa {numero_mesa}"
-        except AsignacionMesa.DoesNotExist:
-            mesa = "Sin asignar"
+        if registro.eleccion.estado == Eleccion.Estado.PUBLICADA:
+            mesa = "Se informará próximamente."
+        else:
+            try:
+                mesa = registro.asignacion_mesa.mesa.codigo
+            except AsignacionMesa.DoesNotExist:
+                mesa = "Sin asignar"
+
+        asignacion_sede = getattr(registro, "asignacion_sede_padron", None)
+        sede = asignacion_sede.sede if asignacion_sede else None
+        if sede is None:
+            try:
+                sede = registro.asignacion_mesa.mesa.sede
+            except AsignacionMesa.DoesNotExist:
+                pass
 
         return Response(
             {
@@ -57,7 +71,7 @@ class APIVistaConsultaPadron(APIView):
                 "nombre": registro.elector.nombre,
                 "apellido": registro.elector.apellido,
                 "dni": registro.dni,
-                "sede": registro.sede.nombre if registro.sede else "No informada",
+                "sede": sede.nombre if sede else "No informada",
                 "especialidad": registro.eleccion_claustro_departamento.departamento.nombre,
                 "mesa": mesa,
             }

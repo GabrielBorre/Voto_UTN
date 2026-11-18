@@ -168,7 +168,7 @@ class HistorialElectoralTests(TestCase):
         self.assertContains(respuesta, '<span aria-hidden="true">⏳</span>', count=1)
         self.assertNotContains(respuesta, '<span aria-hidden="true">⚠</span>')
 
-    def test_eleccion_publicada_antes_del_periodo_aparece_con_situacion_en_curso(self):
+    def test_eleccion_publicada_antes_del_periodo_muestra_su_estado_publicado(self):
         self.eleccion_abierta.estado = Eleccion.Estado.PUBLICADA
         self.eleccion_abierta.save(update_fields=("estado",))
         self.registrar_no_voto(self.registro_abierto, self.mesa_abierta)
@@ -185,12 +185,16 @@ class HistorialElectoralTests(TestCase):
             item["eleccion"].pk: item["estado"]
             for item in respuesta.context["historial"]
         }
-        self.assertEqual(historial[self.eleccion_abierta.pk], "En Curso")
+        self.assertEqual(historial[self.eleccion_abierta.pk], "Publicada")
+        self.assertEqual(
+            respuesta.context["historial"][0]["clase_estado"],
+            "info",
+        )
         self.assertEqual(
             respuesta.context["historial"][0]["justificativo"],
             justificativo,
         )
-        self.assertContains(respuesta, "En Curso")
+        self.assertContains(respuesta, "Publicada")
 
     def test_eleccion_finalizada_muestra_infractor_si_hay_ausencia_sin_justificativo(self):
         self.eleccion_abierta.estado = Eleccion.Estado.FINALIZADA

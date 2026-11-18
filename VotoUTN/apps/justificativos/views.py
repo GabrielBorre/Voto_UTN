@@ -207,9 +207,20 @@ def gestionar_justificativos(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_revisar_justificativo(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
-    pestana = request.GET.get("pestana")
-    if pestana not in ("electores", "autoridades"):
-        pestana = "electores"
+    pestana_solicitada = request.GET.get("pestana")
+    if pestana_solicitada in ("electores", "autoridades"):
+        pestana = pestana_solicitada
+    else:
+        hay_justificativos_pendientes_autoridades = JustificativoAusencia.objects.filter(
+            registro_padron__eleccion=eleccion,
+            ausencia=JustificativoAusencia.Ausencia.AUTORIDAD,
+            estado=JustificativoAusencia.Estado.PENDIENTE,
+        ).exists()
+        pestana = (
+            "autoridades"
+            if hay_justificativos_pendientes_autoridades or eleccion.estado == Eleccion.Estado.PUBLICADA
+            else "electores"
+        )
     ausencia = JustificativoAusencia.Ausencia.AUTORIDAD if pestana == "autoridades" else JustificativoAusencia.Ausencia.VOTAR
     justificativos = JustificativoAusencia.objects.filter(
         registro_padron__eleccion=eleccion,

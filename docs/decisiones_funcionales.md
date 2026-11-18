@@ -15,9 +15,10 @@
   el padrón local; en ese caso se muestra vacío.
 - El inicio del elector muestra la información de la elección únicamente cuando
   está Publicada o En curso. Una elección En preparación no debe ser visible allí.
-- Las elecciones Publicadas y En curso aparecen en el historial electoral y
-  muestran «En Curso» hasta que el administrador de junta confirma el escaneo de
-  todas las mesas. Esa confirmación actualiza únicamente la situación de los
+- Las elecciones Publicadas y En curso aparecen en el historial electoral.
+  Antes de confirmar el escaneo de todas las mesas, muestran su estado actual
+  («Publicada» o «En Curso», respectivamente), ambos con indicador azul. La
+  confirmación actualiza únicamente la situación de los
   electores de esa elección: «Voto Emitido» si no tienen registro de ausencia o
   «En Curso - Voto No Registrado» si lo tienen. «Voto Emitido» es definitivo
   desde esa confirmación. Para quien sí tiene ausencia, «En Curso - Voto No
@@ -195,9 +196,12 @@ Ejemplo: `Sistemas de Información` / `K`.
 - Una autoridad de mesa es también un elector.
 - Al asignar o trasladar autoridades, el registro elegido debe conservar el tipo de su mesa electoral: ordinaria a ordinaria y especial a especial, dentro del mismo alcance departamental. La regla también se exige al trabajar en otra mesa sin cambiar dónde vota, y antes de aceptar destinos laborales o selecciones fijadas. Una persona con registros de ambos tipos puede aportar el compatible, pero mantiene una sola designación por elección.
 - Si la propuesta cambia la sede electoral de una persona, todos sus registros activos de esa elección se trasladan juntos a esa misma sede, preservando departamento y tipo de mesa. Esto también se aplica si el traslado se origina en una designación de autoridad desde su registro principal o desde uno adicional. No se modifica la sede de cursada y se mantienen los controles de capacidad, QR, destinos habilitados y solicitudes pendientes.
-- El rol visible de Autoridad de Mesa requiere una asignación no rechazada en
-  una elección Publicada o En curso. Las asignaciones de elecciones en
-  preparación o finalizadas no modifican el rol visible de Elector.
+- La etiqueta visible «Autoridad de Mesa» requiere una asignación no rechazada
+  en una elección Publicada o En curso con autoridades confirmadas. Antes de esa
+  confirmación se muestra «Elector». Esta regla solo cambia la etiqueta visual:
+  no modifica la navegación ni las funcionalidades asociadas a la asignación.
+  Las asignaciones de elecciones en preparación o finalizadas no modifican el
+  rol visible de Elector.
 - No se crea una identidad duplicada.
 - Debe existir previamente como elector.
 - Debe pertenecer al padrón de la elección.

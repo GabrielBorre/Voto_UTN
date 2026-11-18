@@ -39,6 +39,20 @@ def es_autoridad_en_eleccion_publicada_o_en_curso(elector):
     ).exclude(estado=AsignacionAutoridad.Estado.RECHAZADA).exists()
 
 
+def es_autoridad_confirmada_en_eleccion_publicada_o_en_curso(elector):
+    if elector is None:
+        return False
+    return AsignacionAutoridad.objects.filter(
+        registro_padron__elector=elector,
+        registro_padron__activo=True,
+        registro_padron__eleccion__estado__in=(
+            Eleccion.Estado.PUBLICADA,
+            Eleccion.Estado.EN_CURSO,
+        ),
+        registro_padron__eleccion__autoridades_confirmadas_en__isnull=False,
+    ).exclude(estado=AsignacionAutoridad.Estado.RECHAZADA).exists()
+
+
 def es_administrativo_junta(usuario):
     if not usuario.is_authenticated or getattr(usuario, "es_elector", False):
         return False
