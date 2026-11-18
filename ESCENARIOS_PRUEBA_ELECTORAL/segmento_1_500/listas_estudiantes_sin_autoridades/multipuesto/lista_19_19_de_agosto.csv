@@ -1,0 +1,45 @@
+﻿puesto;departamento;tipo_documento;documento;tipo_candidatura;orden
+Consejero/a Superior;;DNI;36036001;titular;1
+Consejero/a Superior;;DNI;36054008;titular;2
+Consejero/a Superior;;DNI;36009065;titular;3
+Consejero/a Superior;;DNI;36000139;titular;4
+Consejero/a Superior;;DNI;36000196;titular;5
+Consejero/a Superior;;DNI;36000069;suplente;1
+Consejero/a Superior;;DNI;36000046;suplente;2
+Consejero/a Superior;;DNI;36000186;suplente;3
+Consejero/a Superior;;DNI;36000043;suplente;4
+Consejero/a Superior;;DNI;36000194;suplente;5
+Consejero/a directivo/a;;DNI;36018033;titular;1
+Consejero/a directivo/a;;DNI;36000167;titular;2
+Consejero/a directivo/a;;DNI;36018030;titular;3
+Consejero/a directivo/a;;DNI;36000107;titular;4
+Consejero/a directivo/a;;DNI;36009091;titular;5
+Consejero/a directivo/a;;DNI;36036002;suplente;1
+Consejero/a directivo/a;;DNI;36009082;suplente;2
+Consejero/a directivo/a;;DNI;36000052;suplente;3
+Consejero/a directivo/a;;DNI;36000010;suplente;4
+Consejero/a directivo/a;;DNI;36000144;suplente;5
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000053;titular;1
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000051;titular;2
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000142;titular;3
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000124;suplente;1
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000183;suplente;2
+Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000095;suplente;3
+Consejero/a departamental;Ingeniería Industrial;DNI;36009083;titular;1
+Consejero/a departamental;Ingeniería Industrial;DNI;36009012;titular;2
+Consejero/a departamental;Ingeniería Industrial;DNI;36009046;titular;3
+Consejero/a departamental;Ingeniería Industrial;DNI;36009025;suplente;1
+Consejero/a departamental;Ingeniería Industrial;DNI;36009004;suplente;2
+Consejero/a departamental;Ingeniería Industrial;DNI;36009092;suplente;3
+Consejero/a departamental;Ingeniería Electrónica;DNI;36018047;titular;1
+Consejero/a departamental;Ingeniería Electrónica;DNI;36018013;titular;2
+Consejero/a departamental;Ingeniería Electrónica;DNI;36018045;titular;3
+Consejero/a departamental;Ingeniería Electrónica;DNI;36018023;suplente;1
+Consejero/a departamental;Ingeniería Electrónica;DNI;36018050;suplente;2
+Consejero/a departamental;Ingeniería Electrónica;DNI;36018018;suplente;3
+Consejero/a Ciencias Básicas;;DNI;36000037;titular;1
+Consejero/a Ciencias Básicas;;DNI;36009026;titular;2
+Consejero/a Ciencias Básicas;;DNI;36000116;titular;3
+Consejero/a Ciencias Básicas;;DNI;36000018;suplente;1
+Consejero/a Ciencias Básicas;;DNI;36009003;suplente;2
+Consejero/a Ciencias Básicas;;DNI;36018025;suplente;3
