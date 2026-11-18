@@ -57,10 +57,12 @@ editados. No cambian parámetros, estados, usuarios, plazos ni configuraciones d
 1. Consultar `control.json`: `manuales` propone dos personas con departamento, sede, tipo de mesa, ordinal dentro del grupo y turno. Usar las mesas reales de la interfaz, no asumir que el ordinal es su número global. Si hubo reordenamientos, verificar nuevamente compatibilidad.
 2. Designar esas dos personas manualmente. Importar `nomina_estudiantes_pequena.csv`, previsualizar y confirmar conservando designaciones. Los archivos `nomina_CLAUSTRO.csv` contienen una nómina amplia para pruebas alternativas; no se necesitan para este guion.
 3. Completar estudiantes por sorteo conservando las selecciones existentes. Sortear los demás claustros. Revisar mínimos por mesa/turno. Registrar tiempos de nómina y sorteo para cada segmento; la nómina pequeña también procesa el padrón completo.
-4. Publicar la elección y habilitar el período de solicitudes. En el primer caso,
-la publicación ya completa automáticamente las diecinueve solicitudes. Los
-segmentos segundo y tercero mantienen la carga manual. El comando también sirve
-para verificar o completar el lote sin duplicar las solicitudes creadas al publicar:
+4. Publicar la elección y habilitar el período de solicitudes. La publicación
+crea hasta treinta solicitudes de Estudiantes sin designación de autoridad,
+independientemente del lote histórico del segmento. Los correos se procesan
+en segundo plano. Los comandos siguientes son una prueba alternativa del
+guion histórico: pueden incluir autoridades y no deben mezclarse con la
+demostración actual de treinta estudiantes sin autoridades.
 
 ```powershell
 python ejecutar_escenario.py cambios --contenedor $contenedorPrueba --eleccion $eleccionPrueba --segmento $segmentoPrueba

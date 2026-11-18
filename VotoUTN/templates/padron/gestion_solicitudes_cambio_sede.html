@@ -2,9 +2,12 @@
 {% load static %}
 {% block title %}Solicitudes de cambio de sede | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Solicitudes de cambio de sede</h1>
   <p>{{ eleccion.nombre }} · {{ pendientes }} pendientes</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 {% if solo_lectura %}<div class="notice">Cambios de sede en modo lectura: el padrón imprimible ya fue generado o el estado de la elección no permite resolver solicitudes.</div>{% endif %}
 <fieldset class="configuracion-campos" {% if solo_lectura %}disabled{% endif %}>

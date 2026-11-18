@@ -1,9 +1,12 @@
 {% extends "gestion/base.html" %}
 {% block title %}Sedes y departamentos | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Sedes y departamentos</h1>
   <p>{{ eleccion.nombre }}. Definí las sedes habilitadas para cada claustro y, cuando corresponda, sus departamentos.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 {% if eleccion.estado == 'en_preparacion' %}

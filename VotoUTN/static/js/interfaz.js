@@ -203,6 +203,13 @@ document.addEventListener("submit", async (evento) => {
   }
 }, true);
 
+document.addEventListener("click", (evento) => {
+  const boton = evento.target.closest("[data-volver]");
+  if (!boton) return;
+  evento.preventDefault();
+  window.history.back();
+});
+
 document.addEventListener("click", async (evento) => {
   const enlace = evento.target.closest("a[data-confirm]");
   if (!enlace || evento.defaultPrevented || evento.button !== 0 || evento.ctrlKey

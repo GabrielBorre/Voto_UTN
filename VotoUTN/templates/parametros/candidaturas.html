@@ -3,9 +3,12 @@
 {% block title %}Puestos a elegir | Junta Electoral UTN{% endblock %}
 
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Puestos a elegir</h1>
   <p>Administrá los puestos reutilizables: el órgano, si son departamentales o generales, los claustros para los que están disponibles y su cantidad de titulares y suplentes. Las elecciones en preparación generan sus puestos automáticamente a partir de esta configuración.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 <section class="toolbar">
   {% for catalogo in catalogos %}

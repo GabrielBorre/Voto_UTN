@@ -47,12 +47,13 @@ services:
       - MP_SMTP_AUTH_ALLOW_INSECURE=1
 
   web:
+    image: voto-utn:local
     build:
       context: ./VotoUTN
     container_name: voto_utn_web
     env_file:
       - ./VotoUTN/.env
-    environment:
+    environment: &entorno_web
       # Sobrescriben al .env local para resolver los demas servicios por su nombre en la red de Docker.
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
@@ -74,6 +75,23 @@ services:
       db:
         condition: service_healthy
       keycloak:
+        condition: service_started
+      mailpit:
+        condition: service_started
+
+  notificaciones:
+    image: voto-utn:local
+    env_file:
+      - ./VotoUTN/.env
+    environment: *entorno_web
+    volumes:
+      - ./VotoUTN:/app
+    command: sh -c "python manage.py migrate --check && python manage.py procesar_notificaciones --continuo"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
         condition: service_started
       mailpit:
         condition: service_started

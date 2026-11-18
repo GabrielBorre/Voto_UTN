@@ -12,7 +12,7 @@ from apps.usuarios.permisos import puede_administrar_elecciones
 
 @transaction.atomic
 def confirmar_autoridades(eleccion_id, usuario, fecha_limite):
-    from apps.notificaciones.services import crear_notificacion_convocatoria_autoridad, enviar_notificacion
+    from apps.notificaciones.services import crear_notificacion_convocatoria_autoridad
 
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion_id)
     if not puede_administrar_elecciones(usuario, eleccion):
@@ -41,8 +41,8 @@ def confirmar_autoridades(eleccion_id, usuario, fecha_limite):
         completar_justificativos_demo(eleccion, JustificativoAusencia.Ausencia.AUTORIDAD)
     except CommandError as error:
         raise ValidationError(str(error)) from error
-    envios = [crear_notificacion_convocatoria_autoridad(asignacion, fecha_limite) for asignacion in asignaciones]
-    transaction.on_commit(lambda: [enviar_notificacion(envio) for envio in envios])
+    for asignacion in asignaciones:
+        crear_notificacion_convocatoria_autoridad(asignacion, fecha_limite)
     from apps.auditoria.services import registrar_evento
     registrar_evento(accion="autoridades.confirmadas", entidad="Eleccion", entidad_id=eleccion.pk,
                      eleccion=eleccion, usuario=usuario, datos_nuevos={"cantidad": len(asignaciones), "fecha_limite": fecha_limite.isoformat()})

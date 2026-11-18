@@ -91,7 +91,7 @@ class ConfirmacionAutoridadesTests(TestCase):
         with patch("apps.notificaciones.services.enviar_notificacion") as enviar:
             with self.captureOnCommitCallbacks(execute=True):
                 self.assertEqual(confirmar_autoridades(self.eleccion.pk, self.usuario, limite), 1)
-            enviar.assert_called_once()
+            enviar.assert_not_called()
         self.eleccion.refresh_from_db()
         self.assertTrue(self.eleccion.autoridades_confirmadas_en)
         self.assertEqual(self.eleccion.fecha_limite_justificacion_autoridades, limite)

@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.elecciones.models import Eleccion
 from apps.justificativos.models import JustificativoAusencia
-from apps.padron.services import registrar_emision_padron_imprimible, validar_emision_con_cambios_sede_cerrados
+from apps.padron.services import registrar_emision_padron_imprimible, validar_emision_sin_solicitudes_cambio_sede_pendientes
 from apps.reportes.services import exportar_reporte_eleccion
 from apps.reportes.services_pdf import (
     generar_nombre_archivo_padron,
@@ -72,7 +72,7 @@ def generar_padron_pdf_view(request, eleccion_id):
             messages.error(request, motivo)
         return redirect("gestionar-reportes", eleccion_id=eleccion.id)
     try:
-        validar_emision_con_cambios_sede_cerrados(eleccion)
+        validar_emision_sin_solicitudes_cambio_sede_pendientes(eleccion)
     except ValueError as error:
         messages.error(request, str(error))
         return redirect("gestionar-reportes", eleccion_id=eleccion.id)

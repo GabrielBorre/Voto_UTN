@@ -27,7 +27,7 @@ from apps.elecciones.models import (
 from apps.justificativos.models import JustificativoAusencia, TipoJustificativo
 from apps.autoridades.models import AsignacionAutoridad, CandidaturaAutoridad
 from apps.mesas.models import AsignacionMesa, Mesa
-from apps.padron.models import EmisionPadronImprimible, Elector, RegistroPadron
+from apps.padron.models import EmisionPadronImprimible, Elector, RegistroPadron, SolicitudCambioSede
 from apps.padron.services import rehabilitar_cambios_padron
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.partidos.models import (
@@ -522,18 +522,32 @@ class PadronPDFTests(TestCase):
         self.assertTrue(EmisionPadronImprimible.objects.filter(eleccion_claustro=self.eleccion_claustro, estado="vigente").exists())
         self.assertTrue(RegistroPadron.objects.filter(eleccion=self.eleccion, qr_generado_en__isnull=False).exists())
 
-    def test_vista_rechaza_plazo_de_cambio_de_sede_abierto(self):
+    def test_vista_rechaza_solicitudes_de_cambio_de_sede_pendientes(self):
+        registro = self.crear_electores(1)[0]
+        self.client.force_login(self.usuario)
+        destino = Sede.objects.create(nombre="Sede Destino")
+        SolicitudCambioSede.objects.create(
+            registro_padron=registro, sede_origen=self.sede, sede_destino=destino,
+        )
+
+        respuesta = self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.pk,)), follow=True)
+
+        self.assertRedirects(respuesta, reverse("gestionar-reportes", args=(self.eleccion.pk,)))
+        self.assertTrue(any("solicitudes de cambio de sede pendientes" in str(m) for m in respuesta.context["messages"]))
+        self.assertFalse(EmisionPadronImprimible.objects.exists())
+        self.assertFalse(RegistroPadron.objects.filter(eleccion=self.eleccion, qr_generado_en__isnull=False).exists())
+
+    def test_vista_emite_con_plazo_de_cambio_de_sede_abierto(self):
         self.crear_electores(1)
         self.client.force_login(self.usuario)
         self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate()
         self.eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
 
-        respuesta = self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.pk,)), follow=True)
+        respuesta = self.client.post(reverse("generar-padron-pdf", args=(self.eleccion.pk,)))
 
-        self.assertRedirects(respuesta, reverse("gestionar-reportes", args=(self.eleccion.pk,)))
-        self.assertTrue(any("plazo de cambios de sede" in str(m) for m in respuesta.context["messages"]))
-        self.assertFalse(EmisionPadronImprimible.objects.exists())
-        self.assertFalse(RegistroPadron.objects.filter(eleccion=self.eleccion, qr_generado_en__isnull=False).exists())
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta["Content-Type"], "application/pdf")
+        self.assertTrue(EmisionPadronImprimible.objects.filter(eleccion_claustro=self.eleccion_claustro, estado="vigente").exists())
 
     def test_vista_bloquea_y_redirige_cuando_falta_informacion(self):
         self.crear_electores(1, mesa=None)

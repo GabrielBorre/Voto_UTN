@@ -5,9 +5,12 @@
 
 {% block content %}
 {% if modo_asociacion_finalizada %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Listas y candidaturas</h1>
   <p>{{ eleccion.nombre }} está finalizada. Podés consultar las listas y asociarles puestos que ya estaban habilitados.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 <div class="management-panel candidaturas-panel">
   <section class="card management-section" id="listas">
@@ -32,11 +35,14 @@
 </div>
 {% else %}
 {% if claustro_seleccionado %}
-<section class="hero">
-  <h1>Listas de {{ claustro_seleccionado.claustro }}</h1>
-  <p>{{ eleccion.nombre }}. Consultá las listas de este claustro y cargá candidatos en cada una.</p>
+<section class="hero hero-acciones">
+  <div>
+    <h1>Listas de {{ claustro_seleccionado.claustro }}</h1>
+    <p>{{ eleccion.nombre }}. Consultá las listas de este claustro y cargá candidatos en cada una; los puestos se configuran en Parámetros generales.</p>
+  </div>
   <div class="hero-botones">
     <a class="button hero-boton" href="{% url 'gestionar-partidos' eleccion.id %}">Elegir otro claustro</a>
+    <button class="button hero-boton-secundario" type="button" data-volver>Volver</button>
   </div>
 </section>
 
@@ -137,9 +143,12 @@
   </section>
 </div>
 {% else %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Listas y candidaturas</h1>
   <p>{{ eleccion.nombre }}. Elegí un claustro para crear y gestionar sus listas electorales.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <div class="section-title">

@@ -3,7 +3,7 @@
 {% block title %}Parámetros Generales | Junta Electoral UTN{% endblock %}
 
 {% block content %}
-<section class="hero"><h1>Parámetros Generales</h1><p>Configura los datos reutilizables que estarán disponibles al crear elecciones y mesas.</p></section>
+<section class="hero hero-acciones"><div><h1>Parámetros Generales</h1><p>Configura los datos reutilizables que estarán disponibles al crear elecciones y mesas.</p></div><div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div></section>
 <section class="toolbar">
 {% for parametro in parametros %}<article class="option"><h2>{{ parametro.titulo }}</h2><p>{% if parametro.es_grupo_candidaturas %}{{ parametro.resumen }}{% else %}{{ parametro.cantidad }} registrados en la configuracion institucional.{% endif %}</p><a class="button secondary" href="{% if parametro.es_grupo_candidaturas %}{% url 'listar-parametros' 'puestos-electivos' %}{% else %}{% url 'listar-parametros' parametro.tipo %}{% endif %}">Administrar</a></article>{% endfor %}
 </section>

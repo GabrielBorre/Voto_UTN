@@ -3,7 +3,7 @@
 {% block title %}{% if objeto %}Editar{% else %}Agregar{% endif %} {{ titulo }} | Junta Electoral UTN{% endblock %}
 
 {% block content %}
-<section class="hero"><h1>{% if objeto %}Editar{% else %}Agregar{% endif %} {{ titulo|lower }}</h1><p>Completa los datos del parametro que podra utilizarse en futuras elecciones.</p></section>
+<section class="hero hero-acciones"><div><h1>{% if objeto %}Editar{% else %}Agregar{% endif %} {{ titulo|lower }}</h1><p>Completa los datos del parametro que podra utilizarse en futuras elecciones.</p></div><div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div></section>
 <section class="card form-card"><h2>{% if objeto %}Datos del registro{% else %}Nuevo registro{% endif %}</h2><form method="post">{% csrf_token %}
 {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
 {% for field in formulario %}

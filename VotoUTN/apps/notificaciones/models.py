@@ -2,6 +2,7 @@ import re
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from apps.elecciones.models import Eleccion
 from apps.parametros.models import Claustro, FechaAdministrativa
@@ -132,6 +133,29 @@ class VarianteComunicacionFechaAdministrativa(models.Model):
             raise ValidationError({"plantilla": "La variante no puede ampliar los roles definidos por la fecha."})
 
 
+class LoteNotificacion(models.Model):
+    class Tipo(models.TextChoices):
+        PUBLICACION = "publicacion", "Publicación de elección"
+        INICIO = "inicio", "Inicio de elección"
+
+    eleccion = models.ForeignKey(Eleccion, on_delete=models.PROTECT, related_name="lotes_notificacion")
+    plantilla = models.ForeignKey(PlantillaNotificacion, on_delete=models.PROTECT)
+    tipo = models.CharField(max_length=16, choices=Tipo.choices)
+    asunto = models.CharField(max_length=180)
+    contenido = models.TextField()
+    nombre_eleccion = models.CharField(max_length=180)
+    creada_en = models.DateTimeField(auto_now_add=True)
+    procesada_en = models.DateTimeField(null=True, blank=True)
+    intentos = models.PositiveSmallIntegerField(default=0)
+    proximo_intento = models.DateTimeField(default=timezone.now)
+    error = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("eleccion", "tipo"), name="lote_unico_evento_eleccion"),
+        ]
+
+
 class EnvioNotificacion(models.Model):
     class Estado(models.TextChoices):
         PENDIENTE = "pendiente", "Pendiente"
@@ -149,6 +173,9 @@ class EnvioNotificacion(models.Model):
     enviada_en = models.DateTimeField(null=True, blank=True)
     leida_en = models.DateTimeField(null=True, blank=True)
     error = models.CharField(max_length=300, blank=True)
+    lote = models.ForeignKey(LoteNotificacion, on_delete=models.PROTECT, null=True, blank=True)
+    intentos = models.PositiveSmallIntegerField(default=0)
+    proximo_intento = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "elecciones_envionotificacion"
@@ -158,4 +185,8 @@ class EnvioNotificacion(models.Model):
                 condition=models.Q(destinatario__isnull=False) | models.Q(elector__isnull=False),
                 name="notificacion_con_destinatario",
             ),
+            models.UniqueConstraint(fields=("lote", "elector"), name="envio_unico_lote_elector"),
+        ]
+        indexes = [
+            models.Index(fields=("estado", "proximo_intento"), name="envio_estado_proximo_idx"),
         ]

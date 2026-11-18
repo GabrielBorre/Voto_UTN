@@ -63,8 +63,9 @@ class SolicitudesPruebaTests(TestCase):
         self.assertTemplateUsed(respuesta, "padron/revisar_cambios_sede.html")
         solicitud.refresh_from_db()
         self.assertEqual(solicitud.estado, "pendiente")
-        with patch("apps.padron.views.enviar_notificacion"):
+        with patch("apps.notificaciones.services.send_mail") as enviar:
             respuesta = self.client.post(url, {"accion": "confirmar_aprobacion", "propuesta": respuesta.context["propuesta"]})
+            enviar.assert_not_called()
         self.assertEqual(respuesta.status_code, 302)
         solicitud.refresh_from_db()
         self.assertEqual(solicitud.estado, "aprobada")
