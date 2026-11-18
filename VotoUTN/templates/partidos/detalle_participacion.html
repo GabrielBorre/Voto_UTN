@@ -267,9 +267,9 @@
                           <button class="button secondary small" type="submit">Activar</button>
                         </form>
                       {% endif %}
-                      <form class="inline-form" method="post" action="{% url 'eliminar-candidato' eleccion.id candidato.id %}" onsubmit="return confirm('¿Eliminar esta candidatura? Esta acción no se puede deshacer. El elector permanecerá en el padrón.');">
+                      <form class="inline-form" method="post" action="{% url 'eliminar-candidato' eleccion.id candidato.id %}" data-confirm="Se eliminará a {{ candidato.nombre }} de esta lista. Esta acción no se puede deshacer. El elector permanecerá en el padrón. ¿Continuar?" data-confirm-title="Eliminar candidato" data-confirm-accept="Eliminar">
                         {% csrf_token %}
-                        <button class="button light small" type="submit">Eliminar</button>
+                        <button class="button danger small" type="submit">Eliminar</button>
                       </form>
                     </td>
                   </tr>

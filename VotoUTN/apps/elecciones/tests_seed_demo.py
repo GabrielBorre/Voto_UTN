@@ -15,6 +15,7 @@ from apps.justificativos.models import TipoJustificativo
 from apps.padron.models import RegistroPadron
 from apps.parametros.models import Claustro, Departamento, Sede, Turno
 from apps.partidos.models import Candidato, ListaCandidatos, ParticipacionPartido, PuestoEleccion
+from apps.usuarios.management.commands.seed_keycloak_demo import USUARIOS
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 from apps.usuarios.permisos import (
     elecciones_con_participacion,
@@ -86,18 +87,15 @@ class SeedDemoInicialTests(TestCase):
         self.assertEqual(Sede.objects.count(), 2)
         self.assertEqual(Departamento.objects.count(), 10)
         self.assertTrue(TipoJustificativo.objects.filter(nombre="Certificado medico").exists())
-        for username, rol in (
-            ("juanb", AsignacionRol.Rol.ADMINISTRADOR_JUNTA),
-            ("administrativojunta", AsignacionRol.Rol.ADMINISTRATIVO_JUNTA),
-        ):
-            usuario = get_user_model().objects.get(username=username)
+        for datos in USUARIOS.values():
+            usuario = get_user_model().objects.get(username=datos["username"])
             self.assertFalse(usuario.has_usable_password())
-            asignacion = AsignacionRol.objects.get(usuario=usuario, rol=rol)
+            asignacion = AsignacionRol.objects.get(usuario=usuario, rol=datos["rol"])
             asignacion.full_clean()
             self.assertIsNone(asignacion.eleccion)
         self.assertTrue(puede_crear_elecciones(get_user_model().objects.get(username="juanb")))
-        self.assertEqual(PerfilUsuario.objects.count(), 2)
-        self.assertEqual(AsignacionRol.objects.count(), 2)
+        self.assertEqual(PerfilUsuario.objects.count(), len(USUARIOS))
+        self.assertEqual(AsignacionRol.objects.count(), len(USUARIOS))
 
     def test_puesto_departamental_se_configura_al_agregar_departamento_despues_de_la_semilla(self):
         call_command("seed_demo_inicial", stdout=StringIO())

@@ -625,6 +625,8 @@ def eliminar_candidato(request, eleccion_id, candidato_id):
     lista_id = candidato.lista_id
     datos_anteriores = {
         "lista": lista_id,
+        "nombre_lista": candidato.lista.participacion.nombre_lista,
+        "puesto": str(candidato.lista.puesto_eleccion.puesto) if candidato.lista.puesto_eleccion_id else candidato.cargo,
         "elector": candidato.elector_id,
         "nombre": candidato.nombre,
         "dni": candidato.dni,

@@ -952,7 +952,7 @@ class PartidosViewsTests(PartidosBaseTests):
             "detalle-lista-candidatos", args=(self.eleccion.id, self.lista.id),
         ))
         for respuesta in (detalle, detalle_lista):
-            self.assertContains(respuesta, destino)
+            self.assertContains(respuesta, destino, count=1)
             self.assertNotContains(respuesta, "Desactivar")
 
         respuesta = self.client.post(destino)
@@ -968,6 +968,8 @@ class PartidosViewsTests(PartidosBaseTests):
         self.assertEqual(evento.usuario, self.usuario)
         self.assertEqual(evento.datos_anteriores["elector"], elector.id)
         self.assertEqual(evento.datos_anteriores["lista"], self.lista.id)
+        self.assertEqual(evento.datos_anteriores["nombre_lista"], self.participacion.nombre_lista)
+        self.assertEqual(evento.datos_anteriores["puesto"], str(self.lista.puesto_eleccion.puesto))
         Candidato.objects.create(
             lista=self.lista, elector=elector, nombre=elector.nombre_completo, dni=elector.dni,
             cargo="Consejero", tipo=Candidato.Tipo.TITULAR, orden=1,
@@ -1015,6 +1017,50 @@ class PartidosViewsTests(PartidosBaseTests):
         )
         candidato.refresh_from_db()
         self.assertTrue(candidato.activo)
+
+    def test_elimina_candidato_mediante_post_y_registra_auditoria(self):
+        candidato = Candidato.objects.create(
+            lista=self.lista,
+            elector=self.crear_elector_padron(dni="30777668"),
+            nombre="Candidato a eliminar",
+            dni="30777668",
+            cargo="Consejero",
+            orden=1,
+        )
+
+        respuesta = self.client.post(
+            reverse("eliminar-candidato", args=(self.eleccion.id, candidato.id)),
+        )
+
+        self.assertRedirects(
+            respuesta,
+            f"{reverse('detalle-participacion-partido', args=(self.eleccion.id, self.participacion.id))}?puesto={self.lista.id}#candidaturas",
+        )
+        self.assertFalse(Candidato.objects.filter(pk=candidato.id).exists())
+        self.assertTrue(
+            EventoAuditoria.objects.filter(
+                accion="eliminar_candidato",
+                entidad="partidos.Candidato",
+                entidad_id=candidato.id,
+            ).exists()
+        )
+
+    def test_no_elimina_candidato_mediante_get(self):
+        candidato = Candidato.objects.create(
+            lista=self.lista,
+            elector=self.crear_elector_padron(dni="30777669"),
+            nombre="Candidato protegido",
+            dni="30777669",
+            cargo="Consejero",
+            orden=1,
+        )
+
+        respuesta = self.client.get(
+            reverse("eliminar-candidato", args=(self.eleccion.id, candidato.id)),
+        )
+
+        self.assertEqual(respuesta.status_code, 405)
+        self.assertTrue(Candidato.objects.filter(pk=candidato.id).exists())
 
     def test_edita_candidato_en_la_misma_pantalla(self):
         elector = self.crear_elector_padron(dni="30777667")

@@ -140,7 +140,7 @@ class DistribucionAutoridadesTests(TestCase):
         self.assertNotContains(respuesta, 'name="permitir_mesa_distinta"')
         self.assertNotContains(respuesta, 'name="agregar-candidato"')
         self.assertContains(respuesta, 'name="archivo"')
-        self.assertContains(respuesta, "Previsualizar nómina")
+        self.assertContains(respuesta, "Validar archivo")
         self.assertNotContains(respuesta, "Cargar desde planilla")
         self.assertEqual(respuesta.context["modo_vista"], "nomina")
 

@@ -40,7 +40,6 @@
         <div class="footer-actions">
           <button class="button primary" name="guardar-configuracion">Guardar configuración</button>
         </div>
-        <p class="muted field-help autosave-status" role="status" aria-live="polite" data-autosave-status hidden></p>
         </fieldset>
       </form>
     {% else %}
@@ -55,7 +54,7 @@
     <div class="section-title">
       <div>
         <h2>Cargar padrón</h2>
-        <p>El archivo se valida y se previsualiza antes de incorporar cualquier elector. “Sede donde cursa” es opcional y no determina la sede electoral. Al confirmar la importación se recalculan automáticamente las sedes y las mesas; no se generan QR.</p>
+        <p>El archivo se valida y se previsualiza antes de incorporar cualquier elector. “Sede donde asiste” es opcional y no determina la sede electoral. Al confirmar la importación se recalculan automáticamente las sedes y las mesas; no se generan QR.</p>
       </div>
       <span class="tag">CSV o Excel</span>
     </div>
@@ -67,6 +66,7 @@
           {{ formulario_archivo.archivo }}
           {% for error in formulario_archivo.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
           <small class="muted field-help">En la columna “Tipo Documento” usá DNI, CUIL, CUIT o PAS. Si la columna se omite o queda vacía, se toma DNI.</small>
+          <small class="muted field-help">La plantilla incluye cuatro registros de ejemplo y una guía por columna. Completala reemplazando los ejemplos y las descripciones por los datos del padrón. Los departamentos deben estar habilitados para el claustro, y las sedes y turnos deben corresponder a parámetros activos.</small>
         </div>
         <div class="footer-actions">
           <a class="button light" href="{% url 'descargar-plantilla-padron' eleccion.id claustro.id %}">Descargar plantilla</a>
@@ -130,5 +130,5 @@
 
 {% block scripts %}
   {{ block.super }}
-  <script src="{% static 'js/configuracion-padron-autoguardado.js' %}?v=20261115.1" defer></script>
+  <script src="{% static 'js/configuracion-padron-autoguardado.js' %}?v=20261116.1" defer></script>
 {% endblock %}
