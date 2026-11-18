@@ -657,6 +657,9 @@ class JustificativosViewsTests(TestCase):
         respuesta = self.client.post(url, datos)
         self.client.post(url, datos)
 
+        from apps.notificaciones.services import procesar_envios_pendientes
+        self.assertEqual(len(mail.outbox), 0)
+        procesar_envios_pendientes()
         self.assertRedirects(respuesta, reverse("gestionar-justificativos", args=(self.eleccion.id,)))
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["juan@example.test"])
@@ -699,6 +702,9 @@ class JustificativosViewsTests(TestCase):
             },
         )
 
+        from apps.notificaciones.services import procesar_envios_pendientes
+        self.assertEqual(len(mail.outbox), 0)
+        procesar_envios_pendientes()
         self.assertRedirects(respuesta, reverse("gestionar-justificativos", args=(self.eleccion.id,)))
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["juan@example.test"])
@@ -710,15 +716,17 @@ class JustificativosViewsTests(TestCase):
         justificativo = self.crear_justificativo()
         self.client.force_login(self.usuario)
 
+        from apps.notificaciones.services import procesar_envios_pendientes
+        respuesta = self.client.post(
+            reverse("resolver-justificativo", args=(justificativo.pk,)),
+            {"estado": "aprobado", "observacion_resolucion": "Validada."},
+            follow=True,
+        )
         with patch("apps.notificaciones.services.send_mail", side_effect=SMTPException("fallo simulado")):
             with self.assertLogs("apps.notificaciones.services", level="WARNING"):
-                respuesta = self.client.post(
-                    reverse("resolver-justificativo", args=(justificativo.pk,)),
-                    {"estado": "aprobado", "observacion_resolucion": "Validada."},
-                    follow=True,
-                )
+                procesar_envios_pendientes()
 
-        self.assertContains(respuesta, "la notificación está disponible en la web")
+        self.assertContains(respuesta, "el correo se enviará en segundo plano")
         justificativo.refresh_from_db()
         self.assertEqual(justificativo.estado, JustificativoAusencia.Estado.APROBADO)
         notificacion = EnvioNotificacion.objects.get(elector=justificativo.registro_padron.elector)

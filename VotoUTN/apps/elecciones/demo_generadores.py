@@ -38,17 +38,16 @@ def eleccion_actual_demo():
 @transaction.atomic
 def generar_solicitudes_demo(eleccion):
     from apps.padron.solicitudes_escenario import (
-        crear_solicitudes_escenario, leer_plan_publicacion, padron_corresponde_al_plan,
+        crear_solicitudes_escenario, seleccionar_solicitudes_publicacion,
     )
 
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
     if eleccion.estado != Eleccion.Estado.PUBLICADA or eleccion.autoridades_confirmadas_en:
         raise CommandError("Las solicitudes de demo requieren una elección publicada sin autoridades confirmadas.")
-    plan = leer_plan_publicacion()
-    if not padron_corresponde_al_plan(eleccion, plan):
-        logger.info("Elección %s: el padrón no corresponde al escenario de diecinueve solicitudes; no se generan datos de demo.", eleccion.pk)
+    planes = seleccionar_solicitudes_publicacion(eleccion)
+    if not planes:
         return 0
-    resultado = crear_solicitudes_escenario(eleccion, plan["solicitudes"])
+    resultado = crear_solicitudes_escenario(eleccion, planes)
     return len(resultado["creadas"])
 
 

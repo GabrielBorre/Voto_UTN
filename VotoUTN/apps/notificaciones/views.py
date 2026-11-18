@@ -4,7 +4,7 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
+from apps.notificaciones.models import EnvioNotificacion, LoteNotificacion, PlantillaNotificacion
 from apps.notificaciones.forms import FormularioEnviarNotificacion
 from apps.notificaciones.services import crear_envios, notificaciones_para_usuario
 from apps.usuarios.permisos import puede_administrar_parametros
@@ -26,6 +26,7 @@ def gestionar_notificaciones(request):
             "formulario_envio": formulario_envio,
             "plantillas": PlantillaNotificacion.objects.filter(activa=True, permite_envio_manual=True),
             "envios": EnvioNotificacion.objects.select_related("destinatario", "elector", "eleccion")[:20],
+            "lotes": LoteNotificacion.objects.select_related("eleccion").order_by("-pk")[:10],
         },
     )
 

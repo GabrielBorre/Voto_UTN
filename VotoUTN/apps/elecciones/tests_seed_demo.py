@@ -79,7 +79,16 @@ class SeedDemoInicialTests(TestCase):
         self.assertFalse(RegistroPadron.objects.exists())
         self.assertEqual(Sede.objects.count(), 2)
         self.assertEqual(Departamento.objects.count(), 10)
-        self.assertTrue(TipoJustificativo.objects.filter(nombre="Certificado medico").exists())
+        self.assertSetEqual(
+            set(TipoJustificativo.objects.values_list("nombre", flat=True)),
+            {
+                "Certificado medico",
+                "Enfermedad o accidente",
+                "Obligaciones laborales",
+                "Otro",
+                "Cuidado de familiar",
+            },
+        )
         for username, rol in (
             ("juanb", AsignacionRol.Rol.ADMINISTRADOR_JUNTA),
             ("administrativojunta", AsignacionRol.Rol.ADMINISTRATIVO_JUNTA),

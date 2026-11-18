@@ -17,6 +17,7 @@
     <p>Registrá a la persona que no pudo procesarse mediante QR. La carga valida la mesa, el padrón y los permisos asignados.</p>
 
     <form id="manual-desktop-form" data-api-url="{% url 'api-asistencia-lote' eleccion.pk %}">
+      {% csrf_token %}
       <div class="manual-desktop-field">
         <label for="manual-mesa-codigo">Código de mesa</label>
         <input id="manual-mesa-codigo" name="mesa_codigo" type="text" maxlength="40" placeholder="Ej. K-012" autocapitalize="characters" required autofocus>
@@ -128,5 +129,5 @@
   </div>
 </div>
 
-<script type="module" src="{% static 'js/scanner-app.js' %}"></script>
+<script type="module" src="{% static 'js/scanner-app.js' %}?v=20261117.1"></script>
 {% endblock %}

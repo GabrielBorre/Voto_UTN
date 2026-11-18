@@ -1414,30 +1414,34 @@ class ProteccionEmisionQrTests(TestCase):
         self.assertIsNotNone(self.registro.qr_generado_en)
         self.assertEqual(self.registro.numero_mesa_qr, 1)
 
-    def test_emision_requiere_plazo_cerrado_y_solicitudes_resueltas(self):
-        from apps.padron.services import validar_emision_con_cambios_sede_cerrados
+    def test_emision_requiere_solicitudes_resueltas(self):
+        from apps.padron.services import validar_emision_sin_solicitudes_cambio_sede_pendientes
 
-        for limite in (None, timezone.localdate(), timezone.localdate() + timedelta(days=1)):
-            with self.subTest(limite=limite):
-                self.eleccion.fecha_cierre_solicitudes_cambio_sede = limite
-                with self.assertRaisesMessage(ValueError, "plazo de cambios de sede"):
-                    validar_emision_con_cambios_sede_cerrados(self.eleccion)
-        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate() - timedelta(days=1)
         destino = Sede.objects.create(nombre="Otra sede")
         solicitud = SolicitudCambioSede.objects.create(
             registro_padron=self.registro, sede_origen=self.sede, sede_destino=destino,
         )
         with self.assertRaisesMessage(ValueError, "solicitudes de cambio de sede pendientes"):
-            validar_emision_con_cambios_sede_cerrados(self.eleccion)
+            validar_emision_sin_solicitudes_cambio_sede_pendientes(self.eleccion)
         solicitud.estado = SolicitudCambioSede.Estado.RECHAZADA
         solicitud.save(update_fields=("estado",))
-        validar_emision_con_cambios_sede_cerrados(self.eleccion)
+        validar_emision_sin_solicitudes_cambio_sede_pendientes(self.eleccion)
 
-    def test_comando_qr_no_emite_con_plazo_abierto(self):
-        self.eleccion.fecha_cierre_solicitudes_cambio_sede = timezone.localdate()
-        self.eleccion.save(update_fields=("fecha_cierre_solicitudes_cambio_sede",))
+    def test_emision_no_requiere_plazo_de_cambios_de_sede_cerrado(self):
+        from apps.padron.services import validar_emision_sin_solicitudes_cambio_sede_pendientes
+
+        for limite in (None, timezone.localdate(), timezone.localdate() + timedelta(days=1)):
+            with self.subTest(limite=limite):
+                self.eleccion.fecha_cierre_solicitudes_cambio_sede = limite
+                validar_emision_sin_solicitudes_cambio_sede_pendientes(self.eleccion)
+
+    def test_comando_qr_no_emite_con_solicitudes_pendientes(self):
+        destino = Sede.objects.create(nombre="Otra sede")
+        SolicitudCambioSede.objects.create(
+            registro_padron=self.registro, sede_origen=self.sede, sede_destino=destino,
+        )
         with TemporaryDirectory() as directorio:
-            with self.assertRaisesMessage(CommandError, "plazo de cambios de sede"):
+            with self.assertRaisesMessage(CommandError, "solicitudes de cambio de sede pendientes"):
                 call_command(
                     "seed_voters", election_id=self.eleccion.pk,
                     configuracion_departamento_id=self.configuracion.pk, output=Path(directorio),

@@ -50,7 +50,7 @@ services:
     build:
       context: ./VotoUTN
     restart: unless-stopped
-    environment:
+    environment: &entorno_web_instancias
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Falta DJANGO_SECRET_KEY}
       CLAVE_FIRMA_QR: ${CLAVE_FIRMA_QR:?Falta CLAVE_FIRMA_QR}
       DJANGO_DEBUG: "True"
@@ -75,15 +75,30 @@ services:
       - media:/app/media
       - generated_qrs:/app/generated_qrs
     command: >-
-      sh -c 'if [ "$$INSTANCIA_DEMO" = "1" ]; then
-      python manage.py iniciar_instancia_demo;
-      else python manage.py migrate --noinput; fi &&
+      sh -c 'if [ "$$INSTANCIA_DEMO" = "3" ]; then
+      python manage.py migrate --noinput;
+      else python manage.py iniciar_instancia_demo; fi &&
       python manage.py collectstatic --noinput &&
       python manage.py runserver 0.0.0.0:8000'
     depends_on:
       db:
         condition: service_healthy
       keycloak:
+        condition: service_started
+      mailpit:
+        condition: service_started
+
+  notificaciones:
+    image: voto-utn-instancias:local
+    restart: unless-stopped
+    environment: *entorno_web_instancias
+    command: >-
+      sh -c 'python manage.py migrate --check &&
+      python manage.py procesar_notificaciones --continuo'
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
         condition: service_started
       mailpit:
         condition: service_started

@@ -3,9 +3,12 @@
 {% block title %}Revisión de importación | {{ eleccion.nombre }}{% endblock %}
 
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Revisión de importación</h1>
   <p>{{ eleccion.nombre }}. Revisá el resultado de la validación antes de incorporar el padrón.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <div class="management-panel import-review-panel">

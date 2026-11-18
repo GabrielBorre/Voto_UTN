@@ -57,7 +57,7 @@ def candidatos_para_vacante(ausente):
 @transaction.atomic
 def confirmar_traslado_por_vacante(ausente, candidato_id, usuario):
     from apps.autoridades.distribucion import _auditar, es_candidato_electoral
-    from apps.notificaciones.services import crear_notificacion_traslado_autoridad, enviar_notificacion
+    from apps.notificaciones.services import crear_notificacion_traslado_autoridad
     from apps.usuarios.models import AsignacionRol, PerfilUsuario
 
     eleccion = Eleccion.objects.select_for_update().get(pk=ausente.registro_padron.eleccion_id)
@@ -100,6 +100,5 @@ def confirmar_traslado_por_vacante(ausente, candidato_id, usuario):
     _auditar(actual.mesa.eleccion_claustro_departamento.eleccion_claustro, usuario,
              "autoridades.traslado_por_vacante", {"ausente": actual.pk, "asignacion": candidato.pk,
                                                    "mesa_origen": origen.pk, "mesa_destino": actual.mesa_id})
-    envio = crear_notificacion_traslado_autoridad(candidato, origen)
-    transaction.on_commit(lambda: enviar_notificacion(envio))
+    crear_notificacion_traslado_autoridad(candidato, origen)
     return candidato

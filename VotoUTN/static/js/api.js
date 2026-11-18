@@ -1,7 +1,9 @@
 import { iniciarCarga } from "./interfaz.js";
 
 function csrfToken() {
-  return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
+  const token = document.querySelector('#manual-desktop-form [name="csrfmiddlewaretoken"]')?.value;
+  if (!token) throw new Error('No se pudo obtener el token CSRF. Recargá la página e intentá nuevamente.');
+  return token;
 }
 
 async function postJson(url, body) {

@@ -360,7 +360,13 @@ Reglas:
 
 ## Resolución de solicitudes de cambio de sede
 
-- En la demostración, publicar una elección cuyo padrón coincide con el primer escenario completa las diecinueve solicitudes predefinidas (diez originales y nueve adicionales), en lugar de generar setenta aleatorias. Tres solicitantes pertenecen a las nóminas de doce y de 198 personas; se conservan las designaciones existentes y Carlos queda reservado para su solicitud manual. La publicación y el comando manual reutilizan el servicio del guion, sin duplicar solicitudes ni cambiar resoluciones. Otros padrones se publican sin datos ficticios aleatorios. El lote respeta plazo, actividad, QR y destinos de todos los registros; un error revierte la publicación y el lote completo.
+- En la demostración, publicar genera hasta treinta solicitudes exclusivamente
+  de Estudiantes sin designación de autoridad en ningún registro de la elección.
+  Carlos queda reservado para su solicitud manual. Se eligen candidatos sin
+  actividad ni QR y con otra sede habilitada para todos sus registros. Si no
+  hay treinta, se crean las posibles sin informar faltantes. Se conservan
+  solicitudes existentes y autoridades; un error revierte publicación y lote.
+  Los planes fijos históricos siguen disponibles para el guion externo.
 
 - «Aprobar» en una solicitud individual aplica directamente la resolución y el
   recálculo, sin pasar por «Revisar cambios de sede». Conserva los permisos,
@@ -422,7 +428,7 @@ por las decisiones de cambio de mesa y sede indicadas arriba.
 
 ## Emisión de QR y cambios de sede
 
-- La emisión del padrón imprimible y de QR requiere una fecha de cierre de solicitudes de cambio de sede anterior al día actual y ninguna solicitud pendiente en la elección. El plazo incluye el día de cierre.
+- La emisión del padrón imprimible y de QR no exige que el plazo de cambios de sede esté vencido, pero requiere que no exista ninguna solicitud de cambio de sede pendiente en la elección.
 - Las mesas conservan su tipo ordinario o especial después de emitir QR para alguno de sus registros.
 
 ## Mesas especiales por departamento adicional
