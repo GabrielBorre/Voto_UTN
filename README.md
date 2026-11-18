@@ -32,21 +32,57 @@ el despliegue existente de `docker-compose.yml`, que puede seguir funcionando.
 | 2 | https://localhost:8445 | 8002 | http://localhost:8082/instancia-2/ | http://localhost:8027 | 5434 | 1027 |
 | 3 | https://localhost:8446 | 8003 | http://localhost:8083/instancia-3/ | http://localhost:8028 | 5435 | 1028 |
 
-En una base nueva, la instancia 1 carga automaticamente los parametros y las
+En una base nueva, las instancias 1 y 2 cargan automaticamente los parametros y las
 identidades locales de `juanb` y `administrativojunta`, sin crear ninguna eleccion
 ni padron. Los electores de Keycloak se vinculan al importar el padron; no se
-asignan autoridades antes de crear la eleccion. La instancia 2 restaura la foto
-fija de PostgreSQL descrita abajo antes de aplicar migraciones; la instancia 3
-solo aplica migraciones. Keycloak importa el realm de demostracion por separado
-en cada instancia.
+asignan autoridades antes de crear la eleccion. La foto fija de PostgreSQL
+descrita abajo ya no se restaura al levantar la instancia 2; solo se aplica con
+la accion `restaurar-foto`. Keycloak importa el realm de demostracion por
+separado en cada instancia.
+
+### Foto fija actual de la instancia 3
+
+La carpeta local `.instancias\foto-instancia-3` contiene la foto capturada el
+17 de noviembre de 2026: `postgres.sql`, `archivos.tar.gz` (volumenes `media`
+y `generated_qrs`) y `huellas.json` con sus SHA-256. Se capturo con Django y el
+trabajador detenidos. Incluye la eleccion «Demo 2026» con 352 inasistencias,
+41 mesas procesadas y K-016, K-017, K-019 y K-046 pendientes. No incluye
+Keycloak, los correos de Mailpit, las claves de entorno ni los certificados.
+La carpeta esta excluida de Git y debe conservarse junto con el entorno
+`instancia-3.env`, necesario para validar los QR existentes.
+
+**Cada `up` que incluya la instancia 3 reemplaza sus datos actuales por esa
+foto, sin respaldo automatico**, incluso si sus volumenes ya existen:
+
+```powershell
+.\scripts\instancias.ps1 up
+.\scripts\instancias.ps1 up -Instancia 3
+```
+
+Los cambios posteriores de la instancia 3 no se incorporan a la foto: el
+arranque solo la lee y verifica sus huellas antes de detener servicios. Si falta
+o fue alterada, cancela el arranque en lugar de crear datos alternativos.
+La restauracion detiene Django y el trabajador, reemplaza el esquema `public`
+en una transaccion y reemplaza los adjuntos y QR, eliminando archivos de trabajo
+que no estaban en la captura. Si falla, no vuelve a levantar esos servicios;
+PostgreSQL y archivos no forman una unica transaccion y se debe reintentar
+`up -Instancia 3` despues de resolver el error.
+
+`start -Instancia 3` reanuda los datos de trabajo sin restaurarlos. Solo en
+la instancia 3 se omite `iniciar_instancia_demo`: Django aplica migraciones,
+recopila estaticos y arranca sin ejecutar la carga inicial de demostracion.
+El codigo de la aplicacion sigue reconstruyendose con `up`; la foto es de
+datos, no una imagen congelada del codigo. Las instancias 1 y 2 mantienen
+su comportamiento anterior.
 
 ### Foto fija de PostgreSQL para la instancia 2
 
-`up -Instancia 2` restaura `.instancias\foto-instancia-1.sql` solamente cuando
-la base no contiene tablas de usuario. La foto se capturo de la instancia 1 el
+La foto `.instancias\foto-instancia-1.sql` se conserva, pero `up -Instancia 2`
+ya no la restaura: la instancia 2 inicia como la 1, con la carga inicial
+de demostracion en una base nueva. La foto solo se aplica con la accion
+`restaurar-foto` descrita abajo. La foto se capturo de la instancia 1 el
 16 de noviembre de 2026 y no se actualiza al arrancar: los cambios posteriores
-en la instancia 1 no se copian. Si falta la foto, el arranque de una base vacia
-falla explicitamente. El archivo queda excluido de Git porque contiene todos
+en la instancia 1 no se copian. El archivo queda excluido de Git porque contiene todos
 los datos de PostgreSQL, incluidas las identidades locales. La foto no incluye
 el historial de archivos de nómina y conserva los tipos de justificativo
 «Certificado medico», «Enfermedad o accidente», «Obligaciones laborales»,
@@ -86,10 +122,11 @@ autoridad. Si hay menos candidatos compatibles, solo se crean las posibles,
 sin avisar faltantes. Carlos queda reservado para su solicitud manual y no se
 modifican las solicitudes de elecciones ya publicadas.
 
-La carga inicial se ejecuta solo al crear una base nueva; reiniciar o reconstruir
-no vuelve a modificar datos existentes. Si falla durante la primera carga, el
-arranque informa el error y la reintenta. Para cargarla manualmente en otra
-instancia, ejecutar `python manage.py seed_demo_inicial` en su contenedor `web`.
+La carga inicial se ejecuta en las instancias 1 y 2, solo al crear una base nueva;
+reiniciar o reconstruir no vuelve a modificar datos existentes. Si falla durante
+la primera carga, el arranque informa el error y la reintenta. Para cargarla
+manualmente, ejecutar `python manage.py seed_demo_inicial` en el contenedor `web`
+correspondiente.
 El comando actualiza los parametros estandar y conserva las identidades existentes.
 También agrega idempotentemente los cinco tipos de justificativo indicados arriba.
 Los comandos anteriores `seed_demo_data` y `seed_keycloak_demo` siguen disponibles
@@ -153,7 +190,8 @@ produccion; Keycloak utiliza HTTP y realm con usuarios de demo.
 .\scripts\instancias.ps1 up -Instancia 3
 ```
 
-`stop`, `start` y `down` no eliminan volumenes. Mailpit mantiene los mensajes
+`stop`, `start` y `down` no eliminan volumenes. Recordar que `up` restaura
+siempre la foto en la instancia 3. Mailpit mantiene los mensajes
 en el contenedor: se pierden al recrearlo. No usar `down --volumes` si se necesitan
 conservar los datos. Para ejecutar comandos Django sobre una instancia:
 

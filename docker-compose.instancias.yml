@@ -75,9 +75,9 @@ services:
       - media:/app/media
       - generated_qrs:/app/generated_qrs
     command: >-
-      sh -c 'if [ "$$INSTANCIA_DEMO" = "1" ]; then
-      python manage.py iniciar_instancia_demo;
-      else python manage.py migrate --noinput; fi &&
+      sh -c 'if [ "$$INSTANCIA_DEMO" = "3" ]; then
+      python manage.py migrate --noinput;
+      else python manage.py iniciar_instancia_demo; fi &&
       python manage.py collectstatic --noinput &&
       python manage.py runserver 0.0.0.0:8000'
     depends_on:

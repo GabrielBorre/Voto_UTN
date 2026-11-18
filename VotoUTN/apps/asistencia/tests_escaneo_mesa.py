@@ -1,7 +1,7 @@
 from datetime import date
 
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from apps.asistencia.models import RegistroParticipacion
@@ -230,3 +230,35 @@ class EscaneoDeMesaTests(TestCase):
 
         self.assertContains(respuesta, 'id="mesa-code-form"')
         self.assertContains(respuesta, 'data-mesa-api-url="')
+
+    @override_settings(CSRF_COOKIE_NAME="voto_utn_3_csrftoken")
+    def test_escaner_y_carga_manual_validan_csrf_con_cookie_de_instancia(self):
+        self.eleccion.estado = Eleccion.Estado.EN_CURSO
+        self.eleccion.save(update_fields=("estado",))
+        cliente = Client(enforce_csrf_checks=True)
+        cliente.force_login(self.usuario)
+        pagina = cliente.get(reverse("escanear", args=(self.eleccion.pk,)))
+
+        self.assertContains(pagina, 'name="csrfmiddlewaretoken"')
+        self.assertIn("voto_utn_3_csrftoken", cliente.cookies)
+        token = str(pagina.context["csrf_token"])
+        self.assertContains(pagina, f'value="{token}"')
+        cliente.cookies["csrftoken"] = "A" * 32
+
+        operaciones = (
+            ("api-asistencia-mesa", {"accion": "consultar", "codigo_qr": self.qr_mesa(self.mesa)}),
+            ("api-asistencia-lote", {"mesa_codigo": self.mesa.codigo, "dni": self.padron.elector.dni}),
+        )
+        for ruta, cuerpo in operaciones:
+            with self.subTest(ruta=ruta):
+                url = reverse(ruta, args=(self.eleccion.pk,))
+                for cabeceras in ({}, {"HTTP_X_CSRFTOKEN": "B" * 32}):
+                    rechazada = cliente.post(url, cuerpo, content_type="application/json", **cabeceras)
+                    self.assertEqual(rechazada.status_code, 403)
+                    self.assertFalse(RegistroParticipacion.objects.exists())
+                respuesta = cliente.post(
+                    url, cuerpo, content_type="application/json", HTTP_X_CSRFTOKEN=token,
+                )
+                self.assertEqual(respuesta.status_code, 200)
+
+        self.assertTrue(RegistroParticipacion.objects.filter(registro_padron=self.padron).exists())

@@ -1,5 +1,65 @@
 # Registro de cambios por etapa
 
+## Foto fija de datos de instancia 3 y restauracion en cada up
+
+- Se captura `.instancias/foto-instancia-3` el 17 de noviembre de 2026 con
+  los escritores detenidos: PostgreSQL, adjuntos y QR generados, mas huellas
+  SHA-256. No se incluyen Keycloak, Mailpit, secretos ni certificados en esa
+  foto local excluida de Git. Los arranques nunca regeneran la captura.
+- `scripts/instancias.ps1` valida la foto antes de modificar servicios y la
+  restaura en cada `up` que incluya la instancia 3, con PostgreSQL atomico y
+  reemplazo de los archivos de ambos volumenes. Una falla impide reanudar los
+  escritores. `start` conserva datos de trabajo y las instancias 1 y 2
+  mantienen sus flujos anteriores.
+- `docker-compose.instancias.yml` omite `iniciar_instancia_demo` solamente
+  para la instancia 3; conserva migraciones y recopilacion de estaticos.
+- Se actualizan `README.md` y `scripts/tests_instancias.ps1` con cobertura
+  de restauracion repetida, aislamiento de instancias, archivos en solo
+  lectura, foto ausente/alterada y propagacion de errores.
+- Verificado con una tabla y archivos temporales posteriores a la captura:
+  `start -Instancia 3` conserva datos y `up -Instancia 3` recupera la foto.
+  Las huellas de la captura no cambian y los 10 archivos restaurados
+  coinciden exactamente, sin los temporales. El tablero conserva 352
+  inasistencias, 41 mesas procesadas y las cuatro mesas K pendientes.
+  Pruebas PowerShell y Compose correctas, HTTPS 200, `check` sin problemas,
+  `makemigrations --check` sin cambios y `migrate --plan` sin pendientes.
+
+## CSRF del escaneo y la carga manual en instancias independientes
+
+- El cliente compartido usa el token enmascarado generado por Django en el
+  formulario del escaner, sin depender del nombre de la cookie ni leer el
+  token de otra instancia. El formulario existe tambien en la vista movil.
+- Se versiona la cadena de modulos del escaner para renovar la cache.
+  Se mantienen la autenticacion, la proteccion CSRF y los contratos QR/API.
+- Se agregan regresiones JavaScript y pruebas con validacion CSRF real para
+  cookies personalizadas, escaneo de mesa, carga manual y rechazo de tokens
+  incorrectos. No hay cambios de modelos ni migraciones.
+- Aplicado al servicio web de la instancia 3, sin restaurar datos ni reiniciar
+  las instancias 1 y 2. Verificado HTTPS 200 y cliente actualizado desde el
+  proxy; pasan 64 pruebas Django de QR/carga manual y 13 pruebas JavaScript.
+  `check`, `makemigrations --check` y `migrate --plan` sin pendientes en esa
+  instancia. La suite ampliada de asistencia detecta dos problemas fuera de
+  este cambio en `tests_dashboard`: calendario administrativo y generacion
+  demo de justificativos sin tipos activos.
+- La suite general del entorno habitual ejecuta 816 pruebas con 5 fallos y
+  4 errores fuera de este cambio (dashboard, notificaciones demo, permisos,
+  configuracion, catalogos y candidaturas); no se considera validacion global
+  satisfactoria. Ese entorno conserva pendiente `padron.0019`, que no se aplica
+  como parte de esta correccion.
+
+## Carga inicial en las tres instancias y foto solo bajo demanda
+
+- `docker-compose.instancias.yml` ejecuta `iniciar_instancia_demo` en el
+  servicio `web` de todas las instancias: en una base nueva aplica migraciones
+  y la carga inicial de demostracion; en una base existente solo migra.
+- `scripts/instancias.ps1` deja de restaurar la foto fija de PostgreSQL al
+  levantar la instancia 2 (`up`). La foto `.instancias/foto-instancia-1.sql`
+  se conserva y sigue aplicandose unicamente con la accion explicita
+  `restaurar-foto -Instancia 2`.
+- Se actualizan `scripts/tests_instancias.ps1` (prueban la restauracion
+  explicita, su atomicidad y sus errores) y `README.md`. No se modifican
+  modelos, migraciones ni la foto.
+
 ## Foto de instancia 2 sin turnos ni candidatos de autoridades de Estudiantes
 
 - Se modifica unicamente `.instancias/foto-instancia-1.sql` (excluida de Git)

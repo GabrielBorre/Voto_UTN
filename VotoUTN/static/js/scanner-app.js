@@ -1,7 +1,7 @@
 import { Camera } from "./camera.js";
 import { ReactivadorCamara } from "./reactivacion-camara.js";
 import { PageQrScanner } from "./scanner.js";
-import { gestionarMesa, submitManualAttendance, submitPage } from "./asistencia.js";
+import { gestionarMesa, submitManualAttendance, submitPage } from "./asistencia.js?v=20261117.1";
 import {
     setCount,
     setStatus,

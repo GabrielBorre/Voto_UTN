@@ -11,6 +11,7 @@ $Compose = Join-Path $Raiz "docker-compose.instancias.yml"
 $DirectorioEntornos = Join-Path $Raiz ".instancias"
 $Instancia = @($Instancia | Select-Object -Unique)
 $FotoPostgres = Join-Path $DirectorioEntornos "foto-instancia-1.sql"
+$DirectorioFoto3 = Join-Path $DirectorioEntornos "foto-instancia-3"
 
 if ($Accion -eq "restaurar-foto" -and ($Instancia.Count -ne 1 -or $Instancia[0] -ne 2)) {
     throw "La accion restaurar-foto requiere -Instancia 2 y reemplaza sus datos."
@@ -38,39 +39,100 @@ function Ejecutar-Compose {
 }
 
 function Restaurar-FotoPostgres {
-    if (-not (Test-Path -LiteralPath $FotoPostgres -PathType Leaf)) {
-        throw "Falta la foto fija de PostgreSQL: $FotoPostgres. No se inicializara una base diferente."
+    param([int]$Numero = 2, [string]$ArchivoFoto = $FotoPostgres)
+    if (-not (Test-Path -LiteralPath $ArchivoFoto -PathType Leaf)) {
+        throw "Falta la foto fija de PostgreSQL: $ArchivoFoto. No se inicializara una base diferente."
     }
 
     $ArchivoContenedor = "/tmp/voto-utn-foto-$([guid]::NewGuid().ToString('N')).sql"
     try {
-        Ejecutar-Compose -Numero 2 -Argumentos @("cp", $FotoPostgres, "db:$ArchivoContenedor")
-        Ejecutar-Compose -Numero 2 -Argumentos @(
+        Ejecutar-Compose -Numero $Numero -Argumentos @("cp", $ArchivoFoto, "db:$ArchivoContenedor")
+        Ejecutar-Compose -Numero $Numero -Argumentos @(
             "exec", "-T", "db", "psql", "-U", "postgres", "-d", "voto_utn",
             "--no-psqlrc", "--set", "ON_ERROR_STOP=1", "--single-transaction",
             "--command", "DROP SCHEMA public CASCADE; CREATE SCHEMA public;",
             "--file", $ArchivoContenedor
         ) | Out-Null
-        Write-Host "Foto fija de PostgreSQL restaurada en voto-utn-2."
+        Write-Host "Foto fija de PostgreSQL restaurada en voto-utn-$Numero."
     }
     finally {
-        Ejecutar-Compose -Numero 2 -Argumentos @("exec", "-T", "db", "rm", "-f", $ArchivoContenedor)
+        Ejecutar-Compose -Numero $Numero -Argumentos @("exec", "-T", "db", "rm", "-f", $ArchivoContenedor)
     }
 }
 
-function Inicializar-FotoPostgres {
-    Ejecutar-Compose -Numero 2 -Argumentos @("up", "-d", "--wait", "db")
-    $Tablas = Ejecutar-Compose -Numero 2 -Argumentos @(
-        "exec", "-T", "db", "psql", "-U", "postgres", "-d", "voto_utn",
-        "--no-psqlrc", "-Atc",
-        "SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema' AND c.relkind IN ('r', 'p');"
+function Validar-FotoInstancia3 {
+    $ArchivoHuellas = Join-Path $DirectorioFoto3 "huellas.json"
+    if (-not (Test-Path -LiteralPath $ArchivoHuellas -PathType Leaf)) {
+        throw "Falta la foto fija de la instancia 3: $ArchivoHuellas. No se modificaran sus datos."
+    }
+    $Huellas = Get-Content -LiteralPath $ArchivoHuellas -Raw | ConvertFrom-Json
+    if ($Huellas.instancia -ne 3) {
+        throw "La foto no corresponde a la instancia 3."
+    }
+    foreach ($Entrada in @(
+        @{ Nombre = "postgres.sql"; Huella = $Huellas.postgres_sha256 },
+        @{ Nombre = "archivos.tar.gz"; Huella = $Huellas.archivos_sha256 }
+    )) {
+        $Archivo = Join-Path $DirectorioFoto3 $Entrada.Nombre
+        if (-not (Test-Path -LiteralPath $Archivo -PathType Leaf)) {
+            throw "Falta un archivo de la foto fija: $Archivo."
+        }
+        if ((Get-FileHash -LiteralPath $Archivo -Algorithm SHA256).Hash -ne $Entrada.Huella) {
+            throw "La foto fija fue alterada: $Archivo. Se cancela la restauracion."
+        }
+    }
+}
+
+function Restaurar-ArchivosInstancia3 {
+    $Archivo = Join-Path $DirectorioFoto3 "archivos.tar.gz"
+    $Codigo = @'
+from pathlib import Path, PurePosixPath
+import shutil
+import tarfile
+
+raiz = Path('/app')
+nombres = {'media', 'generated_qrs'}
+with tarfile.open('/foto.tar.gz', 'r:gz') as foto:
+    miembros = foto.getmembers()
+    for miembro in miembros:
+        ruta = PurePosixPath(miembro.name)
+        if (ruta.is_absolute() or '..' in ruta.parts or not ruta.parts
+                or ruta.parts[0] not in nombres
+                or not (miembro.isdir() or miembro.isfile())):
+            raise RuntimeError(f'Entrada no permitida en la foto: {miembro.name}')
+    for nombre in nombres:
+        if not any(m.name == nombre and m.isdir() for m in miembros):
+            raise RuntimeError(f'Falta el directorio {nombre} en la foto')
+        destino = raiz / nombre
+        if not destino.is_dir() or destino.is_symlink():
+            raise RuntimeError(f'Volumen de destino no valido: {destino}')
+    for nombre in nombres:
+        for entrada in (raiz / nombre).iterdir():
+            if entrada.is_dir() and not entrada.is_symlink():
+                shutil.rmtree(entrada)
+            else:
+                entrada.unlink()
+    foto.extractall(raiz, members=miembros, filter='data')
+print('Adjuntos y QR restaurados desde la foto fija de instancia 3.')
+'@
+    $CodigoBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Codigo))
+    Ejecutar-Compose -Numero 3 -Argumentos @(
+        "run", "--rm", "--no-deps", "--volume", "${Archivo}:/foto.tar.gz:ro",
+        "--entrypoint", "python", "web", "-c",
+        "import base64; exec(base64.b64decode('$CodigoBase64'))"
     )
-    if ([int]::Parse(($Tablas -join "").Trim()) -eq 0) {
-        Restaurar-FotoPostgres
+}
+
+function Iniciar-Instancia {
+    param([int]$Numero)
+    if ($Numero -eq 3) {
+        Validar-FotoInstancia3
+        Ejecutar-Compose -Numero 3 -Argumentos @("up", "-d", "--wait", "db")
+        Ejecutar-Compose -Numero 3 -Argumentos @("stop", "web", "notificaciones")
+        Restaurar-FotoPostgres -Numero 3 -ArchivoFoto (Join-Path $DirectorioFoto3 "postgres.sql")
+        Restaurar-ArchivosInstancia3
     }
-    else {
-        Write-Host "Base existente en voto-utn-2: se conservan sus datos."
-    }
+    Ejecutar-Compose -Numero $Numero -Argumentos @("up", "-d", "--no-build")
 }
 
 function Instalar-CertificadoCaddy {
@@ -151,16 +213,16 @@ foreach ($Numero in $Instancia) {
 }
 
 if ($Accion -eq "up") {
+    if ($Instancia -contains 3) {
+        Validar-FotoInstancia3
+    }
     Ejecutar-Compose -Numero $Instancia[0] -Argumentos @("build", "web")
 }
 
 foreach ($Numero in $Instancia) {
     switch ($Accion) {
         "up" {
-            if ($Numero -eq 2) {
-                Inicializar-FotoPostgres
-            }
-            Ejecutar-Compose -Numero $Numero -Argumentos @("up", "-d", "--no-build")
+            Iniciar-Instancia -Numero $Numero
             Instalar-CertificadoCaddy -Numero $Numero
         }
         "restaurar-foto" {
