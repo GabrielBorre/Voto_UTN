@@ -21,6 +21,7 @@ class FormularioGenerarMesas(forms.Form):
         self.eleccion = eleccion
         self.fields["configuracion"].queryset = EleccionClaustroDepartamento.objects.filter(
             eleccion_claustro__eleccion=eleccion,
+            solo_puesto_electivo=False,
         ).select_related("eleccion_claustro__claustro", "departamento")
         self.fields["sede"].queryset = Sede.objects.filter(
             elecciones_sede__eleccion=eleccion,

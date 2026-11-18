@@ -1,0 +1,235 @@
+@startuml
+title DER - Electores y padrones
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam entity {
+  BackgroundColor #DCEFE1
+  BorderColor #43815A
+  FontColor #1F3B29
+}
+skinparam ArrowColor #77808C
+skinparam TitleFontColor #374151
+
+entity "Elector" as elector {
+  * id : bigint <<PK>>
+  --
+  legajo : varchar(20)
+  nombre : varchar(180)
+  apellido : varchar(180)
+  dni : varchar(12)
+  tipo_documento : varchar(30)
+  correo_electronico : varchar(254)
+  tiene_discapacidad : bool
+  departamento_principal_id : bigint <<FK, NULL>>
+}
+entity "RegistroPadron" as registro {
+  * id : bigint <<PK>>
+  elector_id : bigint <<FK>>
+  eleccion_id : bigint <<FK>>
+  eleccion_claustro_departamento_id : bigint <<FK>>
+  sede_id : bigint <<FK, NULL>>
+  turno_cursada_id : bigint <<FK, NULL>>
+  --
+  dni : varchar(12)
+  legajo : varchar(20)
+  nivel : varchar(50)
+  activo : bool
+  identificador_qr : varchar(8) <<UQ>>
+  qr_generado_en : timestamptz <<NULL>>
+  numero_mesa_qr : int <<NULL>>
+  <<UQ>> (elector_id, eleccion_id)
+  <<UQ>> (eleccion_id, dni)
+  <<UQ>> (eleccion_id, legajo)
+}
+entity "ImportacionPadron" as importacion {
+  * id : bigint <<PK>>
+  eleccion_id : bigint <<FK>>
+  eleccion_claustro_id : bigint <<FK>>
+  usuario_id : int <<FK>>
+  --
+  archivo : varchar
+  nombre_archivo : varchar(255)
+  estado : varchar(20)
+  cantidad_total : int
+  cantidad_validas : int
+  cantidad_existentes : int
+  errores : jsonb
+  creada_en : timestamptz
+  confirmada_en : timestamptz <<NULL>>
+}
+entity "ErrorImportacionPadron" as error_importacion {
+  * id : bigint <<PK>>
+  importacion_id : bigint <<FK>>
+  --
+  fila : int <<NULL>>
+  campo : varchar(64)
+  mensaje : varchar(300)
+}
+entity "SolicitudCambioSede" as solicitud_sede {
+  * id : bigint <<PK>>
+  registro_padron_id : bigint <<FK>>
+  sede_origen_id : bigint <<FK>>
+  sede_destino_id : bigint <<FK>>
+  resuelta_por_id : int <<FK, NULL>>
+  --
+  estado : varchar(16)
+  observacion : text
+  observacion_resolucion : text
+  creada_en : timestamptz
+  resuelta_en : timestamptz <<NULL>>
+  <<UQ parcial>> (registro_padron_id) donde estado = pendiente
+}
+entity "EmisionPadronImprimible" as emision {
+  * id : bigint <<PK>>
+  eleccion_claustro_id : bigint <<FK>>
+  emitida_por_id : int <<FK>>
+  invalidada_por_id : int <<FK, NULL>>
+  --
+  estado : varchar(12)
+  emitida_en : timestamptz
+  invalidada_en : timestamptz <<NULL>>
+  motivo_invalidacion : varchar(500)
+  <<UQ parcial>> (eleccion_claustro_id) donde estado = vigente
+}
+entity "ConfiguracionSedesClaustro" as config_sedes {
+  * id : bigint <<PK>>
+  eleccion_claustro_id : bigint <<FK, UQ>>
+  --
+  actualizada_en : timestamptz
+}
+entity "ReglaSedeClaustro" as regla_sede {
+  * id : bigint <<PK>>
+  configuracion_id : bigint <<FK>>
+  sede_destino_id : bigint <<FK>>
+  --
+  orden : smallint
+  campo : varchar(32)
+  operador : varchar(16)
+  valor : varchar(500)
+  aplicar_a_todos : bool
+  <<UQ>> (configuracion_id, orden)
+}
+entity "ReglaSedeClaustro_Alcances" as regla_alcances {
+  * id : bigint <<PK>>
+  reglasedeclaustro_id : bigint <<FK>>
+  eleccionclaustrodepartamento_id : bigint <<FK>>
+  --
+  <<UQ>> (reglasedeclaustro_id, eleccionclaustrodepartamento_id)
+}
+entity "AsignacionSedePadron" as asignacion_sede {
+  * id : bigint <<PK>>
+  registro_padron_id : bigint <<FK, UQ>>
+  sede_id : bigint <<FK, NULL>>
+  regla_aplicada_id : bigint <<FK, NULL>>
+  --
+  estado : varchar(12)
+  calculada_en : timestamptz
+}
+entity "PadronVotacion" as padron_votacion {
+  * id : bigint <<PK>>
+  eleccion_claustro_id : bigint <<FK>>
+  --
+  nombre : varchar(180)
+  calculado_en : timestamptz <<NULL>>
+  creado_en : timestamptz
+  actualizado_en : timestamptz
+  <<UQ>> (eleccion_claustro_id, nombre)
+}
+entity "PuestoPadronVotacion" as puesto_padron {
+  * id : bigint <<PK>>
+  padron_votacion_id : bigint <<FK>>
+  puesto_eleccion_id : bigint <<FK>>
+  --
+  <<UQ>> (padron_votacion_id, puesto_eleccion_id)
+}
+entity "GrupoInclusionPadronVotacion" as grupo_inclusion {
+  * id : bigint <<PK>>
+  padron_votacion_id : bigint <<FK>>
+  --
+  orden : smallint
+}
+entity "CondicionInclusionPadronVotacion" as condicion_inclusion {
+  * id : bigint <<PK>>
+  grupo_id : bigint <<FK>>
+  --
+  campo : varchar(32)
+  operador : varchar(16)
+  valor : varchar(500)
+}
+entity "ConfiguracionSedePadronVotacion" as config_sede_votacion {
+  * id : bigint <<PK>>
+  padron_votacion_id : bigint <<FK>>
+  eleccion_claustro_departamento_id : bigint <<FK>>
+  sede_predeterminada_id : bigint <<FK>>
+  --
+  <<UQ>> (padron_votacion_id, eleccion_claustro_departamento_id)
+}
+entity "ReglaAsignacionSede" as regla_asignacion_sede {
+  * id : bigint <<PK>>
+  configuracion_id : bigint <<FK>>
+  sede_destino_id : bigint <<FK>>
+  --
+  orden : smallint
+  campo : varchar(32)
+  operador : varchar(16)
+  valor : varchar(500)
+}
+entity "AsignacionPadronVotacion" as asignacion_padron_votacion {
+  * id : bigint <<PK>>
+  padron_votacion_id : bigint <<FK>>
+  registro_padron_id : bigint <<FK>>
+  sede_asignada_id : bigint <<FK>>
+  --
+  calculada_en : timestamptz
+  <<UQ>> (padron_votacion_id, registro_padron_id)
+}
+
+entity "Eleccion" as eleccion <<referencia>>
+entity "EleccionClaustro" as eleccion_claustro <<referencia>>
+entity "EleccionClaustroDepartamento" as alcance <<referencia>>
+entity "Sede" as sede <<referencia>>
+entity "Turno" as turno <<referencia>>
+entity "Usuario" as usuario <<auth.User>>
+entity "Departamento" as departamento <<referencia>>
+entity "PuestoEleccion" as puesto_eleccion <<referencia>>
+entity "EleccionClaustroDepartamentoSede" as alcance_sede <<referencia>>
+
+departamento ||--o{ elector
+elector ||--o{ registro
+eleccion ||--o{ registro
+alcance ||--o{ registro
+sede |o--o{ registro
+turno |o--o{ registro
+eleccion ||--o{ importacion
+eleccion_claustro ||--o{ importacion
+usuario ||--o{ importacion
+importacion ||--o{ error_importacion
+registro ||--o{ solicitud_sede
+sede ||--o{ solicitud_sede : origen/destino
+usuario |o--o{ solicitud_sede : resuelve
+eleccion_claustro ||--o{ emision
+usuario ||--o{ emision : emite
+usuario |o--o{ emision : invalida
+eleccion_claustro ||--o| config_sedes
+config_sedes ||--o{ regla_sede
+sede ||--o{ regla_sede
+regla_sede ||--o{ regla_alcances
+alcance ||--o{ regla_alcances
+registro ||--o| asignacion_sede
+sede |o--o{ asignacion_sede
+regla_sede |o--o{ asignacion_sede
+eleccion_claustro ||--o{ padron_votacion
+padron_votacion ||--o{ puesto_padron
+puesto_eleccion ||--o{ puesto_padron
+padron_votacion ||--o{ grupo_inclusion
+grupo_inclusion ||--o{ condicion_inclusion
+padron_votacion ||--o{ config_sede_votacion
+alcance ||--o{ config_sede_votacion
+alcance_sede ||--o{ config_sede_votacion : sede predeterminada
+config_sede_votacion ||--o{ regla_asignacion_sede
+alcance_sede ||--o{ regla_asignacion_sede : destino
+padron_votacion ||--o{ asignacion_padron_votacion
+registro ||--o{ asignacion_padron_votacion
+alcance_sede ||--o{ asignacion_padron_votacion : sede asignada
+@enduml

@@ -1,0 +1,164 @@
+@startuml
+title DER - Usuarios, justificativos, notificaciones y auditoria
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam entity {
+  BackgroundColor #F8DDE2
+  BorderColor #AC5362
+  FontColor #4B252D
+}
+skinparam ArrowColor #77808C
+skinparam TitleFontColor #374151
+
+entity "PerfilUsuario" as perfil {
+  * id : bigint <<PK>>
+  usuario_id : int <<FK, UQ>>
+  elector_id : bigint <<FK, NULL, UQ>>
+  --
+  activo : bool
+  dni : varchar(12) <<UQ, NULL>>
+}
+entity "AsignacionRol" as asignacion_rol {
+  * id : bigint <<PK>>
+  usuario_id : int <<FK>>
+  eleccion_id : bigint <<FK, NULL>>
+  sede_id : bigint <<FK, NULL>>
+  mesa_id : bigint <<FK, NULL>>
+  --
+  rol : varchar(32)
+  activo : bool
+  <<UQ>> (usuario_id, rol, eleccion_id, sede_id, mesa_id)
+}
+entity "TipoJustificativo" as tipo_justificativo {
+  * id : bigint <<PK>>
+  --
+  nombre : varchar(120) <<UQ>>
+  activo : bool
+}
+entity "JustificativoAusencia" as justificativo {
+  * id : bigint <<PK>>
+  registro_padron_id : bigint <<FK>>
+  tipo_id : bigint <<FK, NULL>>
+  resuelta_por_id : int <<FK, NULL>>
+  --
+  ausencia : varchar(16)
+  reclamo_participacion : bool
+  detalle : text
+  documento : varchar
+  comprobante_extraviado : bool
+  validacion_comprobante : varchar(16)
+  detalle_validacion_comprobante : text
+  comprobante_validado_en : timestamptz <<NULL>>
+  respaldo_participacion : jsonb
+  participacion_anulada_en : timestamptz <<NULL>>
+  estado : varchar(16)
+  presentada_en : timestamptz
+  resuelta_en : timestamptz <<NULL>>
+  observacion_resolucion : text
+  reemplazo_procesado_en : timestamptz <<NULL>>
+  <<CK>> tipo o reclamo, segun ausencia
+}
+entity "PlantillaNotificacion" as plantilla {
+  * id : bigint <<PK>>
+  --
+  codigo : varchar(100) <<UQ>>
+  nombre : varchar(160) <<UQ>>
+  categoria : varchar(20)
+  descripcion : text
+  asunto : varchar(180)
+  contenido : text
+  roles_destinatarios : jsonb
+  permite_envio_manual : bool
+  activa : bool
+}
+entity "PlantillaNotificacion_Claustros" as plantilla_claustros {
+  * id : bigint <<PK>>
+  claustro_id : bigint <<FK>>
+  plantillanotificacion_id : bigint <<FK>>
+  --
+  <<UQ>> (claustro_id, plantillanotificacion_id)
+}
+entity "ComunicacionFechaAdministrativa" as comunicacion {
+  * id : bigint <<PK>>
+  fecha_administrativa_id : bigint <<FK>>
+  --
+  codigo : varchar(80)
+  nombre : varchar(160)
+  referencia : varchar(10)
+  desplazamiento_dias : smallint
+  hora_sugerida : time
+  orden : smallint
+  activa : bool
+  <<UQ>> (fecha_administrativa_id, codigo)
+}
+entity "VarianteComunicacionFechaAdministrativa" as variante {
+  * id : bigint <<PK>>
+  comunicacion_id : bigint <<FK>>
+  plantilla_id : bigint <<FK>>
+  --
+  criterio_adicional : varchar(50)
+  prioridad : smallint
+  activa : bool
+  <<UQ>> (comunicacion_id, prioridad)
+}
+entity "EnvioNotificacion" as envio {
+  * id : bigint <<PK>>
+  plantilla_id : bigint <<FK>>
+  eleccion_id : bigint <<FK, NULL>>
+  destinatario_id : int <<FK, NULL>>
+  elector_id : bigint <<FK, NULL>>
+  --
+  asunto : varchar(180)
+  contenido : text
+  estado : varchar(16)
+  creada_en : timestamptz
+  enviada_en : timestamptz <<NULL>>
+  leida_en : timestamptz <<NULL>>
+  error : varchar(300)
+  <<CK>> destinatario_id o elector_id informado
+}
+entity "EventoAuditoria" as auditoria {
+  * id : bigint <<PK>>
+  usuario_id : int <<FK, NULL>>
+  eleccion_id : bigint <<FK, NULL>>
+  --
+  accion : varchar(120)
+  entidad : varchar(120)
+  entidad_id : varchar(80)
+  datos_anteriores : jsonb
+  datos_nuevos : jsonb
+  ip : inet <<NULL>>
+  agente_usuario : varchar(300)
+  creado_en : timestamptz
+}
+entity "Usuario" as usuario <<auth.User>>
+entity "Elector" as elector <<referencia>>
+entity "Eleccion" as eleccion <<referencia>>
+entity "Mesa" as mesa <<referencia>>
+entity "Sede" as sede <<referencia>>
+entity "RegistroPadron" as registro <<referencia>>
+entity "FechaAdministrativa" as fecha_admin <<referencia>>
+entity "Claustro" as claustro <<referencia>>
+
+usuario ||--o| perfil
+elector |o--o| perfil
+usuario ||--o{ asignacion_rol
+eleccion |o--o{ asignacion_rol
+sede |o--o{ asignacion_rol
+mesa |o--o{ asignacion_rol
+registro ||--o{ justificativo
+tipo_justificativo |o--o{ justificativo
+usuario |o--o{ justificativo : resuelve
+fecha_admin ||--o{ comunicacion
+comunicacion ||--o{ variante
+plantilla ||--o{ variante
+claustro ||--o{ plantilla_claustros
+plantilla ||--o{ plantilla_claustros
+plantilla ||--o{ envio
+eleccion |o--o{ envio
+usuario |o--o{ envio : destinatario local
+elector |o--o{ envio : destinatario electoral
+usuario |o--o{ auditoria
+eleccion |o--o{ auditoria
+@enduml

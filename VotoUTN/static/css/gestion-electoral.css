@@ -1119,6 +1119,20 @@
     margin-bottom: 0;
 }
 
+.configuration-grid .puestos-configurados {
+    margin-bottom: 18px;
+}
+
+.configuration-grid .puestos-configurados summary {
+    color: var(--azul-900);
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.configuration-grid .puestos-configurados ul {
+    padding-left: 20px;
+}
+
 .div-btn {
     margin-top: 1rem;
     text-align: right;
@@ -1651,6 +1665,43 @@ th a.table-sort-link:focus-visible {
     accent-color: var(--azul-900);
     height: 18px;
     width: 18px;
+}
+
+.puesto-alcance {
+    border: 0;
+    padding: 0;
+}
+
+.puesto-alcance legend {
+    color: var(--texto);
+    float: none;
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    width: auto;
+}
+
+.puesto-alcance-opcion {
+    align-items: flex-start;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.field .puesto-alcance-opcion input[type="radio"] {
+    accent-color: var(--azul-900);
+    background: transparent;
+    border: 0;
+    flex: 0 0 auto;
+    height: 18px;
+    margin: 2px 0 0;
+    min-height: 0;
+    padding: 0;
+    width: 18px;
+}
+
+.puesto-alcance-opcion label {
+    margin: 0;
 }
 
 .error {

@@ -1,0 +1,125 @@
+@startuml
+title Jornada electoral: mesas, autoridades y participación
+left to right direction
+skinparam classAttributeIconSize 0
+
+package "Mesas" {
+  class Mesa {
+    +eleccion: Eleccion
+    +eleccion_claustro_departamento: EleccionClaustroDepartamento
+    +sede: Sede
+    +numero: int
+    +generada_automaticamente: bool
+    +estado_escaneo: EstadoEscaneo
+    +escaneo_iniciado_en: datetime
+    +procesada_en: datetime
+    +codigo: str [derivado]
+    --
+    +codigo(): str
+    .. unique(eleccion, numero) ..
+  }
+  class AsignacionMesa {
+    +registro_padron: RegistroPadron
+    +mesa: Mesa
+    +autoridad_al_final: bool
+  }
+}
+package "Autoridades" {
+  class ImportacionNominaAutoridades {
+    +eleccion_claustro: EleccionClaustro
+    +usuario: Usuario
+    +archivo: File
+    +nombre_archivo: str
+    +huella_archivo: str
+    +estado: str
+    +cantidad_validas: int
+    +errores: JSON
+    +creada_en: datetime
+    +confirmada_en: datetime
+  }
+  class ConfiguracionAutoridades {
+    +eleccion_claustro: EleccionClaustro
+    +modo: str
+    +permitir_cambio_sede: bool
+    +reacomodar_titulares: bool
+    +permitir_mesa_distinta: bool
+  }
+  class CandidaturaAutoridad {
+    +registro_padron: RegistroPadron
+    +cargada_por: Usuario
+    +mesa_manual: Mesa
+    +turno_manual: Turno
+    +mesa_traslado: Mesa
+    +turno_traslado: Turno
+    +cargada_en: datetime
+    +excluida: bool
+    +tipo_manual: str
+    +orden_manual: int
+  }
+  class AsignacionAutoridad {
+    +registro_padron: RegistroPadron
+    +candidatura: CandidaturaAutoridad
+    +mesa: Mesa
+    +mesa_votacion_original: Mesa
+    +turno: Turno
+    +asignada_por: Usuario
+    +reemplazo_confirmado_por: Usuario
+    +reemplazada_por: AsignacionAutoridad
+    +tipo: str
+    +estado: str
+    +asignada_en: datetime
+    +respondida_en: datetime
+    +reemplazo_confirmado_en: datetime
+  }
+  class PreferenciaAutoridad {
+    +registro_padron: RegistroPadron
+    +sede_preferida: Sede
+    +turno_preferido: Turno
+    +disponible: bool
+    +actualizada_en: datetime
+  }
+}
+package "Asistencia" {
+  class RegistroParticipacion {
+    +registro_padron: RegistroPadron
+    +mesa: Mesa
+    +registrada_por: Usuario
+    +registrada_en: datetime
+    +metodo: Metodo {qr, manual}
+    .. unique(registro_padron) ..
+  }
+}
+class Eleccion <<referencia>>
+class EleccionClaustro <<referencia>>
+class EleccionClaustroDepartamento <<referencia>>
+class RegistroPadron <<referencia>>
+class Turno <<referencia>>
+class Sede <<referencia>>
+class Usuario <<Django auth.User>>
+
+Eleccion "1" -- "0..*" Mesa
+EleccionClaustroDepartamento "0..1" -- "0..*" Mesa
+Sede "0..1" -- "0..*" Mesa
+RegistroPadron "1" -- "0..1" AsignacionMesa
+Mesa "1" -- "0..*" AsignacionMesa
+EleccionClaustro "1" -- "0..1" ConfiguracionAutoridades
+EleccionClaustro "1" -- "0..*" ImportacionNominaAutoridades
+Usuario "1" -- "0..*" ImportacionNominaAutoridades
+RegistroPadron "1" -- "0..1" CandidaturaAutoridad
+Usuario "1" -- "0..*" CandidaturaAutoridad : carga
+Mesa "0..1" -- "0..*" CandidaturaAutoridad : selección manual o traslado
+Turno "0..1" -- "0..*" CandidaturaAutoridad
+RegistroPadron "1" -- "0..1" AsignacionAutoridad
+CandidaturaAutoridad "0..1" -- "0..1" AsignacionAutoridad
+Mesa "1" -- "0..*" AsignacionAutoridad
+Turno "1" -- "0..*" AsignacionAutoridad
+AsignacionAutoridad "0..1" --> "0..*" AsignacionAutoridad : reemplaza
+Usuario "1" -- "0..*" AsignacionAutoridad : asigna
+Usuario "0..1" -- "0..*" AsignacionAutoridad : confirma reemplazo
+RegistroPadron "1" -- "0..1" PreferenciaAutoridad
+Sede "0..1" -- "0..*" PreferenciaAutoridad
+Turno "0..1" -- "0..*" PreferenciaAutoridad
+RegistroPadron "1" -- "0..*" RegistroParticipacion
+Mesa "1" -- "0..*" RegistroParticipacion
+Usuario "1" -- "0..*" RegistroParticipacion : registra
+@enduml

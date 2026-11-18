@@ -1,23 +1,25 @@
 import csv
 import io
+import re
 import unicodedata
 from collections import defaultdict
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
-from apps.elecciones.models import EleccionClaustro
+from apps.elecciones.models import Eleccion, EleccionClaustro
 from apps.padron.models import RegistroPadron
 from apps.partidos.models import (
     Candidato,
     CargoElectivo,
     ImportacionCandidaturas,
     ListaCandidatos,
-    OrganoElectivo,
     ParticipacionPartido,
     PuestoEleccion,
 )
+from apps.reportes.services import valor_csv
 
 
 ENCABEZADOS_CANDIDATURAS = (
@@ -26,7 +28,10 @@ ENCABEZADOS_CANDIDATURAS = (
 )
 ENCABEZADOS_OBLIGATORIOS = set(ENCABEZADOS_CANDIDATURAS) - {"apoderado_email", "tipo_documento", "documento"}
 ENCABEZADOS_CANDIDATOS_LISTA = (
-    "tipo_documento", "documento", "tipo_candidatura", "orden",
+    "puesto", "departamento", "tipo_documento", "documento", "tipo_candidatura", "orden",
+)
+ENCABEZADOS_CANDIDATOS_MULTIPUESTO = (
+    "puesto", "departamento", "tipo_documento", "documento", "tipo_candidatura", "orden",
 )
 ENCABEZADOS_OBLIGATORIOS_CANDIDATOS = {"tipo_candidatura", "orden"}
 
@@ -36,67 +41,101 @@ def _normalizar(valor):
     return " ".join("".join(c for c in texto if not unicodedata.combining(c)).casefold().split())
 
 
-CLAUSTROS_CON_PUESTOS_DEPARTAMENTALES_PREDETERMINADOS = {
-    "estudiantes",
-    "docentes",
-    "graduados",
-}
-COMPOSICION_PUESTOS_DEPARTAMENTALES_POR_CLAUSTRO = {
-    "docentes": 5,
-    "estudiantes": 3,
-    "graduados": 2,
-}
+def cupo_del_puesto(cargo, claustro):
+    """Titulares y suplentes del puesto para un claustro; sin cupo cargado usa uno y uno."""
+    cupo = cargo.cupos_claustro.filter(claustro=claustro).first()
+    return (cupo.cantidad_titulares, cupo.cantidad_suplentes) if cupo else (1, 1)
+
+
+def _alcances_del_puesto(cargo, eleccion_claustro):
+    """Alcances de la elección donde corresponde el puesto: uno general o uno por departamento."""
+    if not cargo.es_departamental:
+        return [None]
+    return list(eleccion_claustro.departamentos.filter(
+        departamento__isnull=False, solo_puesto_electivo=False,
+    ).select_related("departamento"))
+
+
+def _cabe_en_cupo(puesto_eleccion, titulares, suplentes):
+    for tipo, limite in ((Candidato.Tipo.TITULAR, titulares), (Candidato.Tipo.SUPLENTE, suplentes)):
+        ocupados = Candidato.objects.filter(lista__puesto_eleccion=puesto_eleccion, tipo=tipo).order_by("-orden")
+        mayor = ocupados.values_list("orden", flat=True).first()
+        if mayor and mayor > limite:
+            return False
+    return True
+
+
+def conflictos_de_cupo(cargo, claustro, titulares, suplentes):
+    """Elecciones en preparación con candidaturas que quedarían fuera del cupo propuesto."""
+    conflictos = []
+    puestos = PuestoEleccion.objects.filter(
+        puesto=cargo,
+        eleccion_claustro__claustro=claustro,
+        eleccion_claustro__eleccion__estado=Eleccion.Estado.EN_PREPARACION,
+    ).select_related("eleccion_claustro__eleccion", "eleccion_claustro_departamento__departamento")
+    for puesto in puestos:
+        if not _cabe_en_cupo(puesto, titulares, suplentes):
+            alcance = (
+                str(puesto.eleccion_claustro_departamento.departamento)
+                if puesto.eleccion_claustro_departamento_id else "general"
+            )
+            conflictos.append(f"{puesto.eleccion_claustro.eleccion} ({alcance})")
+    return conflictos
 
 
 @transaction.atomic
-def habilitar_puestos_departamentales_predeterminados(eleccion_claustro):
-    """Crea puestos departamentales faltantes para un claustro y sus departamentos."""
-    if _normalizar(eleccion_claustro.claustro.nombre) not in (
-        CLAUSTROS_CON_PUESTOS_DEPARTAMENTALES_PREDETERMINADOS
-    ):
-        return []
+def sincronizar_puestos_claustro(eleccion_claustro):
+    """Genera, actualiza y retira los puestos de un claustro según los parámetros de puestos.
 
-    organo, _ = OrganoElectivo.objects.get_or_create(
-        nombre="Consejo Departamental",
-        defaults={"descripcion": "Órgano de gobierno de cada departamento académico."},
-    )
-    cargo, _ = CargoElectivo.objects.get_or_create(
-        organo=organo,
-        nombre="Consejero/a departamental",
-        defaults={
-            "permite_filtrar_claustros": True,
-            "permite_filtrar_departamentos": True,
-            "descripcion": "Representación departamental con composición definida por claustro.",
-            "activo": True,
-        },
-    )
-    cargo.claustros_habilitados.add(eleccion_claustro.claustro)
-    cantidad_representantes = COMPOSICION_PUESTOS_DEPARTAMENTALES_POR_CLAUSTRO[
-        _normalizar(eleccion_claustro.claustro.nombre)
-    ]
+    Solo actúa sobre elecciones en preparación. Los puestos con listas asociadas nunca se
+    eliminan y las cantidades no se reducen por debajo de las candidaturas ya cargadas.
+    """
+    resumen = {"creados": 0, "actualizados": 0, "eliminados": 0}
+    if eleccion_claustro.eleccion.estado != Eleccion.Estado.EN_PREPARACION:
+        return resumen
 
-    configuraciones = eleccion_claustro.departamentos.filter(
-        departamento__isnull=False,
-    ).select_related("departamento")
-    puestos_creados = []
-    for configuracion in configuraciones:
-        if configuracion.departamento.codigo.casefold() == "z" or (
-            _normalizar(configuracion.departamento.nombre) == "ciencias basicas"
-        ):
-            continue
-        puesto, creado = PuestoEleccion.objects.get_or_create(
-            puesto=cargo,
-            eleccion_claustro=eleccion_claustro,
-            eleccion_claustro_departamento=configuracion,
-            defaults={
-                "cantidad_titulares": cantidad_representantes,
-                "cantidad_suplentes": cantidad_representantes,
-                "activo": True,
-            },
-        )
-        if creado:
-            puestos_creados.append(puesto)
-    return puestos_creados
+    esperados = set()
+    cargos = CargoElectivo.objects.filter(
+        activo=True, organo__activo=True, claustros_habilitados=eleccion_claustro.claustro_id,
+    ).select_related("organo")
+    for cargo in cargos:
+        titulares, suplentes = cupo_del_puesto(cargo, eleccion_claustro.claustro)
+        for alcance in _alcances_del_puesto(cargo, eleccion_claustro):
+            puesto, creado = PuestoEleccion.objects.get_or_create(
+                puesto=cargo,
+                eleccion_claustro=eleccion_claustro,
+                eleccion_claustro_departamento=alcance,
+                defaults={"cantidad_titulares": titulares, "cantidad_suplentes": suplentes, "activo": True},
+            )
+            esperados.add(puesto.pk)
+            if creado:
+                resumen["creados"] += 1
+            elif (
+                (puesto.cantidad_titulares, puesto.cantidad_suplentes) != (titulares, suplentes)
+                and _cabe_en_cupo(puesto, titulares, suplentes)
+            ):
+                puesto.cantidad_titulares, puesto.cantidad_suplentes = titulares, suplentes
+                puesto.save(update_fields=("cantidad_titulares", "cantidad_suplentes"))
+                resumen["actualizados"] += 1
+
+    obsoletos = PuestoEleccion.objects.filter(
+        eleccion_claustro=eleccion_claustro, puesto__activo=True,
+    ).exclude(pk__in=esperados).filter(listas_candidatos__isnull=True)
+    resumen["eliminados"] = obsoletos.count()
+    obsoletos.delete()
+    return resumen
+
+
+def sincronizar_puestos_en_preparacion():
+    """Aplica los parámetros de puestos a todos los claustros de elecciones en preparación."""
+    total = {"creados": 0, "actualizados": 0, "eliminados": 0}
+    claustros = EleccionClaustro.objects.filter(
+        eleccion__estado=Eleccion.Estado.EN_PREPARACION,
+    ).select_related("eleccion", "claustro")
+    for eleccion_claustro in claustros:
+        for clave, cantidad in sincronizar_puestos_claustro(eleccion_claustro).items():
+            total[clave] += cantidad
+    return total
 
 
 @transaction.atomic
@@ -117,36 +156,8 @@ def crear_presentacion_con_puestos(formulario, **relaciones):
     participacion.full_clean()
     participacion.save()
 
-    configuraciones_creadas = []
-    cargo_nuevo = formulario.cleaned_data["puesto_nuevo"]
-    if cargo_nuevo:
-        departamento = formulario.cleaned_data["departamento_puesto_nuevo"]
-        claustros = EleccionClaustro.objects.filter(pk=participacion.eleccion_claustro_id)
-        if not cargo_nuevo.permite_filtrar_claustros and not departamento:
-            claustros = EleccionClaustro.objects.filter(
-                eleccion=participacion.eleccion,
-                claustro__in=cargo_nuevo.claustros_habilitados.all(),
-            )
-        for claustro in claustros:
-            configuracion = PuestoEleccion(
-                puesto=cargo_nuevo,
-                eleccion_claustro=claustro,
-                eleccion_claustro_departamento=departamento,
-                cantidad_titulares=formulario.cleaned_data["cantidad_titulares_nueva"],
-                cantidad_suplentes=formulario.cleaned_data["cantidad_suplentes_nueva"] or 0,
-            )
-            configuracion.full_clean()
-            configuracion.save()
-            configuraciones_creadas.append(configuracion)
-
     listas = []
-    puestos = list(formulario.cleaned_data["puestos_eleccion"])
-    puestos.extend(
-        configuracion
-        for configuracion in configuraciones_creadas
-        if configuracion.eleccion_claustro_id == participacion.eleccion_claustro_id
-    )
-    for puesto_eleccion in puestos:
+    for puesto_eleccion in formulario.cleaned_data["puestos_eleccion"]:
         lista = ListaCandidatos(
             participacion=participacion,
             eleccion_claustro=puesto_eleccion.eleccion_claustro,
@@ -157,7 +168,7 @@ def crear_presentacion_con_puestos(formulario, **relaciones):
         lista.full_clean()
         lista.save()
         listas.append(lista)
-    return participacion, listas, configuraciones_creadas
+    return participacion, listas
 
 
 def _leer_csv(archivo, encabezados_obligatorios=ENCABEZADOS_OBLIGATORIOS):
@@ -170,6 +181,8 @@ def _leer_csv(archivo, encabezados_obligatorios=ENCABEZADOS_OBLIGATORIOS):
     except csv.Error:
         dialecto = csv.excel
         dialecto.delimiter = ";"
+    if dialecto.quotechar == "'" and re.search(r"(?:^|[;,\r\n])'[=+\-@]", contenido):
+        dialecto.quotechar = '"'
     lector = csv.DictReader(io.StringIO(contenido), dialect=dialecto)
     encabezados = {_normalizar(n).replace(" ", "_") for n in (lector.fieldnames or []) if n}
     faltantes = sorted(encabezados_obligatorios - encabezados)
@@ -197,7 +210,7 @@ def buscar_elector_candidato(*, eleccion, tipo_documento, documento, puesto):
         documento = documento.replace(".", "").replace("-", "").replace(" ", "")
         if not documento.isascii() or not documento.isdigit() or len(documento) > 12:
             raise ValidationError("El documento debe contener hasta 12 dígitos.")
-        filtro = {"dni": documento, "elector__tipo_documento__iexact": tipo_documento}
+        filtro = {"elector__dni": documento, "elector__tipo_documento__iexact": tipo_documento}
     registros = RegistroPadron.objects.select_related(
         "elector", "eleccion_claustro_departamento",
     ).filter(eleccion=eleccion, activo=True, **filtro)
@@ -210,7 +223,7 @@ def buscar_elector_candidato(*, eleccion, tipo_documento, documento, puesto):
         raise ValidationError("El elector pertenece a otro claustro del padrón.")
     if puesto.eleccion_claustro_departamento_id:
         registros = registros.filter(eleccion_claustro_departamento_id=puesto.eleccion_claustro_departamento_id)
-    registro = registros.order_by("-es_principal", "pk").first()
+    registro = registros.first()
     if registro is None:
         raise ValidationError("El elector pertenece a otro departamento del padrón.")
     return registro.elector
@@ -221,6 +234,196 @@ def _identidad_fila(fila):
     if "documento" in fila:
         return {"tipo_documento": fila.get("tipo_documento", ""), "documento": fila["documento"]}
     return {"tipo_documento": "DNI", "documento": fila.get("dni", "")}
+
+
+def puestos_habilitados_multipuesto(participacion):
+    if not participacion.eleccion_claustro_id:
+        return PuestoEleccion.objects.none()
+    return PuestoEleccion.objects.filter(
+        eleccion_claustro_id=participacion.eleccion_claustro_id,
+        puesto__claustros_habilitados=participacion.eleccion_claustro.claustro_id,
+        activo=True, puesto__activo=True, puesto__organo__activo=True,
+        listas_candidatos__participacion=participacion, listas_candidatos__activa=True,
+    ).filter(
+        Q(eleccion_claustro_departamento__isnull=True)
+        | Q(eleccion_claustro_departamento__departamento__isnull=False)
+    ).select_related(
+        "puesto__organo", "eleccion_claustro__claustro",
+        "eleccion_claustro_departamento__departamento",
+    ).order_by(
+        "puesto__organo__nombre", "puesto__nombre",
+        "eleccion_claustro_departamento__departamento__nombre",
+    )
+
+
+def previsualizar_candidatos_multipuesto(*, participacion, archivo, usuario):
+    errores, advertencias, filas_validas = [], [], []
+    cantidad_total = 0
+    if not participacion.activa or not participacion.eleccion_claustro_id:
+        return ImportacionCandidaturas.objects.create(
+            eleccion=participacion.eleccion, usuario=usuario, nombre_archivo=archivo.name[:255],
+            estado=ImportacionCandidaturas.Estado.RECHAZADA,
+            errores=["La lista debe estar activa y tener un claustro asignado."],
+        )
+    try:
+        lector = _leer_csv(
+            archivo, ENCABEZADOS_OBLIGATORIOS_CANDIDATOS | {"puesto", "departamento"},
+        )
+    except ValidationError as error:
+        return ImportacionCandidaturas.objects.create(
+            eleccion=participacion.eleccion, usuario=usuario, nombre_archivo=archivo.name[:255],
+            estado=ImportacionCandidaturas.Estado.RECHAZADA, errores=error.messages,
+        )
+
+    mapa = defaultdict(list)
+    for config in puestos_habilitados_multipuesto(participacion):
+        departamento = (
+            config.eleccion_claustro_departamento.departamento.nombre
+            if config.eleccion_claustro_departamento_id else ""
+        )
+        mapa[(_normalizar(config.puesto.nombre), _normalizar(departamento))].append(config)
+    asociaciones = {
+        lista.puesto_eleccion_id: lista
+        for lista in participacion.listas.filter(puesto_eleccion__isnull=False, activa=True).select_related(
+            "puesto_eleccion__puesto", "eleccion_claustro_departamento",
+        )
+    }
+    espacios, personas = set(), set()
+    for numero_fila, original in enumerate(lector, start=2):
+        if numero_fila > 5001:
+            errores.append("El archivo supera el máximo de 5000 filas.")
+            break
+        fila = {_normalizar(k).replace(" ", "_"): str(v or "").strip() for k, v in original.items() if k}
+        if not any(fila.values()):
+            continue
+        cantidad_total += 1
+        vacios = [campo for campo in ("puesto", "tipo_candidatura", "orden") if not fila.get(campo)]
+        if not _identidad_fila(fila)["documento"]:
+            vacios.append("documento")
+        if "documento" in fila and not fila.get("tipo_documento"):
+            vacios.append("tipo_documento")
+        if vacios:
+            errores.append(f"Fila {numero_fila}: faltan valores en {', '.join(vacios)}.")
+            continue
+        configs = mapa.get((_normalizar(fila["puesto"]), _normalizar(fila["departamento"])), [])
+        if len(configs) != 1:
+            errores.append(
+                f"Fila {numero_fila}: el puesto y departamento no identifican un único puesto habilitado para esta lista."
+            )
+            continue
+        config = configs[0]
+        lista = asociaciones.get(config.pk)
+        if lista is None:
+            errores.append(f"Fila {numero_fila}: el puesto ya no está activo para esta lista.")
+            continue
+        tipo = _normalizar(fila["tipo_candidatura"])
+        if tipo not in {Candidato.Tipo.TITULAR, Candidato.Tipo.SUPLENTE}:
+            errores.append(f"Fila {numero_fila}: tipo_candidatura debe ser titular o suplente.")
+            continue
+        try:
+            orden = int(fila["orden"])
+            if orden < 1:
+                raise ValueError
+        except ValueError:
+            errores.append(f"Fila {numero_fila}: orden debe ser un entero mayor que cero.")
+            continue
+        limite = config.cantidad_titulares if tipo == Candidato.Tipo.TITULAR else config.cantidad_suplentes
+        if orden > limite:
+            errores.append(f"Fila {numero_fila}: el orden supera los {limite} puestos {tipo} configurados.")
+            continue
+        espacio = (config.pk, tipo, orden)
+        if espacio in espacios or lista.candidatos.filter(tipo=tipo, orden=orden).exists():
+            errores.append(f"Fila {numero_fila}: el puesto, tipo y orden ya están ocupados o repetidos.")
+            continue
+        try:
+            elector = buscar_elector_candidato(
+                eleccion=participacion.eleccion, puesto=config, **_identidad_fila(fila),
+            )
+            if (config.pk, elector.pk) in personas or lista.candidatos.filter(dni=elector.dni).exists():
+                raise ValidationError("El elector ya figura en este puesto.")
+            Candidato(
+                lista=lista, elector=elector, tipo=tipo, orden=orden, cargo=config.puesto.nombre,
+            ).full_clean()
+        except ValidationError as error:
+            errores.append(f"Fila {numero_fila}: {'; '.join(error.messages)}")
+            continue
+        espacios.add(espacio)
+        personas.add((config.pk, elector.pk))
+        if Candidato.objects.filter(elector=elector).exclude(lista__participacion=participacion).exists():
+            aviso = f"El DNI {elector.dni} aparece en otra presentación; requiere revisión."
+            if aviso not in advertencias:
+                advertencias.append(aviso)
+        filas_validas.append({
+            "modalidad": "multipuesto", "numero_fila": numero_fila,
+            "participacion_id": participacion.pk, "puesto_eleccion_id": config.pk,
+            "cargo_electivo_id": config.puesto_id,
+            "alcance_id": config.eleccion_claustro_departamento_id,
+            "nombre_puesto": str(config), "elector_id": elector.pk,
+            "nombre": elector.nombre_completo, **_identidad_fila(fila),
+            "tipo": tipo, "orden": orden,
+        })
+
+    if not filas_validas and not errores:
+        errores.append("El archivo no contiene candidatos para cargar.")
+    return ImportacionCandidaturas.objects.create(
+        eleccion=participacion.eleccion, usuario=usuario, nombre_archivo=archivo.name[:255],
+        estado=ImportacionCandidaturas.Estado.RECHAZADA if errores else ImportacionCandidaturas.Estado.PREVISUALIZADA,
+        filas=filas_validas, errores=errores, advertencias=advertencias,
+        cantidad_total=cantidad_total, cantidad_valida=len(filas_validas),
+    )
+
+
+@transaction.atomic
+def confirmar_candidatos_multipuesto(importacion, participacion):
+    participacion = ParticipacionPartido.objects.select_for_update().get(pk=participacion.pk)
+    importacion = ImportacionCandidaturas.objects.select_for_update().get(
+        pk=importacion.pk, eleccion=participacion.eleccion,
+    )
+    if importacion.estado != ImportacionCandidaturas.Estado.PREVISUALIZADA or importacion.errores:
+        raise ValidationError("La importación no está disponible para confirmar.")
+    if not participacion.activa or not importacion.filas or any(
+        fila.get("modalidad") != "multipuesto" or fila.get("participacion_id") != participacion.pk
+        for fila in importacion.filas
+    ):
+        raise ValidationError("La importación no corresponde a esta lista activa.")
+    listas = {}
+    for fila in importacion.filas:
+        config = PuestoEleccion.objects.select_for_update(of=("self",)).select_related(
+            "puesto__organo", "eleccion_claustro", "eleccion_claustro_departamento",
+        ).filter(
+            pk=fila["puesto_eleccion_id"], eleccion_claustro_id=participacion.eleccion_claustro_id,
+            puesto__claustros_habilitados=participacion.eleccion_claustro.claustro_id,
+            activo=True, puesto__activo=True, puesto__organo__activo=True,
+        ).first()
+        if config is None:
+            raise ValidationError("Un puesto de la previsualización ya no está habilitado para la lista.")
+        if (
+            config.puesto_id != fila["cargo_electivo_id"]
+            or config.eleccion_claustro_departamento_id != fila["alcance_id"]
+        ):
+            raise ValidationError("Cambió el alcance de un puesto desde la previsualización.")
+        if config.pk not in listas:
+            lista = ListaCandidatos.objects.select_for_update().filter(
+                participacion=participacion, puesto_eleccion=config,
+            ).first()
+            if lista is None or not lista.activa:
+                raise ValidationError("Un puesto ya no está asociado y activo para esta lista.")
+            listas[config.pk] = lista
+        elector = buscar_elector_candidato(
+            eleccion=participacion.eleccion, puesto=config, **_identidad_fila(fila),
+        )
+        if elector.pk != fila["elector_id"]:
+            raise ValidationError("El elector de la previsualización cambió.")
+        candidato = Candidato(
+            lista=listas[config.pk], elector=elector, tipo=fila["tipo"],
+            orden=fila["orden"], cargo=config.puesto.nombre,
+        )
+        candidato.full_clean()
+        candidato.save()
+    importacion.estado = ImportacionCandidaturas.Estado.CONFIRMADA
+    importacion.confirmada_en = timezone.now()
+    importacion.save(update_fields=("estado", "confirmada_en"))
+    return len(importacion.filas)
 
 
 def previsualizar_candidatos_lista(*, lista, archivo, usuario):
@@ -290,7 +493,9 @@ def previsualizar_candidatos_lista(*, lista, archivo, usuario):
         }
         valores_puesto_incompatibles = [
             campo for campo, valor in metadatos_puesto.items()
-            if fila.get(campo) and _normalizar(fila[campo]) != _normalizar(valor)
+            if fila.get(campo) and _normalizar(fila[campo]) not in {
+                _normalizar(valor), _normalizar(valor_csv(valor)),
+            }
         ]
         if valores_puesto_incompatibles:
             errores.append(f"Fila {numero_fila}: los datos de puesto no coinciden con el puesto seleccionado.")

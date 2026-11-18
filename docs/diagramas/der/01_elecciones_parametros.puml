@@ -1,0 +1,163 @@
+@startuml
+title DER - Parametros y elecciones
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam entity {
+  BackgroundColor #D7E9FA
+  BorderColor #356D9A
+  FontColor #19364F
+}
+skinparam ArrowColor #77808C
+skinparam TitleFontColor #374151
+
+entity "Sede" as sede {
+  * id : bigint <<PK>>
+  --
+  nombre : varchar(120) <<UQ>>
+  activa : bool
+}
+entity "Claustro" as claustro {
+  * id : bigint <<PK>>
+  --
+  nombre : varchar(120) <<UQ>>
+  abreviatura : varchar(20)
+  organizacion_departamentos : varchar(24)
+  activo : bool
+}
+entity "Turno" as turno {
+  * id : bigint <<PK>>
+  --
+  nombre : varchar(120) <<UQ>>
+  hora_inicio : time
+  hora_fin : time
+  activo : bool
+}
+entity "Departamento" as departamento {
+  * id : bigint <<PK>>
+  --
+  nombre : varchar(120) <<UQ>>
+  codigo : varchar(20) <<UQ>>
+  activo : bool
+}
+entity "FechaAdministrativa" as fecha_admin {
+  * id : bigint <<PK>>
+  --
+  codigo : varchar(80) <<UQ>>
+  nombre : varchar(160) <<UQ>>
+  descripcion : text
+  modalidad_sugerida : varchar(20)
+  duracion_sugerida_dias : smallint <<NULL>>
+  roles_destinatarios : jsonb
+  alcance_todos_claustros : bool
+  criterio_destinatarios : varchar(50)
+  evento_disparador_sugerido : varchar(40)
+  activa : bool
+}
+entity "FechaAdministrativa_Claustros" as fecha_claustros {
+  * id : bigint <<PK>>
+  claustro_id : bigint <<FK>>
+  fechaadministrativa_id : bigint <<FK>>
+  --
+  <<UQ>> (claustro_id, fechaadministrativa_id)
+}
+entity "Eleccion" as eleccion {
+  * id : bigint <<PK>>
+  --
+  nombre : varchar(180)
+  fecha_inicio : date
+  fecha_fin : date
+  fecha_apertura_padron_provisorio : date <<NULL>>
+  fecha_cierre_padron_provisorio : date <<NULL>>
+  fecha_cierre_candidaturas : date <<NULL>>
+  fecha_publicacion_padron_definitivo : date <<NULL>>
+  fecha_cierre_solicitudes_cambio_sede : date <<NULL>>
+  fecha_limite_justificacion_autoridades : date <<NULL>>
+  autoridades_confirmadas_en : timestamptz <<NULL>>
+  autoridades_confirmadas_por_id : int <<FK, NULL>>
+  fecha_limite_justificacion_electores : date <<NULL>>
+  notificaciones_ausentes_confirmadas_en : timestamptz <<NULL>>
+  justificacion_electores_habilitada_en : timestamptz <<NULL>>
+  habilitada : bool
+  estado : varchar(16)
+  maximo_autoridades_por_mesa : smallint
+}
+entity "EleccionSede" as eleccion_sede {
+  * id : bigint <<PK>>
+  eleccion_id : bigint <<FK>>
+  sede_id : bigint <<FK>>
+  --
+  <<UQ>> (eleccion_id, sede_id)
+}
+entity "EleccionClaustro" as eleccion_claustro {
+  * id : bigint <<PK>>
+  eleccion_id : bigint <<FK>>
+  claustro_id : bigint <<FK>>
+  --
+  organizacion_departamentos : varchar(24)
+  fecha_votacion : date <<NULL>>
+  maximo_votantes_por_mesa : int <<NULL>>
+  <<UQ>> (eleccion_id, claustro_id)
+}
+entity "EleccionClaustroTurno" as ec_turno {
+  * id : bigint <<PK>>
+  eleccion_claustro_id : bigint <<FK>>
+  turno_id : bigint <<FK>>
+  --
+  titulares_por_mesa : smallint
+  minimo_titulares_por_mesa : smallint
+  suplentes_por_mesa : smallint
+  <<UQ>> (eleccion_claustro_id, turno_id)
+}
+entity "EleccionClaustroSede" as ec_sede {
+  * id : bigint <<PK>>
+  eleccion_claustro_id : bigint <<FK>>
+  sede_id : bigint <<FK>>
+  --
+  <<UQ>> (eleccion_claustro_id, sede_id)
+}
+entity "EleccionClaustroDepartamento" as ec_depto {
+  * id : bigint <<PK>>
+  eleccion_claustro_id : bigint <<FK>>
+  departamento_id : bigint <<FK, NULL>>
+  --
+  <<UQ parcial>> (eleccion_claustro_id, departamento_id) si no NULL
+  <<UQ parcial>> (eleccion_claustro_id) si departamento_id NULL
+}
+entity "EleccionClaustroDepartamentoSede" as ecd_sede {
+  * id : bigint <<PK>>
+  eleccion_claustro_departamento_id : bigint <<FK>>
+  sede_id : bigint <<FK>>
+  --
+  <<UQ>> (eleccion_claustro_departamento_id, sede_id)
+}
+entity "FechaAdministrativaEleccion" as fecha_eleccion {
+  * id : bigint <<PK>>
+  eleccion_id : bigint <<FK>>
+  fecha_administrativa_id : bigint <<FK>>
+  --
+  fecha : date
+  <<UQ>> (eleccion_id, fecha_administrativa_id)
+}
+
+claustro ||--o{ fecha_claustros
+fecha_admin ||--o{ fecha_claustros
+eleccion ||--o{ eleccion_sede
+sede ||--o{ eleccion_sede
+eleccion ||--o{ eleccion_claustro
+claustro ||--o{ eleccion_claustro
+eleccion_claustro ||--o{ ec_turno
+turno ||--o{ ec_turno
+eleccion_claustro ||--o{ ec_sede
+sede ||--o{ ec_sede
+eleccion_claustro ||--o{ ec_depto
+departamento |o--o{ ec_depto
+ec_depto ||--o{ ecd_sede
+sede ||--o{ ecd_sede
+eleccion ||--o{ fecha_eleccion
+fecha_admin ||--o{ fecha_eleccion
+note right of eleccion
+  Restriccion parcial: una eleccion como maximo
+  en estado en_preparacion, publicada o en_curso.
+end note
+@enduml

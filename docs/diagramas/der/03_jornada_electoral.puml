@@ -1,0 +1,139 @@
+@startuml
+title DER - Mesas, autoridades y participacion
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam entity {
+  BackgroundColor #FBE5CC
+  BorderColor #B66B2D
+  FontColor #4A2D17
+}
+skinparam ArrowColor #77808C
+skinparam TitleFontColor #374151
+
+entity "Mesa" as mesa {
+  * id : bigint <<PK>>
+  eleccion_id : bigint <<FK>>
+  eleccion_claustro_departamento_id : bigint <<FK, NULL>>
+  sede_id : bigint <<FK, NULL>>
+  --
+  numero : int
+  generada_automaticamente : bool
+  estado_escaneo : varchar(12)
+  escaneo_iniciado_en : timestamptz <<NULL>>
+  procesada_en : timestamptz <<NULL>>
+  <<UQ>> (eleccion_id, numero)
+}
+entity "AsignacionMesa" as asignacion_mesa {
+  * id : bigint <<PK>>
+  registro_padron_id : bigint <<FK, UQ>>
+  mesa_id : bigint <<FK>>
+  --
+  autoridad_al_final : bool
+}
+entity "ConfiguracionAutoridades" as config_autoridades {
+  * id : bigint <<PK>>
+  eleccion_claustro_id : bigint <<FK, UQ>>
+  --
+  modo : varchar(12)
+  permitir_cambio_sede : bool
+  reacomodar_titulares : bool
+  permitir_mesa_distinta : bool
+}
+entity "ImportacionNominaAutoridades" as importacion_nomina {
+  * id : bigint <<PK>>
+  eleccion_claustro_id : bigint <<FK>>
+  usuario_id : int <<FK>>
+  --
+  archivo : varchar
+  nombre_archivo : varchar(255)
+  huella_archivo : varchar(64)
+  estado : varchar(16)
+  cantidad_validas : int
+  errores : jsonb
+  creada_en : timestamptz
+  confirmada_en : timestamptz <<NULL>>
+}
+entity "CandidaturaAutoridad" as candidatura_autoridad {
+  * id : bigint <<PK>>
+  registro_padron_id : bigint <<FK, UQ>>
+  cargada_por_id : int <<FK>>
+  mesa_manual_id : bigint <<FK, NULL>>
+  turno_manual_id : bigint <<FK, NULL>>
+  mesa_traslado_id : bigint <<FK, NULL>>
+  turno_traslado_id : bigint <<FK, NULL>>
+  --
+  cargada_en : timestamptz
+  excluida : bool
+  tipo_manual : varchar(12)
+  orden_manual : smallint <<NULL>>
+}
+entity "AsignacionAutoridad" as asignacion_autoridad {
+  * id : bigint <<PK>>
+  registro_padron_id : bigint <<FK, UQ>>
+  candidatura_id : bigint <<FK, UQ, NULL>>
+  mesa_id : bigint <<FK>>
+  mesa_votacion_original_id : bigint <<FK, NULL>>
+  turno_id : bigint <<FK>>
+  asignada_por_id : int <<FK>>
+  reemplazo_confirmado_por_id : int <<FK, NULL>>
+  reemplazada_por_id : bigint <<FK, NULL>>
+  --
+  tipo : varchar(12)
+  estado : varchar(16)
+  asignada_en : timestamptz
+  respondida_en : timestamptz <<NULL>>
+  reemplazo_confirmado_en : timestamptz <<NULL>>
+  <<CK>> tipo = titular
+}
+entity "PreferenciaAutoridad" as preferencia {
+  * id : bigint <<PK>>
+  registro_padron_id : bigint <<FK, UQ>>
+  sede_preferida_id : bigint <<FK, NULL>>
+  turno_preferido_id : bigint <<FK, NULL>>
+  --
+  disponible : bool
+  actualizada_en : timestamptz
+}
+entity "RegistroParticipacion" as participacion {
+  * id : bigint <<PK>>
+  registro_padron_id : bigint <<FK, UQ>>
+  mesa_id : bigint <<FK>>
+  registrada_por_id : int <<FK>>
+  --
+  registrada_en : timestamptz
+  metodo : varchar(10)
+}
+entity "Eleccion" as eleccion <<referencia>>
+entity "EleccionClaustro" as eleccion_claustro <<referencia>>
+entity "EleccionClaustroDepartamento" as alcance <<referencia>>
+entity "RegistroPadron" as registro <<referencia>>
+entity "Turno" as turno <<referencia>>
+entity "Sede" as sede <<referencia>>
+entity "Usuario" as usuario <<auth.User>>
+
+eleccion ||--o{ mesa
+alcance |o--o{ mesa
+sede |o--o{ mesa
+registro ||--o| asignacion_mesa
+mesa ||--o{ asignacion_mesa
+eleccion_claustro ||--o| config_autoridades
+eleccion_claustro ||--o{ importacion_nomina
+usuario ||--o{ importacion_nomina
+registro ||--o| candidatura_autoridad
+usuario ||--o{ candidatura_autoridad
+mesa |o--o{ candidatura_autoridad : seleccion manual/traslado
+turno |o--o{ candidatura_autoridad
+registro ||--o| asignacion_autoridad
+candidatura_autoridad |o--o| asignacion_autoridad
+mesa ||--o{ asignacion_autoridad
+turno ||--o{ asignacion_autoridad
+usuario ||--o{ asignacion_autoridad : asigna/confirma
+asignacion_autoridad |o--o{ asignacion_autoridad : reemplaza
+registro ||--o| preferencia
+sede |o--o{ preferencia
+turno |o--o{ preferencia
+registro ||--o| participacion
+mesa ||--o{ participacion
+usuario ||--o{ participacion
+@enduml

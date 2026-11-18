@@ -1,15 +1,23 @@
 from datetime import time
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from apps.elecciones.models import Eleccion
 from apps.notificaciones.models import (
     ComunicacionFechaAdministrativa,
     PlantillaNotificacion,
     VarianteComunicacionFechaAdministrativa,
 )
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
-from apps.partidos.models import CargoElectivo, OrganoElectivo
+from apps.partidos.models import (
+    CargoElectivo,
+    CupoPuestoClaustro,
+    NOMBRE_PUESTO_CIENCIAS_BASICAS,
+    NOMBRE_PUESTO_SUPERIOR,
+    OrganoElectivo,
+)
+from apps.partidos.services import sincronizar_puestos_en_preparacion
 
 
 ROL_ELECTOR = [FechaAdministrativa.RolDestinatario.ELECTOR]
@@ -61,25 +69,39 @@ ORGANOS_ELECTIVOS = (
 
 PUESTOS_ELECTIVOS = (
     (
+        "Consejo Superior",
+        NOMBRE_PUESTO_SUPERIOR,
+        False,
+        "Puesto de representación ante el Consejo Superior.",
+        {"Docentes": (15, 15), "Estudiantes": (5, 5), "Graduados": (5, 5), "No docentes": (5, 5)},
+    ),
+    (
         "Consejo Directivo",
         "Consejero/a directivo/a",
-        True,
         False,
         "Puesto de representación general, configurable para uno o más claustros.",
+        {"Docentes": (5, 5), "Estudiantes": (5, 5), "Graduados": (5, 5), "No docentes": (1, 1)},
     ),
     (
         "Consejo Departamental",
         "Consejero/a departamental",
         True,
-        True,
-        "Puesto configurable por claustro y por departamento de forma independiente.",
+        "Puesto departamental: se genera uno por cada departamento habilitado del claustro.",
+        {"Docentes": (5, 5), "Estudiantes": (3, 3), "Graduados": (2, 2)},
+    ),
+    (
+        "Consejo Departamental",
+        NOMBRE_PUESTO_CIENCIAS_BASICAS,
+        False,
+        "Puesto general de Ciencias Básicas para estudiantes y graduados.",
+        {"Estudiantes": (3, 3), "Graduados": (2, 2)},
     ),
     (
         "Consejo DASUTeN",
         "Consejero/a DASUTeN",
-        True,
         False,
         "Puesto configurable para los claustros que participan de la elección de DASUTeN.",
+        {"Docentes": (2, 2), "No docentes": (2, 2)},
     ),
 )
 
@@ -160,19 +182,58 @@ class Command(BaseCommand):
                 {"descripcion": descripcion, "activo": True},
                 nombre=nombre,
             )
-        for organo_nombre, nombre, filtra_claustros, filtra_departamentos, descripcion in PUESTOS_ELECTIVOS:
-            self._upsert(
+        for organo_nombre, nombre, es_departamental, descripcion, cupos in PUESTOS_ELECTIVOS:
+            nombres_anteriores = {
+                NOMBRE_PUESTO_CIENCIAS_BASICAS: ("Ciencias Basicas", "Consejero/a departamental de Ciencias Básicas"),
+                NOMBRE_PUESTO_SUPERIOR: ("Consejo Superior", "Consejero/a superior"),
+            }
+            if nombre in nombres_anteriores:
+                existentes = list(CargoElectivo.objects.filter(
+                    organo=organos[organo_nombre],
+                ).filter(
+                    nombre__in=(nombre, *nombres_anteriores[nombre]),
+                ))
+                if len(existentes) > 1:
+                    raise CommandError(
+                        f"Hay varios puestos equivalentes a {nombre}. Revisalos antes de ejecutar la semilla."
+                    )
+                if existentes:
+                    anterior = existentes[0]
+                    if nombre == NOMBRE_PUESTO_CIENCIAS_BASICAS and anterior.es_departamental and anterior.configuraciones_eleccion.filter(
+                        eleccion_claustro__eleccion__estado=Eleccion.Estado.EN_PREPARACION,
+                        eleccion_claustro_departamento__isnull=False,
+                    ).exists():
+                        raise CommandError(
+                            "El puesto de Ciencias Básicas tiene alcances departamentales en una elección "
+                            "en preparación. Revisalos antes de convertirlo a general."
+                        )
+                    if anterior.nombre != nombre:
+                        anterior.nombre = nombre
+                        anterior.save(update_fields=("nombre",))
+            puesto = self._upsert(
                 conteo,
                 CargoElectivo,
                 {
-                    "permite_filtrar_claustros": filtra_claustros,
-                    "permite_filtrar_departamentos": filtra_departamentos,
+                    "permite_filtrar_claustros": True,
+                    "permite_filtrar_departamentos": es_departamental,
                     "descripcion": descripcion,
                     "activo": True,
                 },
                 organo=organos[organo_nombre],
                 nombre=nombre,
             )
+            claustros_puesto = Claustro.objects.filter(nombre__in=cupos)
+            puesto.claustros_habilitados.set(claustros_puesto)
+            puesto.cupos_claustro.exclude(claustro__in=claustros_puesto).delete()
+            for claustro in claustros_puesto:
+                titulares, suplentes = cupos[claustro.nombre]
+                # Las cantidades ya editadas por la Junta no se restablecen.
+                CupoPuestoClaustro.objects.get_or_create(
+                    puesto=puesto,
+                    claustro=claustro,
+                    defaults={"cantidad_titulares": titulares, "cantidad_suplentes": suplentes},
+                )
+        sincronizar_puestos_en_preparacion()
 
         fechas = {}
         for codigo, nombre, modalidad, duracion, roles, criterio, evento in FECHAS:

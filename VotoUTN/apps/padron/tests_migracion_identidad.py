@@ -9,7 +9,10 @@ from django.utils import timezone
 class MigracionIdentidadMultidepartamentalTests(TransactionTestCase):
     """Actualiza una base que ya tiene principales y adicionales, sin campos DNI/legajo."""
 
-    origen = [("padron", "0015_registros_por_departamento")]
+    origen = [
+        ("padron", "0015_registros_por_departamento"),
+        ("elecciones", "0036_alcance_solo_puesto_electivo"),
+    ]
 
     def setUp(self):
         super().setUp()

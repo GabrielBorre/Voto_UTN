@@ -1,0 +1,109 @@
+@startuml
+title Partidos y candidaturas
+left to right direction
+skinparam classAttributeIconSize 0
+
+class Partido {
+
+
+  +nombre: str
+
+  +sigla: str
+
+  +activo: bool
+
+}
+class OrganoElectivo {
+  +nombre: str
+  +descripcion: text
+  +activo: bool
+}
+class CargoElectivo {
+  +organo: OrganoElectivo
+  +claustros_habilitados: Claustro
+  +nombre: str
+  +claustros_habilitados: M2M Claustro
+  +permite_filtrar_claustros: bool
+  +descripcion: text
+  +permite_filtrar_departamentos: bool
+  +activo: bool
+}
+class ParticipacionPartido {
+  +eleccion: Eleccion
+  +partido: Partido
+  +eleccion_claustro: EleccionClaustro
+  +codigo_presentacion: str
+  +numero_lista: str
+  +nombre_lista: str
+  +apoderado_nombre: str
+  +apoderado_email: email
+  +activa: bool
+}
+class PuestoEleccion {
+  +puesto: CargoElectivo
+  +eleccion_claustro: EleccionClaustro
+  +eleccion_claustro_departamento: EleccionClaustroDepartamento
+  +cantidad_titulares: int
+  +cantidad_suplentes: int
+  +activo: bool
+  --
+  +eleccion: Eleccion {property}
+}
+class ListaCandidatos {
+  +participacion: ParticipacionPartido
+  +eleccion_claustro: EleccionClaustro
+  +eleccion_claustro_departamento: EleccionClaustroDepartamento
+  +puesto_eleccion: PuestoEleccion
+  +nombre: str
+  +activa: bool
+}
+class Candidato {
+  +lista: ListaCandidatos
+  +elector: Elector
+  +nombre: str
+  +identificador_persona: str
+  +dni: str
+  +correo_electronico: email
+  +cargo: str
+  +tipo: Tipo
+  +orden: int
+  +activo: bool
+}
+class ImportacionCandidaturas {
+  +eleccion: Eleccion
+  +usuario: Usuario
+  +nombre_archivo: str
+  +estado: str
+  +filas: JSON
+  +errores: JSON
+  +advertencias: JSON
+  +cantidad_total: int
+  +cantidad_valida: int
+  +creada_en: datetime
+  +confirmada_en: datetime
+}
+class Eleccion <<referencia>>
+class EleccionClaustro <<referencia>>
+class EleccionClaustroDepartamento <<referencia>>
+class Claustro <<referencia>>
+class Elector <<referencia>>
+class Usuario <<Django auth.User>>
+
+OrganoElectivo "1" -- "0..*" CargoElectivo
+CargoElectivo "0..*" -- "0..*" Claustro : claustros habilitados
+CargoElectivo "1" -- "0..*" PuestoEleccion
+Eleccion "1" -- "0..*" ParticipacionPartido
+Partido "0..1" -- "0..*" ParticipacionPartido
+EleccionClaustro "0..1" -- "0..*" ParticipacionPartido
+EleccionClaustro "1" -- "0..*" PuestoEleccion
+EleccionClaustroDepartamento "0..1" -- "0..*" PuestoEleccion
+CargoElectivo "1" -- "0..*" PuestoEleccion
+ParticipacionPartido "1" -- "0..*" ListaCandidatos
+EleccionClaustro "1" -- "0..*" ListaCandidatos
+EleccionClaustroDepartamento "0..1" -- "0..*" ListaCandidatos
+PuestoEleccion "0..1" -- "0..*" ListaCandidatos
+ListaCandidatos "1" -- "0..*" Candidato
+Elector "0..1" -- "0..*" Candidato
+ImportacionCandidaturas ..> Eleccion : importa
+Usuario "0..1" -- "0..*" ImportacionCandidaturas
+@enduml

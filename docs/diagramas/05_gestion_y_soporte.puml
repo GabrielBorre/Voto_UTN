@@ -1,0 +1,136 @@
+@startuml
+title Gestión y soporte: usuarios, justificativos, notificaciones y auditoría
+left to right direction
+skinparam classAttributeIconSize 0
+
+package "Usuarios" {
+  class PerfilUsuario {
+    +usuario: Usuario
+    +elector: Elector
+    +activo: bool
+    +dni: str
+  }
+  class AsignacionRol {
+    +usuario: Usuario
+    +eleccion: Eleccion
+    +sede: Sede
+    +mesa: Mesa
+    +rol: Rol
+    +activo: bool
+  }
+}
+package "Justificativos" {
+  class TipoJustificativo {
+    +nombre: str
+    +activo: bool
+  }
+  class JustificativoAusencia {
+    +registro_padron: RegistroPadron
+    +tipo: TipoJustificativo
+    +resuelta_por: Usuario
+    +estado: Estado
+    +ausencia: Ausencia
+    +reclamo_participacion: bool
+    +detalle: text
+    +documento: File
+    +comprobante_extraviado: bool
+    +validacion_comprobante: str
+    +detalle_validacion_comprobante: text
+    +presentada_en: datetime
+    +resuelto_en: datetime
+    --
+    +motivo: str {property}
+  }
+}
+package "Notificaciones" {
+  class PlantillaNotificacion {
+    +claustros: Claustro
+    +codigo: str
+    +nombre: str
+    +categoria: str
+    +descripcion: text
+    +asunto: str
+    +contenido: text
+    +roles_destinatarios: JSON
+    +permite_envio_manual: bool
+    +activa: bool
+    --
+    +roles_destinatarios_display: str {property}
+  }
+  class ComunicacionFechaAdministrativa {
+    +fecha_administrativa: FechaAdministrativa
+    +codigo: str
+    +nombre: str
+    +referencia: str
+    +desplazamiento_dias: int
+    +hora_sugerida: time
+    +orden: int
+    +activa: bool
+  }
+  class VarianteComunicacionFechaAdministrativa {
+    +comunicacion: ComunicacionFechaAdministrativa
+    +plantilla: PlantillaNotificacion
+    +criterio_adicional: str
+    +prioridad: int
+    +activa: bool
+  }
+  class EnvioNotificacion {
+    +plantilla: PlantillaNotificacion
+    +eleccion: Eleccion
+    +destinatario: Usuario
+    +elector: Elector
+    +asunto: str
+    +contenido: text
+    +estado: Estado
+    +creada_en: datetime
+    +enviada_en: datetime
+    +leida_en: datetime
+    +error: str
+  }
+}
+package "Auditoria" {
+  class EventoAuditoria {
+    +usuario: Usuario
+    +eleccion: Eleccion
+    +accion: str
+    +entidad: str
+    +entidad_id: str
+    +datos_anteriores: JSON
+    +datos_nuevos: JSON
+    +ip: IP
+    +agente_usuario: str
+    +creado_en: datetime
+  }
+}
+class Usuario <<Django auth.User>>
+class Elector <<referencia>>
+class Eleccion <<referencia>>
+class Mesa <<referencia>>
+class Sede <<referencia>>
+class RegistroPadron <<referencia>>
+class FechaAdministrativa <<referencia>>
+class Claustro <<referencia>>
+
+Usuario "1" -- "0..1" PerfilUsuario
+Elector "0..1" -- "0..1" PerfilUsuario
+Usuario "1" -- "0..*" AsignacionRol
+Eleccion "0..1" -- "0..*" AsignacionRol
+Sede "0..1" -- "0..*" AsignacionRol
+Mesa "0..1" -- "0..*" AsignacionRol
+
+RegistroPadron "1" -- "0..*" JustificativoAusencia
+TipoJustificativo "0..1" -- "0..*" JustificativoAusencia
+Usuario "0..1" -- "0..*" JustificativoAusencia : resuelve
+
+FechaAdministrativa "1" -- "0..*" ComunicacionFechaAdministrativa
+ComunicacionFechaAdministrativa "1" -- "0..*" VarianteComunicacionFechaAdministrativa
+PlantillaNotificacion "1" -- "0..*" VarianteComunicacionFechaAdministrativa
+Claustro "0..*" -- "0..*" PlantillaNotificacion
+PlantillaNotificacion "1" -- "0..*" EnvioNotificacion
+Eleccion "0..1" -- "0..*" EnvioNotificacion
+Usuario "0..1" -- "0..*" EnvioNotificacion : destinatario
+Elector "0..1" -- "0..*" EnvioNotificacion : destinatario
+
+Usuario "0..1" -- "0..*" EventoAuditoria
+Eleccion "0..1" -- "0..*" EventoAuditoria
+@enduml

@@ -78,7 +78,7 @@ class Eleccion(models.Model):
                 raise ValidationError("Para pasar a En curso, configurá los turnos y asigná autoridades de mesa en cada claustro.")
             if not eleccion_claustro.sedes_habilitadas.exists():
                 raise ValidationError("Cada claustro debe tener al menos una sede habilitada.")
-            for configuracion in eleccion_claustro.departamentos.all():
+            for configuracion in eleccion_claustro.departamentos.filter(solo_puesto_electivo=False):
                 if not configuracion.sedes_habilitadas.exists():
                     raise ValidationError("Cada departamento debe tener al menos una sede habilitada.")
 
@@ -198,6 +198,10 @@ class EleccionClaustroSede(models.Model):
 
 class EleccionClaustroDepartamento(models.Model):
     eleccion_claustro = models.ForeignKey(EleccionClaustro, on_delete=models.PROTECT, related_name="departamentos")
+    solo_puesto_electivo = models.BooleanField(
+        default=False,
+        help_text="El alcance existe solo para configurar un puesto y no participa en padrones ni mesas.",
+    )
     departamento = models.ForeignKey(
         Departamento,
         on_delete=models.PROTECT,

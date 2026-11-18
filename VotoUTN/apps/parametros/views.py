@@ -3,9 +3,6 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
-from django.utils.http import urlencode
-from django.views.decorators.http import require_POST
 
 from apps.auditoria.services import registrar_evento
 from apps.justificativos.models import TipoJustificativo
@@ -20,7 +17,7 @@ from apps.notificaciones.models import (
     VarianteComunicacionFechaAdministrativa,
 )
 from apps.partidos.forms import FormularioCargoElectivo
-from apps.partidos.models import CargoElectivo
+from apps.partidos.models import CargoElectivo, CupoPuestoClaustro, NOMBRE_PUESTO_CIENCIAS_BASICAS
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
 from apps.parametros.forms import (
     FormularioClaustro,
@@ -54,11 +51,17 @@ PARAMETROS = {
 
 
 def _datos_auditables(objeto):
-    return {
+    datos = {
         campo.name: str(getattr(objeto, campo.name))
         for campo in objeto._meta.fields
         if campo.name not in {"id"}
     }
+    if isinstance(objeto, CargoElectivo) and objeto.pk:
+        datos["claustros"] = "; ".join(
+            f"{cupo.claustro}: {cupo.cantidad_titulares} titulares / {cupo.cantidad_suplentes} suplentes"
+            for cupo in objeto.cupos_claustro.select_related("claustro").order_by("claustro__nombre")
+        )
+    return datos
 
 
 def obtener_parametro(tipo):
@@ -106,8 +109,18 @@ def listar_parametros(request, tipo):
     configuracion = obtener_parametro(tipo)
     consulta = request.GET.get("q", "").strip()
     objetos = configuracion["modelo"].objects.all()
+    cupo_ciencias_basicas_docentes = None
     if configuracion.get("es_cargo"):
-        objetos = objetos.select_related("organo").prefetch_related("claustros_habilitados")
+        objetos = objetos.select_related("organo", "departamento").prefetch_related("cupos_claustro__claustro")
+        cupo_ciencias_basicas_docentes = CupoPuestoClaustro.objects.filter(
+            puesto__organo__nombre="Consejo Departamental",
+            puesto__nombre="Consejero/a departamental",
+            puesto__permite_filtrar_departamentos=True,
+            puesto__activo=True,
+            puesto__organo__activo=True,
+            puesto__claustros_habilitados__nombre="Docentes",
+            claustro__nombre="Docentes",
+        ).select_related("claustro").first()
     if consulta:
         filtro = Q(nombre__icontains=consulta)
         if configuracion["codigo"]:
@@ -126,53 +139,12 @@ def listar_parametros(request, tipo):
             "tiene_codigo": configuracion["codigo"], "es_fecha": configuracion.get("es_fecha", False),
             "es_plantilla": configuracion.get("es_plantilla", False), "es_turno": configuracion.get("es_turno", False),
             "es_cargo": configuracion.get("es_cargo", False),
+            "nombre_puesto_ciencias_basicas": NOMBRE_PUESTO_CIENCIAS_BASICAS,
+            "cupo_ciencias_basicas_docentes": cupo_ciencias_basicas_docentes,
             "es_claustro": configuracion.get("es_claustro", False),
             "es_catalogo_candidaturas": configuracion.get("grupo") == "puestos",
-            "claustros": Claustro.objects.filter(activo=True).order_by("nombre")
-            if configuracion.get("es_cargo")
-            else (),
         },
     )
-
-
-@login_required
-@require_POST
-def cambiar_claustro_puesto(request, puesto_id, claustro_id):
-    if not puede_administrar_parametros(request.user):
-        return HttpResponseForbidden("No tiene permiso para gestionar parametros.")
-    puesto = get_object_or_404(CargoElectivo, pk=puesto_id)
-    claustro = get_object_or_404(Claustro, pk=claustro_id, activo=True)
-    accion = request.POST.get("accion")
-    if accion not in {"asociar", "quitar"}:
-        raise Http404()
-
-    claustros_anteriores = list(
-        puesto.claustros_habilitados.order_by("nombre").values_list("nombre", flat=True)
-    )
-    if accion == "asociar":
-        puesto.claustros_habilitados.add(claustro)
-        mensaje = f"El puesto «{puesto.nombre}» quedó asociado a {claustro}."
-    else:
-        puesto.claustros_habilitados.remove(claustro)
-        mensaje = f"Se quitó «{puesto.nombre}» de los puestos habilitados para {claustro}."
-    claustros_nuevos = list(
-        puesto.claustros_habilitados.order_by("nombre").values_list("nombre", flat=True)
-    )
-    if claustros_anteriores != claustros_nuevos:
-        registrar_evento(
-            accion="asociar_puesto_claustro",
-            entidad=puesto._meta.label,
-            entidad_id=puesto.pk,
-            request=request,
-            datos_anteriores={"claustros_habilitados": claustros_anteriores},
-            datos_nuevos={"claustros_habilitados": claustros_nuevos},
-        )
-    messages.success(request, mensaje)
-    url = reverse("listar-parametros", args=("puestos-electivos",))
-    consulta = request.POST.get("q", "").strip()
-    if consulta:
-        url = f"{url}?{urlencode({'q': consulta})}"
-    return redirect(url)
 
 
 @login_required

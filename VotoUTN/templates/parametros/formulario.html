@@ -6,6 +6,44 @@
 <section class="hero hero-acciones"><div><h1>{% if objeto %}Editar{% else %}Agregar{% endif %} {{ titulo|lower }}</h1><p>Completa los datos del parametro que podra utilizarse en futuras elecciones.</p></div><div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div></section>
 <section class="card form-card"><h2>{% if objeto %}Datos del registro{% else %}Nuevo registro{% endif %}</h2><form method="post">{% csrf_token %}
 {% for error in formulario.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
-{% for field in formulario %}<div class="field {% if field.field.widget.input_type == 'checkbox' %}field-checkbox{% endif %}">{% if field.field.widget.input_type == 'checkbox' %}{{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}{% if field.help_text %}<small class="muted">{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>{% endfor %}
+{% for field in formulario %}
+  {% if not field.field.es_claustro %}
+    {% if field.name == "tipo_alcance" %}
+      <fieldset class="field puesto-alcance">
+        <legend>{{ field.label }}</legend>
+        {% for opcion in field %}
+          <div class="puesto-alcance-opcion">
+            {{ opcion.tag }}<label for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label>
+          </div>
+        {% endfor %}
+        {% if field.help_text %}<small class="muted">{{ field.help_text }}</small>{% endif %}
+        {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </fieldset>
+    {% else %}
+      <div class="field {% if field.field.widget.input_type == 'checkbox' %}field-checkbox{% endif %}">{% if field.field.widget.input_type == 'checkbox' %}{{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}{% if field.help_text %}<small class="muted">{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}</div>
+    {% endif %}
+  {% endif %}
+{% endfor %}
+{% if formulario.filas_claustros %}
+<div class="field">
+  <h3>Claustros, titulares y suplentes</h3>
+  <small class="muted">Marcá los claustros para los que está disponible este puesto e indicá cuántas personas titulares y suplentes se eligen en cada uno (mínimo 1 de cada tipo). Las elecciones en preparación se actualizan automáticamente.</small>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Asociar</th><th>Claustro</th><th>Titulares</th><th>Suplentes</th></tr></thead>
+      <tbody>
+        {% for fila in formulario.filas_claustros %}
+          <tr>
+            <td>{{ fila.asociado }}</td>
+            <td><label for="{{ fila.asociado.id_for_label }}">{{ fila.claustro }}</label></td>
+            <td>{{ fila.titulares }}{% for error in fila.titulares.errors %}<div class="error">{{ error }}</div>{% endfor %}</td>
+            <td>{{ fila.suplentes }}{% for error in fila.suplentes.errors %}<div class="error">{{ error }}</div>{% endfor %}</td>
+          </tr>
+        {% empty %}<tr><td colspan="4" class="muted">No hay claustros activos.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 <div class="footer-actions"><a class="button light" href="{% url 'listar-parametros' tipo %}">Cancelar</a><button class="button primary">Guardar</button></div></form></section>
 {% endblock %}
