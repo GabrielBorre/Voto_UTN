@@ -1,0 +1,29 @@
+{
+    "capturada_en":  "2026-11-18T01:37:42.3462589-03:00",
+    "instancia":  3,
+    "version":  2,
+    "derivada_de":  "foto-instancia-3",
+    "origen_postgres_sha256":  "EC046937C0E59FED2C013246A4901868C41E3E605EA86EC0DF202E0353978C5C",
+    "postgres_sha256":  "567281E5EB70FA25BED56D8379D62AD5BB19D92CA59ABD39362AF44C4993DB7C",
+    "archivos_sha256":  "C416BC80F88D6264DB119D49C18BAE47D0204AF4EE175554F6E2E91089FA47CA",
+    "contenido_archivos":  {
+                               "media/autoridades/nominas/2026/11/17/nomina_estudiantes_pequena.csv":  "49b8f69e0485f521c6b0fbd129934f7de94189a1f24c3ee5914462eeec9449ef",
+                               "media/padrones/2026/11/17/padron.csv":  "cbae07431d915593da19f056b9facec269b41437e190d67f5f3a107a684cbfd0",
+                               "media/padrones/2026/11/17/padron_4EjZWuP.csv":  "77b7cd864b7e4ee17ea7c968904970746cdf83bf8763a92a097b96dc7cbbafeb",
+                               "media/padrones/2026/11/17/padron_EipmFYt.csv":  "cbae07431d915593da19f056b9facec269b41437e190d67f5f3a107a684cbfd0",
+                               "media/padrones/2026/11/17/padron_docentes.csv":  "bb464a34d44b273bdf77e2c54f7d533e5b644b351406b583f08e3d96ebe9c534",
+                               "media/padrones/2026/11/17/padron_estudiantes.csv":  "4b06b8a82310f74b642f93452166b9f580f428b1e0e4a3e6264fceff8811e044",
+                               "media/padrones/2026/11/17/padron_estudiantes_ERRORES.csv":  "fe12bb5d06a2593b2b7936b265107075ff401333fa78f6f6f626462b9d2850b4",
+                               "media/padrones/2026/11/17/padron_graduados.csv":  "ed01db3e681ee091e5d3d0f3b8d0bd06667ec36db52861532457a5dc2c70ab59",
+                               "media/padrones/2026/11/17/padron_graduados_AitbzXE.csv":  "ed01db3e681ee091e5d3d0f3b8d0bd06667ec36db52861532457a5dc2c70ab59",
+                               "media/padrones/2026/11/17/padron_no_docentes.csv":  "849d45399c422058ad83d8c317809ddb5f98d93fd539803ee61863f51cecd897"
+                           },
+    "verificacion":  {
+                         "verificacion":  "solo_apellido_corregido",
+                         "firma":  {
+                                       "tablas":  69,
+                                       "secuencias":  68,
+                                       "sha256":  "a68da4f12133bd9504fcb19c960be7f7aa5843079ee5954bed6388419c84807d"
+                                   }
+                     }
+}
