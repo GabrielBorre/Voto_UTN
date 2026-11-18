@@ -117,16 +117,31 @@ def generar_padron_pdf(eleccion) -> bytes:
         mesa = grupo["mesa"]
         electores = grupo["padrones"]
         total_paginas = -(-len(electores) // ELECTORES_POR_PAGINA)
+        _dibujar_marca_agua(canvas_obj)
         _dibujar_caratula(canvas_obj, eleccion, mesa)
         canvas_obj.showPage()
         for pagina, inicio in enumerate(range(0, len(electores), ELECTORES_POR_PAGINA), start=1):
             lote = electores[inicio: inicio + ELECTORES_POR_PAGINA]
+            _dibujar_marca_agua(canvas_obj)
             _dibujar_pagina(canvas_obj, eleccion, mesa, lote, numero_inicial=inicio + 1)
             _dibujar_pie_pagina(canvas_obj, pagina, total_paginas)
             canvas_obj.showPage()
 
     canvas_obj.save()
     return buffer.getvalue()
+
+
+def _dibujar_marca_agua(c):
+    # Se dibuja debajo del contenido para conservar el fondo blanco de los QR.
+    c.saveState()
+    c.translate(ANCHO_PAGINA / 2.5, ALTO_PAGINA * 0.72)
+    c.rotate(35)
+    c.setFillColor(colors.HexColor("#dddddd"))
+    c.setFont("Helvetica-Bold", 48)
+    c.drawCentredString(0, 0, "Demo")
+    c.drawCentredString(0, -56, "Proyecto Final")
+    c.drawCentredString(0, -112, "VOTO UTN")
+    c.restoreState()
 
 
 def _agrupar_padrones_por_mesa(eleccion):

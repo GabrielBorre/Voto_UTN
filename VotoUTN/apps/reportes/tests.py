@@ -421,6 +421,33 @@ class PadronPDFTests(TestCase):
 
         self.assertEqual(contar_paginas_pdf(contenido), 3)
 
+    def test_marca_de_agua_en_caratulas_y_todas_las_hojas_sin_tapar_qr(self):
+        otra_mesa = Mesa.objects.create(
+            eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=self.configuracion, sede=self.sede
+        )
+        self.crear_electores(ELECTORES_POR_PAGINA + 1)
+        self.crear_electores(1, mesa=otra_mesa, numero_inicial=100)
+
+        with patch(
+            "apps.reportes.services_pdf.pdfcanvas.Canvas",
+            side_effect=lambda *args, **kwargs: Canvas(*args, pageCompression=0, **kwargs),
+        ):
+            contenido = generar_padron_pdf(self.eleccion)
+
+        paginas = [
+            stream for stream in re.findall(rb"stream\r?\n(.*?)endstream", contenido, re.DOTALL)
+            if b"(Demo Proyecto Final) Tj" in stream
+        ]
+        self.assertEqual(contar_paginas_pdf(contenido), 5)
+        self.assertEqual(len(paginas), 5)
+        for indice, pagina in enumerate(paginas):
+            with self.subTest(pagina=indice):
+                for texto in (b"(Demo Proyecto Final) Tj", b"(VOTO UTN) Tj"):
+                    self.assertEqual(pagina.count(texto), 1)
+                    self.assertLess(pagina.index(texto), pagina.index(b"1 1 1 rg"))
+                self.assertIn(b" 0 Tm (Demo Proyecto Final) Tj", pagina)
+                self.assertIn(b" -56 Tm (VOTO UTN) Tj", pagina)
+
     def test_cada_mesa_tiene_una_caratula_con_codigo_y_qr_de_mesa(self):
         otra_mesa = Mesa.objects.create(
             eleccion=self.eleccion, numero=2, eleccion_claustro_departamento=self.configuracion, sede=self.sede

@@ -101,6 +101,11 @@
   **todos** los cambios de sede de la elección en modo lectura, incluidos los
   rechazos individuales y masivos. No se permite rehabilitar cambios de
   configuración en curso ni invalidar los QR impresos desde ese flujo.
+- Todas las páginas del PDF del padrón imprimible, incluidas las carátulas
+  de mesa, llevan la marca de agua «Demo Proyecto Final» y «VOTO UTN» en dos
+  renglones, en todas las instancias.
+  Se dibuja detrás del contenido y del fondo blanco de los QR para preservar
+  su lectura; no modifica los códigos, las asignaciones ni la paginación.
 - La junta puede resolver cambios de sede en Publicada y En curso hasta la
   primera emisión del padrón imprimible. Puede seleccionar solicitudes,
   estimar las mesas adicionales y aprobar únicamente las marcadas. La

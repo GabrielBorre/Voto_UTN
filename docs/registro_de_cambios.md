@@ -1,5 +1,45 @@
 # Registro de cambios por etapa
 
+## Marca de agua en dos renglones y actualizacion del contenedor
+
+- La marca de agua dibuja «Demo Proyecto Final» y «VOTO UTN» por separado:
+  `drawCentredString` no interpreta saltos de linea. Se conserva la posicion
+  ajustada y el fondo blanco de los QR. La regresion verifica ambos renglones
+  a distinta altura en cada caratula y hoja.
+- Se documenta como compilar y recrear solo el servicio web de la instancia 3
+  con Docker Compose, sin ejecutar la restauracion de la foto fija. Compilar
+  una imagen no actualiza los contenedores que ya estaban en ejecucion.
+- Aplicado solo al contenedor web de la instancia 3, sin restaurar datos ni
+  modificar ninguna de las dos fotos. Pasan las 22 pruebas del padron PDF;
+  comprobaciones Django y de migraciones sin pendientes. Se verifica HTTPS
+  200 y el PDF real con ambos renglones en sus 205 paginas.
+
+## Foto v2 de instancia 3 y marca de agua del padron imprimible
+
+- Se crea `.instancias/foto-instancia-3-v2` a partir de la foto original,
+  sin incorporar los cambios posteriores de la base de trabajo. Corrige
+  unicamente el apellido del elector de demostracion a «Gómez».
+  La comparacion integral de 69 tablas y 68 secuencias y una restauracion
+  independiente verifican que no se alteren otros datos. El archivo de
+  adjuntos/QR es identico al anterior.
+- `.instancias/foto-instancia-3` se conserva intacta; se verifican sus tres
+  huellas originales. `scripts/instancias.ps1` selecciona la v2 en cada `up`
+  que incluya la instancia 3, conservando el resto del flujo de arranque.
+- `apps/reportes/services_pdf.py` dibuja «Demo VOTO UTN» detras del contenido
+  de cada caratula y hoja del padron, en todas las instancias, sin modificar
+  las firmas QR, la paginacion ni el fondo blanco de los codigos.
+- Se agrega una regresion de PDF con dos mesas y varias hojas que comprueba
+  el texto en las cinco paginas y su orden anterior a los fondos de QR.
+  Se actualizan `README.md` y `docs/decisiones_funcionales.md`.
+- Verificado el arranque real con la v2: apellido corregido, 352 ausencias y
+  41 mesas procesadas. Las 22 pruebas del padron PDF y las pruebas PowerShell
+  pasan; `check`, `makemigrations --check` y `migrate --plan` sin pendientes.
+  El PDF real contiene la marca en sus 205 paginas; se rasterizan cinco
+  paginas y se decodifican sus 47 QR, incluidos los de mesa y el de Carlos.
+  Se comprueba visualmente la caratula y la hoja de Carlos. HTTPS responde 200.
+- Se excluye la nueva foto local de Git mediante `.gitignore`, sin eliminar
+  ni reemplazar la anterior.
+
 ## Foto fija de datos de instancia 3 y restauracion en cada up
 
 - Se captura `.instancias/foto-instancia-3` el 17 de noviembre de 2026 con

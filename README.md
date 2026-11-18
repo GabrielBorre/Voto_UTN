@@ -42,13 +42,20 @@ separado en cada instancia.
 
 ### Foto fija actual de la instancia 3
 
-La carpeta local `.instancias\foto-instancia-3` contiene la foto capturada el
-17 de noviembre de 2026: `postgres.sql`, `archivos.tar.gz` (volumenes `media`
-y `generated_qrs`) y `huellas.json` con sus SHA-256. Se capturo con Django y el
-trabajador detenidos. Incluye la eleccion «Demo 2026» con 352 inasistencias,
+La foto activa esta en `.instancias\foto-instancia-3-v2`, creada el 18 de
+noviembre de 2026 a partir de la captura original. Corrige el apellido del
+elector de demostracion Carlos a «Gómez», sin cambiar sus identificadores,
+asignaciones, QR ni los demas datos. La foto anterior permanece intacta en
+`.instancias\foto-instancia-3`; `up` ya no la selecciona.
+
+Ambas carpetas contienen `postgres.sql`, `archivos.tar.gz` (volumenes `media`
+y `generated_qrs`) y `huellas.json` con sus SHA-256. La captura original se
+realizo el 17 de noviembre con Django y el trabajador detenidos; la nueva se
+edito y verifico en bases temporales, sin incorporar cambios posteriores de la
+instancia de trabajo. Incluye la eleccion «Demo 2026» con 352 inasistencias,
 41 mesas procesadas y K-016, K-017, K-019 y K-046 pendientes. No incluye
 Keycloak, los correos de Mailpit, las claves de entorno ni los certificados.
-La carpeta esta excluida de Git y debe conservarse junto con el entorno
+La nueva carpeta esta excluida de Git y debe conservarse junto con el entorno
 `instancia-3.env`, necesario para validar los QR existentes.
 
 **Cada `up` que incluya la instancia 3 reemplaza sus datos actuales por esa
@@ -72,8 +79,20 @@ PostgreSQL y archivos no forman una unica transaccion y se debe reintentar
 la instancia 3 se omite `iniciar_instancia_demo`: Django aplica migraciones,
 recopila estaticos y arranca sin ejecutar la carga inicial de demostracion.
 El codigo de la aplicacion sigue reconstruyendose con `up`; la foto es de
-datos, no una imagen congelada del codigo. Las instancias 1 y 2 mantienen
+datos, no una imagen congelada del codigo. En todas las instancias, el PDF del
+padron imprimible incluye «Demo Proyecto Final» y «VOTO UTN» en dos renglones como marca de agua en sus hojas y
+caratulas, detras del contenido para preservar la lectura de los QR.
+Las instancias 1 y 2 mantienen
 su comportamiento anterior.
+
+Para actualizar solo el codigo web de la instancia 3 sin restaurar la foto:
+
+```powershell
+docker compose --project-name voto-utn-3 --env-file .instancias\instancia-3.env --file docker-compose.instancias.yml up -d --no-deps --build --force-recreate web
+```
+
+`build web` solo compila la imagen: no reemplaza el contenedor en ejecucion.
+Tras recrearlo, se debe generar y descargar nuevamente el PDF para ver cambios.
 
 ### Foto fija de PostgreSQL para la instancia 2
 

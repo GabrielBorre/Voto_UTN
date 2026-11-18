@@ -11,7 +11,7 @@ $Compose = Join-Path $Raiz "docker-compose.instancias.yml"
 $DirectorioEntornos = Join-Path $Raiz ".instancias"
 $Instancia = @($Instancia | Select-Object -Unique)
 $FotoPostgres = Join-Path $DirectorioEntornos "foto-instancia-1.sql"
-$DirectorioFoto3 = Join-Path $DirectorioEntornos "foto-instancia-3"
+$DirectorioFoto3 = Join-Path $DirectorioEntornos "foto-instancia-3-v2"
 
 if ($Accion -eq "restaurar-foto" -and ($Instancia.Count -ne 1 -or $Instancia[0] -ne 2)) {
     throw "La accion restaurar-foto requiere -Instancia 2 y reemplaza sus datos."
