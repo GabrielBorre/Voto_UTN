@@ -111,7 +111,7 @@ export class PageQrScanner {
             if (this.codes.size !== this.lastReportedCount) {
                 this.lastReportedCount = this.codes.size;
                 this.onStatus?.(
-                    `QR detectados: ${this.codes.size}/15`,
+                    `QR detectados: ${this.codes.size}`,
                     { emphasis: "large", durationMs: 2000 }
                 );
             }
