@@ -3,9 +3,12 @@
 {% block title %}{{ titulo }} | Junta Electoral UTN{% endblock %}
 
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>{{ titulo }}</h1>
   <p>Alta, edición y control de estado de los parámetros electorales.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <section class="card">
@@ -14,7 +17,7 @@
       <h2>{{ titulo }}</h2>
       <p>
         {% if es_catalogo_candidaturas %}
-          Los registros inactivos permanecerán guardados y podrán reactivarse. Los puestos se habilitan luego dentro de cada elección.
+          Los registros inactivos permanecerán guardados y podrán reactivarse. Cada puesto se configura desde «Editar»: cantidades, claustros y alcance. Las elecciones en preparación generan sus puestos a partir de esta configuración.
         {% else %}
           Los registros inactivos no se ofrecen al configurar una nueva elección.
         {% endif %}
@@ -38,8 +41,7 @@
           {% if es_fecha %}<th>Roles destinatarios</th>{% endif %}
           {% if es_turno %}<th>Horario</th>{% endif %}
           {% if es_plantilla %}<th>Categoría</th>{% endif %}
-          {% if es_cargo %}<th>Órgano</th>{% endif %}
-          {% if es_cargo %}<th>Claustros asociados</th>{% endif %}
+          {% if es_cargo %}<th>Órgano</th><th>Alcance</th><th>Claustros, titulares y suplentes</th>{% endif %}
           <th>Estado</th>
           <th></th>
         </tr>
@@ -56,22 +58,16 @@
             {% if es_fecha %}<td>{{ objeto.roles_destinatarios_display }}</td>{% endif %}
             {% if es_turno %}<td>{{ objeto.hora_inicio|time:"H:i" }} - {{ objeto.hora_fin|time:"H:i" }}</td>{% endif %}
             {% if es_plantilla %}<td>{{ objeto.get_categoria_display }}</td>{% endif %}
-            {% if es_cargo %}<td>{{ objeto.organo.nombre }}</td>{% endif %}
             {% if es_cargo %}
-              <td class="actions">
-                {% for claustro in claustros %}
-                  <form class="inline-form" method="post" action="{% url 'cambiar-claustro-puesto' objeto.id claustro.id %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="q" value="{{ consulta }}">
-                    {% if claustro in objeto.claustros_habilitados.all %}
-                      <input type="hidden" name="accion" value="quitar">
-                      <button class="button secondary small" type="submit" aria-label="Quitar {{ objeto.nombre }} de {{ claustro }}">{{ claustro }} ✓</button>
-                    {% else %}
-                      <input type="hidden" name="accion" value="asociar">
-                      <button class="button light small" type="submit" aria-label="Asociar {{ objeto.nombre }} a {{ claustro }}">+ {{ claustro }}</button>
-                    {% endif %}
-                  </form>
-                {% empty %}<span class="muted">No hay claustros activos.</span>{% endfor %}
+              <td>{{ objeto.organo.nombre }}</td>
+              <td>{% if objeto.es_departamental %}Departamental{% else %}General{% endif %}</td>
+              <td>
+                {% for cupo in objeto.cupos_claustro.all %}
+                  <span class="tag">{{ cupo.claustro }}: {{ cupo.cantidad_titulares }} tit. / {{ cupo.cantidad_suplentes }} sup.</span>
+                {% empty %}<span class="muted">Sin claustros asociados.</span>{% endfor %}
+                {% if objeto.nombre == nombre_puesto_ciencias_basicas and objeto.organo.nombre == "Consejo Departamental" and cupo_ciencias_basicas_docentes %}
+                  <span class="tag">{{ cupo_ciencias_basicas_docentes.claustro }}: {{ cupo_ciencias_basicas_docentes.cantidad_titulares }} tit. / {{ cupo_ciencias_basicas_docentes.cantidad_suplentes }} sup. (departamental Z)</span>
+                {% endif %}
               </td>
             {% endif %}
             <td>

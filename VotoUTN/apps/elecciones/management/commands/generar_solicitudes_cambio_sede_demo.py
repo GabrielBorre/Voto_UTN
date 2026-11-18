@@ -4,7 +4,7 @@ from apps.elecciones.demo_generadores import eleccion_actual_demo, generar_solic
 
 
 class Command(BaseCommand):
-    help = "Completa el lote reproducible de diecinueve solicitudes de la elección publicada."
+    help = "Completa hasta treinta solicitudes de estudiantes sin designación de autoridad."
 
     def handle(self, *args, **options):
         eleccion = eleccion_actual_demo()

@@ -1,0 +1,7 @@
+DNI,Tipo Documento,Legajo,Nombre,Apellido,Depto/Carrera,Mail,TieneDiscapacidad,Departamento Principal,Sede donde cursa,Nivel
+99000001,DNI,TEST-UTN-2026-001,Elector,Prueba 01,K,prueba.elector.01@frba.utn.edu.ar,No,K,Campus,1
+99000002,DNI,TEST-UTN-2026-002,Elector,Prueba 02,K,prueba.elector.02@frba.utn.edu.ar,No,K,Campus,2
+99000003,DNI,TEST-UTN-2026-003,Elector,Prueba 03,K,prueba.elector.03@frba.utn.edu.ar,No,K,Campus,3
+99000004,DNI,TEST-UTN-2026-004,Elector,Prueba 04,K,prueba.elector.04@frba.utn.edu.ar,No,K,Campus,4
+99000005,DNI,TEST-UTN-2026-005,Elector,Prueba 05,K,prueba.elector.05@frba.utn.edu.ar,No,K,Campus,5
+99000006,DNI,TEST-UTN-2026-006,Elector,Prueba 06,K,prueba.elector.06@frba.utn.edu.ar,No,K,Campus,6

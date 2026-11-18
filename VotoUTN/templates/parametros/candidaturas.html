@@ -3,15 +3,18 @@
 {% block title %}Puestos a elegir | Junta Electoral UTN{% endblock %}
 
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Puestos a elegir</h1>
-  <p>Administrá los puestos reutilizables y definí para qué claustros estarán disponibles. Las cantidades, departamentos, listas y candidaturas se configuran dentro de cada elección.</p>
+  <p>Administrá los puestos reutilizables: el órgano, si son departamentales o generales, los claustros para los que están disponibles y su cantidad de titulares y suplentes. Las elecciones en preparación generan sus puestos automáticamente a partir de esta configuración.</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 <section class="toolbar">
   {% for catalogo in catalogos %}
   <article class="option">
     <h2>{{ catalogo.titulo }}</h2>
-    <p>{{ catalogo.cantidad }} puestos registrados. Asociá cada puesto a uno o más claustros para que aparezca únicamente donde corresponda.</p>
+    <p>{{ catalogo.cantidad }} puestos registrados. Desde «Editar» definí alcance, claustros y cantidades de cada puesto.</p>
     <a class="button secondary" href="{% url 'listar-parametros' catalogo.tipo %}">Administrar</a>
   </article>
   {% endfor %}

@@ -657,6 +657,9 @@ class JustificativosViewsTests(TestCase):
         respuesta = self.client.post(url, datos)
         self.client.post(url, datos)
 
+        from apps.notificaciones.services import procesar_envios_pendientes
+        self.assertEqual(len(mail.outbox), 0)
+        procesar_envios_pendientes()
         self.assertRedirects(respuesta, reverse("gestionar-justificativos", args=(self.eleccion.id,)))
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["juan@example.test"])
@@ -699,6 +702,9 @@ class JustificativosViewsTests(TestCase):
             },
         )
 
+        from apps.notificaciones.services import procesar_envios_pendientes
+        self.assertEqual(len(mail.outbox), 0)
+        procesar_envios_pendientes()
         self.assertRedirects(respuesta, reverse("gestionar-justificativos", args=(self.eleccion.id,)))
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["juan@example.test"])
@@ -710,15 +716,17 @@ class JustificativosViewsTests(TestCase):
         justificativo = self.crear_justificativo()
         self.client.force_login(self.usuario)
 
+        from apps.notificaciones.services import procesar_envios_pendientes
+        respuesta = self.client.post(
+            reverse("resolver-justificativo", args=(justificativo.pk,)),
+            {"estado": "aprobado", "observacion_resolucion": "Validada."},
+            follow=True,
+        )
         with patch("apps.notificaciones.services.send_mail", side_effect=SMTPException("fallo simulado")):
             with self.assertLogs("apps.notificaciones.services", level="WARNING"):
-                respuesta = self.client.post(
-                    reverse("resolver-justificativo", args=(justificativo.pk,)),
-                    {"estado": "aprobado", "observacion_resolucion": "Validada."},
-                    follow=True,
-                )
+                procesar_envios_pendientes()
 
-        self.assertContains(respuesta, "la notificación está disponible en la web")
+        self.assertContains(respuesta, "el correo se enviará en segundo plano")
         justificativo.refresh_from_db()
         self.assertEqual(justificativo.estado, JustificativoAusencia.Estado.APROBADO)
         notificacion = EnvioNotificacion.objects.get(elector=justificativo.registro_padron.elector)
@@ -747,12 +755,56 @@ class JustificativosViewsTests(TestCase):
         respuesta = self.client.get(reverse("gestionar-justificativos", args=(self.eleccion.id,)))
 
         self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.context["pestana"], "electores")
         self.assertTemplateUsed(respuesta, "justificativos/gestion.html")
         self.assertContains(respuesta, 'class="management-panel justifications-panel"')
         self.assertContains(respuesta, "Solicitudes recibidas")
         self.assertContains(respuesta, "Inasistencia de electores")
         self.assertContains(respuesta, "Inasistencia de autoridades de mesa")
+        self.assertContains(respuesta, 'class="active" href="?pestana=electores"')
         self.assertNotContains(respuesta, "Volver a configuración")
+
+    def test_pestana_inicial_es_autoridades_si_hay_solicitudes_pendientes(self):
+        justificativo = self.crear_justificativo()
+        justificativo.ausencia = JustificativoAusencia.Ausencia.AUTORIDAD
+        justificativo.save(update_fields=("ausencia",))
+        self.client.login(username="admin", password="clave")
+        url = reverse("gestionar-justificativos", args=(self.eleccion.id,))
+
+        respuesta = self.client.get(url)
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.context["pestana"], "autoridades")
+        self.assertEqual(list(respuesta.context["justificativos"]), [justificativo])
+        self.assertContains(respuesta, 'class="active" href="?pestana=autoridades"')
+
+        respuesta_electores = self.client.get(url, {"pestana": "electores"})
+
+        self.assertEqual(respuesta_electores.context["pestana"], "electores")
+        self.assertEqual(len(respuesta_electores.context["justificativos"]), 0)
+
+    def test_pestana_inicial_es_autoridades_en_eleccion_publicada_sin_pendientes(self):
+        self.eleccion.estado = Eleccion.Estado.PUBLICADA
+        self.eleccion.save(update_fields=("estado",))
+        self.client.login(username="admin", password="clave")
+
+        respuesta = self.client.get(reverse("gestionar-justificativos", args=(self.eleccion.id,)))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.context["pestana"], "autoridades")
+        self.assertEqual(len(respuesta.context["justificativos"]), 0)
+        self.assertContains(respuesta, 'class="active" href="?pestana=autoridades"')
+
+    def test_pestana_inicial_no_cambia_por_justificativos_de_autoridad_resueltos(self):
+        justificativo = self.crear_justificativo()
+        justificativo.ausencia = JustificativoAusencia.Ausencia.AUTORIDAD
+        justificativo.estado = JustificativoAusencia.Estado.APROBADO
+        justificativo.save(update_fields=("ausencia", "estado"))
+        self.client.login(username="admin", password="clave")
+
+        respuesta = self.client.get(reverse("gestionar-justificativos", args=(self.eleccion.id,)))
+
+        self.assertEqual(respuesta.context["pestana"], "electores")
 
     def test_pestana_autoridades_solo_lista_ausencias_de_autoridad(self):
         self.client.login(username="admin", password="clave")

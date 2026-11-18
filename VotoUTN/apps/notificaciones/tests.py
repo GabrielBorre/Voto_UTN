@@ -1,11 +1,13 @@
 from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor
 from smtplib import SMTPException
+from threading import Event
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
-from django.db import IntegrityError, transaction
-from django.test import TestCase, override_settings
+from django.db import IntegrityError, connections, transaction
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -13,19 +15,154 @@ from apps.asistencia.models import RegistroParticipacion
 from apps.elecciones.models import Eleccion, EleccionClaustro, EleccionClaustroDepartamento
 from apps.justificativos.models import TipoJustificativo
 from apps.notificaciones.forms import FormularioEnviarNotificacion
-from apps.notificaciones.models import EnvioNotificacion, PlantillaNotificacion
+from apps.notificaciones.models import EnvioNotificacion, LoteNotificacion, PlantillaNotificacion
 from apps.notificaciones.services import (
     crear_envios,
     crear_notificaciones_ausentes_confirmadas,
     enviar_notificacion,
     notificaciones_para_usuario,
     procesar_envios_pendientes,
+    procesar_lotes_pendientes,
+    notificar_eleccion_publicada,
 )
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa
 from apps.usuarios.backend_auth import ElectorUser
 from apps.usuarios.models import PerfilUsuario
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class ColaNotificacionesTests(TestCase):
+    def setUp(self):
+        hoy = timezone.localdate()
+        self.eleccion = Eleccion.objects.create(
+            nombre="Publicación asíncrona", fecha_inicio=hoy, fecha_fin=hoy,
+        )
+        claustro = EleccionClaustro.objects.create(
+            eleccion=self.eleccion, claustro=Claustro.objects.create(nombre="Estudiantes"),
+        )
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=claustro,
+            departamento=Departamento.objects.create(nombre="Sistemas", codigo="K"),
+        )
+        for dni, correo in (("36000002", "otro@example.test"), ("38999222", "prioritario@example.test")):
+            elector = Elector.objects.create(dni=dni, legajo=dni, nombre="Demo", correo_electronico=correo)
+            RegistroPadron.objects.create(
+                eleccion=self.eleccion, elector=elector, eleccion_claustro_departamento=alcance,
+            )
+
+    def test_creacion_diferida_idempotente_y_correo_prioritario_primero(self):
+        with patch("apps.notificaciones.services.send_mail") as correo:
+            notificar_eleccion_publicada(self.eleccion)
+            notificar_eleccion_publicada(self.eleccion)
+            self.assertFalse(EnvioNotificacion.objects.exists())
+            self.assertEqual(LoteNotificacion.objects.count(), 1)
+            self.assertEqual(procesar_lotes_pendientes(), 1)
+            self.assertEqual(EnvioNotificacion.objects.count(), 2)
+            correo.assert_not_called()
+        self.assertEqual(procesar_envios_pendientes(), 2)
+        self.assertEqual(mail.outbox[0].to, ["prioritario@example.test"])
+        self.assertEqual(mail.outbox[1].to, ["otro@example.test"])
+        self.assertEqual(procesar_lotes_pendientes(), 0)
+        self.assertEqual(procesar_envios_pendientes(), 0)
+
+    def test_revertir_operacion_no_deja_tarea_para_el_trabajador(self):
+        with self.assertRaises(ValueError), transaction.atomic():
+            notificar_eleccion_publicada(self.eleccion)
+            raise ValueError("Revertir publicación")
+        self.assertFalse(LoteNotificacion.objects.exists())
+        self.assertFalse(EnvioNotificacion.objects.exists())
+
+    def test_error_generando_lote_se_registra_y_reintenta_sin_duplicar(self):
+        lote = notificar_eleccion_publicada(self.eleccion)
+        with patch.object(EnvioNotificacion.objects, "bulk_create", side_effect=ValueError("error")):
+            with self.assertLogs("apps.notificaciones.services", level="ERROR"):
+                self.assertEqual(procesar_lotes_pendientes(), 1)
+        lote.refresh_from_db()
+        self.assertEqual(lote.intentos, 1)
+        self.assertTrue(lote.error)
+        self.assertIsNone(lote.procesada_en)
+        self.assertFalse(EnvioNotificacion.objects.exists())
+        self.assertEqual(procesar_lotes_pendientes(), 0)
+        LoteNotificacion.objects.filter(pk=lote.pk).update(proximo_intento=timezone.now() - timedelta(seconds=1))
+        self.assertEqual(procesar_lotes_pendientes(), 1)
+        self.assertEqual(EnvioNotificacion.objects.count(), 2)
+        lote.refresh_from_db()
+        self.assertIsNotNone(lote.procesada_en)
+        self.assertEqual(lote.error, "")
+
+    def test_correo_fallido_conserva_web_y_agota_tres_intentos(self):
+        notificar_eleccion_publicada(self.eleccion)
+        procesar_lotes_pendientes()
+        envio = EnvioNotificacion.objects.order_by("pk").first()
+        EnvioNotificacion.objects.exclude(pk=envio.pk).update(estado="enviado")
+        with patch("apps.notificaciones.services.send_mail", side_effect=SMTPException("fallo")) as correo:
+            with self.assertLogs("apps.notificaciones.services", level="WARNING"):
+                for intento in range(1, 4):
+                    self.assertEqual(procesar_envios_pendientes(), 1)
+                    envio.refresh_from_db()
+                    self.assertEqual(envio.intentos, intento)
+                    if intento < 3:
+                        self.assertEqual(procesar_envios_pendientes(), 0)
+                        EnvioNotificacion.objects.filter(pk=envio.pk).update(
+                            proximo_intento=timezone.now() - timedelta(seconds=1),
+                        )
+            self.assertEqual(correo.call_count, 3)
+        self.assertEqual(procesar_envios_pendientes(), 0)
+        self.assertEqual(envio.estado, "error")
+        self.assertIsNone(envio.proximo_intento)
+        self.assertTrue(envio.contenido)
+
+    def test_prioridad_tambien_para_notificacion_de_usuario_local_vinculado(self):
+        lote = notificar_eleccion_publicada(self.eleccion)
+        procesar_lotes_pendientes()
+        elector = Elector.objects.get(dni="38999222")
+        EnvioNotificacion.objects.filter(elector=elector).delete()
+        usuario = get_user_model().objects.create_user(username="prioritario", email="local@example.test")
+        PerfilUsuario.objects.create(usuario=usuario, elector=elector)
+        EnvioNotificacion.objects.create(
+            plantilla=lote.plantilla, destinatario=usuario, asunto="Local", contenido="Contenido",
+        )
+        procesar_envios_pendientes()
+        self.assertEqual(mail.outbox[0].to, ["local@example.test"])
+
+
+class ExclusividadProcesadorTests(TransactionTestCase):
+    def test_dos_procesadores_no_envian_el_mismo_correo_simultaneamente(self):
+        plantilla = PlantillaNotificacion.objects.create(
+            codigo="concurrencia", nombre="Concurrencia", asunto="Aviso", contenido="Contenido",
+        )
+        elector = Elector.objects.create(
+            dni="36000100", legajo="6000100", nombre="Demo", correo_electronico="demo@example.test",
+        )
+        EnvioNotificacion.objects.create(
+            plantilla=plantilla, elector=elector, asunto="Aviso", contenido="Contenido",
+        )
+        enviando, continuar = Event(), Event()
+
+        def proveedor(*args, **kwargs):
+            enviando.set()
+            if not continuar.wait(timeout=10):
+                raise TimeoutError("La prueba no liberó el proveedor.")
+            return 1
+
+        def procesar():
+            try:
+                return procesar_envios_pendientes()
+            finally:
+                connections["default"].close()
+
+        with patch("apps.notificaciones.services.send_mail", side_effect=proveedor) as correo:
+            with ThreadPoolExecutor(max_workers=1) as ejecutor:
+                resultado = ejecutor.submit(procesar)
+                try:
+                    self.assertTrue(enviando.wait(timeout=10))
+                    self.assertEqual(procesar_envios_pendientes(), 0)
+                finally:
+                    continuar.set()
+                self.assertEqual(resultado.result(timeout=10), 1)
+            correo.assert_called_once()
 
 
 class NotificacionesViewsTests(TestCase):

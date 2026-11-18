@@ -1,7 +1,7 @@
 {% extends 'gestion/base.html' %}{% load static %}{% block title %}Registro de participación | Junta Electoral UTN{% endblock %}
 {% block content %}
 <section class="solo-movil">
-  <div class="hero"><h1>Registro de participación</h1></div>
+  <div class="hero hero-acciones"><div><h1>Registro de participación</h1></div><div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div></div>
   {% if hay_eleccion_en_curso %}
   {% for eleccion in elecciones %}
   <article class="option mb-card">

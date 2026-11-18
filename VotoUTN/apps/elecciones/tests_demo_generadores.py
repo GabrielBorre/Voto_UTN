@@ -149,7 +149,7 @@ class GeneradoresDemoTests(TestCase):
 
     def test_publicacion_sin_destino_crea_las_posibles(self):
         EleccionClaustroDepartamentoSede.objects.exclude(sede=self.sedes[0]).delete()
-        with self.assertLogs("apps.elecciones.demo_generadores", level="INFO"):
+        with self.assertNoLogs("apps.elecciones.demo_generadores", level="INFO"):
             self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.estado, Eleccion.Estado.PUBLICADA)

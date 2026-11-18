@@ -2,9 +2,12 @@
 {% load static %}
 {% block title %}Candidatos de {{ participacion_seleccionada.nombre_lista }} | {{ eleccion.nombre }}{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Candidatos de la lista {{ participacion_seleccionada.numero_lista }}</h1>
   <p>{{ eleccion.nombre }} · {{ participacion_seleccionada.nombre_lista|default:participacion_seleccionada.partido }}</p>
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 
 <div class="management-panel candidaturas-panel">
@@ -33,15 +36,16 @@
       {% endif %}
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Puesto</th><th>Departamento</th><th>Candidatos cargados</th></tr></thead>
+          <thead><tr><th>Puesto</th><th>Departamento</th><th>Titulares (cargados/total)</th><th>Suplentes (cargados/total)</th></tr></thead>
           <tbody>
             {% for asociacion in asociaciones %}
               <tr>
                 <td>{{ asociacion.puesto_eleccion.puesto|default:asociacion.nombre }}</td>
                 <td>{{ asociacion.eleccion_claustro_departamento.departamento|default:"General" }}</td>
-                <td>{{ asociacion.candidatos.count }}</td>
+                <td>{{ asociacion.titulares_cargados }}/{% if asociacion.puesto_eleccion %}{{ asociacion.puesto_eleccion.cantidad_titulares }}{% else %}—{% endif %}</td>
+                <td>{{ asociacion.suplentes_cargados }}/{% if asociacion.puesto_eleccion %}{{ asociacion.puesto_eleccion.cantidad_suplentes }}{% else %}—{% endif %}</td>
               </tr>
-            {% empty %}<tr><td colspan="3" class="muted">Todavía no hay puestos asociados.</td></tr>{% endfor %}
+            {% empty %}<tr><td colspan="4" class="muted">Todavía no hay puestos asociados.</td></tr>{% endfor %}
           </tbody>
         </table>
       </div>
@@ -58,13 +62,6 @@
       <div class="notice">Elegí una lista en la tabla anterior o creá una nueva para continuar.</div>
     {% else %}
       <p class="candidaturas-lista-actual"><strong>{{ participacion_seleccionada.nombre_lista|default:participacion_seleccionada.partido }}</strong> · {{ participacion_seleccionada.eleccion_claustro.claustro|default:"Alcance histórico" }} · Apoderado/a: {{ participacion_seleccionada.apoderado_nombre|default:"No informado" }}</p>
-
-      {% if asociacion_seleccionada %}
-        <nav class="gestion-nav" aria-label="Método de carga de candidatos">
-          <a class="{% if pestana_candidatos == 'manual' %}active{% endif %}" href="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=manual#candidaturas">Carga manual</a>
-          <a class="{% if pestana_candidatos == 'csv' %}active{% endif %}" href="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=csv#candidaturas">Importar por CSV</a>
-        </nav>
-      {% endif %}
 
       <div class="candidaturas-subsection">
         {% if asociaciones %}
@@ -104,51 +101,114 @@
         {% endif %}
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Puesto</th><th>Departamento</th><th>Candidatos cargados</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th>Puesto</th><th>Departamento</th><th>Titulares (cargados/total)</th><th>Suplentes (cargados/total)</th><th>Estado</th><th></th></tr></thead>
             <tbody>
               {% for asociacion in asociaciones %}
                 <tr{% if asociacion_seleccionada.id == asociacion.id %} class="candidaturas-puesto-seleccionado"{% endif %}>
                   <td>{{ asociacion.puesto_eleccion.puesto|default:asociacion.nombre }}</td>
                   <td>{{ asociacion.eleccion_claustro_departamento.departamento|default:"General" }}</td>
-                  <td>{{ asociacion.candidatos.count }}</td>
+                  <td>{{ asociacion.titulares_cargados }}/{% if asociacion.puesto_eleccion %}{{ asociacion.puesto_eleccion.cantidad_titulares }}{% else %}—{% endif %}</td>
+                  <td>{{ asociacion.suplentes_cargados }}/{% if asociacion.puesto_eleccion %}{{ asociacion.puesto_eleccion.cantidad_suplentes }}{% else %}—{% endif %}</td>
                   <td><span class="pill {% if asociacion.activa %}ok{% else %}gray{% endif %}">{% if asociacion.activa %}Activo{% else %}Inactivo{% endif %}</span></td>
                   <td class="actions">
                     {% if asociacion_seleccionada.id == asociacion.id %}
                       <strong class="pill info">Seleccionado</strong>
                     {% else %}
-                      <a class="button light small" href="?puesto={{ asociacion.id }}#candidaturas">Editar candidatos</a>
+                      <a class="button light small" href="?puesto={{ asociacion.id }}{% if pestana_candidatos == 'csv' %}&amp;pestana_candidatos=csv{% endif %}#lista-candidatos">Editar candidatos</a>
                     {% endif %}
-                    <form class="inline-form" method="post" action="{% url 'cambiar-estado-lista-candidatos' eleccion.id asociacion.id %}">
-                      {% csrf_token %}<input type="hidden" name="activo" value="{% if asociacion.activa %}0{% else %}1{% endif %}">
-                      <button class="button secondary small" type="submit">{% if asociacion.activa %}Desactivar{% else %}Activar{% endif %}</button>
-                    </form>
+                    {% if not asociacion.activa %}
+                      <form class="inline-form" method="post" action="{% url 'cambiar-estado-lista-candidatos' eleccion.id asociacion.id %}">
+                        {% csrf_token %}<input type="hidden" name="activo" value="1">
+                        <button class="button secondary small" type="submit">Activar</button>
+                      </form>
+                    {% endif %}
                   </td>
                 </tr>
-              {% empty %}<tr><td colspan="5" class="muted">Todavía no vinculaste puestos a esta lista.</td></tr>{% endfor %}
+              {% empty %}<tr><td colspan="6" class="muted">Todavía no vinculaste puestos a esta lista.</td></tr>{% endfor %}
             </tbody>
           </table>
         </div>
       </div>
 
-      {% if asociacion_seleccionada %}
+      <nav class="gestion-nav" aria-label="Método de carga de candidatos">
+        {% if asociacion_seleccionada %}
+          <a class="{% if pestana_candidatos == 'manual' %}active{% endif %}" data-conservar-scroll href="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=manual">Carga manual</a>
+          <a class="{% if pestana_candidatos == 'csv' %}active{% endif %}" data-conservar-scroll href="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=csv">Importar por CSV (este puesto)</a>
+        {% endif %}
+        <a class="{% if pestana_candidatos == 'multipuesto' %}active{% endif %}" data-conservar-scroll href="?{% if asociacion_seleccionada %}puesto={{ asociacion_seleccionada.id }}&amp;{% endif %}pestana_candidatos=multipuesto">Importar por CSV (uno o varios puestos)</a>
+      </nav>
+
+      {% if pestana_candidatos == 'multipuesto' %}
+        <div class="candidaturas-subsection" id="importar-multipuesto">
+          <div class="section-title">
+            <div>
+              <h3>Importar candidatos por CSV (uno o varios puestos)</h3>
+              <p>Indicá en cada fila un puesto activo ya asociado a esta lista, sin seleccionarlo durante la importación. Los candidatos existentes no se reemplazan.</p>
+            </div>
+            <a class="button light" href="{% url 'plantilla-candidatos-lista' eleccion.id participacion_seleccionada.id %}?formato=multipuesto">Descargar plantilla de varios puestos</a>
+          </div>
+          <details>
+            <summary>Consultar puestos de esta lista habilitados para el CSV</summary>
+            <ul>
+              {% for puesto in puestos_multipuesto_disponibles %}
+                <li>{{ puesto.puesto.nombre }} — {% if puesto.eleccion_claustro_departamento_id %}{{ puesto.eleccion_claustro_departamento.departamento }}{% else %}General{% endif %}</li>
+              {% empty %}
+                <li>No hay puestos activos asociados a esta lista. Agregá un puesto antes de importar candidatos.</li>
+              {% endfor %}
+            </ul>
+          </details>
+          <form method="post" enctype="multipart/form-data" action="?{% if asociacion_seleccionada %}puesto={{ asociacion_seleccionada.id }}&amp;{% endif %}pestana_candidatos=multipuesto#importar-multipuesto">
+            {% csrf_token %}<input type="hidden" name="accion" value="previsualizar_multipuesto">
+            {% for error in formulario_csv_multipuesto.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
+            <div class="field puesto-selector">
+              <label for="{{ formulario_csv_multipuesto.archivo.id_for_label }}">{{ formulario_csv_multipuesto.archivo.label }}</label>
+              {{ formulario_csv_multipuesto.archivo }}
+              {% for error in formulario_csv_multipuesto.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
+            </div>
+            <small class="muted field-help">Usá el nombre exacto de cada puesto y departamento; dejá departamento vacío para un puesto general. Indicá tipo_documento (DNI, CUIL o LEGAJO), documento, tipo_candidatura (titular o suplente) y orden.</small>
+            <div class="footer-actions"><button class="button primary" type="submit">Previsualizar varios puestos</button></div>
+          </form>
+          {% if importacion_multipuesto %}
+            <div class="candidaturas-subsection">
+              <h3>Previsualización: {{ importacion_multipuesto.nombre_archivo }}</h3>
+              <p>{{ importacion_multipuesto.cantidad_valida }} de {{ importacion_multipuesto.cantidad_total }} filas válidas.</p>
+              {% for error in importacion_multipuesto.errores %}<div class="error">{{ error }}</div>{% endfor %}
+              {% for advertencia in importacion_multipuesto.advertencias %}<p class="muted">Advertencia: {{ advertencia }}</p>{% endfor %}
+              {% if not importacion_multipuesto.errores %}
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>Fila</th><th>Puesto y alcance</th><th>Persona</th><th>Tipo</th><th>Orden</th></tr></thead>
+                    <tbody>{% for fila in importacion_multipuesto.filas %}<tr><td>{{ fila.numero_fila }}</td><td>{{ fila.nombre_puesto }}</td><td>{{ fila.nombre }}</td><td>{{ fila.tipo }}</td><td>{{ fila.orden }}</td></tr>{% endfor %}</tbody>
+                  </table>
+                </div>
+                <form method="post" action="?{% if asociacion_seleccionada %}puesto={{ asociacion_seleccionada.id }}&amp;{% endif %}pestana_candidatos=multipuesto#importar-multipuesto">
+                  {% csrf_token %}<input type="hidden" name="accion" value="confirmar_multipuesto">
+                  <input type="hidden" name="importacion_id" value="{{ importacion_multipuesto.id }}">
+                  <div class="footer-actions"><button class="button primary" type="submit">Confirmar carga de varios puestos</button></div>
+                </form>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      {% elif asociacion_seleccionada %}
         {% if pestana_candidatos == 'manual' %}
-        <div class="candidaturas-subsection">
+        <div class="candidaturas-subsection" id="formulario-candidatos">
           <h3>{% if candidato_en_edicion %}Editar candidato{% else %}Carga manual{% endif %}</h3>
           <p>{% if candidato_en_edicion %}Actualizá el documento o el lugar de {{ candidato_en_edicion.nombre }}.{% else %}Buscá un elector del padrón por DNI, CUIL o legajo para <strong>{{ asociacion_seleccionada.puesto_eleccion.puesto|default:asociacion_seleccionada.nombre }}</strong>. Confirmá el nombre encontrado antes de guardar.{% endif %}</p>
-          <form method="post" data-busqueda-candidato="{{ formulario_candidato.url_busqueda }}" action="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=manual{% if candidato_en_edicion %}&amp;editar={{ candidato_en_edicion.id }}{% endif %}#candidaturas">
+          <form method="post" data-busqueda-candidato="{{ formulario_candidato.url_busqueda }}" action="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=manual{% if candidato_en_edicion %}&amp;editar={{ candidato_en_edicion.id }}{% endif %}#formulario-candidatos">
             {% csrf_token %}<input type="hidden" name="accion" value="{% if candidato_en_edicion %}guardar_candidato{% else %}agregar_candidato{% endif %}">
             {% for error in formulario_candidato.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
             <div class="gestion-form-grid">
               {% include 'partidos/campos_candidato.html' with formulario=formulario_candidato %}
             </div>
             <div class="footer-actions">
-              {% if candidato_en_edicion %}<a class="button light" href="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=manual#candidaturas">Cancelar edición</a>{% endif %}
+              {% if candidato_en_edicion %}<a class="button light" href="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=manual#formulario-candidatos">Cancelar edición</a>{% endif %}
               <button class="button primary" type="submit">{% if candidato_en_edicion %}Guardar cambios{% else %}Agregar candidato{% endif %}</button>
             </div>
           </form>
         </div>
         {% else %}
-        <div class="candidaturas-subsection">
+        <div class="candidaturas-subsection" id="formulario-candidatos">
           <div class="section-title">
             <div>
               <h3>Importar candidatos por CSV</h3>
@@ -156,7 +216,7 @@
             </div>
             <a class="button light" href="{% url 'plantilla-candidatos-lista' eleccion.id participacion_seleccionada.id %}?puesto={{ asociacion_seleccionada.id }}">Descargar plantilla</a>
           </div>
-          <form method="post" enctype="multipart/form-data" action="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=csv#candidaturas">
+          <form method="post" enctype="multipart/form-data" action="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=csv#formulario-candidatos">
             {% csrf_token %}<input type="hidden" name="accion" value="previsualizar_candidatos">
             {% for error in formulario_csv.non_field_errors %}<div class="error">{{ error }}</div>{% endfor %}
             <div class="field puesto-selector">
@@ -164,7 +224,7 @@
               {{ formulario_csv.archivo }}
               {% for error in formulario_csv.archivo.errors %}<div class="error">{{ error }}</div>{% endfor %}
             </div>
-            <small class="muted field-help">El puesto seleccionado ya determina el órgano, el puesto y el departamento. Completá únicamente tipo_documento (DNI, CUIL o LEGAJO), documento, tipo_candidatura (titular o suplente) y orden. El orden indica la posición del candidato dentro de la lista. Se admiten también los CSV anteriores, cuyos datos de puesto deben coincidir con el seleccionado.</small>
+            <small class="muted field-help">La plantilla incluye el puesto y departamento seleccionados; dejá el departamento vacío para un puesto general. Completá tipo_documento (DNI, CUIL o LEGAJO) y documento. El orden indica la posición del candidato dentro de la lista. Los datos de puesto deben coincidir con el seleccionado; también se admiten CSV anteriores sin esas columnas.</small>
             <div class="footer-actions"><button class="button primary" type="submit">Previsualizar candidatos</button></div>
           </form>
           {% if importacion %}
@@ -180,7 +240,7 @@
                     <tbody>{% for fila in importacion.filas %}<tr><td>{{ fila.numero_fila }}</td><td>{{ fila.nombre_puesto }}</td><td>{{ fila.nombre }}</td><td>{{ fila.tipo }}</td><td>{{ fila.orden }}</td></tr>{% endfor %}</tbody>
                   </table>
                 </div>
-                <form method="post" action="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=csv#candidaturas">
+                <form method="post" action="?puesto={{ asociacion_seleccionada.id }}&amp;pestana_candidatos=csv#formulario-candidatos">
                   {% csrf_token %}<input type="hidden" name="accion" value="confirmar_candidatos">
                   <input type="hidden" name="importacion_id" value="{{ importacion.id }}">
                   <div class="footer-actions"><button class="button primary" type="submit">Confirmar carga de candidatos</button></div>
@@ -191,7 +251,7 @@
         </div>
         {% endif %}
 
-        <div class="candidaturas-subsection">
+        <div class="candidaturas-subsection" id="lista-candidatos">
           <div class="section-title"><div><h3>Candidatos de este puesto</h3><p>Titulares y suplentes ya cargados.</p></div><span class="tag">{{ asociacion_seleccionada.candidatos.count }} candidatos cargados</span></div>
           <div class="table-wrap">
             <table>
@@ -203,12 +263,14 @@
                     <td>{{ candidato.elector.tipo_documento|default:"DNI" }} {{ candidato.dni|default:"—" }}</td><td>{{ candidato.get_tipo_display }}</td>
                     <td><span class="pill {% if candidato.activo %}ok{% else %}gray{% endif %}">{% if candidato.activo %}Activo{% else %}Inactivo{% endif %}</span></td>
                     <td class="actions">
-                      <a class="button light small" href="?puesto={{ asociacion_seleccionada.id }}&amp;editar={{ candidato.id }}#candidaturas">Editar</a>
-                      <form class="inline-form" method="post" action="{% url 'cambiar-estado-candidato' eleccion.id candidato.id %}">
-                        {% csrf_token %}<input type="hidden" name="activo" value="{% if candidato.activo %}0{% else %}1{% endif %}">
-                        <button class="button secondary small" type="submit">{% if candidato.activo %}Desactivar{% else %}Activar{% endif %}</button>
-                      </form>
-                      <form class="inline-form" method="post" action="{% url 'eliminar-candidato' eleccion.id candidato.id %}" data-confirm="Se eliminará a {{ candidato.nombre }} de esta lista. Esta acción no se puede deshacer. ¿Continuar?" data-confirm-title="Eliminar candidato" data-confirm-accept="Eliminar">
+                      <a class="button light small" href="?puesto={{ asociacion_seleccionada.id }}&amp;editar={{ candidato.id }}#formulario-candidatos">Editar</a>
+                      {% if not candidato.activo %}
+                        <form class="inline-form" method="post" action="{% url 'cambiar-estado-candidato' eleccion.id candidato.id %}">
+                          {% csrf_token %}<input type="hidden" name="activo" value="1">
+                          <button class="button secondary small" type="submit">Activar</button>
+                        </form>
+                      {% endif %}
+                      <form class="inline-form" method="post" action="{% url 'eliminar-candidato' eleccion.id candidato.id %}" data-confirm="Se eliminará a {{ candidato.nombre }} de esta lista. Esta acción no se puede deshacer. El elector permanecerá en el padrón. ¿Continuar?" data-confirm-title="Eliminar candidato" data-confirm-accept="Eliminar">
                         {% csrf_token %}
                         <button class="button danger small" type="submit">Eliminar</button>
                       </form>

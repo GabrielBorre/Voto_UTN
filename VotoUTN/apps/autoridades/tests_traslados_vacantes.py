@@ -43,7 +43,7 @@ class TrasladosPorVacanteTests(TestCase):
         with patch("apps.notificaciones.services.enviar_notificacion") as enviar:
             with self.captureOnCommitCallbacks(execute=True):
                 confirmar_traslado_por_vacante(self.ausente, self.candidata.pk, self.usuario)
-            enviar.assert_called_once()
+            enviar.assert_not_called()
         self.candidata.refresh_from_db()
         self.assertEqual(self.candidata.mesa_id, self.mesa.pk)
         self.assertEqual(AsignacionMesa.objects.get(registro_padron=self.candidata.registro_padron).mesa_id, mesa_votacion)

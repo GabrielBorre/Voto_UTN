@@ -162,27 +162,35 @@ No registra el voto.
 - `OrganoElectivo`
 - `CargoElectivo`
 - `PuestoEleccion`
+- `CupoPuestoClaustro`
 - `ParticipacionPartido`
 - `ListaCandidatos`
 - `Candidato`
 - `ImportacionCandidaturas`
 
 `CargoElectivo` es el puesto reutilizable, pertenece a un `OrganoElectivo`, se
-asocia a uno o más `Claustro` y establece si permite filtrar claustros y
-departamentos de forma independiente. Los órganos se conservan como clasificación
-interna y no tienen un ABM independiente. Los valores concretos no forman parte del
-parámetro. `PuestoEleccion` representa cada alcance
-resultante en una elección: un claustro sin filtro departamental o una combinación
-de claustro y departamento, con cantidades de titulares y suplentes. Una misma
-operación puede crear varios alcances. `ParticipacionPartido`
+asocia a uno o más `Claustro` y es departamental o general
+(`permite_filtrar_departamentos` indica «departamental»). El campo histórico
+`departamento` se conserva sin limitar la generación de puestos. Los órganos
+se conservan como clasificación interna y no tienen un ABM independiente.
+`CupoPuestoClaustro` conserva, para cada claustro asociado, la cantidad de titulares
+y de suplentes (mínimo 1 de cada tipo). `PuestoEleccion` es la concreción generada
+para una elección en preparación: uno por claustro para los puestos generales y uno
+por departamento habilitado para los departamentales, con las cantidades del
+cupo. No se carga ni edita por elección. `ParticipacionPartido`
 representa una presentación electoral propia de la elección y conserva código,
 número y nombre de lista, claustro y apoderado. Su vínculo con `Partido` es opcional
 y existe solamente para compatibilidad histórica.
 
-Los puestos departamentales predeterminados se crean explícitamente mediante el
-comando `habilitar_puestos_departamentales` para una elección en preparación.
-Configura Estudiantes (3 titulares y 3 suplentes), Docentes (5 y 5) y Graduados
-(2 y 2), excepto Ciencias Básicas, y conserva las configuraciones ya existentes.
+La semilla estándar carga los cupos iniciales y el puesto general «Consejero/a Ciencias Básicas»
+para Estudiantes y Graduados. Para Docentes se usa el puesto departamental de Z.
+Ciencias Básicas es un departamento ordinario: se selecciona en
+Departamentos y claustros, tiene sedes y su padrón se identifica con el código Z.
+`EleccionClaustroDepartamento.solo_puesto_electivo` se conserva solo para alcances
+exclusivos heredados, que se convierten en ordinarios al seleccionar el departamento.
+La generación se dispara al guardar un puesto, agregar un claustro, guardar sus
+departamentos, ejecutar la semilla o ejecutar `sincronizar_puestos_eleccion`; nunca
+elimina puestos con listas ni reduce cupos por debajo de las candidaturas cargadas.
 
 `ListaCandidatos` vincula una presentación con un `PuestoEleccion`. `Candidato`
 conserva sus datos identificatorios, tipo y orden; las nuevas candidaturas deben
@@ -193,6 +201,9 @@ La candidatura conserva la identidad canónica del elector aunque se la haya bus
 Las referencias opcionales y el identificador independiente se conservan para registros históricos.
 `ImportacionCandidaturas` conserva
 la previsualización, errores, advertencias, usuario y confirmación de cada CSV.
+El CSV multipuesto de una presentación identifica puestos activos ya asociados a la lista por
+nombre y departamento (vacío para el alcance general), sin seleccionarlos durante la importación.
+Al confirmar no crea asociaciones ni reemplaza candidaturas existentes.
 
 ## Justificativos
 
@@ -215,6 +226,15 @@ rechaza, la ausencia se restaura desde esa copia.
 - `ComunicacionFechaAdministrativa`
 - `VarianteComunicacionFechaAdministrativa`
 - `EnvioNotificacion`
+- `LoteNotificacion`: tarea durable y única por elección y evento (publicación o
+  inicio), con copia de la plantilla, intentos, próxima ejecución y error.
+  Su procesamiento crea los avisos internos fuera de la petición web.
+
+`EnvioNotificacion` es también la cola de correo de todas las operaciones.
+Conserva intentos y próximo reintento, y opcionalmente el lote que lo creó.
+La unicidad de lote/elector impide crear dos avisos para la misma persona y
+evento. Los trabajadores bloquean cada fila mientras la procesan; los enviados
+no se vuelven a tomar. Los errores transitorios se reintentan hasta tres veces.
 
 `EnvioNotificacion` conserva una copia del asunto y contenido renderizados para
 correo y web. Requiere un destinatario local (`auth.User`) o un `Elector`, sin

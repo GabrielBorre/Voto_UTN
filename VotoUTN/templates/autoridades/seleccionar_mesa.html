@@ -2,10 +2,13 @@
 {% load static %}
 {% block title %}Editar autoridades · {{ mesa.codigo }}{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-acciones">
+  <div>
   <h1>Editar autoridades · Mesa {{ mesa.codigo }}</h1>
   <p>{{ mesa.sede }} · {{ eleccion_claustro.claustro }} · {{ eleccion.nombre }}</p>
   {% if not eleccion.autoridades_confirmadas_en %}<p class="notice"><strong>Asignación provisoria.</strong> La designación puede cambiar si se modifican el padrón o las mesas.</p>{% endif %}
+  </div>
+  <div class="hero-botones"><button class="button hero-boton-secundario" type="button" data-volver>Volver</button></div>
 </section>
 <section class="card management-section">
   <h2>Cupos de esta mesa</h2>

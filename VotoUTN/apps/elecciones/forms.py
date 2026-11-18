@@ -237,11 +237,12 @@ class FormularioPublicarEleccion(forms.Form):
         for nombre, campo in self.fields.items():
             campo.initial = getattr(eleccion, nombre)
 
+    @transaction.atomic
     def publicar(self):
         for nombre in self.fields:
             setattr(self.eleccion, nombre, self.cleaned_data[nombre])
-        self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
         self.eleccion.save(update_fields=tuple(self.fields))
+        self.eleccion.cambiar_estado(Eleccion.Estado.PUBLICADA)
 
 
 class FormularioFechasAdministrativasEleccion(forms.Form):
@@ -399,6 +400,7 @@ class FormularioDepartamentosClaustro(forms.Form):
         self.eleccion_claustro = eleccion_claustro
         actuales = eleccion_claustro.departamentos.filter(
             departamento__isnull=False,
+            solo_puesto_electivo=False,
         ).values_list("departamento_id", flat=True)
         self.fields["departamentos"].queryset = Departamento.objects.filter(
             Q(activo=True)
@@ -412,6 +414,7 @@ class FormularioDepartamentosClaustro(forms.Form):
         ids_seleccionados = set(seleccionados.values_list("id", flat=True))
         configuraciones_removidas = self.eleccion_claustro.departamentos.filter(
             departamento__isnull=False,
+            solo_puesto_electivo=False,
         ).exclude(departamento_id__in=ids_seleccionados)
         departamentos_en_uso = []
         for configuracion in configuraciones_removidas.select_related("departamento"):
@@ -420,14 +423,13 @@ class FormularioDepartamentosClaustro(forms.Form):
                 for relacion in (
                     configuracion.mesas,
                     configuracion.registros_padron,
-                    configuracion.puestos_electivos,
                     configuracion.listas_candidatos,
                 )
             ):
                 departamentos_en_uso.append(str(configuracion.departamento))
         if departamentos_en_uso:
             raise forms.ValidationError(
-                "No se pueden quitar departamentos con padrón, mesas, puestos o listas asociados: "
+                "No se pueden quitar departamentos con padrón, mesas o listas asociados: "
                 + ", ".join(departamentos_en_uso)
                 + "."
             )
@@ -436,15 +438,27 @@ class FormularioDepartamentosClaustro(forms.Form):
     @transaction.atomic
     def guardar(self):
         seleccionados = set(self.cleaned_data["departamentos"].values_list("id", flat=True))
-        configuraciones = self.eleccion_claustro.departamentos.filter(departamento__isnull=False)
+        configuraciones = self.eleccion_claustro.departamentos.filter(
+            departamento__isnull=False,
+            solo_puesto_electivo=False,
+        )
         actuales = set(configuraciones.values_list("departamento_id", flat=True))
 
         sedes = list(self.eleccion_claustro.sedes_habilitadas.values_list("sede_id", flat=True))
         for departamento_id in seleccionados - actuales:
-            configuracion = EleccionClaustroDepartamento.objects.create(
-                eleccion_claustro=self.eleccion_claustro,
+            # Un alcance exclusivo de puesto heredado se habilita como departamento ordinario.
+            configuracion = self.eleccion_claustro.departamentos.filter(
                 departamento_id=departamento_id,
-            )
+                solo_puesto_electivo=True,
+            ).first()
+            if configuracion:
+                configuracion.solo_puesto_electivo = False
+                configuracion.save(update_fields=("solo_puesto_electivo",))
+            else:
+                configuracion = EleccionClaustroDepartamento.objects.create(
+                    eleccion_claustro=self.eleccion_claustro,
+                    departamento_id=departamento_id,
+                )
             EleccionClaustroDepartamentoSede.objects.bulk_create(
                 [
                     EleccionClaustroDepartamentoSede(
@@ -452,17 +466,24 @@ class FormularioDepartamentosClaustro(forms.Form):
                         sede_id=sede_id,
                     )
                     for sede_id in sedes
-                ]
+                ],
+                ignore_conflicts=True,
             )
+
+        from apps.padron.services import calcular_asignaciones_sede_claustro
+        from apps.partidos.models import PuestoEleccion
+        from apps.partidos.services import sincronizar_puestos_claustro
 
         removidas = configuraciones.filter(departamento_id__in=actuales - seleccionados)
         EleccionClaustroDepartamentoSede.objects.filter(
             eleccion_claustro_departamento__in=removidas,
         ).delete()
+        # Los puestos generados sin listas se retiran junto con su departamento.
+        PuestoEleccion.objects.filter(eleccion_claustro_departamento__in=removidas).delete()
         removidas.delete()
-        from apps.padron.services import calcular_asignaciones_sede_claustro
 
         calcular_asignaciones_sede_claustro(self.eleccion_claustro)
+        sincronizar_puestos_claustro(self.eleccion_claustro)
 
 
 class FormularioPrepararClaustro(forms.ModelForm):

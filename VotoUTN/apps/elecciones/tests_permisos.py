@@ -17,6 +17,7 @@ from apps.elecciones.models import (
 from apps.mesas.models import AsignacionMesa, Mesa
 from apps.padron.models import Elector, RegistroPadron
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
+from apps.partidos.models import CargoElectivo, CupoPuestoClaustro, OrganoElectivo, PuestoEleccion
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import puede_crear_elecciones, puede_importar_padron, puede_registrar_participacion, puede_revisar_justificativo
 
@@ -432,6 +433,15 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
         EleccionClaustroSede.objects.create(eleccion_claustro=eleccion_claustro, sede=self.sede)
         sistemas = Departamento.objects.create(nombre="Sistemas", codigo="SIS", activo=True)
         mecanica = Departamento.objects.create(nombre="Mecánica", codigo="MEC", activo=True)
+        cargo = CargoElectivo.objects.create(
+            organo=OrganoElectivo.objects.create(nombre="Consejo Departamental"),
+            nombre="Consejero/a departamental",
+            permite_filtrar_departamentos=True,
+        )
+        cargo.claustros_habilitados.add(self.claustro)
+        CupoPuestoClaustro.objects.create(
+            puesto=cargo, claustro=self.claustro, cantidad_titulares=5, cantidad_suplentes=5,
+        )
         ruta = reverse(
             "gestionar-departamentos-claustro",
             args=(self.eleccion_asignada.pk, eleccion_claustro.pk),
@@ -458,6 +468,15 @@ class CreacionEleccionPorAdministradorJuntaTests(TestCase):
                 for configuracion in configuraciones
             )
         )
+        puestos = PuestoEleccion.objects.filter(
+            eleccion_claustro=eleccion_claustro,
+            puesto__nombre="Consejero/a departamental",
+        )
+        self.assertEqual(puestos.count(), 2)
+        self.assertTrue(all(
+            puesto.cantidad_titulares == 5 and puesto.cantidad_suplentes == 5
+            for puesto in puestos
+        ))
 
     def test_no_permite_quitar_un_departamento_utilizado_por_una_mesa(self):
         EleccionSede.objects.create(eleccion=self.eleccion_asignada, sede=self.sede)

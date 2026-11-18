@@ -17,7 +17,7 @@ from apps.justificativos.services import (
     restaurar_participacion_anulada,
     validar_comprobante,
 )
-from apps.notificaciones.services import crear_notificacion_resultado_justificativo, enviar_notificacion
+from apps.notificaciones.services import crear_notificacion_resultado_justificativo
 from apps.padron.models import RegistroPadron
 from apps.usuarios.models import AsignacionRol
 from apps.usuarios.permisos import (
@@ -207,9 +207,20 @@ def gestionar_justificativos(request, eleccion_id):
     eleccion = get_object_or_404(Eleccion, pk=eleccion_id)
     if not puede_revisar_justificativo(request.user, eleccion):
         return HttpResponseForbidden("No tiene permiso para revisar justificativos.")
-    pestana = request.GET.get("pestana")
-    if pestana not in ("electores", "autoridades"):
-        pestana = "electores"
+    pestana_solicitada = request.GET.get("pestana")
+    if pestana_solicitada in ("electores", "autoridades"):
+        pestana = pestana_solicitada
+    else:
+        hay_justificativos_pendientes_autoridades = JustificativoAusencia.objects.filter(
+            registro_padron__eleccion=eleccion,
+            ausencia=JustificativoAusencia.Ausencia.AUTORIDAD,
+            estado=JustificativoAusencia.Estado.PENDIENTE,
+        ).exists()
+        pestana = (
+            "autoridades"
+            if hay_justificativos_pendientes_autoridades or eleccion.estado == Eleccion.Estado.PUBLICADA
+            else "electores"
+        )
     ausencia = JustificativoAusencia.Ausencia.AUTORIDAD if pestana == "autoridades" else JustificativoAusencia.Ausencia.VOTAR
     justificativos = JustificativoAusencia.objects.filter(
         registro_padron__eleccion=eleccion,
@@ -312,11 +323,11 @@ def resolver_justificativo(request, justificativo_id):
             formulario.add_error(None, error)
         else:
             if envio is not None:
-                correo_enviado = enviar_notificacion(envio)
-                if correo_enviado:
-                    messages.success(request, "El justificativo fue resuelto y se notificó al elector por correo.")
-                else:
-                    messages.warning(request, "El justificativo fue resuelto y la notificación está disponible en la web, pero no se pudo enviar el correo al elector.")
+                messages.success(
+                    request,
+                    "El justificativo fue resuelto. La notificación está disponible en la web "
+                    "y el correo se enviará en segundo plano.",
+                )
             else:
                 messages.success(request, "El justificativo fue actualizado.")
             return redirect("gestionar-justificativos", eleccion_id=justificativo.registro_padron.eleccion_id)

@@ -45,7 +45,11 @@ def gestionar_mesas(request, eleccion_id):
     ).annotate(cantidad_electores=Count("asignaciones_padron"))
     claustros = eleccion.elecciones_claustro.select_related("claustro").order_by("claustro__nombre")
     departamentos = (
-        EleccionClaustroDepartamento.objects.filter(eleccion_claustro__eleccion=eleccion, departamento__isnull=False)
+        EleccionClaustroDepartamento.objects.filter(
+            eleccion_claustro__eleccion=eleccion,
+            departamento__isnull=False,
+            solo_puesto_electivo=False,
+        )
         .select_related("departamento")
         .order_by("departamento__nombre")
     )

@@ -30,6 +30,7 @@ from apps.padron.services import (
     resolver_solicitud_cambio_sede, resolver_solicitudes_pendientes,
 )
 from apps.parametros.models import Claustro, Departamento, FechaAdministrativa, Sede, Turno
+from apps.partidos.models import CargoElectivo, OrganoElectivo, PuestoEleccion
 from apps.usuarios.models import AsignacionRol, PerfilUsuario
 from apps.usuarios.permisos import puede_configurar_eleccion
 
@@ -189,13 +190,13 @@ class CicloConfiguracionTests(TestCase):
         solicitud_rechazada.save(update_fields=("estado",))
         registro_con_solicitud_pendiente = self.crear_registro("40100003")
         self.solicitud(registro_con_solicitud_pendiente)
-        with patch("apps.elecciones.views.enviar_notificacion") as enviar:
+        with patch("apps.notificaciones.services.send_mail") as enviar:
             with self.captureOnCommitCallbacks(execute=True):
                 respuesta = self.client.post(url, {
                     "accion": "actualizar_plazo_cambio_sede",
                     "fecha_cierre_solicitudes_cambio_sede": nueva_fecha.isoformat(),
                 })
-            enviar.assert_called_once()
+            enviar.assert_not_called()
         self.assertEqual(respuesta.status_code, 302)
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.fecha_cierre_solicitudes_cambio_sede, nueva_fecha)
@@ -355,13 +356,13 @@ class CicloConfiguracionTests(TestCase):
             roles_destinatarios=[AsignacionRol.Rol.AUTORIDAD_MESA],
             permite_envio_manual=False,
         )
-        with patch("apps.elecciones.views.enviar_notificacion") as enviar:
+        with patch("apps.notificaciones.services.send_mail") as enviar:
             with self.captureOnCommitCallbacks(execute=True):
                 respuesta = self.client.post(url, {
                     "accion": "actualizar_plazo_eximicion_autoridades",
                     "fecha_limite_justificacion_autoridades": nueva_fecha_limite.isoformat(),
                 })
-            enviar.assert_called_once()
+            enviar.assert_not_called()
         self.assertEqual(respuesta.status_code, 302)
         self.eleccion.refresh_from_db()
         self.assertEqual(self.eleccion.fecha_limite_justificacion_autoridades, nueva_fecha_limite)
@@ -641,6 +642,29 @@ class CicloConfiguracionTests(TestCase):
         self.assertFalse(EleccionClaustro.objects.filter(eleccion=self.eleccion, claustro=otro).exists())
         self.assertEqual(RegistroPadron.objects.count(), 1)
 
+    def test_claustro_con_alcance_exclusivo_heredado_sin_listas_se_puede_eliminar(self):
+        otro = Claustro.objects.create(nombre="Docentes")
+        configuracion = agregar_claustro(self.eleccion, otro)
+        alcance = EleccionClaustroDepartamento.objects.create(
+            eleccion_claustro=configuracion,
+            departamento=Departamento.objects.create(nombre="Ciencias Básicas", codigo="Z"),
+            solo_puesto_electivo=True,
+        )
+        cargo = CargoElectivo.objects.create(
+            organo=OrganoElectivo.objects.create(nombre="Consejo Departamental"),
+            nombre="Consejero/a departamental",
+            permite_filtrar_departamentos=True,
+        )
+        PuestoEleccion.objects.create(
+            puesto=cargo, eleccion_claustro=configuracion, eleccion_claustro_departamento=alcance,
+            cantidad_titulares=1, cantidad_suplentes=1,
+        )
+
+        eliminar_claustro(configuracion, self.usuario)
+
+        self.assertFalse(EleccionClaustro.objects.filter(pk=configuracion.pk).exists())
+        self.assertFalse(EleccionClaustroDepartamento.objects.filter(pk=alcance.pk).exists())
+
     def test_claustro_con_padron_no_se_elimina_y_se_restauran_sedes(self):
         with self.assertRaisesMessage(ValueError, "datos vinculados"):
             eliminar_claustro(self.configuracion, self.usuario)
@@ -816,6 +840,8 @@ class CicloConfiguracionTests(TestCase):
         self.estado(Eleccion.Estado.EN_CURSO)
         with patch("apps.notificaciones.services.enviar_notificacion"):
             notificar_eleccion_en_curso(self.eleccion)
+        from apps.notificaciones.services import procesar_lotes_pendientes
+        procesar_lotes_pendientes()
         self.assertIn("K-001", EnvioNotificacion.objects.get().contenido)
         PerfilUsuario.objects.create(usuario=self.usuario, elector=self.registro.elector)
         AsignacionRol.objects.create(usuario=self.usuario, rol=AsignacionRol.Rol.ELECTOR)

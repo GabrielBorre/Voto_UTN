@@ -74,17 +74,17 @@ class ResumenPreparacionClaustrosTests(TestCase):
         respuesta = self.client.get(self.url)
         self.assertEqual(respuesta.status_code, 200)
         tarjetas = dict(re.findall(r'<article class="option"><h2>(.*?)</h2>(.*?)</article>', respuesta.content.decode(), re.S))
-        for nombre in ("Autoridades de mesa", "Mesas", "Puestos, listas y candidaturas"):
+        for nombre in ("Autoridades de mesa", "Mesas", "Listas y candidaturas"):
             with self.subTest(tarjeta=nombre):
                 self.assertIn('class="pill warn"' if nombre in pendientes else 'class="pill ok"', tarjetas[nombre])
         return respuesta
 
     def test_un_claustro_completo_no_oculta_los_tres_vacios(self):
         self.completar(self.claustros[0])
-        self.comprobar({"Autoridades de mesa", "Mesas", "Puestos, listas y candidaturas"})
+        self.comprobar({"Autoridades de mesa", "Mesas", "Listas y candidaturas"})
 
     def test_todos_vacios_siguen_pendientes(self):
-        self.comprobar({"Autoridades de mesa", "Mesas", "Puestos, listas y candidaturas"})
+        self.comprobar({"Autoridades de mesa", "Mesas", "Listas y candidaturas"})
 
     def test_todos_listos_con_minimo_de_autoridades_y_listas_sin_completar_cupos(self):
         self.completar_todos()
@@ -94,7 +94,7 @@ class ResumenPreparacionClaustrosTests(TestCase):
     def test_agregar_claustro_vacio_vuelve_a_pendiente(self):
         self.completar_todos()
         EleccionClaustro.objects.create(eleccion=self.eleccion, claustro=Claustro.objects.create(nombre="Nuevo claustro"))
-        respuesta = self.comprobar({"Autoridades de mesa", "Mesas", "Puestos, listas y candidaturas"})
+        respuesta = self.comprobar({"Autoridades de mesa", "Mesas", "Listas y candidaturas"})
         self.assertContains(respuesta, "Nuevo claustro")
 
     def test_sin_mesas_en_un_claustro_autoridades_no_esta_lista(self):
@@ -121,7 +121,7 @@ class ResumenPreparacionClaustrosTests(TestCase):
     def test_padron_inactivo_no_cuenta_como_cargado(self):
         self.completar_todos()
         RegistroPadron.objects.filter(eleccion_claustro_departamento=self.alcances[self.claustros[1].pk]).update(activo=False)
-        self.comprobar({"Autoridades de mesa", "Mesas", "Puestos, listas y candidaturas"})
+        self.comprobar({"Autoridades de mesa", "Mesas", "Listas y candidaturas"})
 
     def test_un_turno_sin_minimo_impide_autoridades_listas(self):
         self.completar_todos()
@@ -140,13 +140,13 @@ class ResumenPreparacionClaustrosTests(TestCase):
         self.completar_todos()
         candidato = self.datos[self.claustros[1].pk]["candidato"]
         Candidato.objects.filter(pk=candidato.pk).update(activo=False)
-        self.comprobar({"Puestos, listas y candidaturas"})
+        self.comprobar({"Listas y candidaturas"})
 
     def test_presentacion_sin_claustro_no_completa_otro_claustro(self):
         self.completar_todos()
         presentacion = self.datos[self.claustros[1].pk]["presentacion"]
         ParticipacionPartido.objects.filter(pk=presentacion.pk).update(eleccion_claustro=None)
-        self.comprobar({"Puestos, listas y candidaturas"})
+        self.comprobar({"Listas y candidaturas"})
 
     def test_capacidad_y_tipo_de_mesa_se_validan(self):
         self.completar_todos()

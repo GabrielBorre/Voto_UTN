@@ -243,6 +243,7 @@ def _configuraciones_por_departamento(eleccion_claustro):
     configuraciones = {}
     configuraciones_padron = EleccionClaustroDepartamento.objects.filter(
         eleccion_claustro=eleccion_claustro,
+        solo_puesto_electivo=False,
     ).filter(
         Q(departamento__activo=True) | Q(departamento__isnull=True)
     ).select_related("departamento")
@@ -956,10 +957,7 @@ def validar_resolucion_cambios_sede(eleccion):
         raise ValueError("Los cambios de sede solo pueden resolverse antes de confirmar autoridades, con la elección publicada.")
 
 
-def validar_emision_con_cambios_sede_cerrados(eleccion):
-    limite = eleccion.fecha_cierre_solicitudes_cambio_sede
-    if limite is None or timezone.localdate() <= limite:
-        raise ValueError("El plazo de cambios de sede debe estar cerrado antes de emitir QR.")
+def validar_emision_sin_solicitudes_cambio_sede_pendientes(eleccion):
     if SolicitudCambioSede.objects.filter(
         registro_padron__eleccion=eleccion, estado=SolicitudCambioSede.Estado.PENDIENTE,
     ).exists():
@@ -971,7 +969,7 @@ def registrar_emision_padron_imprimible(eleccion, usuario):
     eleccion = Eleccion.objects.select_for_update().get(pk=eleccion.pk)
     if eleccion.estado != Eleccion.Estado.EN_CURSO:
         raise ValueError("El padrón imprimible solo se puede generar cuando la elección está en curso.")
-    validar_emision_con_cambios_sede_cerrados(eleccion)
+    validar_emision_sin_solicitudes_cambio_sede_pendientes(eleccion)
     ahora = timezone.now()
     clausuros_emitidos = []
     for claustro in eleccion.elecciones_claustro.all():

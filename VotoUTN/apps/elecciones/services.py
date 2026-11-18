@@ -33,6 +33,9 @@ def agregar_claustro(eleccion, claustro):
             EleccionClaustroDepartamentoSede(eleccion_claustro_departamento=alcance, sede_id=sede_id)
             for sede_id in sedes_ids
         ])
+    from apps.partidos.services import sincronizar_puestos_claustro
+
+    sincronizar_puestos_claustro(configuracion)
     return configuracion
 
 
@@ -42,6 +45,12 @@ def eliminar_claustro(configuracion, usuario):
             eleccion = Eleccion.objects.select_for_update().get(pk=configuracion.eleccion_id)
             if eleccion.estado != Eleccion.Estado.EN_PREPARACION:
                 raise ValueError("Solo se pueden eliminar claustros en estado En preparación.")
+            from apps.partidos.models import PuestoEleccion
+
+            puestos = PuestoEleccion.objects.filter(eleccion_claustro=configuracion)
+            if puestos.filter(listas_candidatos__isnull=False).exists():
+                raise ValueError("No se puede eliminar un claustro con listas asociadas a sus puestos.")
+            puestos.delete()
             identificador = configuracion.pk
             nombre = str(configuracion.claustro)
             EleccionClaustroDepartamentoSede.objects.filter(

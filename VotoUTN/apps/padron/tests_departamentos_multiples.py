@@ -370,10 +370,13 @@ class DepartamentosMultiplesTests(TestCase):
 
         registros = self.importar()
         calcular_mesas_automaticas_eleccion(self.eleccion)
-        with patch("apps.notificaciones.services.enviar_notificacion", return_value=True) as enviar:
+        from apps.notificaciones.services import procesar_lotes_pendientes
+        with patch("apps.notificaciones.services.send_mail") as enviar:
             notificar_eleccion_publicada(self.eleccion)
             notificar_eleccion_en_curso(self.eleccion)
-        self.assertEqual(enviar.call_count, 2)
+            self.assertFalse(EnvioNotificacion.objects.exists())
+            procesar_lotes_pendientes()
+            enviar.assert_not_called()
         self.assertEqual(EnvioNotificacion.objects.count(), 2)
         inicio = EnvioNotificacion.objects.get(plantilla__codigo="eleccion-en-curso-asignacion-mesa")
         for registro in registros:
