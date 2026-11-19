@@ -1,5 +1,13 @@
 # Registro de cambios por etapa
 
+## Marca de agua en cada octante de las boletas imprimibles - 18 de noviembre de 2026
+
+- Se replica «Demo Proyecto Final» y «VOTO UTN» en los ocho octantes de cada
+  página de boletas, centrando cada marca dentro de su octante y dibujándola
+  detrás de los marcos y las boletas.
+- Se alinea el dibujo del padrón con sus dos renglones documentados y cubiertos
+  por su prueba de regresión.
+
 ## Casos de candidatos para los cuatro claustros - 18 de noviembre de 2026
 
 Se publican las cuatro carpetas `listas_*_sin_autoridades` en

@@ -106,6 +106,8 @@
   renglones, en todas las instancias.
   Se dibuja detrás del contenido y del fondo blanco de los QR para preservar
   su lectura; no modifica los códigos, las asignaciones ni la paginación.
+- Todas las páginas del PDF de boletas llevan esos mismos dos renglones,
+  centrados en cada uno de los ocho octantes y detrás de sus marcos y contenido.
 - La junta puede resolver cambios de sede en Publicada y En curso hasta la
   primera emisión del padrón imprimible. Puede seleccionar solicitudes,
   estimar las mesas adicionales y aprobar únicamente las marcadas. La

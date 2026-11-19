@@ -2,7 +2,7 @@ import csv
 import re
 from io import BytesIO, StringIO
 from datetime import datetime, time, timedelta
-from unittest.mock import patch
+from unittest.mock import Mock, call, patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -44,6 +44,7 @@ from apps.reportes.services_boletas_pdf import (
     _clasificar_puesto,
     _crear_filas_boletas,
     _dibujar_boleta_cuadrante,
+    _dibujar_marca_agua_octante,
     _obtener_boletas,
     generar_boletas_pdf,
     validar_boletas_pdf,
@@ -770,6 +771,44 @@ class BoletasPDFTests(TestCase):
 
     def test_pagina_de_boletas_usa_formato_apaisado(self):
         self.assertGreater(PAGINA[0], PAGINA[1])
+
+    def test_marca_de_agua_de_boleta_usa_el_texto_y_centro_del_octante(self):
+        canvas = Mock()
+
+        _dibujar_marca_agua_octante(canvas, 10, 20, 200, 300)
+
+        canvas.translate.assert_called_once_with(110, 170)
+        self.assertEqual(
+            canvas.drawCentredString.call_args_list,
+            [
+                call(0, 13, "Demo Proyecto Final"),
+                call(0, -13, "VOTO UTN"),
+            ],
+        )
+
+    def test_pdf_dibuja_la_marca_en_los_ocho_octantes_de_cada_pagina(self):
+        self.crear_presentacion(
+            codigo="A",
+            numero="10",
+            nombre="Lista Azul",
+            elector=self.crear_elector(1, "Ana"),
+        )
+        self.crear_presentacion(
+            codigo="B",
+            numero="20",
+            nombre="Lista Verde",
+            elector=self.crear_elector(2, "Bruno"),
+        )
+
+        with patch(
+            "apps.reportes.services_boletas_pdf._dibujar_marca_agua_octante",
+            wraps=_dibujar_marca_agua_octante,
+        ) as dibujar_marca:
+            contenido = generar_boletas_pdf(self.eleccion)
+
+        paginas = contar_paginas_pdf(contenido)
+        self.assertEqual(paginas, 2)
+        self.assertEqual(dibujar_marca.call_count, paginas * 8)
 
     def test_genera_una_boleta_por_presentacion_y_alcance(self):
         self.crear_presentacion(

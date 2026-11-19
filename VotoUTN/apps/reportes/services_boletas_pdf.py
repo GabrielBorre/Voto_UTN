@@ -7,6 +7,7 @@ from django.db.models import Prefetch
 from django.utils import timezone
 from django.utils.text import slugify
 
+from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import landscape, legal
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -575,6 +576,17 @@ def _dibujar_boleta_cuadrante(canvas, boleta, eleccion, x, y, ancho, alto):
     canvas.restoreState()
 
 
+def _dibujar_marca_agua_octante(canvas, x, y, ancho, alto):
+    canvas.saveState()
+    canvas.translate(x + ancho / 2, y + alto / 2)
+    canvas.rotate(35)
+    canvas.setFillColor(colors.HexColor("#dddddd"))
+    canvas.setFont("Helvetica-Bold", 22)
+    canvas.drawCentredString(0, 13, "Demo Proyecto Final")
+    canvas.drawCentredString(0, -13, "VOTO UTN")
+    canvas.restoreState()
+
+
 class CuadriculaBoletas(Flowable):
     def __init__(self, filas, eleccion, ancho, alto):
         super().__init__()
@@ -588,6 +600,17 @@ class CuadriculaBoletas(Flowable):
         alto_fila = self.height / FILAS_POR_PAGINA
         self.canv.saveState()
         self.canv.setLineWidth(0.7)
+        for indice_fila in range(FILAS_POR_PAGINA):
+            y = self.height - (indice_fila + 1) * alto_fila
+            for indice_columna in range(ANCHO_CUADRANTES):
+                x = indice_columna * ancho_cuadrante
+                _dibujar_marca_agua_octante(
+                    self.canv,
+                    x,
+                    y,
+                    ancho_cuadrante,
+                    alto_fila,
+                )
         for indice_fila in range(FILAS_POR_PAGINA):
             fila = (
                 self.filas[indice_fila]
