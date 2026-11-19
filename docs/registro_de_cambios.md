@@ -1,5 +1,42 @@
 # Registro de cambios por etapa
 
+## Importador masivo portable y actualización de candidatos - 18 de noviembre de 2026
+
+Se publica `cargar_candidatos_csv.py` junto a los CSV del segmento 1 y su prueba
+`test_cargar_candidatos_csv.py`. Crea/reutiliza listas y aplica automáticamente
+cada archivo en su presentación y claustro usando las validaciones nativas.
+Requiere usuario de junta y elección En preparación. Simula por defecto y aplica
+con `--aplicar`, en una transacción para los catorce archivos. Omite candidaturas
+idénticas y completa cargas parciales sin reemplazar personas.
+
+La carga normal agrega lo que falta, sin vaciar listas anteriores. La opción
+explícita `--reiniciar-listas` respalda en auditoría y vacía listas, asociaciones
+y candidaturas de esa elección antes de cargar; exige los cuatro claustros y
+revierte todo si falla algún archivo. `--ajustar-asociaciones` retira únicamente
+asociaciones adicionales vacías y rechaza las que tengan candidatos.
+
+`--preparar-puestos` es opcional: configura los puestos y cupos del escenario
+antes de cargar, sin importar padrones ni crear claustros o departamentos de la
+elección. Conserva otras asociaciones del catálogo y rechaza ambigüedades,
+inactivos, alcances incompatibles y reducciones que invaliden candidaturas.
+Esta preparación también se revierte en la previsualización o ante un error.
+
+No docentes incorpora Superior 5 y 5 en sus dos listas, conservando Directivo
+1 y 1 y DASUTeN 1 y 1: catorce personas por lista. Las dos listas docentes
+exclusivas de DASUTeN retiran Directivo y quedan con 2 y 2. Se actualizan ambos
+generadores, sus CSV completos y multipuesto, detalle, metadatos, cobertura,
+resúmenes e instrucciones. Los demás candidatos conservan su selección.
+
+El conjunto tiene catorce presentaciones, cincuenta asociaciones y 460
+candidaturas para 340 personas: Estudiantes 88, Graduados 72, Docentes 272 y
+No docentes 28. Pasan 29 pruebas de creación, importación, permisos, carga
+parcial, idempotencia, reinicio, respaldo, reversión y preparación desde un
+catálogo incompleto. La carga anterior de la instancia 2 se verificó contra
+el padrón real después de que el usuario eliminara sus autoridades; conserva
+el padrón y las mesas. El importador mantiene el rechazo de autoridades activas.
+No se modifican modelos, migraciones ni reportes PDF. Se incorpora en
+`CREAR_LISTAS.md` el comando para compartir y cargar sin reinicio por defecto.
+
 ## Casos de candidatos para los cuatro claustros - 18 de noviembre de 2026
 
 Se publican las cuatro carpetas `listas_*_sin_autoridades` en

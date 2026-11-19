@@ -14,8 +14,9 @@ ORIGEN = SEGMENTO / "padrones_sin_autoridades_instancia_3"
 SALIDA = SEGMENTO / "listas_no_docentes_sin_autoridades"
 SEMILLA = 20261118
 PUESTOS = (
-    ("Consejo Directivo", "Consejero/a directivo/a", 1),
-    ("Consejo DASUTeN", "Consejero/a DASUTeN", 2),
+    ("Consejo Directivo", "Consejero/a directivo/a", 1, 1),
+    ("Consejo DASUTeN", "Consejero/a DASUTeN", 2, 1),
+    ("Consejo Superior", "Consejero/a Superior", 5, 5),
 )
 LISTAS = (
     ("9", "Unión y Participación", "lista_9_union_y_participacion.csv"),
@@ -56,12 +57,22 @@ def generar():
         raise ValueError("El padrón tiene documentos repetidos o vacíos.")
     if autoridades & por_persona.keys():
         raise ValueError("El padrón contiene autoridades asignadas.")
-    if len(personas) < 8:
-        raise ValueError("Se necesitan ocho personas distintas para completar ambas listas.")
+    if len(personas) < 28:
+        raise ValueError("Se necesitan 28 personas distintas para completar ambas listas.")
     personas = sorted(personas, key=clave_persona)
     random.Random(SEMILLA).shuffle(personas)
     detalle, apoderados, cobertura = [], [], []
     posicion = 0
+    seleccion = {}
+    # Conservar las ocho personas anteriores de Directivo y DASUTeN; después
+    # elegir las veinte nuevas de Superior, sin reutilizar documentos.
+    for superior in (False, True):
+        for numero, _nombre, _archivo in LISTAS:
+            for _organo, puesto, _cupo, cantidad in PUESTOS:
+                if (puesto == "Consejero/a Superior") != superior:
+                    continue
+                seleccion[(numero, puesto)] = personas[posicion:posicion + cantidad * 2]
+                posicion += cantidad * 2
     for numero, nombre, archivo in LISTAS:
         metadatos = {
             "codigo_presentacion": f"NODOC-{numero}-SEG1", "numero_lista": numero, "nombre_lista": nombre,
@@ -69,14 +80,13 @@ def generar():
             "apoderado_email": f"apoderado.nodocentes{numero}@example.org",
         }
         candidatos = []
-        for organo, puesto, cupo in PUESTOS:
-            for tipo in ("titular", "suplente"):
-                persona = personas[posicion]
-                posicion += 1
+        for organo, puesto, cupo, cantidad in PUESTOS:
+            for indice, persona in enumerate(seleccion[(numero, puesto)]):
+                tipo = "titular" if indice < cantidad else "suplente"
                 fila = {
                     **metadatos, "claustro": "No docentes", "organo": organo, "puesto": puesto,
                     "departamento": "", "tipo_documento": persona["Tipo Documento"],
-                    "documento": persona["DNI"], "tipo_candidatura": tipo, "orden": 1,
+                    "documento": persona["DNI"], "tipo_candidatura": tipo, "orden": indice % cantidad + 1,
                 }
                 candidatos.append(fila)
                 detalle.append({
@@ -87,8 +97,8 @@ def generar():
                 "numero_lista": numero, "nombre_lista": nombre, "puesto": puesto,
                 "cupo_estandar_titulares": cupo, "cupo_estandar_suplentes": cupo,
                 "minimo_50_por_tipo": (cupo + 1) // 2,
-                "titulares_propuestos": 1, "suplentes_propuestos": 1,
-                "porcentaje_cobertura": 100 // cupo,
+                "titulares_propuestos": cantidad, "suplentes_propuestos": cantidad,
+                "porcentaje_cobertura": cantidad * 100 // cupo,
             })
         escribir_csv(SALIDA / archivo, MULTIPUESTO, candidatos)
         escribir_csv(SALIDA / "importacion_completa" / archivo, ENCABEZADOS, candidatos)
@@ -103,8 +113,9 @@ def generar():
     resumen = {
         "padron_origen": str(padron.relative_to(RAIZ)), "sha256_padron_origen": huella,
         "sha256_autoridades_origen": hashlib.sha256(archivo_autoridades.read_bytes()).hexdigest(),
-        "semilla": SEMILLA, "personas_disponibles": len(personas), "personas_seleccionadas": 8,
-        "personas_no_seleccionadas": len(personas) - 8, "candidatos_por_lista": 4,
+        "semilla": SEMILLA, "personas_disponibles": len(personas), "personas_seleccionadas": 28,
+        "personas_no_seleccionadas": len(personas) - 28, "candidatos_por_lista": 14,
+        "superior_por_lista": {"titulares": 5, "suplentes": 5, "cobertura_estandar": 100},
         "directivo_por_lista": {"titulares": 1, "suplentes": 1, "cobertura_estandar": 100},
         "dasuten_por_lista": {"titulares": 1, "suplentes": 1, "cobertura_estandar": 50},
         "listas": apoderados,
@@ -115,14 +126,15 @@ def generar():
 - Lista 9 — Unión y Participación: `lista_9_union_y_participacion.csv`.
 - Lista 3 — Integración: `lista_3_integracion.csv`.
 
-Cada lista tiene cuatro personas distintas: un titular y un suplente para
-Consejo Directivo, y un titular y un suplente para Consejo DASUTeN.
+Cada lista tiene catorce personas distintas: cinco titulares y cinco suplentes
+para Consejo Superior, un titular y un suplente para Consejo Directivo, y un
+titular y un suplente para Consejo DASUTeN.
 Con los cupos estándar de No docentes, Directivo cubre el 100 % (1+1 de 1+1)
 y DASUTeN cubre el 50 % (1+1 de 2+2). Se respeta el mínimo por cuerpo y tipo.
-No se incluyen candidatos a Superior ni cargos departamentales.
+Superior cubre el 100 % (5+5 de 5+5). No se incluyen cargos departamentales.
 
 Origen: padrón de No docentes de segmento_1_500 sin autoridades asignadas de la
-foto de instancia 3. Se usan ocho de las 464 personas disponibles; quedan 456.
+foto de instancia 3. Se usan 28 de las 464 personas disponibles; quedan 436.
 Ninguna persona se repite entre cargos o listas. Los dos apoderados son ejemplos
 ficticios externos al padrón, sin candidatura; reemplazarlos por los datos reales
 cuando corresponda. Sus datos están en `listas_y_apoderados.csv`.
@@ -130,13 +142,13 @@ cuando corresponda. Sus datos están en `listas_y_apoderados.csv`.
 ## Cargar dentro de una lista
 
 Crear cada lista en No docentes con los datos de `listas_y_apoderados.csv` y
-asociarle los puestos Consejero/a directivo/a y Consejero/a DASUTeN.
+asociarle los puestos Consejero/a Superior, Consejero/a directivo/a y Consejero/a DASUTeN.
 Desde **Importar por CSV (uno o varios puestos)** cargar el archivo `lista_*.csv`
-correspondiente de esta carpeta. Son cuatro candidatos por archivo, con columnas:
+correspondiente de esta carpeta. Son catorce candidatos por archivo, con columnas:
 `puesto;departamento;tipo_documento;documento;tipo_candidatura;orden`.
 
-Los dos puestos son generales: departamento queda vacío. El orden es 1 para
-cada combinación de puesto y tipo. Se usa UTF-8 con BOM y punto y coma.
+Los tres puestos son generales: departamento queda vacío. El orden empieza en 1
+para cada combinación de puesto y tipo. Se usa UTF-8 con BOM y punto y coma.
 Los puestos deben estar habilitados para No docentes en la elección.
 
 Como alternativa, los archivos de `importacion_completa/` incluyen las trece
@@ -159,24 +171,28 @@ def validar_resultados(por_persona, autoridades):
     utilizados = set()
     for numero, nombre, archivo in LISTAS:
         filas = leer_csv(SALIDA / "importacion_completa" / archivo, ";")
-        if len(filas) != 4 or any(set(fila) != set(ENCABEZADOS) for fila in filas):
+        if len(filas) != 14 or any(set(fila) != set(ENCABEZADOS) for fila in filas):
             raise ValueError("Cantidad de filas o columnas incorrecta.")
         conteos = Counter((fila["puesto"], fila["tipo_candidatura"]) for fila in filas)
-        if conteos != Counter({(puesto, tipo): 1 for _, puesto, _ in PUESTOS for tipo in ("titular", "suplente")}):
-            raise ValueError("No hay exactamente un titular y un suplente por cuerpo.")
+        if conteos != Counter({(puesto, tipo): cantidad for _, puesto, _, cantidad in PUESTOS for tipo in ("titular", "suplente")}):
+            raise ValueError("La cantidad por cuerpo no coincide con los cupos solicitados.")
+        for _, puesto, _, cantidad in PUESTOS:
+            for tipo in ("titular", "suplente"):
+                if [int(f['orden']) for f in filas if f['puesto'] == puesto and f['tipo_candidatura'] == tipo] != list(range(1, cantidad + 1)):
+                    raise ValueError("El orden no es consecutivo por cuerpo y tipo.")
         for fila in filas:
             clave = fila["tipo_documento"], fila["documento"]
             if clave not in por_persona or clave in autoridades or clave in utilizados:
                 raise ValueError("Persona ajena al padrón, autoridad o repetida.")
             utilizados.add(clave)
-            if fila["departamento"] or fila["orden"] != "1" or fila["claustro"] != "No docentes":
+            if fila["departamento"] or fila["claustro"] != "No docentes":
                 raise ValueError("Alcance, orden o claustro incorrecto.")
             if fila["numero_lista"] != numero or fila["nombre_lista"] != nombre:
                 raise ValueError("Metadatos de lista incorrectos.")
         if leer_csv(SALIDA / archivo, ";") != [{k: fila[k] for k in MULTIPUESTO} for fila in filas]:
             raise ValueError("Las variantes CSV difieren.")
-    if len(utilizados) != 8:
-        raise ValueError("Se esperaban ocho personas distintas.")
+    if len(utilizados) != 28:
+        raise ValueError("Se esperaban 28 personas distintas.")
 
 
 if __name__ == "__main__":
