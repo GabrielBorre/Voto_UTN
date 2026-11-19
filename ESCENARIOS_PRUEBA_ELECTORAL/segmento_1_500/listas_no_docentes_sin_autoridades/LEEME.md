@@ -3,14 +3,15 @@
 - Lista 9 — Unión y Participación: `lista_9_union_y_participacion.csv`.
 - Lista 3 — Integración: `lista_3_integracion.csv`.
 
-Cada lista tiene cuatro personas distintas: un titular y un suplente para
-Consejo Directivo, y un titular y un suplente para Consejo DASUTeN.
+Cada lista tiene catorce personas distintas: cinco titulares y cinco suplentes
+para Consejo Superior, un titular y un suplente para Consejo Directivo, y un
+titular y un suplente para Consejo DASUTeN.
 Con los cupos estándar de No docentes, Directivo cubre el 100 % (1+1 de 1+1)
 y DASUTeN cubre el 50 % (1+1 de 2+2). Se respeta el mínimo por cuerpo y tipo.
-No se incluyen candidatos a Superior ni cargos departamentales.
+Superior cubre el 100 % (5+5 de 5+5). No se incluyen cargos departamentales.
 
 Origen: padrón de No docentes de segmento_1_500 sin autoridades asignadas de la
-foto de instancia 3. Se usan ocho de las 464 personas disponibles; quedan 456.
+foto de instancia 3. Se usan 28 de las 464 personas disponibles; quedan 436.
 Ninguna persona se repite entre cargos o listas. Los dos apoderados son ejemplos
 ficticios externos al padrón, sin candidatura; reemplazarlos por los datos reales
 cuando corresponda. Sus datos están en `listas_y_apoderados.csv`.
@@ -18,13 +19,13 @@ cuando corresponda. Sus datos están en `listas_y_apoderados.csv`.
 ## Cargar dentro de una lista
 
 Crear cada lista en No docentes con los datos de `listas_y_apoderados.csv` y
-asociarle los puestos Consejero/a directivo/a y Consejero/a DASUTeN.
+asociarle los puestos Consejero/a Superior, Consejero/a directivo/a y Consejero/a DASUTeN.
 Desde **Importar por CSV (uno o varios puestos)** cargar el archivo `lista_*.csv`
-correspondiente de esta carpeta. Son cuatro candidatos por archivo, con columnas:
+correspondiente de esta carpeta. Son catorce candidatos por archivo, con columnas:
 `puesto;departamento;tipo_documento;documento;tipo_candidatura;orden`.
 
-Los dos puestos son generales: departamento queda vacío. El orden es 1 para
-cada combinación de puesto y tipo. Se usa UTF-8 con BOM y punto y coma.
+Los tres puestos son generales: departamento queda vacío. El orden empieza en 1
+para cada combinación de puesto y tipo. Se usa UTF-8 con BOM y punto y coma.
 Los puestos deben estar habilitados para No docentes en la elección.
 
 Como alternativa, los archivos de `importacion_completa/` incluyen las trece

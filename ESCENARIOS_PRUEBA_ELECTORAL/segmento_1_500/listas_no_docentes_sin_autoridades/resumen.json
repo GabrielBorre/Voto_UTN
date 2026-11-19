@@ -4,9 +4,14 @@
   "sha256_autoridades_origen": "cbf125fec8da9edecbd081c2e3f1cdc20045e1a3b2182d6dc5ddf196c3cabadf",
   "semilla": 20261118,
   "personas_disponibles": 464,
-  "personas_seleccionadas": 8,
-  "personas_no_seleccionadas": 456,
-  "candidatos_por_lista": 4,
+  "personas_seleccionadas": 28,
+  "personas_no_seleccionadas": 436,
+  "candidatos_por_lista": 14,
+  "superior_por_lista": {
+    "titulares": 5,
+    "suplentes": 5,
+    "cobertura_estandar": 100
+  },
   "directivo_por_lista": {
     "titulares": 1,
     "suplentes": 1,

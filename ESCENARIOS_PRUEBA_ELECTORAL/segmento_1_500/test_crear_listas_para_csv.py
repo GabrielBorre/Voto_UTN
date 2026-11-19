@@ -151,5 +151,5 @@ class CrearListasEscenarioTests(TestCase):
     def test_filtra_un_claustro_y_no_crea_los_demas(self):
         definiciones = leer_definiciones(claustros=["no_docentes"])
         resultado = preparar_listas(self.eleccion.pk, definiciones, aplicar=True)
-        self.assertEqual((resultado["listas_nuevas"], resultado["asociaciones_nuevas"]), (2, 4))
+        self.assertEqual((resultado["listas_nuevas"], resultado["asociaciones_nuevas"]), (2, 6))
         self.assertEqual(set(ParticipacionPartido.objects.values_list("eleccion_claustro__claustro__nombre", flat=True)), {"No docentes"})

@@ -10,9 +10,9 @@
   "directivo_cupo_del_escenario_por_tipo": 2,
   "cobertura_sobre_cupos_del_escenario": 100,
   "personas_disponibles": 385,
-  "personas_seleccionadas": 160,
-  "personas_no_seleccionadas": 225,
-  "filas_candidaturas": 280,
+  "personas_seleccionadas": 152,
+  "personas_no_seleccionadas": 233,
+  "filas_candidaturas": 272,
   "superior_personas_distintas": 60,
   "superior_candidaturas_por_persona": 3,
   "departamentos_disponibles": {
@@ -22,14 +22,14 @@
   },
   "departamentales_necesarios_por_departamento": 20,
   "distribucion_personas_por_departamento_principal": {
-    "I": 38,
-    "K": 60,
+    "I": 35,
+    "K": 58,
     "O": 7,
     "Q": 1,
     "R": 16,
-    "S": 8,
+    "S": 7,
     "V": 4,
-    "Z": 26
+    "Z": 24
   },
   "presentaciones": [
     {
@@ -86,9 +86,9 @@
       "claustro": "Docentes",
       "grupo": "19 de agosto",
       "alcance": "DASUTeN",
-      "tipo_lista": "Directivo y DASUTeN",
+      "tipo_lista": "Solo DASUTeN",
       "archivo": "lista_19_19_de_agosto_dasuten.csv",
-      "filas_candidaturas": 8,
+      "filas_candidaturas": 4,
       "personas_superior_compartidas": 0,
       "apoderado_origen": "Ficticio externo al padrón, sin candidatura"
     },
@@ -146,9 +146,9 @@
       "claustro": "Docentes",
       "grupo": "Integración",
       "alcance": "DASUTeN",
-      "tipo_lista": "Directivo y DASUTeN",
+      "tipo_lista": "Solo DASUTeN",
       "archivo": "lista_2_integracion_dasuten.csv",
-      "filas_candidaturas": 8,
+      "filas_candidaturas": 4,
       "personas_superior_compartidas": 0,
       "apoderado_origen": "Ficticio externo al padrón, sin candidatura"
     }

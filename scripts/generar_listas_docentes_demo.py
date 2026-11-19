@@ -53,8 +53,7 @@ def clave_persona(fila):
 
 def puestos(codigo, cupo_directivo):
     if codigo == "DASUTEN":
-        return (("Consejo Directivo", DIRECTIVO, "", cupo_directivo),
-                ("Consejo DASUTeN", DASUTEN, "", 2))
+        return (("Consejo DASUTeN", DASUTEN, "", 2),)
     return (("Consejo Superior", SUPERIOR, "", 15),
             ("Consejo Directivo", DIRECTIVO, "", cupo_directivo),
             ("Consejo Departamental", DEPARTAMENTAL, codigo, 5))
@@ -105,20 +104,25 @@ def generar(cupo_directivo):
     generador.shuffle(resto)
     posicion = 0
 
-    def tomar(cantidad):
+    def tomar(cantidad, utilizar=True):
         nonlocal posicion
         elegidas = resto[posicion:posicion + cantidad]
         if len(elegidas) != cantidad:
             raise ValueError("No hay suficientes personas distintas para completar los puestos generales.")
         posicion += cantidad
-        utilizados.update(elegidas)
+        if utilizar:
+            utilizados.update(elegidas)
         return elegidas
 
     for numero, _nombre, _slug in GRUPOS:
         # Una nómina de Superior por familia, compartida sin alterar tipo ni orden.
         seleccion[(numero, "COMUN", SUPERIOR)] = tomar(30)
         for codigo in (*DEPARTAMENTOS, "DASUTEN"):
-            seleccion[(numero, codigo, DIRECTIVO)] = tomar(cupo_directivo * 2)
+            # Saltar la antigua selección de Directivo-DASUTeN mantiene las
+            # restantes nóminas sin cambios al retirar esas ocho candidaturas.
+            elegidas = tomar(cupo_directivo * 2, utilizar=codigo != "DASUTEN")
+            if codigo != "DASUTEN":
+                seleccion[(numero, codigo, DIRECTIVO)] = elegidas
         seleccion[(numero, "DASUTEN", DASUTEN)] = tomar(4)
 
     detalle, cobertura, presentaciones = [], [], []
@@ -164,7 +168,7 @@ def generar(cupo_directivo):
             escribir_csv(SALIDA / "importacion_completa" / archivo, ENCABEZADOS, filas)
             presentaciones.append({
                 **metadatos, "claustro": "Docentes", "grupo": nombre_grupo, "alcance": etiqueta,
-                "tipo_lista": "departamental" if codigo in DEPARTAMENTOS else "Directivo y DASUTeN",
+                "tipo_lista": "departamental" if codigo in DEPARTAMENTOS else "Solo DASUTeN",
                 "archivo": archivo, "filas_candidaturas": len(filas),
                 "personas_superior_compartidas": 30 if codigo in DEPARTAMENTOS else 0,
                 "apoderado_origen": "Ficticio externo al padrón, sin candidatura",
@@ -239,7 +243,7 @@ def validar_resultados(por_persona, autoridades, presentaciones, cupo_directivo)
                 raise ValueError("Superior no se comparte en las tres sublistas.")
         elif len(referencias) != 3 or len(set(referencias)) != 1 or referencias[0][1] != SUPERIOR:
             raise ValueError("Repetición no autorizada entre listas o cargos.")
-    if len(apariciones) != 128 + 16 * cupo_directivo:
+    if len(apariciones) != 128 + 12 * cupo_directivo:
         raise ValueError("La cantidad de personas distintas no coincide con los cupos.")
 
 
@@ -257,12 +261,12 @@ El número 19 o 2 se mantiene dentro de cada familia; el nombre y el código de
 presentación distinguen cada sublista. La familia es una agrupación de estos
 archivos de prueba; no crea una entidad nueva en la aplicación.
 
-Además hay dos presentaciones, una por familia, exclusivamente para Directivo y DASUTeN.
+Además hay dos presentaciones, una por familia, exclusivamente para DASUTeN.
 
 | Presentación | Superior T+S | Directivo T+S | Departamental T+S | DASUTeN T+S |
 |---|---:|---:|---:|---:|
 | Cada una de las seis sublistas departamentales | 15+15 | {cupo}+{cupo} | 5+5 del propio departamento | — |
-| Cada una de las dos listas DASUTeN | — | {cupo}+{cupo} | — | 2+2 |
+| Cada una de las dos listas DASUTeN | — | — | — | 2+2 |
 
 El cupo de Directivo de estos casos es {cupo}+{cupo}, confirmado por el usuario.
 Todos los cuerpos cubren el 100 % de los cupos de este escenario y superan el mínimo del 50 %.
@@ -288,8 +292,8 @@ padrón, sin candidatura; pueden reemplazarse por los datos reales antes de impo
 ## Carga
 
 1. Consultar `listas_y_apoderados.csv` para crear las ocho listas con sus nombres,
-   números, códigos y apoderados. Asociar los tres puestos de cada sublista o los
-   dos puestos de cada lista DASUTeN, según corresponda.
+   números, códigos y apoderados. Asociar los tres puestos de cada sublista o
+   el único puesto de cada lista DASUTeN, según corresponda.
 2. Dentro de cada lista, abrir **Importar por CSV (uno o varios puestos)** y elegir
    el archivo `lista_*.csv` correspondiente de esta carpeta.
 3. Revisar la previsualización y confirmar. Al cargar las siguientes sublistas de
