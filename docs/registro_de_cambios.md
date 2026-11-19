@@ -1,5 +1,15 @@
 # Registro de cambios por etapa
 
+## Foto actual de PostgreSQL para la instancia 2 - 18 de noviembre de 2026
+
+- Se crea `.instancias/foto-instancia-2.sql` desde la base PostgreSQL activa de
+  la instancia 2. El archivo queda excluido de Git.
+- `scripts/instancias.ps1 up` verifica si existe `django_migrations` antes de
+  iniciar los servicios de la instancia 2. Solo si la base es nueva restaura
+  esta foto; los arranques posteriores no reemplazan datos existentes.
+- `README.md` documenta la captura, la inicialización y que el volcado no incluye
+  los archivos de `media` ni `generated_qrs`.
+
 ## Marca de agua en cada octante de las boletas imprimibles - 18 de noviembre de 2026
 
 - Se replica «Demo Proyecto Final» y «VOTO UTN» en los ocho octantes de cada

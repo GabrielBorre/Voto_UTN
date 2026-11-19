@@ -35,10 +35,10 @@ el despliegue existente de `docker-compose.yml`, que puede seguir funcionando.
 En una base nueva, las instancias 1 y 2 cargan automaticamente los parametros y las
 identidades locales de `juanb` y `administrativojunta`, sin crear ninguna eleccion
 ni padron. Los electores de Keycloak se vinculan al importar el padron; no se
-asignan autoridades antes de crear la eleccion. La foto fija de PostgreSQL
-descrita abajo ya no se restaura al levantar la instancia 2; solo se aplica con
-la accion `restaurar-foto`. Keycloak importa el realm de demostracion por
-separado en cada instancia.
+asignan autoridades antes de crear la eleccion. La instancia 2 restaura su foto
+fija de PostgreSQL solo al inicializar una base nueva; la accion
+`restaurar-foto` permite aplicarla explícitamente. Keycloak importa el realm de
+demostracion por separado en cada instancia.
 
 ### Foto fija actual de la instancia 3
 
@@ -96,26 +96,16 @@ Tras recrearlo, se debe generar y descargar nuevamente el PDF para ver cambios.
 
 ### Foto fija de PostgreSQL para la instancia 2
 
-La foto `.instancias\foto-instancia-1.sql` se conserva, pero `up -Instancia 2`
-ya no la restaura: la instancia 2 inicia como la 1, con la carga inicial
-de demostracion en una base nueva. La foto solo se aplica con la accion
-`restaurar-foto` descrita abajo. La foto se capturo de la instancia 1 el
-16 de noviembre de 2026 y no se actualiza al arrancar: los cambios posteriores
-en la instancia 1 no se copian. El archivo queda excluido de Git porque contiene todos
-los datos de PostgreSQL, incluidas las identidades locales. La foto no incluye
-el historial de archivos de nómina y conserva los tipos de justificativo
-«Certificado medico», «Enfermedad o accidente», «Obligaciones laborales»,
-«Otro» y «Cuidado de familiar». También se retiraron las
-designaciones de autoridades del claustro Estudiantes, sus 3 turnos
-configurados (con sus máximos y mínimos de titulares) y sus 198 candidatos a
-autoridad de mesa; los demás claustros, electores, mesas y candidaturas se
-conservan. Estos ajustes no modifican las
-bases actuales de las instancias. La foto tampoco incluye el historial de
-importaciones de padrón ni sus errores asociados; los registros del padrón
-permanecen intactos.
+La foto `.instancias\foto-instancia-2.sql` se generó el 18 de noviembre de 2026
+desde los datos actuales de PostgreSQL de la instancia 2. Queda excluida de Git
+porque contiene todos los datos de esa base. Se restaura automáticamente solo
+cuando `up` detecta que la base de la instancia 2 todavía no tiene sus
+migraciones; después, Django ejecuta las migraciones pendientes. En los
+siguientes `up` y `start` se conservan los datos de trabajo existentes. La foto
+incluye PostgreSQL, pero no los archivos de `media` ni `generated_qrs`.
 
-Para reemplazar **todos los datos actuales** de la instancia 2 por esa foto,
-sin respaldo automatico:
+Para reemplazar **todos los datos actuales** de PostgreSQL de la instancia 2 por
+esa foto de forma explícita, sin respaldo automático:
 
 ```powershell
 .\scripts\instancias.ps1 restaurar-foto -Instancia 2

@@ -138,8 +138,9 @@ def _dibujar_marca_agua(c):
     c.rotate(35)
     c.setFillColor(colors.HexColor("#dddddd"))
     c.setFont("Helvetica-Bold", 48)
-    c.drawCentredString(0, 0, "Demo Proyecto Final")
-    c.drawCentredString(0, -56, "VOTO UTN")
+    c.drawCentredString(0, 0, "Demo")
+    c.drawCentredString(0, -56, "Proyecto Final")
+    c.drawCentredString(0, -112, "VOTO UTN")
     c.restoreState()
 
 

@@ -582,8 +582,9 @@ def _dibujar_marca_agua_octante(canvas, x, y, ancho, alto):
     canvas.rotate(35)
     canvas.setFillColor(colors.HexColor("#dddddd"))
     canvas.setFont("Helvetica-Bold", 22)
-    canvas.drawCentredString(0, 13, "Demo Proyecto Final")
-    canvas.drawCentredString(0, -13, "VOTO UTN")
+    canvas.drawCentredString(0, 13, "Demo")
+    canvas.drawCentredString(0, -13, "Proyecto Final")
+    canvas.drawCentredString(0, -39, "VOTO UTN")
     canvas.restoreState()
 
 

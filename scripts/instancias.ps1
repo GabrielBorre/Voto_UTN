@@ -10,7 +10,8 @@ $Raiz = Split-Path $PSScriptRoot -Parent
 $Compose = Join-Path $Raiz "docker-compose.instancias.yml"
 $DirectorioEntornos = Join-Path $Raiz ".instancias"
 $Instancia = @($Instancia | Select-Object -Unique)
-$FotoPostgres = Join-Path $DirectorioEntornos "foto-instancia-1.sql"
+$FotoPostgres = Join-Path $DirectorioEntornos "foto-instancia-2.sql"
+$FotoPostgresInstancia2 = $FotoPostgres
 $DirectorioFoto3 = Join-Path $DirectorioEntornos "foto-instancia-3-v2"
 
 if ($Accion -eq "restaurar-foto" -and ($Instancia.Count -ne 1 -or $Instancia[0] -ne 2)) {
@@ -58,6 +59,23 @@ function Restaurar-FotoPostgres {
     finally {
         Ejecutar-Compose -Numero $Numero -Argumentos @("exec", "-T", "db", "rm", "-f", $ArchivoContenedor)
     }
+}
+
+function Inicializar-FotoInstancia2 {
+    Ejecutar-Compose -Numero 2 -Argumentos @("up", "-d", "--wait", "db")
+    $Consulta = "SELECT (to_regclass('public.django_migrations') IS NOT NULL)::text;"
+    $Estado = @(Ejecutar-Compose -Numero 2 -Argumentos @(
+        "exec", "-T", "db", "psql", "-U", "postgres", "-d", "voto_utn",
+        "--no-psqlrc", "--tuples-only", "--no-align", "--command", $Consulta
+    )) -join ""
+
+    if ($Estado.Trim() -eq "true") {
+        return
+    }
+    if ($Estado.Trim() -ne "false") {
+        throw "No se pudo determinar si la base de la instancia 2 ya fue inicializada."
+    }
+    Restaurar-FotoPostgres -Numero 2 -ArchivoFoto $FotoPostgresInstancia2
 }
 
 function Validar-FotoInstancia3 {
@@ -125,7 +143,10 @@ print('Adjuntos y QR restaurados desde la foto fija de instancia 3.')
 
 function Iniciar-Instancia {
     param([int]$Numero)
-    if ($Numero -eq 3) {
+    if ($Numero -eq 2) {
+        Inicializar-FotoInstancia2
+    }
+    elseif ($Numero -eq 3) {
         Validar-FotoInstancia3
         Ejecutar-Compose -Numero 3 -Argumentos @("up", "-d", "--wait", "db")
         Ejecutar-Compose -Numero 3 -Argumentos @("stop", "web", "notificaciones")

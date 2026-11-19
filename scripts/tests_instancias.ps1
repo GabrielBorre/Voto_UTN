@@ -6,7 +6,7 @@ $Ast = [System.Management.Automation.Language.Parser]::ParseFile(
 if ($Errores) {
     throw ($Errores | Out-String)
 }
-foreach ($Nombre in @("Restaurar-FotoPostgres", "Validar-FotoInstancia3", "Restaurar-ArchivosInstancia3", "Iniciar-Instancia")) {
+foreach ($Nombre in @("Restaurar-FotoPostgres", "Inicializar-FotoInstancia2", "Validar-FotoInstancia3", "Restaurar-ArchivosInstancia3", "Iniciar-Instancia")) {
     $Funcion = $Ast.Find({
         param($Nodo)
         $Nodo -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Nodo.Name -eq $Nombre
@@ -15,9 +15,11 @@ foreach ($Nombre in @("Restaurar-FotoPostgres", "Validar-FotoInstancia3", "Resta
 }
 
 $FotoPostgres = [System.IO.Path]::GetTempFileName()
+$FotoPostgresInstancia2 = [System.IO.Path]::GetTempFileName()
 $script:Llamadas = New-Object System.Collections.ArrayList
 $script:FallarRestauracion = $false
 $script:InstanciaEsperada = 2
+$script:EstadoEsquema = "false"
 
 function Ejecutar-Compose {
     param([int]$Numero, [string[]]$Argumentos)
@@ -25,6 +27,9 @@ function Ejecutar-Compose {
         throw "La restauracion no debe modificar otras instancias."
     }
     [void]$script:Llamadas.Add($Argumentos)
+    if ($Argumentos -contains "--command" -and ($Argumentos -join " ") -like "*to_regclass*") {
+        return $script:EstadoEsquema
+    }
     if ($script:FallarRestauracion -and $Argumentos -contains "--file") {
         throw "Restauracion fallida simulada"
     }
@@ -61,15 +66,60 @@ try {
     if (-not $FotoAusente -or $script:Llamadas.Count -ne 0) {
         throw "Sin foto no debe intentarse modificar la base."
     }
+    $script:FallarRestauracion = $false
     Write-Host "Pruebas de restauracion: correctas."
+
+    Set-Content -LiteralPath $FotoPostgresInstancia2 -Value "Foto PostgreSQL de instancia 2"
+    $script:Llamadas.Clear()
+    Inicializar-FotoInstancia2
+    if (@($script:Llamadas | Where-Object { $_ -contains "--file" }).Count -ne 1) {
+        throw "Una base nueva de instancia 2 debe restaurar su foto actual."
+    }
+
+    $script:EstadoEsquema = "true"
+    $script:Llamadas.Clear()
+    Inicializar-FotoInstancia2
+    if (@($script:Llamadas | Where-Object { $_ -contains "--file" }).Count -ne 0) {
+        throw "Una base existente de instancia 2 no debe reemplazarse."
+    }
+    $script:EstadoEsquema = "false"
+    Remove-Item -LiteralPath $FotoPostgresInstancia2
+    $script:Llamadas.Clear()
+    $FotoAusente = $false
+    try { Inicializar-FotoInstancia2 }
+    catch { $FotoAusente = $_.Exception.Message -like "Falta la foto fija*" }
+    if (-not $FotoAusente -or @($script:Llamadas | Where-Object { $_ -contains "--file" }).Count -ne 0) {
+        throw "Una base nueva sin foto debe detenerse antes de levantar la aplicacion."
+    }
+    $script:Llamadas.Clear()
+    try { Iniciar-Instancia -Numero 2 }
+    catch { $FotoAusente = $_.Exception.Message -like "Falta la foto fija*" }
+    if (-not $FotoAusente -or @($script:Llamadas | Where-Object { $_ -contains "--no-build" }).Count -ne 0) {
+        throw "Sin foto, el inicio de instancia 2 debe detenerse antes de levantar la aplicacion."
+    }
+
+    Set-Content -LiteralPath $FotoPostgresInstancia2 -Value "Foto PostgreSQL de instancia 2"
+    $script:Llamadas.Clear()
+    Iniciar-Instancia -Numero 2
+    if (@($script:Llamadas | Where-Object { $_ -contains "--file" }).Count -ne 1 -or
+        @($script:Llamadas | Where-Object { $_ -contains "--no-build" }).Count -ne 1) {
+        throw "El inicio de una instancia 2 nueva debe restaurar la foto antes de levantar los servicios."
+    }
 
     $script:FallarRestauracion = $false
     foreach ($Numero in @(1, 2)) {
         $script:InstanciaEsperada = $Numero
+        $script:EstadoEsquema = "true"
         $script:Llamadas.Clear()
         Iniciar-Instancia -Numero $Numero
-        if ($script:Llamadas.Count -ne 1 -or $script:Llamadas[0] -notcontains "--no-build") {
-            throw "up de instancias 1 y 2 no debe restaurar fotos."
+        if (@($script:Llamadas | Where-Object { $_ -contains "--no-build" }).Count -ne 1) {
+            throw "up debe levantar los servicios de la instancia."
+        }
+        if ($Numero -eq 1 -and $script:Llamadas.Count -ne 1) {
+            throw "up de instancia 1 no debe ejecutar la inicializacion de la foto."
+        }
+        if ($Numero -eq 2 -and @($script:Llamadas | Where-Object { $_ -contains "--file" }).Count -ne 0) {
+            throw "up de una instancia 2 existente no debe restaurar la foto."
         }
     }
 
@@ -142,6 +192,9 @@ try {
 finally {
     if (Test-Path -LiteralPath $FotoPostgres) {
         Remove-Item -LiteralPath $FotoPostgres -Force
+    }
+    if (Test-Path -LiteralPath $FotoPostgresInstancia2) {
+        Remove-Item -LiteralPath $FotoPostgresInstancia2 -Force
     }
     if ($DirectorioFoto3 -and (Test-Path -LiteralPath $DirectorioFoto3)) {
         foreach ($Nombre in @("postgres.sql", "archivos.tar.gz", "huellas.json")) {
