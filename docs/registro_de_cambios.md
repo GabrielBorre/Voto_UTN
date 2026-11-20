@@ -1,5 +1,44 @@
 # Registro de cambios por etapa
 
+## Solicitudes por departamento en la instancia 2 - 19 de noviembre de 2026
+
+La publicación y el comando `generar_solicitudes_cambio_sede_demo` completan,
+cuando `INSTANCIA_DEMO=2`, hasta treinta solicitudes de Estudiantes de Sistemas,
+veinte de Industrial y cuatro de Naval. Industrial y Naval se trasladan de Campus
+a Medrano. Las otras instancias conservan su selección original de hasta treinta
+estudiantes. El identificador se toma de la variable de entorno ya utilizada por
+el despliegue; no se agregan modelos ni migraciones.
+
+La selección utiliza el padrón existente y excluye a Carlos Gómez, autoridades
+designadas, actividad de cursada, QR y destinos incompatibles. Conserva todos los
+registros adicionales al seleccionar por el departamento principal. Las
+solicitudes resueltas siguen cubriendo su cupo aunque el elector ya se haya
+trasladado. Si faltan personas compatibles, no se inventan ni se sustituyen por
+otro departamento. No se modifican las autoridades ni se aprueban solicitudes
+automáticamente.
+
+Con el padrón verificado de la instancia 2, el lote contiene 54 personas y su
+aprobación requiere dos mesas nuevas en Medrano: Sistemas y Naval. Industrial
+utiliza capacidad existente y no se quitan mesas: el total pasa de 45 a 47.
+Naval conserva seis electores en Campus y traslada cuatro elegibles como
+autoridades a Medrano, suficientes para intentar cubrir un titular por cada
+uno de tres turnos. No se agregan electores para alcanzar nueve titulares.
+
+Archivos modificados: `VotoUTN/apps/padron/solicitudes_escenario.py`,
+`VotoUTN/config/settings.py`, la ayuda de
+`VotoUTN/apps/elecciones/management/commands/generar_solicitudes_cambio_sede_demo.py`,
+`README.md`, `docs/decisiones_funcionales.md` y este registro. Se crea
+`VotoUTN/apps/elecciones/tests_solicitudes_industrial.py`, con trece regresiones de
+conservación, cupos, idempotencia tras resolver, exclusiones, escasez, dirección,
+departamentos adicionales, aislamiento entre instancias, reversión y estimación
+y aprobación de las dos mesas nuevas. No se eliminan archivos.
+
+La validación del checkout del PR se ejecuta en un contenedor temporal con una
+base PostgreSQL de pruebas independiente. Pasan las 36 pruebas enfocadas de
+solicitudes y generadores, `check`, `makemigrations --check`, `migrate --plan`
+y `git diff --check`. Una de las pruebas aprueba las 54 solicitudes y verifica
+las dos mesas nuevas, la conservación del padrón y las autoridades existentes.
+
 ## Foto actual de PostgreSQL para la instancia 2 - 18 de noviembre de 2026
 
 - Se crea `.instancias/foto-instancia-2.sql` desde la base PostgreSQL activa de
