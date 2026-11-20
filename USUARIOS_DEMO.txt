@@ -1,0 +1,108 @@
+Administradores:
+
+adminJunta
+adminJunta1
+juanB
+
+Administrativos:
+administrativoJunta
+administrativoJunta1
+
+================
+2da Instancia
+===============
+
+CLAUSTRO: Docentes
+Registros activos del padr?n: 600
+AUTORIDADES DE MESA 
+  1. emacosta -  37127019
+  2. maracosta - 37100012
+  3. pacosta - 37145010
+
+ELECTORES
+  1. agacosta - DNI: 37136004
+  2. caacosta - DNI: 37100070
+  3. dacosta - DNI: 37118010
+
+
+
+
+
+CLAUSTRO: Estudiantes
+Registros activos del padr?n: 500
+AUTORIDADES DE MESA 
+  No hay autoridades de mesa asignadas en esta foto para este claustro; no se sustituyen por candidatos.
+ELECTORES 
+  1. anacosta - 36000159
+  2. eacosta - 36000181
+  3. feacosta - 36018011
+
+
+
+
+CLAUSTRO: Graduados
+Registros activos del padr?n: 500
+AUTORIDADES DE MESA
+  1. sanbenitez - 36272005
+  2. diegocabrera2 - 36263004
+  3. tomacabrera - 36236021
+
+ELECTORES 
+  1. agusacosta - 36209043
+  2. andacosta - 36209001
+  3. caracosta - 36200092
+
+
+
+ 
+CLAUSTRO: No docentes
+Registros activos del padr?n: 500
+AUTORIDADES DE MESA 
+  1. anacastro2 - 36300032
+  2. gabrlopez- 36300318
+  3. emilacosta - 36300349
+
+ELECTORES 
+  1. agustacosta - 36300267
+  2. andracosta - 36300476
+  3. camacosta - 36300006
+
+
+
+====================
+INSTANCIA 3
+=======================
+AUTORIDADES DE MESA 
+  1. aacosta - DNI: 36000045
+  2. anaacosta - DNI: 36045025
+  3. cacosta - DNI: 36045016
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3ra Instancia
+Electores:
+  - Estudiantes		  - Docente
+      cgomez			abc
+
+  - Graduados		  - No Docente
+      abc			abc
+
+
+Autoridades de Mesa:
+  - Estudiantes		  - Docente
+      agonzalez			abc
+      pbenitez
+
+  - Graduados		  - No Docente
+      abc			abc

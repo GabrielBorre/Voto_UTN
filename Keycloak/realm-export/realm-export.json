@@ -410,6 +410,35 @@
   "webAuthnPolicyPasswordlessAcceptableAaguids" : [ ],
   "webAuthnPolicyPasswordlessExtraOrigins" : [ ],
   "users" : [ {
+    "id" : "ed67fc5e-34f3-430f-93b4-d56e290d35a0",
+    "username" : "aacosta",
+    "firstName" : "Ana",
+    "lastName" : "Acosta",
+    "email" : "aacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6000045" ],
+      "id" : [ "123709" ],
+      "filiacion" : [ "NoDocente" ],
+      "dni" : [ "36000045" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201734024,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "f3f3773b-8e34-4c6d-b008-6138aacb61f9",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202044365,
+      "secretData" : "{\"value\":\"XHcViqLUOM61aWSCRwKM8CoPdL2YvdrNqV5XKWZb2Ao=\",\"salt\":\"Yq6uvaz1a8lHd0HLax06tQ==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
     "id" : "6ef98347-7b90-48a1-b128-808fc2b2f6eb",
     "username" : "administrativojunta",
     "firstName" : "Administrativo",
@@ -525,6 +554,318 @@
     "notBefore" : 0,
     "groups" : [ ]
   }, {
+    "id" : "9fc2fc1f-c6bd-47e9-9599-cf8ccf9befa2",
+    "username" : "agacosta",
+    "firstName" : "Agustina",
+    "lastName" : "Acosta",
+    "email" : "agacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6136004" ],
+      "id" : [ "123459" ],
+      "filiacion" : [ "Docente" ],
+      "dni" : [ "37136004" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795200700207,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "5c8f01c1-94ca-4798-8a6a-33bb2568b8c9",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202057933,
+      "secretData" : "{\"value\":\"zjE5uPXECQ3PI0TaMf0rZBo/xXiNIduj8Z/6RFybiPA=\",\"salt\":\"NytriT4kHpup4oaHdj/KVg==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "9377b519-2a4e-4376-8a6c-4f3b0926b689",
+    "username" : "agonzalez",
+    "firstName" : "Andrés",
+    "lastName" : "González",
+    "email" : "agonzalez@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "4444444" ],
+      "id" : [ "15217" ],
+      "filiacion" : [ "Alumno" ],
+      "dni" : [ "36000015" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1794971442959,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "9fa2cfbb-0ac2-442a-8b43-3de34c5fb982",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202074229,
+      "secretData" : "{\"value\":\"ToeBRfhOjQ9MNwlx/91FS9wv6uFYUPgsgOhWdfYIWxA=\",\"salt\":\"s5i+w0YcbRRPiHpvJ+ksjg==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "edb4738c-acda-4d0e-a3bd-368fde737140",
+    "username" : "agusacosta",
+    "firstName" : "Agustina",
+    "lastName" : "Acosta",
+    "email" : "agusacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6209043" ],
+      "id" : [ "123604" ],
+      "filiacion" : [ "Graduado" ],
+      "dni" : [ "36209043" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201086830,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "84740549-35ba-48ca-ab1e-319c5803c97a",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202097676,
+      "secretData" : "{\"value\":\"AvwKGi2QVyNxKse5+fTPwDsRAvgrEv6E0bM+jNEE3fE=\",\"salt\":\"VER0sukwFMuOUxliv+QCGA==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "582280b3-0468-4028-afec-c8697d8df8bf",
+    "username" : "agustacosta",
+    "firstName" : "Acosta",
+    "lastName" : "Agustina",
+    "email" : "agustacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6300476" ],
+      "id" : [ "123702" ],
+      "filiacion" : [ "NoDocente" ],
+      "dni" : [ "36300476" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201648619,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "91792f5f-9475-4a46-a990-edd4b316771d",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202112503,
+      "secretData" : "{\"value\":\"IhPjqL33E7lW/ba08i9eKs16Hd55KWJ2wXc6/L4JTqg=\",\"salt\":\"QLv5tKEltNgiRzPMA2lI6w==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "bb93c6d6-1c17-4385-a02b-8f4fd01a8f0e",
+    "username" : "anaacosta",
+    "firstName" : "Ana",
+    "lastName" : "Acosta",
+    "email" : "anaacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6045025" ],
+      "id" : [ "123710" ],
+      "filiacion" : [ "NoDocente" ],
+      "dni" : [ "36045025" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201786096,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "e2522acd-0863-44da-be94-357c90b38ef1",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202125871,
+      "secretData" : "{\"value\":\"kd7G7ta76ZNHQTcIBkNFjLJ4kd/UAM9Zyh9LASoIuhk=\",\"salt\":\"35T5WzUTiiEgNKF0pm7ycw==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "500fa143-9e72-46b1-a7a8-8131c38b75ce",
+    "username" : "anacastro2",
+    "firstName" : "Ana",
+    "lastName" : "Castro",
+    "email" : "anacastro2@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6300032" ],
+      "id" : [ "123607" ],
+      "filiacion" : [ "NoDocente" ],
+      "dni" : [ "36300032" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201409677,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "06159eb8-38e3-4180-b7c8-8d1d6c878495",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202138505,
+      "secretData" : "{\"value\":\"NEjTxjU7r/j1XCruh8N5Mv1idOWlMpqMWGrNgpmMyHE=\",\"salt\":\"SecvRHiWZTSjHwgymFFg/A==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "1bcb0c8b-fc60-4ba4-9422-68d1130cb45f",
+    "username" : "anacosta",
+    "firstName" : "Ana",
+    "lastName" : "Acosta",
+    "email" : "anacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6000159" ],
+      "id" : [ "123500" ],
+      "filiacion" : [ "Alumno" ],
+      "dni" : [ "36000159" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795200854134,
+    "totp" : false,
+    "credentials" : [ ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "a380966e-d3b8-4880-ab5e-cccc879ce724",
+    "username" : "andacosta",
+    "firstName" : "Andrés",
+    "lastName" : "Acosta",
+    "email" : "andacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6209001" ],
+      "id" : [ "123605" ],
+      "filiacion" : [ "Graduado" ],
+      "dni" : [ "36209001" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201129090,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "8b9c48b0-bdb7-4b01-904b-abfdd1cde558",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202199523,
+      "secretData" : "{\"value\":\"xbQ/lNdJLrKB8g9fcVIRSnP0SMZb74/OWh4QhfGT6xg=\",\"salt\":\"mk3U4H2XnPhIJNcho69fLA==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "f75ac3af-51fa-4a35-be02-089ae681ad53",
+    "username" : "caacosta",
+    "firstName" : "Camila",
+    "lastName" : "Acosta",
+    "email" : "caacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6100070" ],
+      "id" : [ "123459" ],
+      "filiacion" : [ "Docente" ],
+      "dni" : [ "37100070" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795200750026,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "242679b7-b62b-4796-a06e-44356cde29bf",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202240068,
+      "secretData" : "{\"value\":\"oPMX7ukYyJZP2oq3NLK3BAv6S5S27oLQ+sW4bycK7zI=\",\"salt\":\"Gv7QAiDVwEoh6Hv1cLtLaQ==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "59e15ae5-0604-4509-8d69-fbb7d363c4a3",
+    "username" : "camacosta",
+    "firstName" : "Camila",
+    "lastName" : "Acosta",
+    "email" : "camacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6300006" ],
+      "id" : [ "123703" ],
+      "filiacion" : [ "NoDocente" ],
+      "dni" : [ "36300006" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201683307,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "7edb3192-5a62-4fa4-9a55-599bfde2a88d",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202251669,
+      "secretData" : "{\"value\":\"MraPWRM922CPPXNFIEJ4uvwj+EkOAOGGHxdmb6oUAR4=\",\"salt\":\"wMDWQWMUKfPPOV09IQ8yHA==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "831ba3b1-2abb-416f-a825-2de030ef8e22",
+    "username" : "caracosta",
+    "firstName" : "Carolina",
+    "lastName" : "Acosta",
+    "email" : "caracosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6200092" ],
+      "id" : [ "123606" ],
+      "filiacion" : [ "Graduado" ],
+      "dni" : [ "36200092" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201357516,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "8a6e5acb-8c13-4fef-b8e9-f2ead71d50cc",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202262608,
+      "secretData" : "{\"value\":\"jAXSYSrOtaxFjPczb6Bq8f8a77+bRAYizVGVJGMoqb8=\",\"salt\":\"kx1mauBOu7mqRINpw8kcOw==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
     "id" : "a7aba1bb-e6d8-4b00-9f9f-2fe2fa999006",
     "username" : "cgomez",
     "firstName" : "Carlos",
@@ -554,6 +895,209 @@
     "notBefore" : 0,
     "groups" : [ ]
   }, {
+    "id" : "8caa6b1f-0078-4885-8e6a-e84be0bc04b0",
+    "username" : "dacosta",
+    "firstName" : "Daniela",
+    "lastName" : "Acosta",
+    "email" : "dacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6118010" ],
+      "id" : [ "123460" ],
+      "filiacion" : [ "Docente" ],
+      "dni" : [ "37118010" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795200805755,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "af5b0a17-ab46-4aad-87b9-590620404fd9",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202302247,
+      "secretData" : "{\"value\":\"H7jkdx02J0y+ngn52SZnQ33MnOohOLju2LmBSkFmJUQ=\",\"salt\":\"6IGAJ0DzF9oTy5QrX5PFrA==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "5153be18-5e21-4d0b-aa27-bba82267ddf3",
+    "username" : "diegocabrera2",
+    "firstName" : "Diego",
+    "lastName" : "Cabrera",
+    "email" : "diegocabrera2@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6263004" ],
+      "id" : [ "123602" ],
+      "filiacion" : [ "Graduado" ],
+      "dni" : [ "36263004" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201003789,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "6ec0147f-dde4-4b37-8851-3c389e4bccd2",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202311420,
+      "secretData" : "{\"value\":\"4DV/BOHYZ1iGF14jRm1fVJ2wUU4RPBu0aULiYjzfhxo=\",\"salt\":\"kYkH9bgRQEY6I3C1/2AyJw==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "2544c944-746d-4df9-a116-00b0bf4d4a31",
+    "username" : "eacosta",
+    "firstName" : "Elena",
+    "lastName" : "Acosta",
+    "email" : "eacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6000181" ],
+      "id" : [ "123501" ],
+      "filiacion" : [ "Alumno" ],
+      "dni" : [ "36000181" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795200894015,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "5ca68be9-dd1d-4719-820e-341bff952aa4",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202320633,
+      "secretData" : "{\"value\":\"dNNLzDPgSnMhDpXrSGvzEawS8Mqo7htidSS9JXqEIoo=\",\"salt\":\"JYaInW2tshJmgaEBmuqYKA==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "28e3e71e-0289-4b91-ad2e-6910ef446055",
+    "username" : "emacosta",
+    "firstName" : "Emilia",
+    "lastName" : "Acosta",
+    "email" : "emacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6127019" ],
+      "id" : [ "123456" ],
+      "filiacion" : [ "Docente" ],
+      "dni" : [ "37127019" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795200557407,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "6660c140-326d-4595-ba62-0ebeed6201fc",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202328922,
+      "secretData" : "{\"value\":\"lz5ohQYAJfxzJZ2YC2e3cMoTvaI6vAc3Kms235yZ2II=\",\"salt\":\"PmIGx3itLgQZYJ3GQ5WZag==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "332cabb6-6406-4cbd-ba5f-2442d6cb8b69",
+    "username" : "emilacosta",
+    "firstName" : "Emilia",
+    "lastName" : "Acosta",
+    "email" : "emilacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "36300349" ],
+      "id" : [ "123701" ],
+      "filiacion" : [ "NoDocente" ],
+      "dni" : [ "36300349" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201602314,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "e7a22354-4eaf-4b6d-beab-eb4f533ba747",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202337867,
+      "secretData" : "{\"value\":\"Nau10W1eZIMJEYWw2/vlRPNaI015yWjfCqYuHhMc034=\",\"salt\":\"w6bDOYvjXyV6wGF1KADQqQ==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "4171b003-56ff-4284-b86e-e164b16b0bc2",
+    "username" : "feacosta",
+    "firstName" : "Federico",
+    "lastName" : "Acosta",
+    "email" : "feacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6018011" ],
+      "id" : [ "123502" ],
+      "filiacion" : [ "Alumno" ],
+      "dni" : [ "36018011" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795200929428,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "76e94f0d-909e-4de3-aeed-79ab065d5683",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202347796,
+      "secretData" : "{\"value\":\"ZUoOaSx7ang0tIdasalNZvbxeRgbOgcjHP9YoWCTGNo=\",\"salt\":\"+4H6nWhpaFaPGaKC4aFmiw==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "dc13c115-04fa-4145-b7f3-97ebd874fb45",
+    "username" : "gabrlopez",
+    "firstName" : "Gabriel",
+    "lastName" : "López",
+    "email" : "gabrlopez@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6300318" ],
+      "id" : [ "123610" ],
+      "filiacion" : [ "NoDocente" ],
+      "dni" : [ "36300318" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201570118,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "e49625c6-1fb9-4b7b-b370-64eca82f8e46",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202356606,
+      "secretData" : "{\"value\":\"ruwSrftHwYCIcPw1MpAN3UN/uNub3HNDT7IJ5/4NtsM=\",\"salt\":\"Dsg+TbQiuFi0bD/wb03jrw==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
     "id" : "75006899-538c-4df6-b465-4502b9a21279",
     "username" : "juanb",
     "firstName" : "Juan",
@@ -574,6 +1118,144 @@
       "type" : "password",
       "createdDate" : 1789010671244,
       "secretData" : "{\"value\":\"2mRL+GrgzyL/V+c89AThw+uJFnyICH3rNLl6xgVjyBc=\",\"salt\":\"+QdiLLBN9oL0po6C0xKx5g==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "f1abdc91-3abe-43d7-8eaa-ba4119a99b19",
+    "username" : "maracosta",
+    "firstName" : "María",
+    "lastName" : "Acosta",
+    "email" : "maracosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6127019" ],
+      "id" : [ "123457" ],
+      "filiacion" : [ "Docente" ],
+      "dni" : [ "37127019" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795200617425,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "f74a0db3-e36c-4e1e-8d49-2ab95d7502d8",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202926532,
+      "secretData" : "{\"value\":\"mWssuTjsoqeCn5K3IoYGoXXQQifpiDLD+Wpi2WvHtwA=\",\"salt\":\"GRJDaBKRK8EAMPeU6LZteQ==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "5ddbeed5-ed8b-45cb-b557-1129721588b2",
+    "username" : "pacosta",
+    "firstName" : "Pablo",
+    "lastName" : "Acosta",
+    "email" : "pacosta@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6145010" ],
+      "id" : [ "123458" ],
+      "filiacion" : [ "Docente" ],
+      "dni" : [ "37145010" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795200660734,
+    "totp" : false,
+    "credentials" : [ ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "98c8e15f-0b26-4458-8c39-3ba88c7bd219",
+    "username" : "pbenitez",
+    "firstName" : "Pablo",
+    "lastName" : "Benítez",
+    "email" : "pbenitez@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "4444445" ],
+      "id" : [ "15218" ],
+      "filiacion" : [ "Alumno" ],
+      "dni" : [ "36000012" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1794971723099,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "4e88bd8d-b10a-42fa-8d19-f36c58cc905f",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202952965,
+      "secretData" : "{\"value\":\"bH+XfbKdFvp4m0gK4O67v2H00ULMaBegtGKU++nkVN4=\",\"salt\":\"fNC9nkM8xVJ8A6bXz2H1FA==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "3cc0784e-2c74-42b1-a1fa-62941db72c0e",
+    "username" : "sanbenitez",
+    "firstName" : "Santiago",
+    "lastName" : "Benítez",
+    "email" : "sanbenitez@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6272005" ],
+      "id" : [ "123601" ],
+      "filiacion" : [ "Graduado" ],
+      "dni" : [ "36272005" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795200970215,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "6b99418f-03af-4843-b2e8-25d9a0e90d95",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202960627,
+      "secretData" : "{\"value\":\"QvmhwR/zcL8BZZmOlufx3fyMfvQPaKGy58/zJZWMIRE=\",\"salt\":\"rtp6H3xOqUydjTHwEcM0+A==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-frba" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "c122519a-4ec8-4a5a-94b1-e5734cc4568f",
+    "username" : "tomacabrera",
+    "firstName" : "Tomás",
+    "lastName" : "Cabrera",
+    "email" : "tomacabrera@frba.utn.edu.ar",
+    "emailVerified" : false,
+    "attributes" : {
+      "legajo" : [ "6236021" ],
+      "id" : [ "123603" ],
+      "filiacion" : [ "Graduado" ],
+      "dni" : [ "36236021" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1795201035356,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "3ab69189-9968-4c97-ad12-3a1c876043d8",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1795202969560,
+      "secretData" : "{\"value\":\"9FZr9IOPeU+LPnxs2W+jWflXmFA+vuJxjzqhErJbzSI=\",\"salt\":\"TSs37tpyH9OM2+IctdJd0w==\",\"additionalParameters\":{}}",
       "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
     } ],
     "disableableCredentialTypes" : [ ],

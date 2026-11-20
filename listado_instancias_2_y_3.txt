@@ -1,0 +1,302 @@
+LISTADO DE ELECTORES Y AUTORIDADES DE MESA
+Instancias 2 y 3 ? elecci?n Demo 2026
+
+CRITERIO DE EXTRACCI?N
+Se consultaron las copias SQL locales, sin restaurarlas ni modificar bases.
+Para cada claustro se tomaron personas con registros activos de Demo 2026.
+Autoridad = asignaci?n en estado ?asignada? vinculada a un registro activo.
+Elector = persona activa del claustro sin ninguna designaci?n asignada en ese claustro.
+Se listan personas ?nicas por DNI y legajo; se priorizaron las coincidencias entre instancias.
+Los campos personales se leen de elecciones_elector; ?(sin dato)? indica campo vac?o.
+
+ADVERTENCIA DE INTEGRIDAD DE LA FOTO 3
+huellas.json declara SHA-256 5FFDF549BE55B7CF2AF3FFD4DEE50AB5AFCA1F4270927FB68650B67D6D65D8AB; el postgres.sql presente da 7EA4BE62D8A9F4DE831FE6200D126C96A8CAB6A645F24234BF035A4EE93D891D.
+No coinciden. El listado usa el contenido SQL presente, pero no puede asegurarse que sea la foto exacta prevista para restaurar.
+El arranque de instancia 3 valida esa huella y deber?a cancelar la restauraci?n si la discrepancia contin?a.
+
+RASTREO DE LAS FOTOS
+Instancia 2: .instancias\foto-instancia-2.sql (foto PostgreSQL del 18/11/2026; nombres de listas actualizados el 20/11/2026).
+  Contiene solo Demo 2026 (en preparaci?n): 2.000 identidades de elector, 2.100 registros de padr?n y 45 mesas.
+  La documentaci?n registra 14 presentaciones de listas y 460 candidaturas. Incluye PostgreSQL, no los vol?menes media/generated_qrs.
+  Se restaura al inicializar una base sin migraciones; las siguientes puestas en marcha conservan los datos existentes.
+Instancia 3: .instancias\foto-instancia-3-v3\postgres.sql (captura declarada 19/11/2026 20:53:13 -03:00).
+  El SQL presente contiene Demo 2026 (en curso) y Demo 2020, Demo 2022 y Demo 2024 (finalizadas): 3.000 identidades y 5.100 registros.
+  En Demo 2026 hay 2.100 registros activos, 75 mesas, 352 inasistencias; 41 mesas procesadas y K-016, K-017, K-019 y K-046 pendientes.
+  Seg?n la documentaci?n, cada elecci?n hist?rica tiene 1.000 electores ficticios y 10 mesas procesadas.
+  La foto 3 incorpora PostgreSQL y vol?menes media/generated_qrs; no incluye Keycloak, Mailpit, claves de entorno ni certificados.
+  Cada ?up? restaura esta foto; ?start? reanuda datos de trabajo sin restaurarlos.
+La selecci?n de personas de este documento corresponde ?nicamente a Demo 2026; no mezcla los tres padrones hist?ricos de la instancia 3.
+
+========================================================================
+INSTANCIA 2 ? Demo 2026 (en preparaci?n; inicio 2026-11-20)
+========================================================================
+
+CLAUSTRO: Docentes
+Registros activos del padr?n: 600
+AUTORIDADES DE MESA (muestra de 3; personas con designaci?n activa: 115)
+  1. DNI: 37127019
+     Mail: emacosta@frba.utn.edu.ar
+     Legajo: 6127019
+     Apellido: Acosta
+     Nombre: Emilia
+  2. DNI: 37100012
+     Mail: maracosta@frba.utn.edu.ar
+     Legajo: 6100012
+     Apellido: Acosta
+     Nombre: María
+  3. DNI: 37145010
+     Mail: pacosta@frba.utn.edu.ar
+     Legajo: 6145010
+     Apellido: Acosta
+     Nombre: Pablo
+ELECTORES SIN DESIGNACI?N DE AUTORIDAD (muestra de 3; personas disponibles: 385)
+  1. DNI: 37136004
+     Mail: agacosta@frba.utn.edu.ar
+     Legajo: 6136004
+     Apellido: Acosta
+     Nombre: Agustina
+  2. DNI: 37100070
+     Mail: caacosta@frba.utn.edu.ar
+     Legajo: 6100070
+     Apellido: Acosta
+     Nombre: Camila
+  3. DNI: 37118010
+     Mail: dacosta@frba.utn.edu.ar
+     Legajo: 6118010
+     Apellido: Acosta
+     Nombre: Daniela
+
+CLAUSTRO: Estudiantes
+Registros activos del padr?n: 500
+AUTORIDADES DE MESA (muestra de 3; personas con designaci?n activa: 0)
+  No hay autoridades de mesa asignadas en esta foto para este claustro; no se sustituyen por candidatos.
+ELECTORES SIN DESIGNACI?N DE AUTORIDAD (muestra de 3; personas disponibles: 500)
+  1. DNI: 36000159
+     Mail: anacosta@frba.utn.edu.ar
+     Legajo: 6000159
+     Apellido: Acosta
+     Nombre: Ana
+  2. DNI: 36000181
+     Mail: eacosta@frba.utn.edu.ar
+     Legajo: 6000181
+     Apellido: Acosta
+     Nombre: Elena
+  3. DNI: 36018011
+     Mail: feacosta@frba.utn.edu.ar
+     Legajo: 6018011
+     Apellido: Acosta
+     Nombre: Federico
+
+CLAUSTRO: Graduados
+Registros activos del padr?n: 500
+AUTORIDADES DE MESA (muestra de 3; personas con designaci?n activa: 81)
+  1. DNI: 36272005
+     Mail: sanbenitez@frba.utn.edu.ar
+     Legajo: 6272005
+     Apellido: Benítez
+     Nombre: Santiago
+  2. DNI: 36263004
+     Mail: diegocabrera2@frba.utn.edu.ar
+     Legajo: 6263004
+     Apellido: Cabrera
+     Nombre: Diego
+  3. DNI: 36236021
+     Mail: tomacabrera@frba.utn.edu.ar
+     Legajo: 6236021
+     Apellido: Cabrera
+     Nombre: Tomás
+ELECTORES SIN DESIGNACI?N DE AUTORIDAD (muestra de 3; personas disponibles: 419)
+  1. DNI: 36209043
+     Mail: agusacosta@frba.utn.edu.ar
+     Legajo: 6209043
+     Apellido: Acosta
+     Nombre: Agustina
+  2. DNI: 36209001
+     Mail: andacosta@frba.utn.edu.ar
+     Legajo: 6209001
+     Apellido: Acosta
+     Nombre: Andrés
+  3. DNI: 36200092
+     Mail: caracosta@frba.utn.edu.ar
+     Legajo: 6200092
+     Apellido: Acosta
+     Nombre: Carolina
+
+CLAUSTRO: No docentes
+Registros activos del padr?n: 500
+AUTORIDADES DE MESA (muestra de 3; personas con designaci?n activa: 36)
+  1. DNI: 36300032
+     Mail: anacastro2@frba.utn.edu.ar
+     Legajo: 6300032
+     Apellido: Castro
+     Nombre: Ana
+  2. DNI: 36300318
+     Mail: gabrlopez@frba.utn.edu.ar
+     Legajo: 6300318
+     Apellido: López
+     Nombre: Gabriel
+  3. DNI: 36300349
+     Mail: emilacosta@frba.utn.edu.ar
+     Legajo: 6300349
+     Apellido: Acosta
+     Nombre: Emilia
+ELECTORES SIN DESIGNACI?N DE AUTORIDAD (muestra de 3; personas disponibles: 464)
+  1. DNI: 36300267
+     Mail: agustacosta@frba.utn.edu.ar
+     Legajo: 6300267
+     Apellido: Acosta
+     Nombre: Agustina
+  2. DNI: 36300476
+     Mail: andracosta@frba.utn.edu.ar
+     Legajo: 6300476
+     Apellido: Acosta
+     Nombre: Andrés
+  3. DNI: 36300006
+     Mail: camacosta@frba.utn.edu.ar
+     Legajo: 6300006
+     Apellido: Acosta
+     Nombre: Camila
+
+========================================================================
+INSTANCIA 3 ? Demo 2026 (en curso; inicio 2026-11-20)
+========================================================================
+
+CLAUSTRO: Docentes
+Registros activos del padr?n: 600
+AUTORIDADES DE MESA (muestra de 3; personas con designaci?n activa: 115)
+  1. DNI: 37127019
+     Mail: emacosta@frba.utn.edu.ar
+     Legajo: 6127019
+     Apellido: Acosta
+     Nombre: Emilia
+  2. DNI: 37100012
+     Mail: maracosta@frba.utn.edu.ar
+     Legajo: 6100012
+     Apellido: Acosta
+     Nombre: María
+  3. DNI: 37145010
+     Mail: pacosta@frba.utn.edu.ar
+     Legajo: 6145010
+     Apellido: Acosta
+     Nombre: Pablo
+ELECTORES SIN DESIGNACI?N DE AUTORIDAD (muestra de 3; personas disponibles: 385)
+  1. DNI: 37136004
+     Mail: agacosta@frba.utn.edu.ar
+     Legajo: 6136004
+     Apellido: Acosta
+     Nombre: Agustina
+  2. DNI: 37100070
+     Mail: caacosta@frba.utn.edu.ar
+     Legajo: 6100070
+     Apellido: Acosta
+     Nombre: Camila
+  3. DNI: 37118010
+     Mail: dacosta@frba.utn.edu.ar
+     Legajo: 6118010
+     Apellido: Acosta
+     Nombre: Daniela
+
+CLAUSTRO: Estudiantes
+Registros activos del padr?n: 500
+AUTORIDADES DE MESA (muestra de 3; personas con designaci?n activa: 170)
+  1. DNI: 36000045
+     Mail: aacosta@frba.utn.edu.ar
+     Legajo: 6000045
+     Apellido: Acosta
+     Nombre: Ana
+  2. DNI: 36045025
+     Mail: anaacosta@frba.utn.edu.ar
+     Legajo: 6045025
+     Apellido: Acosta
+     Nombre: Ana
+  3. DNI: 36045016
+     Mail: cacosta@frba.utn.edu.ar
+     Legajo: 6045016
+     Apellido: Acosta
+     Nombre: Camila
+ELECTORES SIN DESIGNACI?N DE AUTORIDAD (muestra de 3; personas disponibles: 330)
+  1. DNI: 36000159
+     Mail: anacosta@frba.utn.edu.ar
+     Legajo: 6000159
+     Apellido: Acosta
+     Nombre: Ana
+  2. DNI: 36000181
+     Mail: eacosta@frba.utn.edu.ar
+     Legajo: 6000181
+     Apellido: Acosta
+     Nombre: Elena
+  3. DNI: 36018011
+     Mail: feacosta@frba.utn.edu.ar
+     Legajo: 6018011
+     Apellido: Acosta
+     Nombre: Federico
+
+CLAUSTRO: Graduados
+Registros activos del padr?n: 500
+AUTORIDADES DE MESA (muestra de 3; personas con designaci?n activa: 81)
+  1. DNI: 36272005
+     Mail: sanbenitez@frba.utn.edu.ar
+     Legajo: 6272005
+     Apellido: Benítez
+     Nombre: Santiago
+  2. DNI: 36263004
+     Mail: diegocabrera2@frba.utn.edu.ar
+     Legajo: 6263004
+     Apellido: Cabrera
+     Nombre: Diego
+  3. DNI: 36236021
+     Mail: tomacabrera@frba.utn.edu.ar
+     Legajo: 6236021
+     Apellido: Cabrera
+     Nombre: Tomás
+ELECTORES SIN DESIGNACI?N DE AUTORIDAD (muestra de 3; personas disponibles: 419)
+  1. DNI: 36209043
+     Mail: agusacosta@frba.utn.edu.ar
+     Legajo: 6209043
+     Apellido: Acosta
+     Nombre: Agustina
+  2. DNI: 36209001
+     Mail: andacosta@frba.utn.edu.ar
+     Legajo: 6209001
+     Apellido: Acosta
+     Nombre: Andrés
+  3. DNI: 36200092
+     Mail: caracosta@frba.utn.edu.ar
+     Legajo: 6200092
+     Apellido: Acosta
+     Nombre: Carolina
+
+CLAUSTRO: No docentes
+Registros activos del padr?n: 500
+AUTORIDADES DE MESA (muestra de 3; personas con designaci?n activa: 36)
+  1. DNI: 36300032
+     Mail: anacastro2@frba.utn.edu.ar
+     Legajo: 6300032
+     Apellido: Castro
+     Nombre: Ana
+  2. DNI: 36300318
+     Mail: gabrlopez@frba.utn.edu.ar
+     Legajo: 6300318
+     Apellido: López
+     Nombre: Gabriel
+  3. DNI: 36300481
+     Mail: camilacosta@frba.utn.edu.ar
+     Legajo: 6300481
+     Apellido: Acosta
+     Nombre: Camila
+ELECTORES SIN DESIGNACI?N DE AUTORIDAD (muestra de 3; personas disponibles: 464)
+  1. DNI: 36300267
+     Mail: agustacosta@frba.utn.edu.ar
+     Legajo: 6300267
+     Apellido: Acosta
+     Nombre: Agustina
+  2. DNI: 36300476
+     Mail: andracosta@frba.utn.edu.ar
+     Legajo: 6300476
+     Apellido: Acosta
+     Nombre: Andrés
+  3. DNI: 36300006
+     Mail: camacosta@frba.utn.edu.ar
+     Legajo: 6300006
+     Apellido: Acosta
+     Nombre: Camila
