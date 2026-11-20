@@ -1,45 +1,45 @@
 ﻿codigo_presentacion;numero_lista;nombre_lista;apoderado_nombre;apoderado_email;claustro;organo;puesto;departamento;tipo_documento;documento;tipo_candidatura;orden
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000059;titular;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000115;titular;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000187;titular;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36027007;titular;4
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36009071;titular;5
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000022;suplente;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000099;suplente;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36009097;suplente;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36018024;suplente;4
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000135;suplente;5
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000184;titular;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36009089;titular;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000079;titular;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000080;titular;4
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36009123;titular;5
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000199;suplente;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000014;suplente;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36036021;suplente;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000004;suplente;4
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36009038;suplente;5
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000162;titular;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000035;titular;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000096;titular;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000073;suplente;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000044;suplente;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000127;suplente;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009084;titular;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009047;titular;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009017;titular;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009018;suplente;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009022;suplente;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009081;suplente;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018029;titular;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018005;titular;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018040;titular;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018008;suplente;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018038;suplente;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018022;suplente;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36009122;titular;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36018006;titular;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36009090;titular;3
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36009117;suplente;1
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36000042;suplente;2
-EST-3-SEG1;3;Franja Morada;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36000038;suplente;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000059;titular;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000115;titular;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000187;titular;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36027007;titular;4
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36009071;titular;5
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000022;suplente;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000099;suplente;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36009097;suplente;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36018024;suplente;4
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Superior;Consejero/a Superior;;DNI;36000135;suplente;5
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000184;titular;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36009089;titular;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000079;titular;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000080;titular;4
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36009123;titular;5
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000199;suplente;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000014;suplente;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36036021;suplente;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36000004;suplente;4
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Directivo;Consejero/a directivo/a;;DNI;36009038;suplente;5
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000162;titular;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000035;titular;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000096;titular;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000073;suplente;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000044;suplente;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36000127;suplente;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009084;titular;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009047;titular;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009017;titular;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009018;suplente;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009022;suplente;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36009081;suplente;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018029;titular;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018005;titular;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018040;titular;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018008;suplente;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018038;suplente;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36018022;suplente;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36009122;titular;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36018006;titular;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36009090;titular;3
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36009117;suplente;1
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36000042;suplente;2
+EST-3-SEG1;3;Franja Naranja;Apoderado externo Lista 3;apoderado.lista3@example.org;Estudiantes;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36000038;suplente;3

@@ -33,7 +33,7 @@
     {
       "codigo_presentacion": "GRAD-19-SEG1",
       "numero_lista": "19",
-      "nombre_lista": "19 de agosto",
+      "nombre_lista": "21 de septiembre",
       "apoderado_nombre": "Apoderado externo Graduados Lista 19",
       "apoderado_email": "apoderado.graduados19@example.org",
       "archivo_importacion_completa": "importacion_completa/lista_19_19_de_agosto.csv",
@@ -55,7 +55,7 @@
     {
       "codigo_presentacion": "GRAD-3-SEG1",
       "numero_lista": "3",
-      "nombre_lista": "Club del Graduado",
+      "nombre_lista": "Graduados Club",
       "apoderado_nombre": "Apoderado externo Graduados Lista 3",
       "apoderado_email": "apoderado.graduados3@example.org",
       "archivo_importacion_completa": "importacion_completa/lista_3_club_del_graduado.csv",

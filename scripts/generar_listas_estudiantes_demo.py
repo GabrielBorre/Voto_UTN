@@ -25,10 +25,10 @@ PUESTOS = (
     ("Consejo Departamental", "Consejero/a Ciencias Básicas", "", 3),
 )
 LISTAS = (
-    {"codigo_presentacion": "EST-19-SEG1", "numero_lista": "19", "nombre_lista": "19 de agosto",
+    {"codigo_presentacion": "EST-19-SEG1", "numero_lista": "19", "nombre_lista": "21 de septiembre",
      "apoderado_nombre": "Apoderado externo Lista 19", "apoderado_email": "apoderado.lista19@example.org",
      "archivo": "lista_19_19_de_agosto.csv"},
-    {"codigo_presentacion": "EST-3-SEG1", "numero_lista": "3", "nombre_lista": "Franja Morada",
+    {"codigo_presentacion": "EST-3-SEG1", "numero_lista": "3", "nombre_lista": "Franja Naranja",
      "apoderado_nombre": "Apoderado externo Lista 3", "apoderado_email": "apoderado.lista3@example.org",
      "archivo": "lista_3_franja_morada.csv"},
 )
@@ -162,7 +162,7 @@ def generar():
     (SALIDA / "resumen.json").write_text(json.dumps(resumen, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     lineas = [
         "# Dos listas de candidatos estudiantiles", "",
-        "Listas 19 — 19 de agosto y 3 — Franja Morada.",
+        "Listas 19 — 21 de septiembre y 3 — Franja Naranja.",
         "Origen: padrón estudiantil de segmento_1_500 sin autoridades de la foto de instancia 3 y sin Carlos Gómez (38999222).", "",
         "El mínimo solicitado es 50 % por cuerpo. Los datos permiten cubrir el 100 % en ambas listas:", "",
         "| Cuerpo / alcance | Titulares por lista | Suplentes por lista | Cobertura |",

@@ -26,7 +26,7 @@
     {
       "codigo_presentacion": "NODOC-9-SEG1",
       "numero_lista": "9",
-      "nombre_lista": "Unión y Participación",
+      "nombre_lista": "Intersección y Participación",
       "apoderado_nombre": "Apoderado externo No docentes Lista 9",
       "apoderado_email": "apoderado.nodocentes9@example.org",
       "claustro": "No docentes",
@@ -36,7 +36,7 @@
     {
       "codigo_presentacion": "NODOC-3-SEG1",
       "numero_lista": "3",
-      "nombre_lista": "Integración",
+      "nombre_lista": "Derivación",
       "apoderado_nombre": "Apoderado externo No docentes Lista 3",
       "apoderado_email": "apoderado.nodocentes3@example.org",
       "claustro": "No docentes",

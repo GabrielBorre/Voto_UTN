@@ -19,8 +19,8 @@ PUESTOS = (
     ("Consejo Superior", "Consejero/a Superior", 5, 5),
 )
 LISTAS = (
-    ("9", "Unión y Participación", "lista_9_union_y_participacion.csv"),
-    ("3", "Integración", "lista_3_integracion.csv"),
+    ("9", "Intersección y Participación", "lista_9_union_y_participacion.csv"),
+    ("3", "Derivación", "lista_3_integracion.csv"),
 )
 ENCABEZADOS = (
     "codigo_presentacion", "numero_lista", "nombre_lista", "apoderado_nombre", "apoderado_email",
@@ -123,8 +123,8 @@ def generar():
     (SALIDA / "resumen.json").write_text(json.dumps(resumen, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (SALIDA / "LEEME.md").write_text("""# Dos listas de No docentes
 
-- Lista 9 — Unión y Participación: `lista_9_union_y_participacion.csv`.
-- Lista 3 — Integración: `lista_3_integracion.csv`.
+- Lista 9 — Intersección y Participación: `lista_9_union_y_participacion.csv`.
+- Lista 3 — Derivación: `lista_3_integracion.csv`.
 
 Cada lista tiene catorce personas distintas: cinco titulares y cinco suplentes
 para Consejo Superior, un titular y un suplente para Consejo Directivo, y un

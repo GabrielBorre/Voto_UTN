@@ -25,10 +25,10 @@ PUESTOS = (
     ("Consejo Departamental", "Consejero/a Ciencias Básicas", "", 2),
 )
 LISTAS = (
-    {"codigo_presentacion": "GRAD-19-SEG1", "numero_lista": "19", "nombre_lista": "19 de agosto",
+    {"codigo_presentacion": "GRAD-19-SEG1", "numero_lista": "19", "nombre_lista": "21 de septiembre",
      "apoderado_nombre": "Apoderado externo Graduados Lista 19", "apoderado_email": "apoderado.graduados19@example.org",
      "archivo": "lista_19_19_de_agosto.csv"},
-    {"codigo_presentacion": "GRAD-3-SEG1", "numero_lista": "3", "nombre_lista": "Club del Graduado",
+    {"codigo_presentacion": "GRAD-3-SEG1", "numero_lista": "3", "nombre_lista": "Graduados Club",
      "apoderado_nombre": "Apoderado externo Graduados Lista 3", "apoderado_email": "apoderado.graduados3@example.org",
      "archivo": "lista_3_club_del_graduado.csv"},
 )
@@ -169,7 +169,7 @@ def generar():
     (SALIDA / "resumen.json").write_text(json.dumps(resumen, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     lineas = [
         "# Dos listas de candidatos de graduados", "",
-        "Listas 19 — 19 de agosto y 3 — Club del Graduado.",
+        "Listas 19 — 21 de septiembre y 3 — Graduados Club.",
         "Origen: padrón de graduados de segmento_1_500 sin autoridades de la foto de instancia 3.", "",
         "El mínimo solicitado es 50 % por cuerpo. Los datos permiten cubrir el 100 % en ambas listas:", "",
         "| Cuerpo / alcance | Titulares por lista | Suplentes por lista | Cobertura |",

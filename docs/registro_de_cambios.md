@@ -1,5 +1,39 @@
 # Registro de cambios por etapa
 
+## Nombres de listas en la foto de la instancia 2 - 20 de noviembre de 2026
+
+Se actualizan las catorce presentaciones de `.instancias/foto-instancia-2.sql`:
+`19 de agosto` pasa a `21 de septiembre`; `Franja Morada`, a `Franja Naranja`;
+`Integración`, a `Derivación`; `Club del Graduado`, a `Graduados Club`; y
+`Unión y Participación`, a `Intersección y Participación`. Las variantes docentes
+conservan los sufijos Sistemas, Industrial, Electrónica y DASUTeN.
+
+En la foto solo cambian los catorce campos `nombre_lista`: el resto del SQL se
+conserva byte a byte, incluidos los eventos históricos de auditoría. No cambian
+los números ni códigos, los apoderados, las cincuenta asociaciones a puestos,
+las 460 candidaturas, los 2100 registros de padrón ni las 45 mesas.
+
+Se modifican también los cuatro `scripts/generar_listas_*_demo.py`, los metadatos,
+CSV, resúmenes y LEEME de los cuatro directorios `listas_*_sin_autoridades` de
+`ESCENARIOS_PRUEBA_ELECTORAL/segmento_1_500`, el README, las decisiones funcionales
+y este registro. Se conservan los nombres técnicos de archivos y referencias.
+No se eliminan archivos ni se modifican modelos o migraciones.
+
+Verificación: restauración completa de la foto candidata en una base PostgreSQL
+aislada; comparación de los catorce campos y de todo el SQL restante; validación
+de Python y JSON; controles Django sin incidencias, sin nuevas migraciones ni
+operaciones pendientes; 29 pruebas de preparación y carga de CSV aprobadas.
+Se conserva un respaldo local de los archivos originales en
+`.respaldo_renombrado_listas_20261120/originales`.
+
+La suite general ejecuta 919 pruebas: 904 aprobadas, 12 fallos y 3 errores. Las
+quince incidencias coinciden exactamente con la verificación anterior del
+repositorio; no aparecen casos fallidos nuevos. Se guardan el log y la comparación
+en `.respaldo_renombrado_listas_20261120`. La suite general sigue sin aprobarse.
+A pedido del usuario se restaura la instancia 2 desde la foto actualizada: queda
+en preparación, con cero solicitudes previas y los nuevos nombres verificados.
+La web responde HTTP 200 en `https://localhost:8445/`.
+
 ## Solicitudes por departamento en la instancia 2 - 19 de noviembre de 2026
 
 La publicación y el comando `generar_solicitudes_cambio_sede_demo` completan,

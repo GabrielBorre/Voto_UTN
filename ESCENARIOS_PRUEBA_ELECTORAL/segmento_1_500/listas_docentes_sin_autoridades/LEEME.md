@@ -4,7 +4,7 @@ Origen: `padron_docentes_sin_autoridades.csv` de segmento_1_500, contrastado con
 autoridades asignadas de la foto de instancia 3. Se cuentan personas por documento,
 sin duplicar a quienes tienen registros en dos departamentos: hay 385 personas y 451 registros.
 
-Las familias 19 — 19 de agosto y 2 — Integración tienen tres sublistas cada una:
+Las familias 19 — 21 de septiembre y 2 — Derivación tienen tres sublistas cada una:
 Sistemas (K), Industrial (I) y Electrónica (R). Son seis presentaciones distintas.
 El número 19 o 2 se mantiene dentro de cada familia; el nombre y el código de
 presentación distinguen cada sublista. La familia es una agrupación de estos

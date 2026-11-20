@@ -122,9 +122,17 @@ Tras recrearlo, se debe generar y descargar nuevamente el PDF para ver cambios.
 
 ### Foto fija de PostgreSQL para la instancia 2
 
+La foto carga las listas con los nombres `21 de septiembre`, `Franja Naranja`,
+`Derivación`, `Graduados Club` e `Intersección y Participación`. Las variantes
+docentes conservan el sufijo de su departamento. Se mantienen los números de
+lista, los códigos de presentación y las 460 candidaturas. Los CSV y sus cuatro
+generadores utilizan esos mismos nombres; los nombres técnicos de los archivos
+se conservan para mantener sus referencias.
+
 La foto `.instancias\foto-instancia-2.sql` se generó el 18 de noviembre de 2026
-desde los datos actuales de PostgreSQL de la instancia 2. Queda excluida de Git
-porque contiene todos los datos de esa base. Se restaura automáticamente solo
+desde los datos de PostgreSQL de la instancia 2 y está versionada en el repositorio.
+Sus nombres de listas se actualizaron el 20 de noviembre de 2026.
+Se restaura automáticamente solo
 cuando `up` detecta que la base de la instancia 2 todavía no tiene sus
 migraciones; después, Django ejecuta las migraciones pendientes. En los
 siguientes `up` y `start` se conservan los datos de trabajo existentes. La foto

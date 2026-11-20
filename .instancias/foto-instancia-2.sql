@@ -12737,20 +12737,20 @@ COPY public.partidos_organoelectivo (id, nombre, descripcion, activo) FROM stdin
 --
 
 COPY public.partidos_participacionpartido (id, numero_lista, nombre_lista, activa, eleccion_id, partido_id, apoderado_email, apoderado_nombre, codigo_presentacion, eleccion_claustro_id) FROM stdin;
-1	19	19 de agosto	t	1	\N	apoderado.lista19@example.org	Apoderado externo Lista 19	EST-19-SEG1	2
-2	3	Franja Morada	t	1	\N	apoderado.lista3@example.org	Apoderado externo Lista 3	EST-3-SEG1	2
-3	19	19 de agosto	t	1	\N	apoderado.graduados19@example.org	Apoderado externo Graduados Lista 19	GRAD-19-SEG1	3
-4	3	Club del Graduado	t	1	\N	apoderado.graduados3@example.org	Apoderado externo Graduados Lista 3	GRAD-3-SEG1	3
-5	19	19 de agosto - Sistemas	t	1	\N	apoderado.docentes19.sistemas@example.org	Apoderado externo Docentes 19 Sistemas	DOC-19-K-SEG1	1
-6	19	19 de agosto - Industrial	t	1	\N	apoderado.docentes19.industrial@example.org	Apoderado externo Docentes 19 Industrial	DOC-19-I-SEG1	1
-7	19	19 de agosto - Electrónica	t	1	\N	apoderado.docentes19.electronica@example.org	Apoderado externo Docentes 19 Electrónica	DOC-19-R-SEG1	1
-8	19	19 de agosto - DASUTeN	t	1	\N	apoderado.docentes19.dasuten@example.org	Apoderado externo Docentes 19 DASUTeN	DOC-19-DASUTEN-SEG1	1
-9	2	Integración - Sistemas	t	1	\N	apoderado.docentes2.sistemas@example.org	Apoderado externo Docentes 2 Sistemas	DOC-2-K-SEG1	1
-10	2	Integración - Industrial	t	1	\N	apoderado.docentes2.industrial@example.org	Apoderado externo Docentes 2 Industrial	DOC-2-I-SEG1	1
-11	2	Integración - Electrónica	t	1	\N	apoderado.docentes2.electronica@example.org	Apoderado externo Docentes 2 Electrónica	DOC-2-R-SEG1	1
-12	2	Integración - DASUTeN	t	1	\N	apoderado.docentes2.dasuten@example.org	Apoderado externo Docentes 2 DASUTeN	DOC-2-DASUTEN-SEG1	1
-13	9	Unión y Participación	t	1	\N	apoderado.nodocentes9@example.org	Apoderado externo No docentes Lista 9	NODOC-9-SEG1	4
-14	3	Integración	t	1	\N	apoderado.nodocentes3@example.org	Apoderado externo No docentes Lista 3	NODOC-3-SEG1	4
+1	19	21 de septiembre	t	1	\N	apoderado.lista19@example.org	Apoderado externo Lista 19	EST-19-SEG1	2
+2	3	Franja Naranja	t	1	\N	apoderado.lista3@example.org	Apoderado externo Lista 3	EST-3-SEG1	2
+3	19	21 de septiembre	t	1	\N	apoderado.graduados19@example.org	Apoderado externo Graduados Lista 19	GRAD-19-SEG1	3
+4	3	Graduados Club	t	1	\N	apoderado.graduados3@example.org	Apoderado externo Graduados Lista 3	GRAD-3-SEG1	3
+5	19	21 de septiembre - Sistemas	t	1	\N	apoderado.docentes19.sistemas@example.org	Apoderado externo Docentes 19 Sistemas	DOC-19-K-SEG1	1
+6	19	21 de septiembre - Industrial	t	1	\N	apoderado.docentes19.industrial@example.org	Apoderado externo Docentes 19 Industrial	DOC-19-I-SEG1	1
+7	19	21 de septiembre - Electrónica	t	1	\N	apoderado.docentes19.electronica@example.org	Apoderado externo Docentes 19 Electrónica	DOC-19-R-SEG1	1
+8	19	21 de septiembre - DASUTeN	t	1	\N	apoderado.docentes19.dasuten@example.org	Apoderado externo Docentes 19 DASUTeN	DOC-19-DASUTEN-SEG1	1
+9	2	Derivación - Sistemas	t	1	\N	apoderado.docentes2.sistemas@example.org	Apoderado externo Docentes 2 Sistemas	DOC-2-K-SEG1	1
+10	2	Derivación - Industrial	t	1	\N	apoderado.docentes2.industrial@example.org	Apoderado externo Docentes 2 Industrial	DOC-2-I-SEG1	1
+11	2	Derivación - Electrónica	t	1	\N	apoderado.docentes2.electronica@example.org	Apoderado externo Docentes 2 Electrónica	DOC-2-R-SEG1	1
+12	2	Derivación - DASUTeN	t	1	\N	apoderado.docentes2.dasuten@example.org	Apoderado externo Docentes 2 DASUTeN	DOC-2-DASUTEN-SEG1	1
+13	9	Intersección y Participación	t	1	\N	apoderado.nodocentes9@example.org	Apoderado externo No docentes Lista 9	NODOC-9-SEG1	4
+14	3	Derivación	t	1	\N	apoderado.nodocentes3@example.org	Apoderado externo No docentes Lista 3	NODOC-3-SEG1	4
 \.
 
 

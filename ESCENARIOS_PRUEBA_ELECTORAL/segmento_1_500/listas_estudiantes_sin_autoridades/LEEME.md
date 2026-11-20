@@ -1,6 +1,6 @@
 # Dos listas de candidatos estudiantiles
 
-Listas 19 — 19 de agosto y 3 — Franja Morada.
+Listas 19 — 21 de septiembre y 3 — Franja Naranja.
 Origen: padrón estudiantil de segmento_1_500 sin autoridades de la foto de instancia 3 y sin Carlos Gómez (38999222).
 
 El mínimo solicitado es 50 % por cuerpo. Los datos permiten cubrir el 100 % en ambas listas:

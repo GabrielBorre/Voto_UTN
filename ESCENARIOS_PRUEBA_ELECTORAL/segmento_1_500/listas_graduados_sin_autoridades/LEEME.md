@@ -1,6 +1,6 @@
 # Dos listas de candidatos de graduados
 
-Listas 19 — 19 de agosto y 3 — Club del Graduado.
+Listas 19 — 21 de septiembre y 3 — Graduados Club.
 Origen: padrón de graduados de segmento_1_500 sin autoridades de la foto de instancia 3.
 
 El mínimo solicitado es 50 % por cuerpo. Los datos permiten cubrir el 100 % en ambas listas:

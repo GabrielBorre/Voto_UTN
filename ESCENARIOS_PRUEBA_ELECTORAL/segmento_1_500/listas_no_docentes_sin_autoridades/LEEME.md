@@ -1,7 +1,7 @@
 # Dos listas de No docentes
 
-- Lista 9 — Unión y Participación: `lista_9_union_y_participacion.csv`.
-- Lista 3 — Integración: `lista_3_integracion.csv`.
+- Lista 9 — Intersección y Participación: `lista_9_union_y_participacion.csv`.
+- Lista 3 — Derivación: `lista_3_integracion.csv`.
 
 Cada lista tiene catorce personas distintas: cinco titulares y cinco suplentes
 para Consejo Superior, un titular y un suplente para Consejo Directivo, y un

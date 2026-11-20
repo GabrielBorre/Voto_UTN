@@ -22,7 +22,7 @@ DEPARTAMENTOS = {
     "I": ("Industrial", "industrial", "Ingeniería Industrial"),
     "R": ("Electrónica", "electronica", "Ingeniería Electrónica"),
 }
-GRUPOS = (("19", "19 de agosto", "19_de_agosto"), ("2", "Integración", "integracion"))
+GRUPOS = (("19", "21 de septiembre", "19_de_agosto"), ("2", "Derivación", "integracion"))
 SUPERIOR = "Consejero/a Superior"
 DIRECTIVO = "Consejero/a directivo/a"
 DEPARTAMENTAL = "Consejero/a departamental"
@@ -255,7 +255,7 @@ Origen: `padron_docentes_sin_autoridades.csv` de segmento_1_500, contrastado con
 autoridades asignadas de la foto de instancia 3. Se cuentan personas por documento,
 sin duplicar a quienes tienen registros en dos departamentos: hay 385 personas y 451 registros.
 
-Las familias 19 — 19 de agosto y 2 — Integración tienen tres sublistas cada una:
+Las familias 19 — 21 de septiembre y 2 — Derivación tienen tres sublistas cada una:
 Sistemas (K), Industrial (I) y Electrónica (R). Son seis presentaciones distintas.
 El número 19 o 2 se mantiene dentro de cada familia; el nombre y el código de
 presentación distinguen cada sublista. La familia es una agrupación de estos

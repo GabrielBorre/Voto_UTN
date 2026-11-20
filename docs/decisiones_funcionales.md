@@ -1,5 +1,15 @@
 # Decisiones funcionales confirmadas
 
+## Nombres de listas de demostración de la instancia 2
+
+- `19 de agosto` pasa a `21 de septiembre`; `Franja Morada`, a `Franja Naranja`;
+  `Integración`, a `Derivación`; `Club del Graduado`, a `Graduados Club`; y
+  `Unión y Participación`, a `Intersección y Participación`.
+- El cambio alcanza la foto de PostgreSQL, los CSV y los generadores de las
+  listas de los cuatro claustros. Las variantes docentes conservan sus sufijos.
+- Se conservan números de lista, códigos de presentación, apoderados, candidatos
+  y asociaciones a puestos. Los nombres técnicos de los archivos no cambian.
+
 ## Solicitudes de demostración de la instancia 2
 
 - Se conserva el lote de hasta treinta estudiantes de Sistemas y se agregan

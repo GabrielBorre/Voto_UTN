@@ -1,37 +1,37 @@
 ﻿codigo_presentacion;numero_lista;nombre_lista;apoderado_nombre;apoderado_email;claustro;organo;puesto;departamento;tipo_documento;documento;tipo_candidatura;orden
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36209125;titular;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36236004;titular;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36200080;titular;3
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36227024;titular;4
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36209054;titular;5
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36200042;suplente;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36227019;suplente;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36209021;suplente;3
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36200025;suplente;4
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36200151;suplente;5
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36200158;titular;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36209070;titular;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36200126;titular;3
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36209028;titular;4
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36227033;titular;5
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36218032;suplente;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36218036;suplente;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36200098;suplente;3
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36200110;suplente;4
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36200019;suplente;5
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200161;titular;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200149;titular;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200147;suplente;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200043;suplente;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36209015;titular;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36209056;titular;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36209027;suplente;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36209016;suplente;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36218049;titular;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36218029;titular;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36218038;suplente;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36218030;suplente;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36200018;titular;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36209093;titular;2
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36200159;suplente;1
-GRAD-3-SEG1;3;Club del Graduado;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36200001;suplente;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36209125;titular;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36236004;titular;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36200080;titular;3
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36227024;titular;4
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36209054;titular;5
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36200042;suplente;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36227019;suplente;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36209021;suplente;3
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36200025;suplente;4
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Superior;Consejero/a Superior;;DNI;36200151;suplente;5
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36200158;titular;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36209070;titular;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36200126;titular;3
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36209028;titular;4
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36227033;titular;5
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36218032;suplente;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36218036;suplente;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36200098;suplente;3
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36200110;suplente;4
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Directivo;Consejero/a directivo/a;;DNI;36200019;suplente;5
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200161;titular;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200149;titular;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200147;suplente;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería en Sistemas de Información;DNI;36200043;suplente;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36209015;titular;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36209056;titular;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36209027;suplente;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Industrial;DNI;36209016;suplente;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36218049;titular;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36218029;titular;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36218038;suplente;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a departamental;Ingeniería Electrónica;DNI;36218030;suplente;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36200018;titular;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36209093;titular;2
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36200159;suplente;1
+GRAD-3-SEG1;3;Graduados Club;Apoderado externo Graduados Lista 3;apoderado.graduados3@example.org;Graduados;Consejo Departamental;Consejero/a Ciencias Básicas;;DNI;36200001;suplente;2
