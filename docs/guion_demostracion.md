@@ -304,7 +304,7 @@ Se muestran en vivo solo las validaciones más representativas. El resto se menc
    8. **Iniciar elección** y **Generar padrón imprimible**.
 5. Anotar `MESA_DEMO` (la mesa de Carlos, que figura en su Inicio) y elegir `MESA_MANUAL`.
 6. **Procesar todas las demás mesas** antes de la demo con el botón **Registrar** del tablero. Solo deben quedar pendientes `MESA_DEMO` y `MESA_MANUAL`.
-7. **No dejar justificativos pendientes** que no sean el de la demo; si no, no se puede finalizar. Confirmar autoridades genera hasta dos justificativos de autoridades (resolver antes de iniciar). Notificar ausentes genera hasta dos de electores (resolver antes de finalizar). Las solicitudes automáticas no incluyen autoridades.
+7. **No dejar justificativos pendientes** que no sean el de la demo; si no, no se puede finalizar. Confirmar autoridades no genera justificativos de autoridades. Notificar ausentes completa un único justificativo de elector si hay ausentes elegibles y todavía no existe ninguno (resolver antes de finalizar). Las solicitudes automáticas no incluyen autoridades.
 
 > Los nombres `padron_estudiantes_500.csv` y `plantilla_autoridades_5_Estudiantes.csv` son los archivos del equipo. No están en el repositorio y **no hay un comando que arme este escenario automáticamente**: hay que prepararlo con el flujo anterior.
 

@@ -109,9 +109,9 @@ const scanner = new PageQrScanner(
             if (!parsed) {
                 notifyError("QR no reconocido. Escaneá el QR de la mesa.");
             } else if (parsed.tipo !== "mesa") {
-                notifyError("Primero escaneá el QR de la mesa que vas a registrar.");
+                notifyError("Primero escaneá el QR de la mesa a registrar.");
             } else if (expectedElectionId && parsed.eleccionId && parsed.eleccionId !== expectedElectionId) {
-                notifyError(`QR de otra elección (ID ${parsed.eleccionId}). Escaneá solo la elección ${expectedElectionId}.`);
+                notifyError(`QR de otra elección`);
             } else if (!isQueryingMesa) {
                 void consultarMesa({ codigo_qr: code });
             }
@@ -138,13 +138,13 @@ const scanner = new PageQrScanner(
 
         if (expectedElectionId && parsed.eleccionId && parsed.eleccionId !== expectedElectionId) {
             scanner.codes.delete(code);
-            notifyError(`QR de otra elección (ID ${parsed.eleccionId}). Escaneá solo la elección ${expectedElectionId}.`);
+            notifyError(`QR de otra elección`);
             return;
         }
 
         if (parsed.mesaNumero && parsed.mesaNumero !== mesaActual.numero) {
             scanner.codes.delete(code);
-            notifyError(`El QR es de la mesa ${parsed.mesaNumero}. Registrá primero la mesa ${mesaActual.codigo}.`);
+            notifyError(`El QR pertenece a otra mesa.`);
             return;
         }
 

@@ -84,23 +84,23 @@ class GeneradoresDemoTests(TestCase):
         self.assertEqual(solicitudes.count(), 0)
         self.assertEqual(list(AsignacionAutoridad.objects.order_by('pk').values()), originales)
 
-    def test_confirmar_autoridades_genera_dos_justificativos_una_vez(self):
+    def test_confirmar_autoridades_no_genera_justificativos_ni_requiere_tipos(self):
         from apps.autoridades.confirmacion import confirmar_autoridades
         from django.core.exceptions import ValidationError
 
         usuario, _ = self.crear_autoridades()
-        TipoJustificativo.objects.create(nombre="Salud")
         Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.PUBLICADA)
         limite = timezone.localdate()
         confirmar_autoridades(self.eleccion.pk, usuario, limite)
         justificativos = JustificativoAusencia.objects.filter(ausencia="autoridad")
-        self.assertEqual(justificativos.count(), 2)
-        self.assertTrue(all(j.estado == "pendiente" for j in justificativos))
+        self.assertFalse(justificativos.exists())
+        self.eleccion.refresh_from_db()
+        self.assertTrue(self.eleccion.autoridades_confirmadas_en)
         with self.assertRaises(ValidationError):
             confirmar_autoridades(self.eleccion.pk, usuario, limite)
-        self.assertEqual(justificativos.count(), 2)
+        self.assertFalse(justificativos.exists())
 
-    def test_notificar_ausentes_genera_dos_justificativos_una_vez(self):
+    def test_notificar_ausentes_genera_un_solo_justificativo_una_vez(self):
         from apps.notificaciones.services import crear_notificaciones_ausentes_confirmadas
 
         usuario, mesa = self.crear_autoridades()
@@ -113,23 +113,34 @@ class GeneradoresDemoTests(TestCase):
         envios = crear_notificaciones_ausentes_confirmadas(self.eleccion, timezone.localdate())
         self.assertEqual(len(envios), 4)
         justificativos = JustificativoAusencia.objects.filter(ausencia="votar")
-        self.assertEqual(justificativos.count(), 2)
+        self.assertEqual(justificativos.count(), 1)
         self.assertTrue(all(j.registro_padron.participaciones.exists() for j in justificativos))
         with self.assertRaises(ValueError):
             crear_notificaciones_ausentes_confirmadas(self.eleccion, timezone.localdate())
-        self.assertEqual(justificativos.count(), 2)
+        self.assertEqual(justificativos.count(), 1)
 
-    def test_error_generando_justificativos_revierte_confirmacion(self):
-        from apps.autoridades.confirmacion import confirmar_autoridades
-        from django.core.exceptions import ValidationError
+    def test_notificar_ausentes_no_agrega_justificativos_si_ya_existe_uno(self):
+        from apps.notificaciones.services import crear_notificaciones_ausentes_confirmadas
 
-        usuario, _ = self.crear_autoridades()
-        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.PUBLICADA)
-        with self.assertRaisesMessage(ValidationError, "No hay tipos"):
-            confirmar_autoridades(self.eleccion.pk, usuario, timezone.localdate())
-        self.eleccion.refresh_from_db()
-        self.assertIsNone(self.eleccion.autoridades_confirmadas_en)
-        self.assertFalse(JustificativoAusencia.objects.exists())
+        usuario, mesa = self.crear_autoridades()
+        tipo = TipoJustificativo.objects.create(nombre="Salud")
+        Eleccion.objects.filter(pk=self.eleccion.pk).update(estado=Eleccion.Estado.EN_CURSO)
+        for registro in self.registros[5:9]:
+            RegistroParticipacion.objects.create(
+                registro_padron=registro, mesa=mesa, registrada_por=usuario, metodo="manual",
+            )
+        justificativo = JustificativoAusencia.objects.create(
+            registro_padron=self.registros[5], ausencia="votar", tipo=tipo,
+            detalle="Justificativo presentado previamente.",
+        )
+
+        envios = crear_notificaciones_ausentes_confirmadas(self.eleccion, timezone.localdate())
+
+        self.assertEqual(len(envios), 4)
+        self.assertEqual(
+            list(JustificativoAusencia.objects.filter(ausencia="votar").values_list("pk", flat=True)),
+            [justificativo.pk],
+        )
 
     def test_error_generando_justificativos_revierte_notificacion_ausentes(self):
         from apps.notificaciones.models import EnvioNotificacion

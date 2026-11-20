@@ -1,6 +1,5 @@
 """Cierre definitivo de autoridades de una elección."""
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.core.management.base import CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -34,13 +33,6 @@ def confirmar_autoridades(eleccion_id, usuario, fecha_limite):
     eleccion.autoridades_confirmadas_en = timezone.now()
     eleccion.autoridades_confirmadas_por = usuario
     eleccion.save(update_fields=("fecha_limite_justificacion_autoridades", "autoridades_confirmadas_en", "autoridades_confirmadas_por"))
-    from apps.elecciones.demo_generadores import completar_justificativos_demo
-    from apps.justificativos.models import JustificativoAusencia
-
-    try:
-        completar_justificativos_demo(eleccion, JustificativoAusencia.Ausencia.AUTORIDAD)
-    except CommandError as error:
-        raise ValidationError(str(error)) from error
     for asignacion in asignaciones:
         crear_notificacion_convocatoria_autoridad(asignacion, fecha_limite)
     from apps.auditoria.services import registrar_evento

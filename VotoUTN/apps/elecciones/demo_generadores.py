@@ -89,4 +89,4 @@ def completar_justificativos_demo(eleccion, ausencia):
     existentes = JustificativoAusencia.objects.filter(
         registro_padron__eleccion=eleccion, ausencia=ausencia,
     ).count()
-    return generar_justificativos_demo(eleccion, ausencia, cantidad=max(0, 2 - existentes))
+    return generar_justificativos_demo(eleccion, ausencia, cantidad=max(0, 1 - existentes))
