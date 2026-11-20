@@ -1,5 +1,27 @@
 # Decisiones funcionales confirmadas
 
+## Solicitudes de demostración de la instancia 2
+
+- Se conserva el lote de hasta treinta estudiantes de Sistemas y se agregan
+  hasta veinte solicitudes de estudiantes de Industrial y cuatro de Naval,
+  estas últimas de Campus a Medrano. Con el padrón actual, el lote de 54
+  requiere una mesa nueva de Sistemas y otra de Naval al aprobarlo completo.
+  Se usa el padrón existente; no se agregan personas para completar cupos.
+- Solo la instancia identificada con `INSTANCIA_DEMO=2` aplica este complemento.
+  La publicación y el comando de carga comparten la misma selección, conservan
+  solicitudes y resoluciones anteriores y no duplican personas al repetirse.
+- Se excluye a Carlos Gómez y a quienes tengan una designación de autoridad.
+  Se mantienen los controles de actividad, QR, sedes y registros adicionales.
+  Si faltan solicitantes compatibles de un cupo, no se los sustituye por
+  más estudiantes de Sistemas ni por otros departamentos.
+- Las solicitudes no crean mesas hasta su aprobación ni modifican las
+  autoridades. No se fuerza una mesa nueva si alcanza la capacidad existente.
+  Los nueve titulares son un objetivo de cobertura, con mínimo de uno y máximo
+  de tres por cada uno de tres turnos; no se alteran las mesas existentes ni se
+  crean personas para alcanzar nueve.
+  Los cuatro trasladables de Naval permiten intentar cubrir al menos un titular
+  por turno en la mesa nueva; los otros seis permanecen en su mesa de Campus.
+
 ## Aplicación de asistencia
 
 - Es una aplicación web responsive.

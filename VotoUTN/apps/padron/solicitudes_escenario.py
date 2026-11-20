@@ -3,6 +3,7 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
@@ -66,6 +67,23 @@ def padron_corresponde_al_plan(eleccion, plan):
 
 
 def seleccionar_solicitudes_publicacion(eleccion):
+    if settings.INSTANCIA_DEMO == "2":
+        return _seleccionar_solicitudes_publicacion(
+            eleccion, cantidad_objetivo=30, departamento="K",
+        ) + _seleccionar_solicitudes_publicacion(
+            eleccion, cantidad_objetivo=20, departamento="I",
+            sede_origen="Campus", sede_destino="Medrano",
+        ) + _seleccionar_solicitudes_publicacion(
+            eleccion, cantidad_objetivo=4, departamento="U",
+            sede_origen="Campus", sede_destino="Medrano",
+        )
+    return _seleccionar_solicitudes_publicacion(eleccion)
+
+
+def _seleccionar_solicitudes_publicacion(
+    eleccion, *, cantidad_objetivo=30, departamento=None,
+    sede_origen=None, sede_destino=None,
+):
     from apps.autoridades.models import AsignacionAutoridad
 
     autoridades = AsignacionAutoridad.objects.filter(
@@ -77,13 +95,31 @@ def seleccionar_solicitudes_publicacion(eleccion):
     ).exclude(elector_id__in=autoridades).exclude(elector__dni="38999222").select_related(
         "elector", "asignacion_sede_padron__sede",
     ).prefetch_related("eleccion_claustro_departamento__sedes_habilitadas__sede").order_by("elector_id", "pk")
+    solicitudes = SolicitudCambioSede.objects.filter(registro_padron__eleccion=eleccion)
+    if departamento is not None:
+        # Se filtran personas por su principal, conservando todos sus adicionales.
+        personas_departamento = RegistroPadron.objects.filter(
+            eleccion=eleccion, es_principal=True,
+            eleccion_claustro_departamento__eleccion_claustro__claustro__abreviatura__iexact="EST",
+            eleccion_claustro_departamento__departamento__codigo=departamento,
+        ).values("elector_id")
+        registros = registros.filter(elector_id__in=personas_departamento)
+        solicitudes_cupo = solicitudes.filter(registro_padron__elector_id__in=personas_departamento)
+        if sede_origen is not None:
+            solicitudes_cupo = solicitudes_cupo.filter(sede_origen__nombre=sede_origen)
+        if sede_destino is not None:
+            solicitudes_cupo = solicitudes_cupo.filter(sede_destino__nombre=sede_destino)
+        # Las resueltas siguen cubriendo el cupo aunque el elector ya se haya trasladado.
+        cantidad_existentes = solicitudes_cupo.values("registro_padron__elector_id").distinct().count()
     por_persona = defaultdict(list)
     for registro in registros:
         por_persona[registro.elector_id].append(registro)
-    existentes = set(SolicitudCambioSede.objects.filter(
-        registro_padron__eleccion=eleccion, registro_padron__elector_id__in=por_persona,
+    existentes = set(solicitudes.filter(
+        registro_padron__elector_id__in=por_persona,
     ).values_list("registro_padron__elector_id", flat=True))
-    cantidad = max(0, 30 - len(existentes))
+    if departamento is None:
+        cantidad_existentes = len(existentes)
+    cantidad = max(0, cantidad_objetivo - cantidad_existentes)
     planes = []
     for elector_id, asociados in por_persona.items():
         if len(planes) == cantidad:
@@ -102,11 +138,16 @@ def seleccionar_solicitudes_publicacion(eleccion):
             }
             destinos = habilitadas if destinos is None else destinos & habilitadas
         else:
-            if len(origenes) == 1 and destinos - origenes:
+            alternativas = destinos - origenes
+            if sede_origen is not None and origenes != {sede_origen}:
+                continue
+            if sede_destino is not None:
+                alternativas &= {sede_destino}
+            if len(origenes) == 1 and alternativas:
                 planes.append({
                     "dni": asociados[0].elector.dni,
                     "origen": next(iter(origenes)),
-                    "destino": sorted(destinos - origenes)[0],
+                    "destino": sorted(alternativas)[0],
                 })
     return planes
 

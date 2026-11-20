@@ -40,6 +40,25 @@ fija de PostgreSQL solo al inicializar una base nueva; la accion
 `restaurar-foto` permite aplicarla explícitamente. Keycloak importa el realm de
 demostracion por separado en cada instancia.
 
+### Solicitudes de cambio de sede de la instancia 2
+
+Al publicar una elección, `INSTANCIA_DEMO=2` completa hasta 30 solicitudes de
+Estudiantes de Sistemas, 20 de Industrial y 4 de Naval. Las de Industrial y
+Naval van de Campus a Medrano y usan exclusivamente electores ya existentes, sin designación de
+autoridad, actividad de cursada ni QR emitidos; Carlos Gómez queda excluido.
+Si no hay suficientes personas compatibles, se generan solo las disponibles.
+Las otras instancias conservan su lote original de hasta 30 estudiantes.
+
+El comando `python manage.py generar_solicitudes_cambio_sede_demo` permite
+completar las faltantes de una elección ya publicada y con plazo vigente.
+Las solicitudes resueltas cuentan para sus cupos y se conservan. Este flujo no
+agrega electores, aprueba solicitudes, crea mesas ni modifica autoridades.
+Las mesas necesarias se determinan al aprobar según la capacidad disponible.
+Con el padrón actual de la instancia 2, aprobar las 54 solicitudes agrega dos
+mesas en Medrano: una de Sistemas y otra de Naval, pasando de 45 a 47 mesas.
+Naval conserva seis electores en Campus y traslada cuatro a Medrano, elegibles
+para intentar cubrir los tres turnos; no se agregan personas para alcanzar nueve.
+
 ### Foto fija actual de la instancia 3
 
 La foto activa esta en `.instancias\foto-instancia-3-v3`, derivada de la foto
