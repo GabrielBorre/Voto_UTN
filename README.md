@@ -42,21 +42,28 @@ demostracion por separado en cada instancia.
 
 ### Foto fija actual de la instancia 3
 
-La foto activa esta en `.instancias\foto-instancia-3-v2`, creada el 18 de
-noviembre de 2026 a partir de la captura original. Corrige el apellido del
-elector de demostracion Carlos a «Gómez», sin cambiar sus identificadores,
-asignaciones, QR ni los demas datos. La foto anterior permanece intacta en
-`.instancias\foto-instancia-3`; `up` ya no la selecciona.
+La foto activa esta en `.instancias\foto-instancia-3-v3`, derivada de la foto
+anterior `.instancias\foto-instancia-3-v2`, que se conserva intacta como
+respaldo. Tambien se conserva la captura original en
+`.instancias\foto-instancia-3`.
 
-Ambas carpetas contienen `postgres.sql`, `archivos.tar.gz` (volumenes `media`
-y `generated_qrs`) y `huellas.json` con sus SHA-256. La captura original se
-realizo el 17 de noviembre con Django y el trabajador detenidos; la nueva se
-edito y verifico en bases temporales, sin incorporar cambios posteriores de la
-instancia de trabajo. Incluye la eleccion «Demo 2026» con 352 inasistencias,
-41 mesas procesadas y K-016, K-017, K-019 y K-046 pendientes. No incluye
+La nueva foto conserva «Demo 2026» con 352 inasistencias, 41 mesas procesadas y
+K-016, K-017, K-019 y K-046 pendientes. Agrega tres elecciones finalizadas
+ficticias para el historial: «Demo 2020» (68 % de participación), «Demo 2022»
+(75,3 %) y «Demo 2024» (80,5 %). Cada una tiene 1.000 electores ficticios,
+10 mesas procesadas y justificativos aprobados y rechazados; no quedan
+justificativos pendientes que bloqueen la exportación de infractores.
+Se aplicaron a la copia las migraciones que el arranque ejecutaría normalmente.
+
+Las carpetas contienen `postgres.sql`, `archivos.tar.gz` (volumenes `media`
+y `generated_qrs`) y `huellas.json` con sus SHA-256. La nueva foto se preparo
+y verifico en bases aisladas, sin incorporar cambios posteriores de la instancia
+de trabajo; sus archivos son los mismos que los de la foto v2. No incluye
 Keycloak, los correos de Mailpit, las claves de entorno ni los certificados.
-La nueva carpeta esta excluida de Git y debe conservarse junto con el entorno
-`instancia-3.env`, necesario para validar los QR existentes.
+La foto v3 se conserva localmente fuera de Git; debe respaldarse y trasladarse
+por un medio seguro junto con `instancia-3.env`, necesario para validar los QR
+existentes. Las fotos anteriores ya registradas en Git no quedan excluidas
+retroactivamente.
 
 **Cada `up` que incluya la instancia 3 reemplaza sus datos actuales por esa
 foto, sin respaldo automatico**, incluso si sus volumenes ya existen:

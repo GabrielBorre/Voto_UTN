@@ -12,7 +12,7 @@ $DirectorioEntornos = Join-Path $Raiz ".instancias"
 $Instancia = @($Instancia | Select-Object -Unique)
 $FotoPostgres = Join-Path $DirectorioEntornos "foto-instancia-2.sql"
 $FotoPostgresInstancia2 = $FotoPostgres
-$DirectorioFoto3 = Join-Path $DirectorioEntornos "foto-instancia-3-v2"
+$DirectorioFoto3 = Join-Path $DirectorioEntornos "foto-instancia-3-v3"
 
 if ($Accion -eq "restaurar-foto" -and ($Instancia.Count -ne 1 -or $Instancia[0] -ne 2)) {
     throw "La accion restaurar-foto requiere -Instancia 2 y reemplaza sus datos."
